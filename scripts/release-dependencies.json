@@ -16,7 +16,7 @@
         "archive": "zip",
         "directory": "cmake-4.4.2",
         "archiveRoot": "cmake-4.4.2-windows-x86_64",
-        "relativeExecutable": "cmake-4.4.2-windows-x86_64/bin/cmake.exe",
+        "relativeExecutable": "bin/cmake.exe",
         "scope": "user"
       },
       "purpose": "Pinned CMake generator and build orchestration"
