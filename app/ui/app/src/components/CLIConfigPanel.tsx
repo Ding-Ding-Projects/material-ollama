@@ -129,11 +129,13 @@ export default function CLIConfigPanel() {
         </Field>
 
         {registryQuery.isLoading || profilesQuery.isLoading ? (
-          <Description>Loading command and configuration inventory…</Description>
+          <p className="text-base/6 text-zinc-500 data-disabled:opacity-50 sm:text-sm/6 dark:text-zinc-400">
+            Loading command and configuration inventory…
+          </p>
         ) : registryQuery.error || profilesQuery.error ? (
-          <Description className="text-red-600 dark:text-red-400">
+          <p className="text-base/6 text-zinc-500 data-disabled:opacity-50 sm:text-sm/6 dark:text-zinc-400 text-red-600 dark:text-red-400">
             Unable to load the CLI configuration inventory.
-          </Description>
+          </p>
         ) : (
           <>
             <div className="rounded-lg bg-neutral-50 p-3 text-sm dark:bg-neutral-900">
