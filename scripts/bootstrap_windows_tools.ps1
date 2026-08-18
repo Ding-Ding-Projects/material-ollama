@@ -61,7 +61,15 @@ function Test-InnoSetupVersion {
     if ($directory -notmatch [regex]::Escape($ExpectedVersion)) {
         return $false
     }
-    $output = @(& $Path '/?' 2>&1)
+    $oldErrorActionPreference = $ErrorActionPreference
+    try {
+        # ISCC writes its usage text to stderr and returns 1 for /?. Keep the
+        # probe non-terminating while still requiring its identifying banner.
+        $ErrorActionPreference = 'Continue'
+        $output = @(& $Path '/?' 2>&1)
+    } finally {
+        $ErrorActionPreference = $oldErrorActionPreference
+    }
     return (($output -join [Environment]::NewLine) -match 'Inno Setup 6 Command-Line Compiler')
 }
 
@@ -346,3 +354,5 @@ foreach ($name in @('CMake', 'Ninja', 'llvm-mingw', 'Inno Setup')) {
 }
 
 Write-Output "Verified user-scoped toolchain root: $toolRoot"
+Write-Output 'Windows tool bootstrap completed successfully.'
+exit 0
