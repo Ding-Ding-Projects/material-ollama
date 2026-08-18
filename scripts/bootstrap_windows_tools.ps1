@@ -179,7 +179,7 @@ function Get-ToolMarker {
         $marker.origin -eq 'official-release-asset' -and
         $marker.sourceUrl -eq $user.url -and
         $marker.archiveSha256 -eq $user.sha256 -and
-        (Normalize-PathForComparison ([string]$marker.root) -eq (Normalize-PathForComparison $candidateRoot)) -and
+        ((Normalize-PathForComparison ([string]$marker.root)) -eq (Normalize-PathForComparison $candidateRoot)) -and
         $marker.relativeExecutable -eq $user.relativeExecutable -and
         (Test-Path -LiteralPath $expectedExecutable -PathType Leaf)
 
