@@ -6,7 +6,11 @@ import { getChat } from "@/api";
 import { Link } from "@/components/ui/link";
 import { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import { ChatsResponse } from "@/gotypes";
-import { CogIcon, RocketLaunchIcon } from "@heroicons/react/24/outline";
+import {
+  CogIcon,
+  CommandLineIcon,
+  RocketLaunchIcon,
+} from "@heroicons/react/24/outline";
 
 // there's a hidden debug feature to copy a chat's data to the clipboard by
 // holding shift and clicking this many times within this many seconds
@@ -301,8 +305,8 @@ export function ChatSidebar({ currentChatId }: ChatSidebarProps) {
           <span className="truncate">Launch</span>
         </Link>
         {isWindows && (
-          <Link
-            href="/settings"
+        <Link
+          href="/settings"
             className={`flex w-full items-center gap-3 rounded-lg px-2 py-2 text-left text-sm text-neutral-700 hover:bg-neutral-100 dark:hover:bg-neutral-800 dark:text-neutral-300`}
             draggable={false}
           >
@@ -310,6 +314,14 @@ export function ChatSidebar({ currentChatId }: ChatSidebarProps) {
             <span className="truncate">Settings</span>
           </Link>
         )}
+        <Link
+          href="/codex"
+          className={`flex w-full items-center gap-3 rounded-lg px-2 py-2 text-left text-sm text-neutral-700 hover:bg-neutral-100 dark:text-neutral-300 dark:hover:bg-neutral-800 ${currentChatId === "codex" ? "bg-neutral-100 dark:bg-neutral-800" : ""}`}
+          draggable={false}
+        >
+          <CommandLineIcon className="h-5 w-5 stroke-current" />
+          <span className="truncate">Codex CLI Harness</span>
+        </Link>
       </header>
       <div className="flex flex-1 flex-col px-4 py-1 overflow-y-auto overscroll-auto scrollbar-gutter">
         <div className="flex flex-col gap-3 pt-4">

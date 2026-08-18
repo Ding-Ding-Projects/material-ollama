@@ -1,0 +1,38 @@
+---
+title: Codex CLI Harness
+description: Run the locally installed Codex CLI from the Ollama desktop app with reviewable, streamed sessions.
+---
+
+The desktop app includes a guided Codex CLI harness for users who already have the `codex` command installed. Open **Codex CLI Harness** from the desktop sidebar to discover the installed executable and inspect its current command and global flag catalog.
+
+## Profiles
+
+A profile contains:
+
+- the Codex executable or its supported wrapper (`codex`, `codex.exe`, `codex.cmd`, or `codex.ps1`);
+- one argument token per line;
+- explicit environment variable entries;
+- a working directory; and
+- a bounded timeout from 1 to 3,600 seconds.
+
+The app passes arguments directly to the process. It does not concatenate a shell command, evaluate shell syntax, or expand environment values. Environment names must be valid variable names, and values containing expansion syntax, newlines, or null bytes are rejected.
+
+Secret environment values can be supplied for one invocation. They are masked in the review screen and streamed output, and are not written to the saved profile or local session history.
+
+## Preflight and sessions
+
+Before starting a session, **Review preflight** shows the resolved executable, exact argument vector, working directory, timeout, and masked environment entries. A session then exposes separate stdout and stderr streams, cancellation, timeout detection, exit-code reporting, and a bounded local history.
+
+The app-managed profile snapshot can be restored after a failed launch. Rollback never resets a user's project directory or discards Codex changes; workspace recovery remains an explicit user decision.
+
+## External editor handoff
+
+**Open directory in VS Code** hands the selected working directory to an allowlisted local editor. Supported editor names include `code`, `code-insiders`, `codium`, `notepad`, `vim`, `nvim`, `zed`, and `cursor`. An arbitrary shell command is not accepted.
+
+## Troubleshooting
+
+If discovery reports that Codex is unavailable, install the Codex CLI and ensure its executable is on `PATH`, then choose **Refresh command catalog**. If a profile fails preflight, correct the reported executable, directory, argument-token, environment-name, or timeout issue before running it.
+
+<Card title="Related" icon="link" href="/integrations/codex">
+  Configure the Codex CLI to use Ollama as a model provider.
+</Card>
