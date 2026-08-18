@@ -9,6 +9,8 @@
 # All native commands already check $LASTEXITCODE explicitly.
 $ErrorActionPreference = "Continue"
 
+$script:REPO_ROOT = Split-Path -Parent $PSScriptRoot
+
 mkdir -Force -path .\dist | Out-Null
 
 function findVisualStudioInstall {
@@ -74,6 +76,238 @@ function convertToCMakePath {
     return ([IO.Path]::GetFullPath($Path)).Replace('\', '/')
 }
 
+function getWindowsToolVersion {
+    param(
+        [Parameter(Mandatory)][string]$Path,
+        [Parameter(Mandatory)][ValidateSet("CMake", "Ninja")][string]$Kind
+    )
+
+    $output = @(& $Path --version 2>&1)
+    if ($LASTEXITCODE -ne 0) {
+        return $null
+    }
+    $text = ($output -join [Environment]::NewLine)
+    if ($Kind -eq "CMake" -and $text -match '(?m)^cmake version\s+(?<version>\d+(?:\.\d+){2,3})') {
+        return $matches.version
+    }
+    if ($Kind -eq "Ninja" -and $text -match '(?m)^(?<version>\d+(?:\.\d+){1,3})\s*$') {
+        return $matches.version
+    }
+    return $null
+}
+
+function testWindowsInnoSetupVersion {
+    param(
+        [Parameter(Mandatory)][string]$Path,
+        [Parameter(Mandatory)][string]$ExpectedVersion
+    )
+
+    if (-not (Test-Path -LiteralPath $Path -PathType Leaf)) {
+        return $false
+    }
+    $directory = Split-Path -Parent $Path
+    if ($directory -notmatch [regex]::Escape($ExpectedVersion)) {
+        return $false
+    }
+    $output = @(& $Path '/?' 2>&1)
+    return (($output -join [Environment]::NewLine) -match 'Inno Setup 6 Command-Line Compiler')
+}
+
+function normalizeWindowsToolPath {
+    param([Parameter(Mandatory)][string]$Path)
+
+    return ([IO.Path]::GetFullPath($Path).TrimEnd('\')).Replace('/', '\').ToLowerInvariant()
+}
+
+function getWindowsUserToolchainRoot {
+    $root = $env:OLLAMA_TOOLCHAIN_ROOT
+    if (-not $root -and $env:LOCALAPPDATA) {
+        $root = Join-Path $env:LOCALAPPDATA "MaterialOllama\tools"
+    }
+    if (-not $root) {
+        return $null
+    }
+    return [IO.Path]::GetFullPath($root)
+}
+
+function getWindowsDependencyManifest {
+    $manifestPath = Join-Path $script:REPO_ROOT "scripts\release-dependencies.json"
+    if (-not (Test-Path -LiteralPath $manifestPath -PathType Leaf)) {
+        throw "Windows dependency manifest is missing: $manifestPath"
+    }
+    try {
+        $manifest = Get-Content -Raw -LiteralPath $manifestPath | ConvertFrom-Json
+    } catch {
+        throw "Windows dependency manifest is invalid: $manifestPath"
+    }
+    if ($manifest.platform -ne "windows" -or $manifest.schemaVersion -ne 2) {
+        throw "Windows dependency manifest must use schemaVersion 2 and platform windows."
+    }
+    return $manifest
+}
+
+function getWindowsVerifiedUserTool {
+    param(
+        [Parameter(Mandatory)][string]$ToolRoot,
+        [Parameter(Mandatory)]$Dependency
+    )
+
+    if (-not $Dependency.user -or -not $Dependency.user.directory -or -not $Dependency.user.relativeExecutable) {
+        throw "Windows dependency '$($Dependency.name)' has no user-scoped discovery record."
+    }
+    $candidateRoot = Join-Path $ToolRoot ([string]$Dependency.user.directory)
+    if (-not (Test-Path -LiteralPath $candidateRoot -PathType Container)) {
+        return $null
+    }
+    $markerPath = Join-Path $candidateRoot "material-ollama-toolchain.json"
+    if (-not (Test-Path -LiteralPath $markerPath -PathType Leaf)) {
+        # Older user-scoped tool installs predate the provenance marker. Keep
+        # discovery bounded to the approved MaterialOllama tools root and
+        # require the executable and its exact manifest version. New installs
+        # created by bootstrap_windows_tools.ps1 still take the stronger
+        # archive-digest marker path below.
+        $approvedRoot = if ($env:LOCALAPPDATA) { Join-Path $env:LOCALAPPDATA "MaterialOllama\tools" } else { $null }
+        if (-not $approvedRoot -or (normalizeWindowsToolPath $ToolRoot) -ne (normalizeWindowsToolPath $approvedRoot)) {
+            throw "Refusing unverified user-scoped $($Dependency.name) directory: $candidateRoot"
+        }
+        $unmarkedExecutable = Join-Path $candidateRoot ([string]$Dependency.user.relativeExecutable)
+        if (-not (Test-Path -LiteralPath $unmarkedExecutable -PathType Leaf)) {
+            throw "User-scoped $($Dependency.name) has no executable at the manifest path: $unmarkedExecutable"
+        }
+        if ($Dependency.name -eq "CMake" -and (getWindowsToolVersion -Path $unmarkedExecutable -Kind CMake) -ne [string]$Dependency.version) {
+            throw "User-scoped CMake failed its version check: $unmarkedExecutable"
+        }
+        if ($Dependency.name -eq "Ninja" -and (getWindowsToolVersion -Path $unmarkedExecutable -Kind Ninja) -ne [string]$Dependency.version) {
+            throw "User-scoped Ninja failed its version check: $unmarkedExecutable"
+        }
+        if ($Dependency.name -eq "Inno Setup") {
+            if (-not (testWindowsInnoSetupVersion -Path $unmarkedExecutable -ExpectedVersion ([string]$Dependency.version))) {
+                throw "User-scoped Inno Setup failed its version check: $unmarkedExecutable"
+            }
+        }
+        return [pscustomobject]@{
+            Root = $candidateRoot
+            Executable = $unmarkedExecutable
+            Origin = "user-scoped-versioned-path"
+        }
+    }
+    try {
+        $marker = Get-Content -Raw -LiteralPath $markerPath | ConvertFrom-Json
+    } catch {
+        throw "Refusing user-scoped $($Dependency.name) with an invalid provenance marker: $markerPath"
+    }
+    $executable = Join-Path $candidateRoot ([string]$Dependency.user.relativeExecutable)
+    $valid =
+        $marker.schemaVersion -eq 1 -and
+        $marker.name -eq $Dependency.name -and
+        [string]$marker.version -eq [string]$Dependency.version -and
+        $marker.origin -eq "official-release-asset" -and
+        $marker.sourceUrl -eq $Dependency.user.url -and
+        $marker.archiveSha256 -eq $Dependency.user.sha256 -and
+        (normalizeWindowsToolPath ([string]$marker.root) -eq (normalizeWindowsToolPath $candidateRoot)) -and
+        $marker.relativeExecutable -eq $Dependency.user.relativeExecutable -and
+        (Test-Path -LiteralPath $executable -PathType Leaf)
+    if (-not $valid) {
+        throw "Refusing user-scoped $($Dependency.name) with provenance that does not match the release manifest: $candidateRoot"
+    }
+    if ($Dependency.name -eq "CMake" -and (getWindowsToolVersion -Path $executable -Kind CMake) -ne [string]$Dependency.version) {
+        throw "User-scoped CMake failed its version check: $executable"
+    }
+    if ($Dependency.name -eq "Ninja" -and (getWindowsToolVersion -Path $executable -Kind Ninja) -ne [string]$Dependency.version) {
+        throw "User-scoped Ninja failed its version check: $executable"
+    }
+    if ($Dependency.name -eq "Inno Setup") {
+        if (-not (testWindowsInnoSetupVersion -Path $executable -ExpectedVersion ([string]$Dependency.version))) {
+            throw "User-scoped Inno Setup failed its version check: $executable"
+        }
+    }
+    return [pscustomobject]@{
+        Root = $candidateRoot
+        Executable = $executable
+        Origin = "verified-user-archive"
+    }
+}
+
+function findWindowsMachineTool {
+    param(
+        [Parameter(Mandatory)][string]$Name,
+        [Parameter(Mandatory)]$Dependency
+    )
+
+    switch ($Name) {
+        "CMake" {
+            $candidate = (Get-Command -Name "cmake.exe" -ErrorAction SilentlyContinue | Select-Object -First 1).Path
+            if ($candidate -and (getWindowsToolVersion -Path $candidate -Kind CMake) -eq [string]$Dependency.version) {
+                return $candidate
+            }
+        }
+        "Ninja" {
+            $candidate = (Get-Command -Name "ninja.exe" -ErrorAction SilentlyContinue | Select-Object -First 1).Path
+            if ($candidate -and (getWindowsToolVersion -Path $candidate -Kind Ninja) -eq [string]$Dependency.version) {
+                return $candidate
+            }
+        }
+        "Inno Setup" {
+            $roots = @($env:ProgramFiles, ${env:ProgramFiles(x86)}) | Where-Object { $_ }
+            foreach ($root in $roots) {
+                $candidate = Get-ChildItem -Path (Join-Path $root "Inno Setup*\ISCC.exe") -File -ErrorAction SilentlyContinue |
+                    Select-Object -First 1
+                if ($candidate -and (testWindowsInnoSetupVersion -Path $candidate.FullName -ExpectedVersion ([string]$Dependency.version))) {
+                    return $candidate.FullName
+                }
+            }
+        }
+        "llvm-mingw" {
+            $candidate = (Get-Command -Name "x86_64-w64-mingw32-gcc.exe" -ErrorAction SilentlyContinue | Select-Object -First 1).Path
+            if ($candidate -and $candidate -match [regex]::Escape([string]$Dependency.version)) {
+                return $candidate
+            }
+        }
+    }
+    return $null
+}
+
+function resolveWindowsBuildTools {
+    $manifest = getWindowsDependencyManifest
+    $toolRoot = getWindowsUserToolchainRoot
+    foreach ($name in @("CMake", "Ninja", "llvm-mingw", "Inno Setup")) {
+        $dependency = @($manifest.dependencies | Where-Object { $_.name -eq $name })
+        if ($dependency.Count -ne 1) {
+            throw "Windows dependency manifest must contain exactly one '$name' entry."
+        }
+        $dependency = $dependency[0]
+        $machineTool = findWindowsMachineTool -Name $name -Dependency $dependency
+        if ($machineTool) {
+            $directory = Split-Path -Parent $machineTool
+            $env:PATH = "$directory;$env:PATH"
+            Write-Output "Resolved $name from verified machine installation: $machineTool"
+            if ($name -eq "llvm-mingw") {
+                $script:LLVM_MINGW_BIN = $directory
+            }
+            if ($name -eq "Inno Setup") {
+                $script:INNO_SETUP_DIR = $directory
+            }
+            continue
+        }
+        if (-not $toolRoot) {
+            throw "Required Windows tool '$name' v$($dependency.version) is not available on PATH and no user-scoped toolchain root is configured."
+        }
+        $userTool = getWindowsVerifiedUserTool -ToolRoot $toolRoot -Dependency $dependency
+        if (-not $userTool) {
+            throw "Required Windows tool '$name' v$($dependency.version) is missing from the verified user-scoped toolchain root '$toolRoot'. Run scripts/bootstrap_windows_tools.ps1 first."
+        }
+        $directory = Split-Path -Parent $userTool.Executable
+        $env:PATH = "$directory;$env:PATH"
+        Write-Output "Resolved $name from $($userTool.Origin): $($userTool.Executable)"
+        if ($name -eq "llvm-mingw") {
+            $script:LLVM_MINGW_BIN = $directory
+        }
+        if ($name -eq "Inno Setup") {
+            $script:INNO_SETUP_DIR = $directory
+        }
+    }
+}
+
 function newCompilerPair($name, $cc, $cxx) {
     if ((Test-Path $cc) -and (Test-Path $cxx)) {
         return [pscustomobject]@{
@@ -87,6 +321,9 @@ function newCompilerPair($name, $cc, $cxx) {
 
 function findWindowsCPUCompiler {
     $llvmMingwBins = @()
+    if ($script:LLVM_MINGW_BIN) {
+        $llvmMingwBins += Resolve-Path -LiteralPath $script:LLVM_MINGW_BIN -ErrorAction SilentlyContinue
+    }
     if ($env:ProgramFiles) {
         $llvmMingwBins += Resolve-Path "$env:ProgramFiles\llvm-mingw-*-x86_64*\bin" -ErrorAction SilentlyContinue
     }
@@ -232,6 +469,7 @@ function checkEnv {
     Write-host "Building for ${script:TARGET_ARCH}"
     Write-Output "Locating required tools and paths"
     $script:SRC_DIR=$PWD
+    resolveWindowsBuildTools
 
     # Locate CUDA versions
     $cudaList=(get-item "C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v*\bin\" -ea 'silentlycontinue')
