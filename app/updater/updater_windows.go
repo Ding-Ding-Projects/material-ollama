@@ -374,14 +374,28 @@ func isInstallerRunning() bool {
 	return len(IsProcRunning(Installer)) > 0
 }
 
+// enumProcessesInitialCapacity is the first process-id buffer size tried by
+// IsProcRunning. It is a variable so tests can force the grow path.
+var enumProcessesInitialCapacity = 2048
+
 func IsProcRunning(procName string) []uint32 {
-	pids := make([]uint32, 2048)
+	const pidSize = uint32(unsafe.Sizeof(uint32(0)))
+	pids := make([]uint32, enumProcessesInitialCapacity)
 	var ret uint32
-	if err := windows.EnumProcesses(pids, &ret); err != nil || ret == 0 {
-		slog.Debug("failed to check for running installers", "error", err)
-		return nil
+	for {
+		// EnumProcesses reports the number of bytes written, not the number of
+		// process ids, and has no separate truncation signal: a completely full
+		// buffer means the list may have been cut short, so grow and ask again.
+		if err := windows.EnumProcesses(pids, &ret); err != nil || ret == 0 {
+			slog.Debug("failed to check for running installers", "error", err)
+			return nil
+		}
+		if ret < uint32(len(pids))*pidSize {
+			break
+		}
+		pids = make([]uint32, len(pids)*2)
 	}
-	pids = pids[:ret]
+	pids = pids[:ret/pidSize]
 	matches := []uint32{}
 	for _, pid := range pids {
 		if pid == 0 {
