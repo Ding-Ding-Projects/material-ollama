@@ -332,7 +332,7 @@ jobs:
 
           $metadataNotesText
 
-          The complete machine-readable record is attached as `release-metadata.json`. The public catalog remains the image authority; no image is copied into this project.
+          The complete machine-readable record is attached as release-metadata.json. The public catalog remains the image authority; no image is copied into this project.
 
           ### Line-count table
 
