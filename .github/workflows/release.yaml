@@ -220,6 +220,24 @@ jobs:
           $root = (Resolve-Path 'release-input\dist').Path
           $assetLines = Get-ChildItem -LiteralPath $root -File -Recurse |
             ForEach-Object { "- $($_.FullName.Substring($root.Length + 1))" }
+          if ($metadata.status -eq 'selected') {
+            $metadataNotes = @(
+              "- Code name: $($metadata.codeName)"
+              "- Dish ID: $($metadata.dishId)"
+              "- English name: $($metadata.name.en)"
+              "- Traditional Chinese name: $($metadata.name.zhHant)"
+              "- Source catalog release: [$($metadata.sourceReleaseTag)]($($metadata.sourceReleaseUrl))"
+              "- Authoritative public image: [$($metadata.imageAssetName)]($($metadata.imageUrl))"
+              '- Copy boundary: this project does not download, vendor, or attach a duplicate dim-sum image; the linked public release asset remains the image authority.'
+            )
+          } else {
+            $metadataNotes = @(
+              "- Status: $($metadata.status)"
+              "- Reason: $($metadata.reason)"
+              '- Copy boundary: this project does not download, vendor, or attach dim-sum images.'
+            )
+          }
+          $metadataNotesText = $metadataNotes -join "`n"
           $notes = @"
           # $title
 
@@ -234,7 +252,12 @@ jobs:
           - Workflow run: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
           - Platform: Windows x64, with ARM64 output when the cross-compiler produced it.
           - Source commit: `${{ github.sha }}`
-          - Dim sum metadata: `release-metadata.json` (the public catalog remains the image authority; no image is copied into this repository).
+
+          ## Dim sum release metadata
+
+          $metadataNotesText
+
+          The complete machine-readable record is attached as `release-metadata.json`. The public catalog remains the image authority; no image is copied into this project.
 
           ### Line-count table
 

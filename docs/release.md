@@ -33,6 +33,8 @@ Each successful build uploads its `dist` tree, SHA-256 manifest, line-count tabl
 
 [`scripts/release-metadata.mjs`](../scripts/release-metadata.mjs) resolves one unused code name from the public dim-sum catalog and a published `catalog-v1` image URL. The release records that metadata without copying catalog images into this repository.
 
+The published release notes expand the metadata into the code name, dish ID, English and Traditional Chinese names, source catalog release URL, and authoritative public image URL. They also state the no-copy boundary explicitly: the consumer project does not download, vendor, or attach a duplicate image asset.
+
 Release tags use the source version plus the monotonic workflow run number, for example `v0.0.0-build.42`. The workflow refuses to reuse an existing tag, creates a non-draft release against the exact triggering commit, uploads every verified asset, and reads the published release back to confirm its target and assets.
 
 GitHub Actions does not run tests, lint, or static-analysis jobs. Those checks remain available as local project scripts and are reported separately from release publication; an artifact publication is not presented as a test verdict.
