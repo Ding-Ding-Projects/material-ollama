@@ -16,6 +16,27 @@ go run . serve
 > [!NOTE]
 > Ollama includes native code compiled with CGO.  From time to time these data structures can change and CGO can get out of sync resulting in unexpected crashes.  You can force a full build of the native code by running `go clean -cache` first. 
 
+## Embedded source checkouts
+
+This fork records the upstream Ollama source and the official Codex CLI as Git submodules for
+parity and integration work. They remain separate repositories; their contents are not copied
+into this checkout or modified here.
+
+Initialize the pinned revisions after cloning:
+
+```shell
+git submodule update --init --recursive
+```
+
+The current pins are:
+
+- `tow-fats/ollama` — `d67ad83426633195089509347ffd4fe795120198`
+- `tow-fats/codex-cli` — `5ee6baee2fcc0b6ffd413d9611f5538dad40d0f2`
+
+To update a pin deliberately, fetch and check out the desired upstream commit inside the
+corresponding submodule, then stage the updated submodule entry in the parent checkout. Keep
+submodule changes in their upstream repositories rather than committing edits under these paths.
+
 ## Native build model
 
 For a fresh checkout, or after changing native code, build from the repository root. On macOS arm64, this builds Metal inference. On all other platforms this builds CPU-only inference. It builds the Go binary at the repository root and installs the native runtime payload under `build/lib/ollama`.

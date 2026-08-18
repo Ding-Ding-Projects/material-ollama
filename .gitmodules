@@ -1,0 +1,6 @@
+[submodule "tow-fats/ollama"]
+	path = tow-fats/ollama
+	url = https://github.com/ollama/ollama.git
+[submodule "tow-fats/codex-cli"]
+	path = tow-fats/codex-cli
+	url = https://github.com/openai/codex.git
