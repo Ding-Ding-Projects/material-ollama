@@ -1,0 +1,36 @@
+{
+  "name": "material-ollama-landing",
+  "version": "0.1.0",
+  "private": true,
+  "engines": {
+    "node": ">=22.13.0"
+  },
+  "scripts": {
+    "dev": "vinext dev",
+    "build": "vinext build && node scripts/fix-vinext-standalone.mjs",
+    "start": "node dist/standalone/server.js"
+  },
+  "dependencies": {
+    "next": "16.2.12",
+    "react": "19.2.8",
+    "react-dom": "19.2.8"
+  },
+  "devDependencies": {
+    "@cloudflare/vite-plugin": "1.48.0",
+    "@types/node": "22.19.19",
+    "@types/react": "19.2.14",
+    "@types/react-dom": "19.2.3",
+    "@vitejs/plugin-react": "6.0.4",
+    "@vitejs/plugin-rsc": "0.5.32",
+    "react-server-dom-webpack": "19.2.8",
+    "typescript": "5.9.3",
+    "vinext": "0.0.50",
+    "vite": "8.1.5",
+    "wrangler": "4.115.0"
+  },
+  "overrides": {
+    "postcss": "8.5.18",
+    "sharp": "0.35.0"
+  },
+  "type": "module"
+}
