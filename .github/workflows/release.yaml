@@ -313,7 +313,7 @@ jobs:
             @"
           # $title
 
-          Windows release for commit `${{ github.sha }}`.
+          Windows release for commit ${{ github.sha }}.
 
           ## Installer and package status
 

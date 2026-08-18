@@ -72,10 +72,16 @@ async function main() {
 
   const targetReleases = await getPages(`https://api.github.com/repos/${targetRepo}/releases`, Boolean(token))
   const usedCodeNames = new Set()
+  const codeNamePatterns = [
+    /^- Code name:\s*(.+)$/gmi,
+    /^Dim sum code name:\s*(.+)$/gmi,
+  ]
   for (const release of targetReleases) {
     const body = typeof release.body === 'string' ? release.body : ''
-    for (const match of body.matchAll(/^Dim sum code name:\s*(.+)$/gmi)) {
-      usedCodeNames.add(match[1].trim())
+    for (const pattern of codeNamePatterns) {
+      for (const match of body.matchAll(pattern)) {
+        usedCodeNames.add(match[1].trim())
+      }
     }
   }
 
