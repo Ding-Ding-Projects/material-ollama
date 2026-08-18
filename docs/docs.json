@@ -130,6 +130,7 @@
             "group": "More information",
             "pages": [
               "/cli",
+              "/cli-gui-parity",
               "/modelfile",
               "/context-length",
               "/linux",

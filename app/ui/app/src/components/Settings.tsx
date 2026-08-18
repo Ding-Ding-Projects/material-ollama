@@ -21,6 +21,7 @@ import { Settings as SettingsType } from "@/gotypes";
 import { useNavigate } from "@tanstack/react-router";
 import { useUser } from "@/hooks/useUser";
 import { useCloudStatus } from "@/hooks/useCloudStatus";
+import CLIConfigPanel from "@/components/CLIConfigPanel";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   getSettings,
@@ -609,6 +610,8 @@ export default function Settings() {
               </div>
             </div>
           )}
+
+          <CLIConfigPanel />
 
           {/* Reset button */}
           <div className="mt-6 flex justify-end px-4">

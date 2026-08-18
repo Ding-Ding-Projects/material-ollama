@@ -1,0 +1,32 @@
+---
+title: GUI command and configuration parity
+description: How the desktop app exposes the CLI command and service configuration inventory.
+---
+
+The desktop app exposes a machine-readable inventory generated from the same Cobra command tree and `envconfig` catalog used by the `ollama` command. This keeps command names, aliases, flags, hidden commands, and supported configuration inputs visible to the GUI without parsing terminal help text.
+
+## Capability inventory
+
+The desktop server exposes `GET /api/v1/capabilities`. The response includes a schema version, every CLI command (including hidden developer commands), each command's aliases and flags, and the GUI route that owns the interaction. Flag metadata includes the value type, default, shorthand, usage text, and whether the flag is inherited or persistent.
+
+The inventory is derived at runtime from `cmd.NewCLI()` and `envconfig.AsMap()`. A newly registered command or environment variable therefore appears in the inventory automatically and can be routed to the GUI's command or Developer Tools surface.
+
+## Managed configuration profiles
+
+The Settings surface exposes configuration profiles through these endpoints:
+
+- `GET /api/v1/config/profiles` reads profiles and effective configuration metadata.
+- `POST /api/v1/config/profiles` creates a profile.
+- `PUT /api/v1/config/profiles/{id}` updates a profile.
+- `DELETE /api/v1/config/profiles/{id}` removes a profile and restores the baseline when it was active.
+- `POST /api/v1/config/profiles/{id}/apply` applies a profile and requests a managed service restart.
+
+Profile values are a JSON object whose keys must be supported Ollama environment names and whose values are strings. The profile store is private to the app, uses a versioned schema, validates names and values, writes with a protected atomic replacement, and never accepts arbitrary environment names.
+
+Values supplied by the process owner are reported with an `environment` source and cannot be overridden by a GUI profile. The GUI applies only allowlisted values to the service it manages; it does not rewrite another process's environment. Applying a profile restores the prior baseline for keys removed from the profile before setting the new values, then requests the same managed-service restart used by the existing Settings surface.
+
+## Failure and recovery
+
+Malformed profile files, unsupported schema versions, unknown keys, line breaks, and oversized values are rejected before they are applied. If a profile conflicts with an externally supplied value, the request fails with the conflicting key names and leaves the current environment unchanged. Deleting the active profile restores its baseline values and requests a restart.
+
+The GUI reports that saving a profile is not the same as applying it. The user must explicitly choose **Apply and restart service** before the managed service uses the new values.
