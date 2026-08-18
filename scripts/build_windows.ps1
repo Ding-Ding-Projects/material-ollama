@@ -318,22 +318,13 @@ function checkEnv {
     }
     Write-Output "Building Ollama $script:VERSION with package version $script:PKG_VERSION"
 
-    # Note: Windows Kits 10 signtool crashes with GCP's plugin
-    if ($null -eq $env:SIGN_TOOL) {
-        ${script:SignTool}="C:\Program Files (x86)\Windows Kits\8.1\bin\x64\signtool.exe"
-    } else {
-        ${script:SignTool}=${env:SIGN_TOOL}
+    # Code signing is permanently disabled for this project.  Fail closed if a
+    # caller attempts to supply signing inputs instead of silently producing a
+    # differently-trustworthy artifact.
+    if ($env:KEY_CONTAINER -or $env:OLLAMA_CERT -or $env:SIGN_TOOL) {
+        throw "Code signing inputs are prohibited; unset KEY_CONTAINER, OLLAMA_CERT, and SIGN_TOOL"
     }
-    if ("${env:KEY_CONTAINER}") {
-        if (Test-Path "${script:SRC_DIR}\ollama_inc.crt") {
-            ${script:OLLAMA_CERT}=$(resolve-path "${script:SRC_DIR}\ollama_inc.crt")
-            Write-host "Code signing enabled"
-        } else {
-            Write-Output "WARNING: KEY_CONTAINER is set but ollama_inc.crt not found at ${script:SRC_DIR}\ollama_inc.crt - code signing disabled"
-        }
-    } else {
-        Write-Output "Code signing disabled - please set KEY_CONTAINERS to sign and copy ollama_inc.crt to the top of the source tree"
-    }
+    Write-Output "Code signing disabled by project policy; installer outputs are unsigned"
     if (!$env:CMAKE_GENERATOR) {
         $ninja = Get-Command -Name "ninja.exe" -ErrorAction SilentlyContinue | Select-Object -First 1
         if ($ninja) {
@@ -1014,22 +1005,7 @@ function sign {
     # Copy install.ps1 to dist for release packaging
     Write-Output "Copying install.ps1 to dist"
     Copy-Item -Path "${script:SRC_DIR}\scripts\install.ps1" -Destination "${script:SRC_DIR}\dist\install.ps1" -ErrorAction Stop
-
-    if ("${env:KEY_CONTAINER}") {
-        Write-Output "Signing Ollama executables, scripts and libraries"
-        & "${script:SignTool}" sign /v /fd sha256 /t http://timestamp.digicert.com /f "${script:OLLAMA_CERT}" `
-            /csp "Google Cloud KMS Provider" /kc ${env:KEY_CONTAINER} `
-            $(get-childitem -path "${script:SRC_DIR}\dist\windows-*" -r -include @('*.exe', '*.dll'))
-        if ($LASTEXITCODE -ne 0) { exit($LASTEXITCODE)}
-
-        Write-Output "Signing install.ps1"
-        & "${script:SignTool}" sign /v /fd sha256 /t http://timestamp.digicert.com /f "${script:OLLAMA_CERT}" `
-            /csp "Google Cloud KMS Provider" /kc ${env:KEY_CONTAINER} `
-            "${script:SRC_DIR}\dist\install.ps1"
-        if ($LASTEXITCODE -ne 0) { exit($LASTEXITCODE)}
-    } else {
-        Write-Output "Signing not enabled"
-    }
+    Write-Output "Signing not enabled; copied files remain unsigned"
 }
 
 function installer {
@@ -1040,11 +1016,7 @@ function installer {
     Write-Output "Building Ollama Installer"
     cd "${script:SRC_DIR}\app"
     $env:PKG_VERSION=$script:PKG_VERSION
-    if ("${env:KEY_CONTAINER}") {
-        & "${script:INNO_SETUP_DIR}\ISCC.exe" /DARCH=$script:TARGET_ARCH /SMySignTool="${script:SignTool} sign /fd sha256 /t http://timestamp.digicert.com /f ${script:OLLAMA_CERT} /csp `$qGoogle Cloud KMS Provider`$q /kc ${env:KEY_CONTAINER} `$f" .\ollama.iss
-    } else {
-        & "${script:INNO_SETUP_DIR}\ISCC.exe" /DARCH=$script:TARGET_ARCH .\ollama.iss
-    }
+    & "${script:INNO_SETUP_DIR}\ISCC.exe" /DARCH=$script:TARGET_ARCH .\ollama.iss
     if ($LASTEXITCODE -ne 0) { exit($LASTEXITCODE)}
 }
 
@@ -1326,6 +1298,7 @@ try {
 } catch {
     Write-Error "Build Failed: $($_.Exception.Message)"
     Write-Error "$($_.ScriptStackTrace)"
+    exit 1
 } finally {
     set-location $script:SRC_DIR
     $env:PKG_VERSION=""

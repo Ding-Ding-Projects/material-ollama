@@ -75,11 +75,6 @@ DisableStartupPrompt=yes
 ; TODO - percentage can't be set less than 100, so how to make it shorter?
 ; WizardSizePercent=100,80
 
-#if GetEnv("KEY_CONTAINER")
-SignTool=MySignTool
-SignedUninstaller=yes
-#endif
-
 SetupMutex=OllamaSetupMutex
 
 [Languages]

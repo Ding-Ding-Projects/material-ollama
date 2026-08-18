@@ -1,0 +1,31 @@
+{
+  "schemaVersion": 1,
+  "platform": "windows",
+  "dependencies": [
+    {
+      "name": "llvm-mingw",
+      "version": "20240619-ucrt-x86_64",
+      "url": "https://github.com/mstorsjo/llvm-mingw/releases/download/20240619/llvm-mingw-20240619-ucrt-x86_64.zip",
+      "sha256": "810703594a7e3eea03385b5329c7ea3bd65f5e496b44cf1b68c17ff436d265e7",
+      "purpose": "Windows native and ARM64 cross-compilers"
+    },
+    {
+      "name": "Inno Setup",
+      "version": "6.7.1",
+      "source": "Chocolatey package InnoSetup",
+      "purpose": "Unsigned Windows installer generation"
+    },
+    {
+      "name": "Ninja",
+      "version": "1.13.2",
+      "source": "Chocolatey package ninja",
+      "purpose": "Native CMake build generator"
+    },
+    {
+      "name": "7-Zip",
+      "version": "24.9.0",
+      "source": "Chocolatey package 7zip.install",
+      "purpose": "Deterministic Windows archive generation when available"
+    }
+  ]
+}
