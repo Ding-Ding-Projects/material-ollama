@@ -112,6 +112,12 @@ type Server struct {
 	// Updater for checking and downloading updates
 	Updater             *updater.Updater
 	UpdateAvailableFunc func()
+
+	// codexMu and codex keep the local Codex CLI harness state scoped to the
+	// desktop server. The harness is deliberately separate from Ollama chat
+	// history so its command output can be bounded and redacted independently.
+	codexMu sync.Mutex
+	codex   *codexManager
 }
 
 func (s *Server) log() *slog.Logger {
@@ -292,6 +298,21 @@ func (s *Server) Handler() http.Handler {
 	mux.Handle("POST /api/v1/settings", handle(s.settings))
 	mux.Handle("GET /api/v1/cloud", handle(s.getCloudSetting))
 	mux.Handle("POST /api/v1/cloud", handle(s.cloudSetting))
+
+	// Local Codex CLI harness. These routes accept argv tokens and explicit
+	// environment entries only; the harness never evaluates shell strings.
+	mux.Handle("GET /api/v1/codex/discovery", handle(s.codexDiscovery))
+	mux.Handle("GET /api/v1/codex/profiles", handle(s.codexProfiles))
+	mux.Handle("POST /api/v1/codex/profiles", handle(s.codexProfiles))
+	mux.Handle("DELETE /api/v1/codex/profiles", handle(s.codexProfiles))
+	mux.Handle("POST /api/v1/codex/preflight", handle(s.codexPreflight))
+	mux.Handle("GET /api/v1/codex/sessions", handle(s.codexSessions))
+	mux.Handle("POST /api/v1/codex/sessions", handle(s.codexRun))
+	mux.Handle("GET /api/v1/codex/sessions/{id}", handle(s.codexSession))
+	mux.Handle("GET /api/v1/codex/sessions/{id}/events", handle(s.codexSessionEvents))
+	mux.Handle("POST /api/v1/codex/sessions/{id}/cancel", handle(s.codexSessionCancel))
+	mux.Handle("POST /api/v1/codex/sessions/{id}/rollback", handle(s.codexSessionRollback))
+	mux.Handle("POST /api/v1/codex/editor", handle(s.codexEditor))
 
 	// Ollama proxy endpoints
 	ollamaProxy := s.ollamaProxy()

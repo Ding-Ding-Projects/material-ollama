@@ -478,3 +478,204 @@ export async function getCloudStatus(): Promise<CloudStatusResponse | null> {
     source: (data.source as CloudStatusSource) || "none",
   };
 }
+
+export interface CodexEnvVar {
+  name: string;
+  value?: string;
+  secret?: boolean;
+  configured?: boolean;
+}
+
+export interface CodexProfile {
+  id?: string;
+  name: string;
+  executable: string;
+  arguments: string[];
+  environment: CodexEnvVar[];
+  workingDirectory: string;
+  timeoutSeconds: number;
+  updatedAt?: string;
+}
+
+export interface CodexCommand {
+  name: string;
+  aliases?: string[];
+  description?: string;
+  flags?: string[];
+}
+
+export interface CodexFlag {
+  name: string;
+  value?: string;
+  description?: string;
+}
+
+export interface CodexDiscovery {
+  available: boolean;
+  executable?: string;
+  version?: string;
+  commands?: CodexCommand[];
+  flags?: CodexFlag[];
+  checkedAt: string;
+  error?: string;
+}
+
+export interface CodexPreflight {
+  profile: CodexProfile;
+  executable: string;
+  arguments: string[];
+  commandPreview: string;
+  environment: CodexEnvVar[];
+  workingDirectory: string;
+  timeoutSeconds: number;
+  warnings?: string[];
+}
+
+export interface CodexSession {
+  id: string;
+  profileId?: string;
+  profileName?: string;
+  commandPreview: string;
+  workingDirectory: string;
+  state: string;
+  rollbackState: string;
+  startedAt: string;
+  endedAt?: string;
+  exitCode?: number;
+  stdout?: string;
+  stderr?: string;
+  error?: string;
+}
+
+async function codexJson<T>(path: string, init?: RequestInit): Promise<T> {
+  const response = await fetch(`${API_BASE}${path}`, init);
+  if (!response.ok) {
+    const body = await response.text();
+    throw new Error(body || `Codex request failed: ${response.status}`);
+  }
+  return (await response.json()) as T;
+}
+
+export function getCodexDiscovery(refresh = false): Promise<CodexDiscovery> {
+  return codexJson<CodexDiscovery>(
+    `/api/v1/codex/discovery${refresh ? "?refresh=1" : ""}`,
+  );
+}
+
+export async function getCodexProfiles(): Promise<CodexProfile[]> {
+  const data = await codexJson<{ profiles: CodexProfile[] }>(
+    "/api/v1/codex/profiles",
+  );
+  return data.profiles || [];
+}
+
+export async function saveCodexProfile(
+  profile: CodexProfile,
+): Promise<CodexProfile> {
+  return codexJson<CodexProfile>("/api/v1/codex/profiles", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(profile),
+  });
+}
+
+export async function deleteCodexProfile(id: string): Promise<void> {
+  await codexJson<unknown>(
+    `/api/v1/codex/profiles?id=${encodeURIComponent(id)}`,
+    { method: "DELETE" },
+  );
+}
+
+export async function preflightCodex(
+  profile: CodexProfile,
+  prompt: string,
+): Promise<CodexPreflight> {
+  return codexJson<CodexPreflight>("/api/v1/codex/preflight", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ profile, prompt }),
+  });
+}
+
+export async function startCodexSession(
+  profile: CodexProfile,
+  prompt: string,
+  rollbackOnFailure: boolean,
+): Promise<{ session: CodexSession; preflight: CodexPreflight }> {
+  return codexJson<{ session: CodexSession; preflight: CodexPreflight }>(
+    "/api/v1/codex/sessions",
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ profile, prompt, rollbackOnFailure }),
+    },
+  );
+}
+
+export async function getCodexSessions(): Promise<CodexSession[]> {
+  const data = await codexJson<{ sessions: CodexSession[] }>(
+    "/api/v1/codex/sessions",
+  );
+  return data.sessions || [];
+}
+
+export async function cancelCodexSession(id: string): Promise<void> {
+  await codexJson<unknown>(`/api/v1/codex/sessions/${id}/cancel`, {
+    method: "POST",
+  });
+}
+
+export async function rollbackCodexSession(
+  id: string,
+): Promise<CodexSession> {
+  return codexJson<CodexSession>(`/api/v1/codex/sessions/${id}/rollback`, {
+    method: "POST",
+  });
+}
+
+export async function openCodexEditor(editor: string, path: string): Promise<{
+  editor: string;
+  path: string;
+}> {
+  return codexJson<{ editor: string; path: string }>("/api/v1/codex/editor", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ editor, path }),
+  });
+}
+
+export function subscribeCodexSession(
+  id: string,
+  handlers: {
+    onState?: (data: { state: string; exitCode?: number; error?: string; rollbackState?: string }) => void;
+    onOutput?: (stream: "stdout" | "stderr", line: string) => void;
+    onDone?: (session: CodexSession) => void;
+    onError?: (error: Event) => void;
+  },
+): () => void {
+  const source = new EventSource(
+    `${API_BASE}/api/v1/codex/sessions/${encodeURIComponent(id)}/events`,
+  );
+  source.addEventListener("state", (event) => {
+    const data = JSON.parse((event as MessageEvent).data) as {
+      state: string;
+      exitCode?: number;
+      error?: string;
+      rollbackState?: string;
+    };
+    handlers.onState?.(data);
+  });
+  for (const stream of ["stdout", "stderr"] as const) {
+    source.addEventListener(stream, (event) => {
+      const data = JSON.parse((event as MessageEvent).data) as { line: string };
+      handlers.onOutput?.(stream, data.line);
+    });
+  }
+  source.addEventListener("done", (event) => {
+    const data = JSON.parse((event as MessageEvent).data) as CodexSession;
+    handlers.onDone?.(data);
+    source.close();
+  });
+  source.onerror = (error) => handlers.onError?.(error);
+  return () => source.close();
+}

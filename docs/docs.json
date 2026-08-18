@@ -172,6 +172,7 @@
               "/integrations/cline-cli",
               "/integrations/codex-app",
               "/integrations/codex",
+              "/integrations/codex-harness",
               "/integrations/copilot-cli",
               "/integrations/droid",
               "/integrations/goose",
