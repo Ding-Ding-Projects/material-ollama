@@ -10,6 +10,14 @@ The workflow bootstraps the pinned toolchain described by [`scripts/release-depe
 .\scripts\build_windows.ps1 cpu cpuArm64 ollama ollamaArm64 app appArm64 deps sign installer zip
 ```
 
+`scripts/bootstrap_windows_tools.ps1` first reuses an exact-version machine installation when
+one is available. If CMake 4.4.2, Ninja 1.13.2, LLVM-MinGW 20260616 UCRT x86_64, or Inno Setup
+6.7.1 is absent, it downloads only the pinned official release asset, checks its SHA-256 digest,
+and installs it below the user-scoped `%LOCALAPPDATA%\MaterialOllama\tools` directory. The
+bootstrap writes a provenance marker beside each extracted tool; `build_windows.ps1` requires
+that marker for newly bootstrapped tools and otherwise accepts only the explicitly named,
+versioned legacy user-tool paths. No PATH entry or arbitrary download URL is trusted by itself.
+
 The 7-Zip bootstrap treats the manifest version as a minimum. It first reads the exact local
 Chocolatey package record and reuses an equal or newer installed `7zip.install` version after
 verifying that `7z.exe` is usable on `PATH`. A missing or older package receives the pinned

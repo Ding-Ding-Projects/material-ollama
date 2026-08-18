@@ -119,25 +119,8 @@ jobs:
           }
           Write-Host "Verified usable 7-Zip executable at $($sevenZipCommand.Source) for package v$($sevenZipState.Version)."
 
-          $llvm = $manifest.dependencies | Where-Object name -eq 'llvm-mingw'
-          $toolRoot = Join-Path $env:RUNNER_TEMP 'material-ollama-toolchain'
-          $archive = Join-Path $env:RUNNER_TEMP 'llvm-mingw.zip'
-          New-Item -ItemType Directory -Force -Path $toolRoot | Out-Null
-          Invoke-WebRequest -Uri $llvm.url -OutFile $archive
-          $actualHash = (Get-FileHash -LiteralPath $archive -Algorithm SHA256).Hash.ToLowerInvariant()
-          if ($actualHash -ne $llvm.sha256) {
-            throw "llvm-mingw digest mismatch: expected $($llvm.sha256), got $actualHash"
-          }
-          Expand-Archive -LiteralPath $archive -DestinationPath $toolRoot -Force
-          $expanded = Get-ChildItem -LiteralPath $toolRoot -Directory | Where-Object Name -like 'llvm-mingw-*' | Select-Object -First 1
-          if (-not $expanded) { throw 'llvm-mingw archive did not contain its expected directory' }
-          $bin = Join-Path $expanded.FullName 'bin'
-          if (-not (Test-Path (Join-Path $bin 'gcc.exe'))) { throw "Missing compiler under $bin" }
-          $bin | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
-          if (-not (Get-Command cmake -ErrorAction SilentlyContinue)) { throw 'CMake is missing from the runner image' }
-          if (-not (Get-Command ninja -ErrorAction SilentlyContinue)) { throw 'Ninja is missing after bootstrap' }
-          $iscc = Get-ChildItem 'C:\Program Files*\Inno Setup*\ISCC.exe' -ErrorAction SilentlyContinue | Select-Object -First 1
-          if (-not $iscc) { throw 'Inno Setup compiler is missing after bootstrap' }
+          & .\scripts\bootstrap_windows_tools.ps1 -ManifestPath .\scripts\release-dependencies.json
+          if ($LASTEXITCODE -ne 0) { throw "Windows tool bootstrap failed with exit code $LASTEXITCODE" }
 
       - name: Resolve release metadata
         shell: pwsh
