@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630" role="img" aria-labelledby="title desc">
+  <title id="title">Material Ollama social preview</title>
+  <desc id="desc">Material Ollama landing page preview: local models, clearly explained.</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1200" y2="630" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#0f1119"/>
+      <stop offset="1" stop-color="#252447"/>
+    </linearGradient>
+    <linearGradient id="accent" x1="90" y1="70" x2="270" y2="260" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#ded5ff"/>
+      <stop offset="1" stop-color="#8168ff"/>
+    </linearGradient>
+  </defs>
+  <rect width="1200" height="630" fill="url(#bg)"/>
+  <circle cx="1020" cy="-10" r="260" fill="#8168ff" opacity=".12"/>
+  <circle cx="1110" cy="570" r="180" fill="#b9a7ff" opacity=".08"/>
+  <rect x="88" y="92" width="162" height="162" rx="43" fill="#171226" stroke="#4f4775" stroke-width="3"/>
+  <path d="m125 145 44-26 44 26v52l-44 26-44-26v-52Z" fill="url(#accent)"/>
+  <path d="m125 145 44 26 44-26M169 171v52" fill="none" stroke="#171226" stroke-linecap="round" stroke-linejoin="round" stroke-width="10"/>
+  <circle cx="125" cy="145" r="12" fill="#fff"/><circle cx="213" cy="145" r="12" fill="#fff"/><circle cx="169" cy="223" r="12" fill="#fff"/>
+  <text x="88" y="350" fill="#f4f5fb" font-family="Inter,Segoe UI,sans-serif" font-size="66" font-weight="800" letter-spacing="-3">Material Ollama</text>
+  <text x="92" y="420" fill="#c4bddf" font-family="Inter,Segoe UI,sans-serif" font-size="34" font-weight="500">Local models, clearly explained.</text>
+  <rect x="92" y="486" width="360" height="8" rx="4" fill="#8168ff"/>
+  <text x="92" y="545" fill="#a5acc2" font-family="Inter,Segoe UI,sans-serif" font-size="20" font-weight="600">LANDING · DOCS · STATUS · VERIFIED DOWNLOADS</text>
+</svg>
