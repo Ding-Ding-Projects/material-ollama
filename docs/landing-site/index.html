@@ -1,0 +1,258 @@
+<!doctype html>
+<html lang="en" data-theme="dark" data-density="comfortable">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#171a2b" />
+    <meta
+      name="description"
+      content="Material Ollama is a local-first desktop companion for Ollama. This landing and documentation site explains the product and publishes verified downloads when they are ready."
+    />
+    <link rel="canonical" href="https://ding-ding-projects.github.io/material-ollama/landing-site/" />
+    <meta property="og:title" content="Material Ollama — local models, clearly explained" />
+    <meta
+      property="og:description"
+      content="A local-first desktop companion for Ollama, with a landing page, documentation, status, and verified downloads."
+    />
+    <meta property="og:url" content="https://ding-ding-projects.github.io/material-ollama/landing-site/" />
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Material Ollama" />
+    <meta
+      property="og:image"
+      content="https://raw.githubusercontent.com/Ding-Ding-Projects/material-ollama/main/docs/landing-site/assets/social-preview.svg"
+    />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content="Material Ollama landing page preview with a local model console illustration" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="Material Ollama" />
+    <meta name="twitter:description" content="Local models, clearly explained." />
+    <meta
+      name="twitter:image"
+      content="https://raw.githubusercontent.com/Ding-Ding-Projects/material-ollama/main/docs/landing-site/assets/social-preview.svg"
+    />
+    <title>Material Ollama — local models, clearly explained</title>
+    <link rel="icon" type="image/svg+xml" href="./assets/mark.svg" />
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <a class="skip-link" href="#content">Skip to content</a>
+
+    <header class="topbar">
+      <a class="brand" href="#overview" data-tab-link="overview" aria-label="Material Ollama home">
+        <img src="./assets/mark.svg" width="36" height="36" alt="" />
+        <span>Material Ollama</span>
+      </a>
+      <div class="topbar-actions">
+        <span class="surface-badge" aria-label="Landing and documentation surface">Landing · docs · status</span>
+        <button class="button button-quiet" type="button" data-tab-link="settings">Settings</button>
+      </div>
+    </header>
+
+    <div class="site-shell">
+      <aside class="sidebar" aria-label="Site navigation">
+        <div class="sidebar-intro">
+          <p class="eyebrow">Local-first documentation</p>
+          <p class="sidebar-copy">A calm place to understand the desktop app before you install it.</p>
+        </div>
+
+        <nav class="tab-list" role="tablist" aria-orientation="vertical" aria-label="Landing page sections">
+          <button class="tab-button is-active" role="tab" aria-selected="true" aria-controls="panel-overview" id="tab-overview" type="button" data-tab="overview">
+            <span aria-hidden="true">⌂</span><span>Overview</span>
+          </button>
+          <button class="tab-button" role="tab" aria-selected="false" aria-controls="panel-models" id="tab-models" type="button" data-tab="models">
+            <span aria-hidden="true">◈</span><span>Model library</span>
+          </button>
+          <button class="tab-button" role="tab" aria-selected="false" aria-controls="panel-parity" id="tab-parity" type="button" data-tab="parity">
+            <span aria-hidden="true">⌘</span><span>CLI &amp; config</span>
+          </button>
+          <button class="tab-button" role="tab" aria-selected="false" aria-controls="panel-docs" id="tab-docs" type="button" data-tab="docs">
+            <span aria-hidden="true">▤</span><span>Documentation</span>
+          </button>
+          <button class="tab-button" role="tab" aria-selected="false" aria-controls="panel-status" id="tab-status" type="button" data-tab="status">
+            <span aria-hidden="true">◌</span><span>Status</span>
+          </button>
+          <button class="tab-button" role="tab" aria-selected="false" aria-controls="panel-downloads" id="tab-downloads" type="button" data-tab="downloads">
+            <span aria-hidden="true">↓</span><span>Downloads</span>
+          </button>
+          <button class="tab-button" role="tab" aria-selected="false" aria-controls="panel-settings" id="tab-settings" type="button" data-tab="settings">
+            <span aria-hidden="true">⚙</span><span>Settings</span>
+          </button>
+        </nav>
+
+        <div class="site-search" role="search">
+          <label for="site-search-input">Search this site</label>
+          <div class="search-row">
+            <input id="site-search-input" type="search" placeholder="Search sections and articles" autocomplete="off" />
+            <button class="icon-button" type="button" data-regex-toggle aria-expanded="false" aria-controls="regex-popover" title="Open regex builder">.*</button>
+          </div>
+          <p class="search-help" id="search-status" aria-live="polite">Plain-text search is active.</p>
+          <div class="regex-popover" id="regex-popover" hidden>
+            <div class="popover-heading">
+              <strong>Regex builder</strong>
+              <button class="icon-button" type="button" data-regex-close aria-label="Close regex builder">×</button>
+            </div>
+            <p class="popover-copy">Build a local pattern, preview matches, and apply it to this site search.</p>
+            <label for="regex-pattern">Pattern</label>
+            <input id="regex-pattern" type="text" placeholder="model|config" />
+            <div class="field-grid">
+              <div>
+                <label for="regex-flags">Flags</label>
+                <input id="regex-flags" type="text" value="i" maxlength="6" />
+              </div>
+              <div>
+                <label for="regex-sample">Sample text</label>
+                <input id="regex-sample" type="text" value="models and configuration" />
+              </div>
+            </div>
+            <p class="regex-result" id="regex-result" aria-live="polite">Enter a pattern to preview it.</p>
+            <div class="popover-actions">
+              <button class="button button-primary" type="button" data-apply-regex>Use pattern</button>
+              <button class="button button-quiet" type="button" data-clear-search>Clear</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="sidebar-footnote">
+          <span class="status-dot" aria-hidden="true"></span>
+          <span>This surface is documentation. Models run in the installed desktop app, not in this page.</span>
+        </div>
+      </aside>
+
+      <main id="content" class="content" tabindex="-1">
+        <section class="panel is-active" id="panel-overview" role="tabpanel" aria-labelledby="tab-overview" data-panel="overview" data-searchable="overview landing desktop runtime documentation">
+          <div class="hero-grid">
+            <div class="hero-copy">
+              <p class="eyebrow">Material Ollama · landing page</p>
+              <h1>Local models, clearly explained.</h1>
+              <p class="hero-lede">A desktop companion for Ollama that makes model work, configuration, and recovery easier to understand.</p>
+              <p class="boundary-copy"><strong>Important boundary:</strong> this landing and documentation site introduces the installed desktop application. It is not the primary runtime, it does not host a model, and it is not a playable substitute for the desktop application.</p>
+              <div class="hero-actions">
+                <button class="button button-primary" type="button" data-tab-link="downloads">View verified downloads</button>
+                <button class="button button-secondary" type="button" data-tab-link="docs">Explore documentation</button>
+              </div>
+              <div class="hero-meta" aria-label="Current release state">
+                <span class="status-chip status-pending"><span aria-hidden="true">⏳</span> Release: unverified</span>
+                <span class="status-chip"><span aria-hidden="true">⌁</span> State stays in this browser</span>
+              </div>
+            </div>
+            <div class="hero-card" aria-label="Product preview illustration">
+              <div class="window-chrome"><span></span><span></span><span></span><strong>Material Ollama</strong></div>
+              <div class="preview-body">
+                <div class="preview-sidebar"><span class="preview-active"></span><span></span><span></span><span></span></div>
+                <div class="preview-main">
+                  <p class="preview-label">Local workspace</p>
+                  <div class="preview-title">Choose a model, then make it yours.</div>
+                  <div class="preview-bars"><span></span><span></span><span></span></div>
+                  <div class="preview-footer"><span class="status-dot"></span> Ollama service · ready to inspect</div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="section-heading">
+            <div><p class="eyebrow">Why this surface exists</p><h2>One honest place to start.</h2></div>
+            <p class="section-intro">The landing page names the boundary, documents the product, and waits for verified release evidence before offering an installer.</p>
+          </div>
+          <div class="card-grid three-up">
+            <article class="info-card" data-searchable="landing orientation">
+              <span class="card-icon" aria-hidden="true">↗</span>
+              <h3>A landing page, not a runtime</h3>
+              <p>Learn what the desktop app does, where it stores local state, and which surfaces are available offline.</p>
+              <button class="text-link" type="button" data-tab-link="docs">Read the boundary notes <span aria-hidden="true">→</span></button>
+            </article>
+            <article class="info-card" data-searchable="local privacy storage">
+              <span class="card-icon" aria-hidden="true">⌂</span>
+              <h3>Local by default</h3>
+              <p>Site preferences stay in this browser. Model data and service operations belong to the installed application.</p>
+              <button class="text-link" type="button" data-tab-link="settings">See site settings <span aria-hidden="true">→</span></button>
+            </article>
+            <article class="info-card" data-searchable="release proof download verification">
+              <span class="card-icon" aria-hidden="true">✓</span>
+              <h3>Prove before download</h3>
+              <p>The download area stays empty until a real release manifest supplies an immutable version and asset.</p>
+              <button class="text-link" type="button" data-tab-link="status">View status evidence <span aria-hidden="true">→</span></button>
+            </article>
+          </div>
+
+          <div class="feature-section">
+            <div class="section-heading compact"><div><p class="eyebrow">Surface map</p><h2>Find the part you need.</h2></div></div>
+            <div class="card-grid four-up">
+              <button class="feature-card" type="button" data-tab-link="models" data-searchable="models model library catalog hardware fit"><span class="feature-number">01</span><strong>Model library</strong><span>Catalog, variants, fit evidence, and local state.</span></button>
+              <button class="feature-card" type="button" data-tab-link="parity" data-searchable="cli config commands settings"><span class="feature-number">02</span><strong>CLI &amp; configuration</strong><span>A guided home for operations and settings.</span></button>
+              <button class="feature-card" type="button" data-tab-link="docs" data-searchable="docs documentation articles guides"><span class="feature-number">03</span><strong>Documentation</strong><span>Offline-friendly articles with a useful search.</span></button>
+              <button class="feature-card" type="button" data-tab-link="status" data-searchable="status evidence release build"><span class="feature-number">04</span><strong>Status</strong><span>Current state, evidence, and next gates.</span></button>
+            </div>
+          </div>
+        </section>
+
+        <section class="panel" id="panel-models" role="tabpanel" aria-labelledby="tab-models" data-panel="models" data-searchable="model library catalog variants hardware fit">
+          <div class="page-heading"><p class="eyebrow">Model library</p><h1>Understand the model before you pull it.</h1><p>Material Ollama surfaces model metadata, installed state, and conservative hardware evidence in the desktop app. This landing page documents the shape without pretending to have a live catalog.</p></div>
+          <div class="callout callout-info"><span class="callout-icon" aria-hidden="true">i</span><div><strong>Catalog status: not connected</strong><p>The landing page has no live model service. Open the installed desktop application to inspect local models; a future release can publish a verified catalog snapshot here.</p></div></div>
+          <div class="card-grid three-up">
+            <article class="info-card" data-searchable="installed models tags running"><span class="card-icon" aria-hidden="true">◈</span><h2>Installed and running</h2><p>See local tags, active sessions, memory use, and the exact model variant currently in effect.</p></article>
+            <article class="info-card" data-searchable="hardware fit ram vram disk evidence"><span class="card-icon" aria-hidden="true">⌁</span><h2>Hardware fit</h2><p>Show the evidence behind a Runs well, Runs with limits, Unlikely, or Unknown verdict.</p></article>
+            <article class="info-card" data-searchable="pull queue progress cancel"><span class="card-icon" aria-hidden="true">↓</span><h2>Pull queue</h2><p>Estimate storage, show progress, pause or cancel safely, and keep partial outcomes honest.</p></article>
+          </div>
+          <div class="inline-actions"><button class="button button-secondary" type="button" data-tab-link="downloads">Check verified downloads</button><button class="button button-quiet" type="button" data-tab-link="docs">Read model articles</button></div>
+        </section>
+
+        <section class="panel" id="panel-parity" role="tabpanel" aria-labelledby="tab-parity" data-panel="parity" data-searchable="cli config commands flags settings profiles restart">
+          <div class="page-heading"><p class="eyebrow">CLI &amp; configuration</p><h1>A GUI route for every operation.</h1><p>The desktop app is designed to make command operations discoverable and configuration inspectable, while the command line remains a first-class interface.</p></div>
+          <div class="parity-layout">
+            <div class="surface-card"><div class="card-heading"><span class="card-icon" aria-hidden="true">⌘</span><div><h2>Operations</h2><p>Every route carries its inputs, output, progress, cancellation, and error state.</p></div></div><ul class="check-list"><li><span aria-hidden="true">✓</span> Run and stop model sessions</li><li><span aria-hidden="true">✓</span> Pull, push, copy, create, show, and delete</li><li><span aria-hidden="true">✓</span> Serve and inspect the local service</li><li><span aria-hidden="true">✓</span> Discover hardware and runner details</li><li><span aria-hidden="true">✓</span> Search, export, and revisit operation history</li></ul></div>
+            <div class="surface-card"><div class="card-heading"><span class="card-icon" aria-hidden="true">⚙</span><div><h2>Configuration</h2><p>Profiles explain effective values and never silently rewrite an external service.</p></div></div><ul class="check-list"><li><span aria-hidden="true">✓</span> Browse supported environment settings</li><li><span aria-hidden="true">✓</span> See the value source and precedence</li><li><span aria-hidden="true">✓</span> Apply a managed profile with explicit restart</li><li><span aria-hidden="true">✓</span> Export, restore, and record local changes</li><li><span aria-hidden="true">✓</span> Keep unsupported values visible with a reason</li></ul></div>
+          </div>
+          <div class="callout callout-warning"><span class="callout-icon" aria-hidden="true">!</span><div><strong>Configuration scope matters</strong><p>A GUI-owned profile applies only to the service instance that Material Ollama manages. An unrelated service stays untouched and remains visible as external state.</p></div></div>
+          <div class="inline-actions"><button class="button button-primary" type="button" data-tab-link="settings">Open site settings</button><button class="button button-quiet" type="button" data-tab-link="docs">Read the parity notes</button></div>
+        </section>
+
+        <section class="panel" id="panel-docs" role="tabpanel" aria-labelledby="tab-docs" data-panel="docs" data-searchable="documentation articles offline landing runtime downloads settings">
+          <div class="page-heading"><p class="eyebrow">Documentation</p><h1>Short articles, useful boundaries.</h1><p>Documentation belongs on the landing surface as well as in the repository. These cards are the first bundled articles for the site shell; each keeps the product boundary and verification state explicit.</p></div>
+          <div class="article-list">
+            <article class="article-card" data-searchable="landing page runtime boundary"><div class="article-index">01</div><div><p class="eyebrow">Orientation</p><h2>What this landing page is</h2><p>This site is a landing, documentation, status, and download surface. The installed desktop application is the runtime. The page never claims to run a model.</p><button class="text-link" type="button" data-article="article-boundary">Open article <span aria-hidden="true">→</span></button></div></article>
+            <article class="article-card" data-searchable="verified download release manifest asset"><div class="article-index">02</div><div><p class="eyebrow">Downloads</p><h2>Why the download button is missing</h2><p>Downloads appear only after an immutable release manifest proves the version, platform, asset URL, and nonzero size. A guessed URL is not a download.</p><button class="text-link" type="button" data-tab-link="downloads">Open download state <span aria-hidden="true">→</span></button></div></article>
+            <article class="article-card" data-searchable="local settings browser storage reset"><div class="article-index">03</div><div><p class="eyebrow">Privacy</p><h2>Where site settings live</h2><p>Preferences are stored in this browser only. Export and reset are explicit; the page does not upload settings or model data.</p><button class="text-link" type="button" data-tab-link="settings">Open settings <span aria-hidden="true">→</span></button></div></article>
+            <article class="article-card" data-searchable="search regex builder plain text"><div class="article-index">04</div><div><p class="eyebrow">Navigation</p><h2>Search and pattern building</h2><p>Plain text is the default. The adjacent builder lets you preview a bounded regular expression locally and apply it to this page's content.</p><button class="text-link" type="button" data-regex-toggle>Open regex builder <span aria-hidden="true">→</span></button></div></article>
+          </div>
+          <div class="article-detail" id="article-boundary" hidden><div class="article-detail-heading"><p class="eyebrow">Article · orientation</p><button class="icon-button" type="button" data-close-article aria-label="Close article">×</button></div><h2>The landing page is the map, not the machine.</h2><p>Use this surface to understand the desktop product, read its documentation, see its current release state, and find a verified download when one exists. Model execution, local service control, and user data remain inside the installed application.</p><p>That distinction is intentional. A landing page can be available when the local service is stopped, while the runtime must give the user precise service and model state. Keeping the two roles separate makes both surfaces easier to trust.</p></div>
+          <div class="no-results" data-empty-search hidden>No matching article or surface was found. Clear the search or try a plain-text phrase.</div>
+        </section>
+
+        <section class="panel" id="panel-status" role="tabpanel" aria-labelledby="tab-status" data-panel="status" data-searchable="status evidence release build commit verification">
+          <div class="page-heading"><p class="eyebrow">Status</p><h1>State first, evidence beside it.</h1><p>The status surface is intentionally conservative. It shows what this page knows now and leaves every unverified release clearly unverified.</p></div>
+          <div class="status-grid">
+            <article class="status-card" data-searchable="source revision commit"><span class="status-label">Source revision</span><strong class="status-value status-good">d67ad834</strong><span class="status-detail">Baseline used for this landing-site shell.</span></article>
+            <article class="status-card" data-searchable="release unverified"><span class="status-label">Release</span><strong class="status-value status-pending">⏳ Unverified</strong><span class="status-detail">No installer link is exposed until release proof exists.</span></article>
+            <article class="status-card" data-searchable="storage local browser"><span class="status-label">Site state</span><strong class="status-value status-good">Local only</strong><span class="status-detail">Preferences stay in this browser's storage.</span></article>
+            <article class="status-card" data-searchable="heartbeat updated"><span class="status-label">Last page heartbeat</span><strong class="status-value" id="heartbeat">—</strong><span class="status-detail">A live timestamp confirms the page is responsive.</span></article>
+          </div>
+          <div class="callout callout-info"><span class="callout-icon" aria-hidden="true">i</span><div><strong>Release evidence is a separate input</strong><p>A future published manifest must provide the exact tag, commit, platform, asset filename, download URL, and size. This shell does not invent any of those values.</p></div></div>
+          <div class="evidence-table" role="table" aria-label="Current evidence"><div class="evidence-row evidence-head" role="row"><span role="columnheader">Evidence</span><span role="columnheader">State</span><span role="columnheader">Next action</span></div><div class="evidence-row" role="row"><span role="cell">Landing source</span><span role="cell"><span class="status-chip status-good">✅ present</span></span><span role="cell">Keep the shell local and reviewable.</span></div><div class="evidence-row" role="row"><span role="cell">Installer manifest</span><span role="cell"><span class="status-chip status-pending">⏳ waiting</span></span><span role="cell">Publish a unique release before adding a link.</span></div><div class="evidence-row" role="row"><span role="cell">Runtime capture</span><span role="cell"><span class="status-chip status-pending">⏳ pending</span></span><span role="cell">Verify the packaged desktop app in its own lane.</span></div></div>
+        </section>
+
+        <section class="panel" id="panel-downloads" role="tabpanel" aria-labelledby="tab-downloads" data-panel="downloads" data-searchable="downloads installer release verified asset manifest">
+          <div class="page-heading"><p class="eyebrow">Downloads</p><h1>Verified when it is real.</h1><p>There is no download button yet because there is no verified release manifest in this source snapshot. That empty state is deliberate.</p></div>
+          <div class="download-empty" role="status"><div class="download-mark" aria-hidden="true">↓</div><div><h2>No verified release published</h2><p>When a release is ready, this card will show its immutable version, platform, asset name, size, SHA-256, and a working download action. Until then, no guessed URL is rendered.</p><span class="status-chip status-pending">⏳ Download: unverified</span></div></div>
+          <div class="card-grid three-up"><article class="info-card" data-searchable="manifest tag commit"><span class="card-icon" aria-hidden="true">#</span><h2>Immutable version</h2><p>The version and tag must resolve to the exact commit that produced the installer.</p></article><article class="info-card" data-searchable="asset size hash"><span class="card-icon" aria-hidden="true">⌁</span><h2>Readable asset evidence</h2><p>Filename, nonzero size, and hash are shown beside the action instead of hidden behind it.</p></article><article class="info-card" data-searchable="unsigned installer warning"><span class="card-icon" aria-hidden="true">!</span><h2>Unsigned artifact note</h2><p>The installer will identify its unsigned status and any operating-system warning plainly.</p></article></div>
+        </section>
+
+        <section class="panel" id="panel-settings" role="tabpanel" aria-labelledby="tab-settings" data-panel="settings" data-searchable="settings language theme density funny level emoji vocabulary browser storage export import reset">
+          <div class="page-heading"><p class="eyebrow">Settings</p><h1>Make this page feel like yours.</h1><p>These preferences belong to this browser and this landing surface. They do not change the installed runtime or upload data anywhere.</p></div>
+          <form class="settings-layout" id="settings-form">
+            <div class="settings-card"><div class="card-heading"><span class="card-icon" aria-hidden="true">文</span><div><h2>Language and tone</h2><p>Copy changes; technical values and release facts stay exact.</p></div></div><label for="language-mode">Language mode<select id="language-mode" name="languageMode"><option value="en">English</option><option value="zh">Playful Hong Kong Chinese</option><option value="bilingual">Bilingual</option></select></label><div class="range-field"><label for="funny-en">English tone <output id="funny-en-value" for="funny-en">3</output></label><input id="funny-en" name="funnyEnglish" type="range" min="1" max="5" value="3" /></div><div class="range-field"><label for="funny-zh">Chinese tone <output id="funny-zh-value" for="funny-zh">3</output></label><input id="funny-zh" name="funnyChinese" type="range" min="1" max="5" value="3" /></div><label class="check-field"><input id="show-emoji" name="showEmoji" type="checkbox" checked /> <span>Show decorative emoji in messages</span></label></div>
+            <div class="settings-card"><div class="card-heading"><span class="card-icon" aria-hidden="true">◐</span><div><h2>Appearance</h2><p>Changes apply live and persist locally.</p></div></div><label for="theme-mode">Theme<select id="theme-mode" name="theme"><option value="dark">Dark</option><option value="light">Light</option></select></label><label for="density-mode">Density<select id="density-mode" name="density"><option value="comfortable">Comfortable</option><option value="compact">Compact</option></select></label><div class="setting-provenance"><span class="status-dot" aria-hidden="true"></span><span id="settings-provenance">Using the page's compiled values until you change them.</span></div></div>
+            <div class="settings-card"><div class="card-heading"><span class="card-icon" aria-hidden="true">⌂</span><div><h2>Private vocabulary</h2><p>Optional local JSON input. The file is read in memory and never sent.</p></div></div><label for="vocabulary-file">Choose a vocabulary JSON file<input id="vocabulary-file" type="file" accept="application/json,.json" /></label><p class="field-help" id="vocabulary-status" aria-live="polite">No file loaded. This page keeps its original wording.</p><button class="button button-quiet" type="button" id="clear-vocabulary">Clear local vocabulary state</button></div>
+            <div class="settings-card"><div class="card-heading"><span class="card-icon" aria-hidden="true">↔</span><div><h2>Portable site state</h2><p>Export a small settings record or restore one you already own.</p></div></div><div class="inline-actions"><button class="button button-secondary" type="button" id="export-settings">Export settings</button><label class="button button-quiet file-button" for="import-settings">Import settings<input id="import-settings" type="file" accept="application/json,.json" /></label></div><button class="button button-danger" type="button" id="reset-settings">Reset this page's settings</button><p class="field-help" id="settings-status" aria-live="polite"></p></div>
+          </form>
+        </section>
+
+        <div class="no-results" id="global-no-results" hidden>No matching surface was found. Clear the search or try a different phrase.</div>
+      </main>
+    </div>
+
+    <footer class="footer"><span>Material Ollama</span><span>Landing and documentation surface · local state · no release link until verified</span><button class="text-link" type="button" data-tab-link="status">View status <span aria-hidden="true">→</span></button></footer>
+
+    <script type="module" src="./app.js"></script>
+  </body>
+</html>

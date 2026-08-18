@@ -1,0 +1,28 @@
+# Material Ollama landing site
+
+This directory contains the static landing, documentation, status, download, and settings surface for Material Ollama.
+
+## Boundary
+
+The page is a landing and documentation surface. It introduces the installed desktop application and records the current evidence state. It is not the primary runtime, it does not host a model, and it must not be described as a playable substitute for the desktop application.
+
+The page deliberately renders no installer link until a verified release manifest supplies an immutable version, commit, platform, asset filename, URL, size, and hash. A guessed URL is not a download.
+
+## Local operation
+
+The page has no third-party runtime assets, CDN fonts, analytics, or network dependency. Serve this directory with any static file server and open `index.html`. Site preferences are kept in browser storage under the `material-ollama-landing-settings-v1` key.
+
+The settings surface supports language presentation, two tone sliders, theme, density, local vocabulary-file presence, settings export/import, and reset. The vocabulary file is read in memory; its contents are never included in the settings export.
+
+## Included surfaces
+
+- landing overview with the runtime boundary stated in visible copy;
+- model-library and CLI/configuration documentation cards;
+- bundled documentation articles and a plain-text-first search;
+- an anchored regular-expression builder for the search field;
+- status cards with source, release, storage, and heartbeat state;
+- a release-proof empty state with no unverified download action;
+- browser-local settings with live theme and density changes;
+- locally bundled SVG mark and social-preview assets.
+
+The HTML includes absolute Open Graph metadata for the product-specific social preview. The published URL and release manifest must be verified by the release owner before any public download control is added.
