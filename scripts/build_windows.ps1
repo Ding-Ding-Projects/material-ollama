@@ -204,7 +204,7 @@ function getWindowsVerifiedUserTool {
         $marker.origin -eq "official-release-asset" -and
         $marker.sourceUrl -eq $Dependency.user.url -and
         $marker.archiveSha256 -eq $Dependency.user.sha256 -and
-        (normalizeWindowsToolPath ([string]$marker.root) -eq (normalizeWindowsToolPath $candidateRoot)) -and
+        (normalizeWindowsToolPath -Path ([string]$marker.root)) -eq (normalizeWindowsToolPath -Path $candidateRoot) -and
         $marker.relativeExecutable -eq $Dependency.user.relativeExecutable -and
         (Test-Path -LiteralPath $executable -PathType Leaf)
     if (-not $valid) {
