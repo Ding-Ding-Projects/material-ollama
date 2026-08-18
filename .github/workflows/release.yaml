@@ -58,9 +58,66 @@ jobs:
           $sevenZip = $manifest.dependencies | Where-Object name -eq '7-Zip'
           choco install -y --no-progress InnoSetup --version $inno.version
           choco install -y --no-progress ninja --version $ninja.version
-          choco install -y --no-progress 7zip.install --version $sevenZip.version
+          $sevenZipId = '7zip.install'
+          $sevenZipPinnedVersion = [Version]::Parse([string]$sevenZip.version)
+          function Get-ChocolateyPackageState {
+            param([Parameter(Mandatory)][string]$PackageId)
+
+            $pattern = "^\s*$([regex]::Escape($PackageId))\|(?<version>[0-9]+(?:\.[0-9]+){1,3})(?:\|.*)?\s*$"
+            $output = @(& choco list --local-only --exact --limit-output $PackageId 2>&1)
+            $exitCode = $LASTEXITCODE
+            $record = $output |
+              Where-Object { $_ -is [string] -and $_ -match $pattern } |
+              Select-Object -First 1
+            $version = $null
+            if ($record) {
+              $match = [regex]::Match($record, $pattern)
+              $version = [Version]::Parse($match.Groups['version'].Value)
+            }
+
+            [pscustomobject]@{
+              ExitCode = $exitCode
+              Version = $version
+              Output = ($output -join [Environment]::NewLine)
+            }
+          }
+
+          $sevenZipInitial = Get-ChocolateyPackageState -PackageId $sevenZipId
+          $sevenZipState = $sevenZipInitial
+          if ($sevenZipInitial.ExitCode -eq 0 -and
+              $sevenZipInitial.Version -and
+              $sevenZipInitial.Version -ge $sevenZipPinnedVersion) {
+            Write-Host "Reusing verified $sevenZipId v$($sevenZipInitial.Version); manifest minimum is v$($sevenZip.version)."
+          } else {
+            Write-Host "Installing $sevenZipId v$($sevenZip.version); observed version is '$($sevenZipInitial.Version)'."
+            $sevenZipInstallOutput = @(& choco install -y --no-progress $sevenZipId --version $sevenZip.version 2>&1)
+            $sevenZipInstallExit = $LASTEXITCODE
+            $sevenZipState = Get-ChocolateyPackageState -PackageId $sevenZipId
+            $sevenZipReady = $sevenZipState.ExitCode -eq 0 -and
+              $sevenZipState.Version -and
+              $sevenZipState.Version -ge $sevenZipPinnedVersion
+            if (-not $sevenZipReady) {
+              throw @"
+          7-Zip bootstrap failed: package '$sevenZipId' requires minimum version '$($sevenZip.version)'.
+          Initial probe: exit=$($sevenZipInitial.ExitCode), version='$($sevenZipInitial.Version)', output='$($sevenZipInitial.Output)'.
+          Install attempt: exit=$sevenZipInstallExit, output='$($sevenZipInstallOutput -join [Environment]::NewLine)'.
+          Post-install probe: exit=$($sevenZipState.ExitCode), version='$($sevenZipState.Version)', output='$($sevenZipState.Output)'.
+          "@
+              }
+            Write-Host "7-Zip package ready at v$($sevenZipState.Version)."
+          }
           Import-Module "$env:ChocolateyInstall\helpers\chocolateyProfile.psm1" -ErrorAction SilentlyContinue
           refreshenv
+          $sevenZipCommand = Get-Command 7z -ErrorAction SilentlyContinue
+          if (-not $sevenZipCommand) {
+            throw "7-Zip bootstrap verification failed: package '$sevenZipId' is v$($sevenZipState.Version), but 7z.exe is not available on PATH after refreshenv."
+          }
+          $sevenZipInfo = @(& $sevenZipCommand.Source i 2>&1)
+          $sevenZipInfoExit = $LASTEXITCODE
+          if ($sevenZipInfoExit -ne 0) {
+            throw "7-Zip bootstrap verification failed: '$($sevenZipCommand.Source) i' exited $sevenZipInfoExit. Output: $($sevenZipInfo -join [Environment]::NewLine)"
+          }
+          Write-Host "Verified usable 7-Zip executable at $($sevenZipCommand.Source) for package v$($sevenZipState.Version)."
 
           $llvm = $manifest.dependencies | Where-Object name -eq 'llvm-mingw'
           $toolRoot = Join-Path $env:RUNNER_TEMP 'material-ollama-toolchain'

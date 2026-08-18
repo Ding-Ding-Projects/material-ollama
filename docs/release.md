@@ -10,6 +10,13 @@ The workflow bootstraps the pinned toolchain described by [`scripts/release-depe
 .\scripts\build_windows.ps1 cpu cpuArm64 ollama ollamaArm64 app appArm64 deps sign installer zip
 ```
 
+The 7-Zip bootstrap treats the manifest version as a minimum. It first reads the exact local
+Chocolatey package record and reuses an equal or newer installed `7zip.install` version after
+verifying that `7z.exe` is usable on `PATH`. A missing or older package receives the pinned
+installation request. If the install or either package probe cannot produce a usable package,
+the workflow fails with the observed versions, exit codes, and command output rather than
+silently continuing with an unverified archive tool.
+
 The package is unsigned by project policy. The workflow fails if signing inputs are present and verifies that `OllamaSetup.exe` has Authenticode status `NotSigned`. Windows may show an unknown-publisher or SmartScreen warning.
 
 ## Release evidence
