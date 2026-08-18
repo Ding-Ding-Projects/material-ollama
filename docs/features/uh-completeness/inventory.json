@@ -1,0 +1,3781 @@
+{
+  "schemaVersion": 1,
+  "inventoryName": "Shared user-facing feature contract",
+  "source": "Canonical shared instructions reviewed 2026-08-18",
+  "evidenceFields": [
+    "implementation",
+    "documentation",
+    "localizedCopy",
+    "persistence",
+    "focusedCheck",
+    "builtArtifactProof",
+    "captureEvidence"
+  ],
+  "surfaces": [
+    {
+      "id": "desktop-app",
+      "label": "Installed desktop application",
+      "boundary": "The installed application owns runtime behavior, local data, native accessibility, and packaged-artifact proof."
+    },
+    {
+      "id": "landing-page",
+      "label": "Landing, documentation, download, status, and settings site",
+      "boundary": "The site is a landing and documentation surface with local per-visitor equivalents; it is never the installed runtime."
+    }
+  ],
+  "responsiveContract": {
+    "minimumWidth": "320px and above",
+    "orientation": "portrait and landscape",
+    "touchTargets": "Every interactive target meets the supported platform minimum and has enough separation to avoid mis-taps.",
+    "horizontalOverflow": "The page body never scrolls sideways; wide tables, code, diagrams, and builders scroll inside their own bounded containers.",
+    "viewportBoundedOverlays": "Anchored menus, pickers, editors, and the command palette stay within the viewport, scroll internally, and never cover their opener."
+  },
+  "surfaceRows": {
+    "desktop-app": [
+      {
+        "featureId": "language-modes",
+        "evidenceRef": "features.language-modes.surfaces.desktop-app"
+      },
+      {
+        "featureId": "funny-level-controls",
+        "evidenceRef": "features.funny-level-controls.surfaces.desktop-app"
+      },
+      {
+        "featureId": "dialog-emoji-toggle",
+        "evidenceRef": "features.dialog-emoji-toggle.surfaces.desktop-app"
+      },
+      {
+        "featureId": "school-mode",
+        "evidenceRef": "features.school-mode.surfaces.desktop-app"
+      },
+      {
+        "featureId": "personal-vocabulary",
+        "evidenceRef": "features.personal-vocabulary.surfaces.desktop-app"
+      },
+      {
+        "featureId": "narration",
+        "evidenceRef": "features.narration.surfaces.desktop-app"
+      },
+      {
+        "featureId": "narrator-voice-selection",
+        "evidenceRef": "features.narrator-voice-selection.surfaces.desktop-app"
+      },
+      {
+        "featureId": "scheduled-settings",
+        "evidenceRef": "features.scheduled-settings.surfaces.desktop-app"
+      },
+      {
+        "featureId": "external-settings-sources",
+        "evidenceRef": "features.external-settings-sources.surfaces.desktop-app"
+      },
+      {
+        "featureId": "dim-sum-surprise",
+        "evidenceRef": "features.dim-sum-surprise.surfaces.desktop-app"
+      },
+      {
+        "featureId": "dim-sum-release-catalog",
+        "evidenceRef": "features.dim-sum-release-catalog.surfaces.desktop-app"
+      },
+      {
+        "featureId": "regex-builder",
+        "evidenceRef": "features.regex-builder.surfaces.desktop-app"
+      },
+      {
+        "featureId": "notifications",
+        "evidenceRef": "features.notifications.surfaces.desktop-app"
+      },
+      {
+        "featureId": "notification-center",
+        "evidenceRef": "features.notification-center.surfaces.desktop-app"
+      },
+      {
+        "featureId": "accessibility",
+        "evidenceRef": "features.accessibility.surfaces.desktop-app"
+      },
+      {
+        "featureId": "responsive-layout-and-sizing",
+        "evidenceRef": "features.responsive-layout-and-sizing.surfaces.desktop-app"
+      },
+      {
+        "featureId": "material-design",
+        "evidenceRef": "features.material-design.surfaces.desktop-app"
+      },
+      {
+        "featureId": "appearance-editor",
+        "evidenceRef": "features.appearance-editor.surfaces.desktop-app"
+      },
+      {
+        "featureId": "infinite-color-translator",
+        "evidenceRef": "features.infinite-color-translator.surfaces.desktop-app"
+      },
+      {
+        "featureId": "app-logo-customization",
+        "evidenceRef": "features.app-logo-customization.surfaces.desktop-app"
+      },
+      {
+        "featureId": "file-converter",
+        "evidenceRef": "features.file-converter.surfaces.desktop-app"
+      },
+      {
+        "featureId": "ollama-suite-manager",
+        "evidenceRef": "features.ollama-suite-manager.surfaces.desktop-app"
+      },
+      {
+        "featureId": "model-store",
+        "evidenceRef": "features.model-store.surfaces.desktop-app"
+      },
+      {
+        "featureId": "hardware-fit",
+        "evidenceRef": "features.hardware-fit.surfaces.desktop-app"
+      },
+      {
+        "featureId": "batch-pull-queue",
+        "evidenceRef": "features.batch-pull-queue.surfaces.desktop-app"
+      },
+      {
+        "featureId": "local-chat-sessions",
+        "evidenceRef": "features.local-chat-sessions.surfaces.desktop-app"
+      },
+      {
+        "featureId": "harness-profiles",
+        "evidenceRef": "features.harness-profiles.surfaces.desktop-app"
+      },
+      {
+        "featureId": "browser-tabs",
+        "evidenceRef": "features.browser-tabs.surfaces.desktop-app"
+      },
+      {
+        "featureId": "tab-docking-overflow",
+        "evidenceRef": "features.tab-docking-overflow.surfaces.desktop-app"
+      },
+      {
+        "featureId": "tab-groups",
+        "evidenceRef": "features.tab-groups.surfaces.desktop-app"
+      },
+      {
+        "featureId": "tab-discovery-searches",
+        "evidenceRef": "features.tab-discovery-searches.surfaces.desktop-app"
+      },
+      {
+        "featureId": "tab-bulk-close",
+        "evidenceRef": "features.tab-bulk-close.surfaces.desktop-app"
+      },
+      {
+        "featureId": "offline-documentation-browser",
+        "evidenceRef": "features.offline-documentation-browser.surfaces.desktop-app"
+      },
+      {
+        "featureId": "landing-page-boundary",
+        "evidenceRef": "features.landing-page-boundary.surfaces.desktop-app"
+      },
+      {
+        "featureId": "command-palette",
+        "evidenceRef": "features.command-palette.surfaces.desktop-app"
+      },
+      {
+        "featureId": "destructive-super-confirmation",
+        "evidenceRef": "features.destructive-super-confirmation.surfaces.desktop-app"
+      },
+      {
+        "featureId": "local-version-history",
+        "evidenceRef": "features.local-version-history.surfaces.desktop-app"
+      },
+      {
+        "featureId": "changelog-viewer",
+        "evidenceRef": "features.changelog-viewer.surfaces.desktop-app"
+      },
+      {
+        "featureId": "external-editor",
+        "evidenceRef": "features.external-editor.surfaces.desktop-app"
+      },
+      {
+        "featureId": "exports",
+        "evidenceRef": "features.exports.surfaces.desktop-app"
+      },
+      {
+        "featureId": "bulk-actions",
+        "evidenceRef": "features.bulk-actions.surfaces.desktop-app"
+      },
+      {
+        "featureId": "toy-locks",
+        "evidenceRef": "features.toy-locks.surfaces.desktop-app"
+      },
+      {
+        "featureId": "support-tickets",
+        "evidenceRef": "features.support-tickets.surfaces.desktop-app"
+      },
+      {
+        "featureId": "unlock-ladder",
+        "evidenceRef": "features.unlock-ladder.surfaces.desktop-app"
+      },
+      {
+        "featureId": "two-factor-qr-pairing",
+        "evidenceRef": "features.two-factor-qr-pairing.surfaces.desktop-app"
+      },
+      {
+        "featureId": "built-in-authenticator",
+        "evidenceRef": "features.built-in-authenticator.surfaces.desktop-app"
+      },
+      {
+        "featureId": "browser-extension-download-capture",
+        "evidenceRef": "features.browser-extension-download-capture.surfaces.desktop-app"
+      },
+      {
+        "featureId": "shared-link-embed",
+        "evidenceRef": "features.shared-link-embed.surfaces.desktop-app"
+      },
+      {
+        "featureId": "provider-authored-renderer",
+        "evidenceRef": "features.provider-authored-renderer.surfaces.desktop-app"
+      },
+      {
+        "featureId": "guided-forms",
+        "evidenceRef": "features.guided-forms.surfaces.desktop-app"
+      },
+      {
+        "featureId": "rich-controls",
+        "evidenceRef": "features.rich-controls.surfaces.desktop-app"
+      },
+      {
+        "featureId": "settings-explanations-provenance",
+        "evidenceRef": "features.settings-explanations-provenance.surfaces.desktop-app"
+      },
+      {
+        "featureId": "overlays",
+        "evidenceRef": "features.overlays.surfaces.desktop-app"
+      },
+      {
+        "featureId": "context-menu-shortcuts",
+        "evidenceRef": "features.context-menu-shortcuts.surfaces.desktop-app"
+      },
+      {
+        "featureId": "long-operation-progress",
+        "evidenceRef": "features.long-operation-progress.surfaces.desktop-app"
+      },
+      {
+        "featureId": "failure-recovery",
+        "evidenceRef": "features.failure-recovery.surfaces.desktop-app"
+      },
+      {
+        "featureId": "forge-publishing",
+        "evidenceRef": "features.forge-publishing.surfaces.desktop-app"
+      },
+      {
+        "featureId": "collapsible-filters",
+        "evidenceRef": "features.collapsible-filters.surfaces.desktop-app"
+      },
+      {
+        "featureId": "blank-slate-presets",
+        "evidenceRef": "features.blank-slate-presets.surfaces.desktop-app"
+      },
+      {
+        "featureId": "app-display-name",
+        "evidenceRef": "features.app-display-name.surfaces.desktop-app"
+      },
+      {
+        "featureId": "secret-display-history",
+        "evidenceRef": "features.secret-display-history.surfaces.desktop-app"
+      },
+      {
+        "featureId": "cli-gui-parity",
+        "evidenceRef": "features.cli-gui-parity.surfaces.desktop-app"
+      },
+      {
+        "featureId": "gui-capability-registry",
+        "evidenceRef": "features.gui-capability-registry.surfaces.desktop-app"
+      },
+      {
+        "featureId": "config-profiles",
+        "evidenceRef": "features.config-profiles.surfaces.desktop-app"
+      },
+      {
+        "featureId": "status-hub",
+        "evidenceRef": "features.status-hub.surfaces.desktop-app"
+      },
+      {
+        "featureId": "status-discord-bridge",
+        "evidenceRef": "features.status-discord-bridge.surfaces.desktop-app"
+      },
+      {
+        "featureId": "tidbyt-status-display",
+        "evidenceRef": "features.tidbyt-status-display.surfaces.desktop-app"
+      },
+      {
+        "featureId": "vocabulary-hash-lock",
+        "evidenceRef": "features.vocabulary-hash-lock.surfaces.desktop-app"
+      },
+      {
+        "featureId": "sanitized-instruction-copy",
+        "evidenceRef": "features.sanitized-instruction-copy.surfaces.desktop-app"
+      },
+      {
+        "featureId": "repository-root-build-script",
+        "evidenceRef": "features.repository-root-build-script.surfaces.desktop-app"
+      },
+      {
+        "featureId": "dependency-bootstrap",
+        "evidenceRef": "features.dependency-bootstrap.surfaces.desktop-app"
+      },
+      {
+        "featureId": "bundled-runtime-dependencies",
+        "evidenceRef": "features.bundled-runtime-dependencies.surfaces.desktop-app"
+      },
+      {
+        "featureId": "unsigned-release-policy",
+        "evidenceRef": "features.unsigned-release-policy.surfaces.desktop-app"
+      },
+      {
+        "featureId": "release-line-count",
+        "evidenceRef": "features.release-line-count.surfaces.desktop-app"
+      },
+      {
+        "featureId": "issue-handoff",
+        "evidenceRef": "features.issue-handoff.surfaces.desktop-app"
+      },
+      {
+        "featureId": "rolling-discussion",
+        "evidenceRef": "features.rolling-discussion.surfaces.desktop-app"
+      },
+      {
+        "featureId": "project-status",
+        "evidenceRef": "features.project-status.surfaces.desktop-app"
+      },
+      {
+        "featureId": "site-homepage-link",
+        "evidenceRef": "features.site-homepage-link.surfaces.desktop-app"
+      },
+      {
+        "featureId": "api-documentation-and-collection",
+        "evidenceRef": "features.api-documentation-and-collection.surfaces.desktop-app"
+      },
+      {
+        "featureId": "capture-manifest",
+        "evidenceRef": "features.capture-manifest.surfaces.desktop-app"
+      },
+      {
+        "featureId": "release-metadata",
+        "evidenceRef": "features.release-metadata.surfaces.desktop-app"
+      },
+      {
+        "featureId": "cheap-transfer",
+        "evidenceRef": "features.cheap-transfer.surfaces.desktop-app"
+      },
+      {
+        "featureId": "automatic-updates",
+        "evidenceRef": "features.automatic-updates.surfaces.desktop-app"
+      },
+      {
+        "featureId": "packaged-app-icon",
+        "evidenceRef": "features.packaged-app-icon.surfaces.desktop-app"
+      },
+      {
+        "featureId": "no-network-privacy",
+        "evidenceRef": "features.no-network-privacy.surfaces.desktop-app"
+      }
+    ],
+    "landing-page": [
+      {
+        "featureId": "language-modes",
+        "evidenceRef": "features.language-modes.surfaces.landing-page",
+        "responsiveEvidence": {
+          "status": "missing",
+          "minWidth": null,
+          "orientation": null,
+          "touchTargets": null,
+          "horizontalOverflow": null,
+          "viewportBoundedOverlays": null
+        }
+      },
+      {
+        "featureId": "funny-level-controls",
+        "evidenceRef": "features.funny-level-controls.surfaces.landing-page",
+        "responsiveEvidence": {
+          "status": "missing",
+          "minWidth": null,
+          "orientation": null,
+          "touchTargets": null,
+          "horizontalOverflow": null,
+          "viewportBoundedOverlays": null
+        }
+      },
+      {
+        "featureId": "dialog-emoji-toggle",
+        "evidenceRef": "features.dialog-emoji-toggle.surfaces.landing-page",
+        "responsiveEvidence": {
+          "status": "missing",
+          "minWidth": null,
+          "orientation": null,
+          "touchTargets": null,
+          "horizontalOverflow": null,
+          "viewportBoundedOverlays": null
+        }
+      },
+      {
+        "featureId": "school-mode",
+        "evidenceRef": "features.school-mode.surfaces.landing-page",
+        "responsiveEvidence": {
+          "status": "missing",
+          "minWidth": null,
+          "orientation": null,
+          "touchTargets": null,
+          "horizontalOverflow": null,
+          "viewportBoundedOverlays": null
+        }
+      },
+      {
+        "featureId": "personal-vocabulary",
+        "evidenceRef": "features.personal-vocabulary.surfaces.landing-page",
+        "responsiveEvidence": {
+          "status": "missing",
+          "minWidth": null,
+          "orientation": null,
+          "touchTargets": null,
+          "horizontalOverflow": null,
+          "viewportBoundedOverlays": null
+        }
+      },
+      {
+        "featureId": "narration",
+        "evidenceRef": "features.narration.surfaces.landing-page",
+        "responsiveEvidence": {
+          "status": "missing",
+          "minWidth": null,
+          "orientation": null,
+          "touchTargets": null,
+          "horizontalOverflow": null,
+          "viewportBoundedOverlays": null
+        }
+      },
+      {
+        "featureId": "narrator-voice-selection",
+        "evidenceRef": "features.narrator-voice-selection.surfaces.landing-page",
+        "responsiveEvidence": {
+          "status": "missing",
+          "minWidth": null,
+          "orientation": null,
+          "touchTargets": null,
+          "horizontalOverflow": null,
+          "viewportBoundedOverlays": null
+        }
+      },
+      {
+        "featureId": "scheduled-settings",
+        "evidenceRef": "features.scheduled-settings.surfaces.landing-page",
+        "responsiveEvidence": {
+          "status": "missing",
+          "minWidth": null,
+          "orientation": null,
+          "touchTargets": null,
+          "horizontalOverflow": null,
+          "viewportBoundedOverlays": null
+        }
+      },
+      {
+        "featureId": "external-settings-sources",
+        "evidenceRef": "features.external-settings-sources.surfaces.landing-page",
+        "responsiveEvidence": {
+          "status": "missing",
+          "minWidth": null,
+          "orientation": null,
+          "touchTargets": null,
+          "horizontalOverflow": null,
+          "viewportBoundedOverlays": null
+        }
+      },
+      {
+        "featureId": "dim-sum-surprise",
+        "evidenceRef": "features.dim-sum-surprise.surfaces.landing-page",
+        "responsiveEvidence": {
+          "status": "missing",
+          "minWidth": null,
+          "orientation": null,
+          "touchTargets": null,
+          "horizontalOverflow": null,
+          "viewportBoundedOverlays": null
+        }
+      },
+      {
+        "featureId": "dim-sum-release-catalog",
+        "evidenceRef": "features.dim-sum-release-catalog.surfaces.landing-page",
+        "responsiveEvidence": {
+          "status": "missing",
+          "minWidth": null,
+          "orientation": null,
+          "touchTargets": null,
+          "horizontalOverflow": null,
+          "viewportBoundedOverlays": null
+        }
+      },
+      {
+        "featureId": "regex-builder",
+        "evidenceRef": "features.regex-builder.surfaces.landing-page",
+        "responsiveEvidence": {
+          "status": "missing",
+          "minWidth": null,
+          "orientation": null,
+          "touchTargets": null,
+          "horizontalOverflow": null,
+          "viewportBoundedOverlays": null
+        }
+      },
+      {
+        "featureId": "notifications",
+        "evidenceRef": "features.notifications.surfaces.landing-page",
+        "responsiveEvidence": {
+          "status": "missing",
+          "minWidth": null,
+          "orientation": null,
+          "touchTargets": null,
+          "horizontalOverflow": null,
+          "viewportBoundedOverlays": null
+        }
+      },
+      {
+        "featureId": "notification-center",
+        "evidenceRef": "features.notification-center.surfaces.landing-page",
+        "responsiveEvidence": {
+          "status": "missing",
+          "minWidth": null,
+          "orientation": null,
+          "touchTargets": null,
+          "horizontalOverflow": null,
+          "viewportBoundedOverlays": null
+        }
+      },
+      {
+        "featureId": "accessibility",
+        "evidenceRef": "features.accessibility.surfaces.landing-page",
+        "responsiveEvidence": {
+          "status": "missing",
+          "minWidth": null,
+          "orientation": null,
+          "touchTargets": null,
+          "horizontalOverflow": null,
+          "viewportBoundedOverlays": null
+        }
+      },
+      {
+        "featureId": "responsive-layout-and-sizing",
+        "evidenceRef": "features.responsive-layout-and-sizing.surfaces.landing-page",
+        "responsiveEvidence": {
+          "status": "missing",
+          "minWidth": null,
+          "orientation": null,
+          "touchTargets": null,
+          "horizontalOverflow": null,
+          "viewportBoundedOverlays": null
+        }
+      },
+      {
+        "featureId": "material-design",
+        "evidenceRef": "features.material-design.surfaces.landing-page",
+        "responsiveEvidence": {
+          "status": "missing",
+          "minWidth": null,
+          "orientation": null,
+          "touchTargets": null,
+          "horizontalOverflow": null,
+          "viewportBoundedOverlays": null
+        }
+      },
+      {
+        "featureId": "appearance-editor",
+        "evidenceRef": "features.appearance-editor.surfaces.landing-page",
+        "responsiveEvidence": {
+          "status": "missing",
+          "minWidth": null,
+          "orientation": null,
+          "touchTargets": null,
+          "horizontalOverflow": null,
+          "viewportBoundedOverlays": null
+        }
+      },
+      {
+        "featureId": "infinite-color-translator",
+        "evidenceRef": "features.infinite-color-translator.surfaces.landing-page",
+        "responsiveEvidence": {
+          "status": "missing",
+          "minWidth": null,
+          "orientation": null,
+          "touchTargets": null,
+          "horizontalOverflow": null,
+          "viewportBoundedOverlays": null
+        }
+      },
+      {
+        "featureId": "app-logo-customization",
+        "evidenceRef": "features.app-logo-customization.surfaces.landing-page",
+        "responsiveEvidence": {
+          "status": "missing",
+          "minWidth": null,
+          "orientation": null,
+          "touchTargets": null,
+          "horizontalOverflow": null,
+          "viewportBoundedOverlays": null
+        }
+      },
+      {
+        "featureId": "file-converter",
+        "evidenceRef": "features.file-converter.surfaces.landing-page",
+        "responsiveEvidence": {
+          "status": "missing",
+          "minWidth": null,
+          "orientation": null,
+          "touchTargets": null,
+          "horizontalOverflow": null,
+          "viewportBoundedOverlays": null
+        }
+      },
+      {
+        "featureId": "ollama-suite-manager",
+        "evidenceRef": "features.ollama-suite-manager.surfaces.landing-page",
+        "responsiveEvidence": {
+          "status": "missing",
+          "minWidth": null,
+          "orientation": null,
+          "touchTargets": null,
+          "horizontalOverflow": null,
+          "viewportBoundedOverlays": null
+        }
+      },
+      {
+        "featureId": "model-store",
+        "evidenceRef": "features.model-store.surfaces.landing-page",
+        "responsiveEvidence": {
+          "status": "missing",
+          "minWidth": null,
+          "orientation": null,
+          "touchTargets": null,
+          "horizontalOverflow": null,
+          "viewportBoundedOverlays": null
+        }
+      },
+      {
+        "featureId": "hardware-fit",
+        "evidenceRef": "features.hardware-fit.surfaces.landing-page",
+        "responsiveEvidence": {
+          "status": "missing",
+          "minWidth": null,
+          "orientation": null,
+          "touchTargets": null,
+          "horizontalOverflow": null,
+          "viewportBoundedOverlays": null
+        }
+      },
+      {
+        "featureId": "batch-pull-queue",
+        "evidenceRef": "features.batch-pull-queue.surfaces.landing-page",
+        "responsiveEvidence": {
+          "status": "missing",
+          "minWidth": null,
+          "orientation": null,
+          "touchTargets": null,
+          "horizontalOverflow": null,
+          "viewportBoundedOverlays": null
+        }
+      },
+      {
+        "featureId": "local-chat-sessions",
+        "evidenceRef": "features.local-chat-sessions.surfaces.landing-page",
+        "responsiveEvidence": {
+          "status": "missing",
+          "minWidth": null,
+          "orientation": null,
+          "touchTargets": null,
+          "horizontalOverflow": null,
+          "viewportBoundedOverlays": null
+        }
+      },
+      {
+        "featureId": "harness-profiles",
+        "evidenceRef": "features.harness-profiles.surfaces.landing-page",
+        "responsiveEvidence": {
+          "status": "missing",
+          "minWidth": null,
+          "orientation": null,
+          "touchTargets": null,
+          "horizontalOverflow": null,
+          "viewportBoundedOverlays": null
+        }
+      },
+      {
+        "featureId": "browser-tabs",
+        "evidenceRef": "features.browser-tabs.surfaces.landing-page",
+        "responsiveEvidence": {
+          "status": "missing",
+          "minWidth": null,
+          "orientation": null,
+          "touchTargets": null,
+          "horizontalOverflow": null,
+          "viewportBoundedOverlays": null
+        }
+      },
+      {
+        "featureId": "tab-docking-overflow",
+        "evidenceRef": "features.tab-docking-overflow.surfaces.landing-page",
+        "responsiveEvidence": {
+          "status": "missing",
+          "minWidth": null,
+          "orientation": null,
+          "touchTargets": null,
+          "horizontalOverflow": null,
+          "viewportBoundedOverlays": null
+        }
+      },
+      {
+        "featureId": "tab-groups",
+        "evidenceRef": "features.tab-groups.surfaces.landing-page",
+        "responsiveEvidence": {
+          "status": "missing",
+          "minWidth": null,
+          "orientation": null,
+          "touchTargets": null,
+          "horizontalOverflow": null,
+          "viewportBoundedOverlays": null
+        }
+      },
+      {
+        "featureId": "tab-discovery-searches",
+        "evidenceRef": "features.tab-discovery-searches.surfaces.landing-page",
+        "responsiveEvidence": {
+          "status": "missing",
+          "minWidth": null,
+          "orientation": null,
+          "touchTargets": null,
+          "horizontalOverflow": null,
+          "viewportBoundedOverlays": null
+        }
+      },
+      {
+        "featureId": "tab-bulk-close",
+        "evidenceRef": "features.tab-bulk-close.surfaces.landing-page",
+        "responsiveEvidence": {
+          "status": "missing",
+          "minWidth": null,
+          "orientation": null,
+          "touchTargets": null,
+          "horizontalOverflow": null,
+          "viewportBoundedOverlays": null
+        }
+      },
+      {
+        "featureId": "offline-documentation-browser",
+        "evidenceRef": "features.offline-documentation-browser.surfaces.landing-page",
+        "responsiveEvidence": {
+          "status": "missing",
+          "minWidth": null,
+          "orientation": null,
+          "touchTargets": null,
+          "horizontalOverflow": null,
+          "viewportBoundedOverlays": null
+        }
+      },
+      {
+        "featureId": "landing-page-boundary",
+        "evidenceRef": "features.landing-page-boundary.surfaces.landing-page",
+        "responsiveEvidence": {
+          "status": "missing",
+          "minWidth": null,
+          "orientation": null,
+          "touchTargets": null,
+          "horizontalOverflow": null,
+          "viewportBoundedOverlays": null
+        }
+      },
+      {
+        "featureId": "command-palette",
+        "evidenceRef": "features.command-palette.surfaces.landing-page",
+        "responsiveEvidence": {
+          "status": "missing",
+          "minWidth": null,
+          "orientation": null,
+          "touchTargets": null,
+          "horizontalOverflow": null,
+          "viewportBoundedOverlays": null
+        }
+      },
+      {
+        "featureId": "destructive-super-confirmation",
+        "evidenceRef": "features.destructive-super-confirmation.surfaces.landing-page",
+        "responsiveEvidence": {
+          "status": "missing",
+          "minWidth": null,
+          "orientation": null,
+          "touchTargets": null,
+          "horizontalOverflow": null,
+          "viewportBoundedOverlays": null
+        }
+      },
+      {
+        "featureId": "local-version-history",
+        "evidenceRef": "features.local-version-history.surfaces.landing-page",
+        "responsiveEvidence": {
+          "status": "missing",
+          "minWidth": null,
+          "orientation": null,
+          "touchTargets": null,
+          "horizontalOverflow": null,
+          "viewportBoundedOverlays": null
+        }
+      },
+      {
+        "featureId": "changelog-viewer",
+        "evidenceRef": "features.changelog-viewer.surfaces.landing-page",
+        "responsiveEvidence": {
+          "status": "missing",
+          "minWidth": null,
+          "orientation": null,
+          "touchTargets": null,
+          "horizontalOverflow": null,
+          "viewportBoundedOverlays": null
+        }
+      },
+      {
+        "featureId": "external-editor",
+        "evidenceRef": "features.external-editor.surfaces.landing-page",
+        "responsiveEvidence": {
+          "status": "missing",
+          "minWidth": null,
+          "orientation": null,
+          "touchTargets": null,
+          "horizontalOverflow": null,
+          "viewportBoundedOverlays": null
+        }
+      },
+      {
+        "featureId": "exports",
+        "evidenceRef": "features.exports.surfaces.landing-page",
+        "responsiveEvidence": {
+          "status": "missing",
+          "minWidth": null,
+          "orientation": null,
+          "touchTargets": null,
+          "horizontalOverflow": null,
+          "viewportBoundedOverlays": null
+        }
+      },
+      {
+        "featureId": "bulk-actions",
+        "evidenceRef": "features.bulk-actions.surfaces.landing-page",
+        "responsiveEvidence": {
+          "status": "missing",
+          "minWidth": null,
+          "orientation": null,
+          "touchTargets": null,
+          "horizontalOverflow": null,
+          "viewportBoundedOverlays": null
+        }
+      },
+      {
+        "featureId": "toy-locks",
+        "evidenceRef": "features.toy-locks.surfaces.landing-page",
+        "responsiveEvidence": {
+          "status": "missing",
+          "minWidth": null,
+          "orientation": null,
+          "touchTargets": null,
+          "horizontalOverflow": null,
+          "viewportBoundedOverlays": null
+        }
+      },
+      {
+        "featureId": "support-tickets",
+        "evidenceRef": "features.support-tickets.surfaces.landing-page",
+        "responsiveEvidence": {
+          "status": "missing",
+          "minWidth": null,
+          "orientation": null,
+          "touchTargets": null,
+          "horizontalOverflow": null,
+          "viewportBoundedOverlays": null
+        }
+      },
+      {
+        "featureId": "unlock-ladder",
+        "evidenceRef": "features.unlock-ladder.surfaces.landing-page",
+        "responsiveEvidence": {
+          "status": "missing",
+          "minWidth": null,
+          "orientation": null,
+          "touchTargets": null,
+          "horizontalOverflow": null,
+          "viewportBoundedOverlays": null
+        }
+      },
+      {
+        "featureId": "two-factor-qr-pairing",
+        "evidenceRef": "features.two-factor-qr-pairing.surfaces.landing-page",
+        "responsiveEvidence": {
+          "status": "missing",
+          "minWidth": null,
+          "orientation": null,
+          "touchTargets": null,
+          "horizontalOverflow": null,
+          "viewportBoundedOverlays": null
+        }
+      },
+      {
+        "featureId": "built-in-authenticator",
+        "evidenceRef": "features.built-in-authenticator.surfaces.landing-page",
+        "responsiveEvidence": {
+          "status": "missing",
+          "minWidth": null,
+          "orientation": null,
+          "touchTargets": null,
+          "horizontalOverflow": null,
+          "viewportBoundedOverlays": null
+        }
+      },
+      {
+        "featureId": "browser-extension-download-capture",
+        "evidenceRef": "features.browser-extension-download-capture.surfaces.landing-page",
+        "responsiveEvidence": {
+          "status": "missing",
+          "minWidth": null,
+          "orientation": null,
+          "touchTargets": null,
+          "horizontalOverflow": null,
+          "viewportBoundedOverlays": null
+        }
+      },
+      {
+        "featureId": "shared-link-embed",
+        "evidenceRef": "features.shared-link-embed.surfaces.landing-page",
+        "responsiveEvidence": {
+          "status": "missing",
+          "minWidth": null,
+          "orientation": null,
+          "touchTargets": null,
+          "horizontalOverflow": null,
+          "viewportBoundedOverlays": null
+        }
+      },
+      {
+        "featureId": "provider-authored-renderer",
+        "evidenceRef": "features.provider-authored-renderer.surfaces.landing-page",
+        "responsiveEvidence": {
+          "status": "missing",
+          "minWidth": null,
+          "orientation": null,
+          "touchTargets": null,
+          "horizontalOverflow": null,
+          "viewportBoundedOverlays": null
+        }
+      },
+      {
+        "featureId": "guided-forms",
+        "evidenceRef": "features.guided-forms.surfaces.landing-page",
+        "responsiveEvidence": {
+          "status": "missing",
+          "minWidth": null,
+          "orientation": null,
+          "touchTargets": null,
+          "horizontalOverflow": null,
+          "viewportBoundedOverlays": null
+        }
+      },
+      {
+        "featureId": "rich-controls",
+        "evidenceRef": "features.rich-controls.surfaces.landing-page",
+        "responsiveEvidence": {
+          "status": "missing",
+          "minWidth": null,
+          "orientation": null,
+          "touchTargets": null,
+          "horizontalOverflow": null,
+          "viewportBoundedOverlays": null
+        }
+      },
+      {
+        "featureId": "settings-explanations-provenance",
+        "evidenceRef": "features.settings-explanations-provenance.surfaces.landing-page",
+        "responsiveEvidence": {
+          "status": "missing",
+          "minWidth": null,
+          "orientation": null,
+          "touchTargets": null,
+          "horizontalOverflow": null,
+          "viewportBoundedOverlays": null
+        }
+      },
+      {
+        "featureId": "overlays",
+        "evidenceRef": "features.overlays.surfaces.landing-page",
+        "responsiveEvidence": {
+          "status": "missing",
+          "minWidth": null,
+          "orientation": null,
+          "touchTargets": null,
+          "horizontalOverflow": null,
+          "viewportBoundedOverlays": null
+        }
+      },
+      {
+        "featureId": "context-menu-shortcuts",
+        "evidenceRef": "features.context-menu-shortcuts.surfaces.landing-page",
+        "responsiveEvidence": {
+          "status": "missing",
+          "minWidth": null,
+          "orientation": null,
+          "touchTargets": null,
+          "horizontalOverflow": null,
+          "viewportBoundedOverlays": null
+        }
+      },
+      {
+        "featureId": "long-operation-progress",
+        "evidenceRef": "features.long-operation-progress.surfaces.landing-page",
+        "responsiveEvidence": {
+          "status": "missing",
+          "minWidth": null,
+          "orientation": null,
+          "touchTargets": null,
+          "horizontalOverflow": null,
+          "viewportBoundedOverlays": null
+        }
+      },
+      {
+        "featureId": "failure-recovery",
+        "evidenceRef": "features.failure-recovery.surfaces.landing-page",
+        "responsiveEvidence": {
+          "status": "missing",
+          "minWidth": null,
+          "orientation": null,
+          "touchTargets": null,
+          "horizontalOverflow": null,
+          "viewportBoundedOverlays": null
+        }
+      },
+      {
+        "featureId": "forge-publishing",
+        "evidenceRef": "features.forge-publishing.surfaces.landing-page",
+        "responsiveEvidence": {
+          "status": "missing",
+          "minWidth": null,
+          "orientation": null,
+          "touchTargets": null,
+          "horizontalOverflow": null,
+          "viewportBoundedOverlays": null
+        }
+      },
+      {
+        "featureId": "collapsible-filters",
+        "evidenceRef": "features.collapsible-filters.surfaces.landing-page",
+        "responsiveEvidence": {
+          "status": "missing",
+          "minWidth": null,
+          "orientation": null,
+          "touchTargets": null,
+          "horizontalOverflow": null,
+          "viewportBoundedOverlays": null
+        }
+      },
+      {
+        "featureId": "blank-slate-presets",
+        "evidenceRef": "features.blank-slate-presets.surfaces.landing-page",
+        "responsiveEvidence": {
+          "status": "missing",
+          "minWidth": null,
+          "orientation": null,
+          "touchTargets": null,
+          "horizontalOverflow": null,
+          "viewportBoundedOverlays": null
+        }
+      },
+      {
+        "featureId": "app-display-name",
+        "evidenceRef": "features.app-display-name.surfaces.landing-page",
+        "responsiveEvidence": {
+          "status": "missing",
+          "minWidth": null,
+          "orientation": null,
+          "touchTargets": null,
+          "horizontalOverflow": null,
+          "viewportBoundedOverlays": null
+        }
+      },
+      {
+        "featureId": "secret-display-history",
+        "evidenceRef": "features.secret-display-history.surfaces.landing-page",
+        "responsiveEvidence": {
+          "status": "missing",
+          "minWidth": null,
+          "orientation": null,
+          "touchTargets": null,
+          "horizontalOverflow": null,
+          "viewportBoundedOverlays": null
+        }
+      },
+      {
+        "featureId": "cli-gui-parity",
+        "evidenceRef": "features.cli-gui-parity.surfaces.landing-page",
+        "responsiveEvidence": {
+          "status": "missing",
+          "minWidth": null,
+          "orientation": null,
+          "touchTargets": null,
+          "horizontalOverflow": null,
+          "viewportBoundedOverlays": null
+        }
+      },
+      {
+        "featureId": "gui-capability-registry",
+        "evidenceRef": "features.gui-capability-registry.surfaces.landing-page",
+        "responsiveEvidence": {
+          "status": "missing",
+          "minWidth": null,
+          "orientation": null,
+          "touchTargets": null,
+          "horizontalOverflow": null,
+          "viewportBoundedOverlays": null
+        }
+      },
+      {
+        "featureId": "config-profiles",
+        "evidenceRef": "features.config-profiles.surfaces.landing-page",
+        "responsiveEvidence": {
+          "status": "missing",
+          "minWidth": null,
+          "orientation": null,
+          "touchTargets": null,
+          "horizontalOverflow": null,
+          "viewportBoundedOverlays": null
+        }
+      },
+      {
+        "featureId": "status-hub",
+        "evidenceRef": "features.status-hub.surfaces.landing-page",
+        "responsiveEvidence": {
+          "status": "missing",
+          "minWidth": null,
+          "orientation": null,
+          "touchTargets": null,
+          "horizontalOverflow": null,
+          "viewportBoundedOverlays": null
+        }
+      },
+      {
+        "featureId": "status-discord-bridge",
+        "evidenceRef": "features.status-discord-bridge.surfaces.landing-page",
+        "responsiveEvidence": {
+          "status": "missing",
+          "minWidth": null,
+          "orientation": null,
+          "touchTargets": null,
+          "horizontalOverflow": null,
+          "viewportBoundedOverlays": null
+        }
+      },
+      {
+        "featureId": "tidbyt-status-display",
+        "evidenceRef": "features.tidbyt-status-display.surfaces.landing-page",
+        "responsiveEvidence": {
+          "status": "missing",
+          "minWidth": null,
+          "orientation": null,
+          "touchTargets": null,
+          "horizontalOverflow": null,
+          "viewportBoundedOverlays": null
+        }
+      },
+      {
+        "featureId": "vocabulary-hash-lock",
+        "evidenceRef": "features.vocabulary-hash-lock.surfaces.landing-page",
+        "responsiveEvidence": {
+          "status": "missing",
+          "minWidth": null,
+          "orientation": null,
+          "touchTargets": null,
+          "horizontalOverflow": null,
+          "viewportBoundedOverlays": null
+        }
+      },
+      {
+        "featureId": "sanitized-instruction-copy",
+        "evidenceRef": "features.sanitized-instruction-copy.surfaces.landing-page",
+        "responsiveEvidence": {
+          "status": "missing",
+          "minWidth": null,
+          "orientation": null,
+          "touchTargets": null,
+          "horizontalOverflow": null,
+          "viewportBoundedOverlays": null
+        }
+      },
+      {
+        "featureId": "repository-root-build-script",
+        "evidenceRef": "features.repository-root-build-script.surfaces.landing-page",
+        "responsiveEvidence": {
+          "status": "missing",
+          "minWidth": null,
+          "orientation": null,
+          "touchTargets": null,
+          "horizontalOverflow": null,
+          "viewportBoundedOverlays": null
+        }
+      },
+      {
+        "featureId": "dependency-bootstrap",
+        "evidenceRef": "features.dependency-bootstrap.surfaces.landing-page",
+        "responsiveEvidence": {
+          "status": "missing",
+          "minWidth": null,
+          "orientation": null,
+          "touchTargets": null,
+          "horizontalOverflow": null,
+          "viewportBoundedOverlays": null
+        }
+      },
+      {
+        "featureId": "bundled-runtime-dependencies",
+        "evidenceRef": "features.bundled-runtime-dependencies.surfaces.landing-page",
+        "responsiveEvidence": {
+          "status": "missing",
+          "minWidth": null,
+          "orientation": null,
+          "touchTargets": null,
+          "horizontalOverflow": null,
+          "viewportBoundedOverlays": null
+        }
+      },
+      {
+        "featureId": "unsigned-release-policy",
+        "evidenceRef": "features.unsigned-release-policy.surfaces.landing-page",
+        "responsiveEvidence": {
+          "status": "missing",
+          "minWidth": null,
+          "orientation": null,
+          "touchTargets": null,
+          "horizontalOverflow": null,
+          "viewportBoundedOverlays": null
+        }
+      },
+      {
+        "featureId": "release-line-count",
+        "evidenceRef": "features.release-line-count.surfaces.landing-page",
+        "responsiveEvidence": {
+          "status": "missing",
+          "minWidth": null,
+          "orientation": null,
+          "touchTargets": null,
+          "horizontalOverflow": null,
+          "viewportBoundedOverlays": null
+        }
+      },
+      {
+        "featureId": "issue-handoff",
+        "evidenceRef": "features.issue-handoff.surfaces.landing-page",
+        "responsiveEvidence": {
+          "status": "missing",
+          "minWidth": null,
+          "orientation": null,
+          "touchTargets": null,
+          "horizontalOverflow": null,
+          "viewportBoundedOverlays": null
+        }
+      },
+      {
+        "featureId": "rolling-discussion",
+        "evidenceRef": "features.rolling-discussion.surfaces.landing-page",
+        "responsiveEvidence": {
+          "status": "missing",
+          "minWidth": null,
+          "orientation": null,
+          "touchTargets": null,
+          "horizontalOverflow": null,
+          "viewportBoundedOverlays": null
+        }
+      },
+      {
+        "featureId": "project-status",
+        "evidenceRef": "features.project-status.surfaces.landing-page",
+        "responsiveEvidence": {
+          "status": "missing",
+          "minWidth": null,
+          "orientation": null,
+          "touchTargets": null,
+          "horizontalOverflow": null,
+          "viewportBoundedOverlays": null
+        }
+      },
+      {
+        "featureId": "site-homepage-link",
+        "evidenceRef": "features.site-homepage-link.surfaces.landing-page",
+        "responsiveEvidence": {
+          "status": "missing",
+          "minWidth": null,
+          "orientation": null,
+          "touchTargets": null,
+          "horizontalOverflow": null,
+          "viewportBoundedOverlays": null
+        }
+      },
+      {
+        "featureId": "api-documentation-and-collection",
+        "evidenceRef": "features.api-documentation-and-collection.surfaces.landing-page",
+        "responsiveEvidence": {
+          "status": "missing",
+          "minWidth": null,
+          "orientation": null,
+          "touchTargets": null,
+          "horizontalOverflow": null,
+          "viewportBoundedOverlays": null
+        }
+      },
+      {
+        "featureId": "capture-manifest",
+        "evidenceRef": "features.capture-manifest.surfaces.landing-page",
+        "responsiveEvidence": {
+          "status": "missing",
+          "minWidth": null,
+          "orientation": null,
+          "touchTargets": null,
+          "horizontalOverflow": null,
+          "viewportBoundedOverlays": null
+        }
+      },
+      {
+        "featureId": "release-metadata",
+        "evidenceRef": "features.release-metadata.surfaces.landing-page",
+        "responsiveEvidence": {
+          "status": "missing",
+          "minWidth": null,
+          "orientation": null,
+          "touchTargets": null,
+          "horizontalOverflow": null,
+          "viewportBoundedOverlays": null
+        }
+      },
+      {
+        "featureId": "cheap-transfer",
+        "evidenceRef": "features.cheap-transfer.surfaces.landing-page",
+        "responsiveEvidence": {
+          "status": "missing",
+          "minWidth": null,
+          "orientation": null,
+          "touchTargets": null,
+          "horizontalOverflow": null,
+          "viewportBoundedOverlays": null
+        }
+      },
+      {
+        "featureId": "automatic-updates",
+        "evidenceRef": "features.automatic-updates.surfaces.landing-page",
+        "responsiveEvidence": {
+          "status": "missing",
+          "minWidth": null,
+          "orientation": null,
+          "touchTargets": null,
+          "horizontalOverflow": null,
+          "viewportBoundedOverlays": null
+        }
+      },
+      {
+        "featureId": "packaged-app-icon",
+        "evidenceRef": "features.packaged-app-icon.surfaces.landing-page",
+        "responsiveEvidence": {
+          "status": "missing",
+          "minWidth": null,
+          "orientation": null,
+          "touchTargets": null,
+          "horizontalOverflow": null,
+          "viewportBoundedOverlays": null
+        }
+      },
+      {
+        "featureId": "no-network-privacy",
+        "evidenceRef": "features.no-network-privacy.surfaces.landing-page",
+        "responsiveEvidence": {
+          "status": "missing",
+          "minWidth": null,
+          "orientation": null,
+          "touchTargets": null,
+          "horizontalOverflow": null,
+          "viewportBoundedOverlays": null
+        }
+      }
+    ]
+  },
+  "features": [
+    {
+      "id": "language-modes",
+      "title": "Language Modes",
+      "contract": "Canonical shared contract row; implementation and evidence remain pending until the owning lane lands.",
+      "article": "docs/features/uh-completeness/articles/language-modes.md",
+      "surfaces": {
+        "desktop-app": {
+          "status": "missing",
+          "implementation": null,
+          "documentation": null,
+          "localizedCopy": null,
+          "persistence": null,
+          "focusedCheck": null,
+          "builtArtifactProof": null,
+          "captureEvidence": null
+        },
+        "landing-page": {
+          "status": "missing",
+          "implementation": null,
+          "documentation": null,
+          "localizedCopy": null,
+          "persistence": null,
+          "focusedCheck": null,
+          "builtArtifactProof": null,
+          "captureEvidence": null
+        }
+      }
+    },
+    {
+      "id": "funny-level-controls",
+      "title": "Funny Level Controls",
+      "contract": "Canonical shared contract row; implementation and evidence remain pending until the owning lane lands.",
+      "article": "docs/features/uh-completeness/articles/funny-level-controls.md",
+      "surfaces": {
+        "desktop-app": {
+          "status": "missing",
+          "implementation": null,
+          "documentation": null,
+          "localizedCopy": null,
+          "persistence": null,
+          "focusedCheck": null,
+          "builtArtifactProof": null,
+          "captureEvidence": null
+        },
+        "landing-page": {
+          "status": "missing",
+          "implementation": null,
+          "documentation": null,
+          "localizedCopy": null,
+          "persistence": null,
+          "focusedCheck": null,
+          "builtArtifactProof": null,
+          "captureEvidence": null
+        }
+      }
+    },
+    {
+      "id": "dialog-emoji-toggle",
+      "title": "Dialog Emoji Toggle",
+      "contract": "Canonical shared contract row; implementation and evidence remain pending until the owning lane lands.",
+      "article": "docs/features/uh-completeness/articles/dialog-emoji-toggle.md",
+      "surfaces": {
+        "desktop-app": {
+          "status": "missing",
+          "implementation": null,
+          "documentation": null,
+          "localizedCopy": null,
+          "persistence": null,
+          "focusedCheck": null,
+          "builtArtifactProof": null,
+          "captureEvidence": null
+        },
+        "landing-page": {
+          "status": "missing",
+          "implementation": null,
+          "documentation": null,
+          "localizedCopy": null,
+          "persistence": null,
+          "focusedCheck": null,
+          "builtArtifactProof": null,
+          "captureEvidence": null
+        }
+      }
+    },
+    {
+      "id": "school-mode",
+      "title": "School Mode",
+      "contract": "Canonical shared contract row; implementation and evidence remain pending until the owning lane lands.",
+      "article": "docs/features/uh-completeness/articles/school-mode.md",
+      "surfaces": {
+        "desktop-app": {
+          "status": "missing",
+          "implementation": null,
+          "documentation": null,
+          "localizedCopy": null,
+          "persistence": null,
+          "focusedCheck": null,
+          "builtArtifactProof": null,
+          "captureEvidence": null
+        },
+        "landing-page": {
+          "status": "missing",
+          "implementation": null,
+          "documentation": null,
+          "localizedCopy": null,
+          "persistence": null,
+          "focusedCheck": null,
+          "builtArtifactProof": null,
+          "captureEvidence": null
+        }
+      }
+    },
+    {
+      "id": "personal-vocabulary",
+      "title": "Personal Vocabulary",
+      "contract": "Canonical shared contract row; implementation and evidence remain pending until the owning lane lands.",
+      "article": "docs/features/uh-completeness/articles/personal-vocabulary.md",
+      "surfaces": {
+        "desktop-app": {
+          "status": "missing",
+          "implementation": null,
+          "documentation": null,
+          "localizedCopy": null,
+          "persistence": null,
+          "focusedCheck": null,
+          "builtArtifactProof": null,
+          "captureEvidence": null
+        },
+        "landing-page": {
+          "status": "missing",
+          "implementation": null,
+          "documentation": null,
+          "localizedCopy": null,
+          "persistence": null,
+          "focusedCheck": null,
+          "builtArtifactProof": null,
+          "captureEvidence": null
+        }
+      }
+    },
+    {
+      "id": "narration",
+      "title": "Narration",
+      "contract": "Canonical shared contract row; implementation and evidence remain pending until the owning lane lands.",
+      "article": "docs/features/uh-completeness/articles/narration.md",
+      "surfaces": {
+        "desktop-app": {
+          "status": "missing",
+          "implementation": null,
+          "documentation": null,
+          "localizedCopy": null,
+          "persistence": null,
+          "focusedCheck": null,
+          "builtArtifactProof": null,
+          "captureEvidence": null
+        },
+        "landing-page": {
+          "status": "missing",
+          "implementation": null,
+          "documentation": null,
+          "localizedCopy": null,
+          "persistence": null,
+          "focusedCheck": null,
+          "builtArtifactProof": null,
+          "captureEvidence": null
+        }
+      }
+    },
+    {
+      "id": "narrator-voice-selection",
+      "title": "Narrator Voice Selection",
+      "contract": "Canonical shared contract row; implementation and evidence remain pending until the owning lane lands.",
+      "article": "docs/features/uh-completeness/articles/narrator-voice-selection.md",
+      "surfaces": {
+        "desktop-app": {
+          "status": "missing",
+          "implementation": null,
+          "documentation": null,
+          "localizedCopy": null,
+          "persistence": null,
+          "focusedCheck": null,
+          "builtArtifactProof": null,
+          "captureEvidence": null
+        },
+        "landing-page": {
+          "status": "missing",
+          "implementation": null,
+          "documentation": null,
+          "localizedCopy": null,
+          "persistence": null,
+          "focusedCheck": null,
+          "builtArtifactProof": null,
+          "captureEvidence": null
+        }
+      }
+    },
+    {
+      "id": "scheduled-settings",
+      "title": "Scheduled Settings",
+      "contract": "Canonical shared contract row; implementation and evidence remain pending until the owning lane lands.",
+      "article": "docs/features/uh-completeness/articles/scheduled-settings.md",
+      "surfaces": {
+        "desktop-app": {
+          "status": "missing",
+          "implementation": null,
+          "documentation": null,
+          "localizedCopy": null,
+          "persistence": null,
+          "focusedCheck": null,
+          "builtArtifactProof": null,
+          "captureEvidence": null
+        },
+        "landing-page": {
+          "status": "missing",
+          "implementation": null,
+          "documentation": null,
+          "localizedCopy": null,
+          "persistence": null,
+          "focusedCheck": null,
+          "builtArtifactProof": null,
+          "captureEvidence": null
+        }
+      }
+    },
+    {
+      "id": "external-settings-sources",
+      "title": "External Settings Sources",
+      "contract": "Canonical shared contract row; implementation and evidence remain pending until the owning lane lands.",
+      "article": "docs/features/uh-completeness/articles/external-settings-sources.md",
+      "surfaces": {
+        "desktop-app": {
+          "status": "missing",
+          "implementation": null,
+          "documentation": null,
+          "localizedCopy": null,
+          "persistence": null,
+          "focusedCheck": null,
+          "builtArtifactProof": null,
+          "captureEvidence": null
+        },
+        "landing-page": {
+          "status": "missing",
+          "implementation": null,
+          "documentation": null,
+          "localizedCopy": null,
+          "persistence": null,
+          "focusedCheck": null,
+          "builtArtifactProof": null,
+          "captureEvidence": null
+        }
+      }
+    },
+    {
+      "id": "dim-sum-surprise",
+      "title": "Dim Sum Surprise",
+      "contract": "Canonical shared contract row; implementation and evidence remain pending until the owning lane lands.",
+      "article": "docs/features/uh-completeness/articles/dim-sum-surprise.md",
+      "surfaces": {
+        "desktop-app": {
+          "status": "missing",
+          "implementation": null,
+          "documentation": null,
+          "localizedCopy": null,
+          "persistence": null,
+          "focusedCheck": null,
+          "builtArtifactProof": null,
+          "captureEvidence": null
+        },
+        "landing-page": {
+          "status": "missing",
+          "implementation": null,
+          "documentation": null,
+          "localizedCopy": null,
+          "persistence": null,
+          "focusedCheck": null,
+          "builtArtifactProof": null,
+          "captureEvidence": null
+        }
+      }
+    },
+    {
+      "id": "dim-sum-release-catalog",
+      "title": "Dim Sum Release Catalog",
+      "contract": "Canonical shared contract row; implementation and evidence remain pending until the owning lane lands.",
+      "article": "docs/features/uh-completeness/articles/dim-sum-release-catalog.md",
+      "surfaces": {
+        "desktop-app": {
+          "status": "missing",
+          "implementation": null,
+          "documentation": null,
+          "localizedCopy": null,
+          "persistence": null,
+          "focusedCheck": null,
+          "builtArtifactProof": null,
+          "captureEvidence": null
+        },
+        "landing-page": {
+          "status": "missing",
+          "implementation": null,
+          "documentation": null,
+          "localizedCopy": null,
+          "persistence": null,
+          "focusedCheck": null,
+          "builtArtifactProof": null,
+          "captureEvidence": null
+        }
+      }
+    },
+    {
+      "id": "regex-builder",
+      "title": "Regex Builder",
+      "contract": "Canonical shared contract row; implementation and evidence remain pending until the owning lane lands.",
+      "article": "docs/features/uh-completeness/articles/regex-builder.md",
+      "surfaces": {
+        "desktop-app": {
+          "status": "missing",
+          "implementation": null,
+          "documentation": null,
+          "localizedCopy": null,
+          "persistence": null,
+          "focusedCheck": null,
+          "builtArtifactProof": null,
+          "captureEvidence": null
+        },
+        "landing-page": {
+          "status": "missing",
+          "implementation": null,
+          "documentation": null,
+          "localizedCopy": null,
+          "persistence": null,
+          "focusedCheck": null,
+          "builtArtifactProof": null,
+          "captureEvidence": null
+        }
+      }
+    },
+    {
+      "id": "notifications",
+      "title": "Notifications",
+      "contract": "Canonical shared contract row; implementation and evidence remain pending until the owning lane lands.",
+      "article": "docs/features/uh-completeness/articles/notifications.md",
+      "surfaces": {
+        "desktop-app": {
+          "status": "missing",
+          "implementation": null,
+          "documentation": null,
+          "localizedCopy": null,
+          "persistence": null,
+          "focusedCheck": null,
+          "builtArtifactProof": null,
+          "captureEvidence": null
+        },
+        "landing-page": {
+          "status": "missing",
+          "implementation": null,
+          "documentation": null,
+          "localizedCopy": null,
+          "persistence": null,
+          "focusedCheck": null,
+          "builtArtifactProof": null,
+          "captureEvidence": null
+        }
+      }
+    },
+    {
+      "id": "notification-center",
+      "title": "Notification Center",
+      "contract": "Canonical shared contract row; implementation and evidence remain pending until the owning lane lands.",
+      "article": "docs/features/uh-completeness/articles/notification-center.md",
+      "surfaces": {
+        "desktop-app": {
+          "status": "missing",
+          "implementation": null,
+          "documentation": null,
+          "localizedCopy": null,
+          "persistence": null,
+          "focusedCheck": null,
+          "builtArtifactProof": null,
+          "captureEvidence": null
+        },
+        "landing-page": {
+          "status": "missing",
+          "implementation": null,
+          "documentation": null,
+          "localizedCopy": null,
+          "persistence": null,
+          "focusedCheck": null,
+          "builtArtifactProof": null,
+          "captureEvidence": null
+        }
+      }
+    },
+    {
+      "id": "accessibility",
+      "title": "Accessibility",
+      "contract": "Canonical shared contract row; implementation and evidence remain pending until the owning lane lands.",
+      "article": "docs/features/uh-completeness/articles/accessibility.md",
+      "surfaces": {
+        "desktop-app": {
+          "status": "missing",
+          "implementation": null,
+          "documentation": null,
+          "localizedCopy": null,
+          "persistence": null,
+          "focusedCheck": null,
+          "builtArtifactProof": null,
+          "captureEvidence": null
+        },
+        "landing-page": {
+          "status": "missing",
+          "implementation": null,
+          "documentation": null,
+          "localizedCopy": null,
+          "persistence": null,
+          "focusedCheck": null,
+          "builtArtifactProof": null,
+          "captureEvidence": null
+        }
+      }
+    },
+    {
+      "id": "responsive-layout-and-sizing",
+      "title": "Responsive Layout And Sizing",
+      "contract": "Canonical shared contract row; implementation and evidence remain pending until the owning lane lands.",
+      "article": "docs/features/uh-completeness/articles/responsive-layout-and-sizing.md",
+      "surfaces": {
+        "desktop-app": {
+          "status": "missing",
+          "implementation": null,
+          "documentation": null,
+          "localizedCopy": null,
+          "persistence": null,
+          "focusedCheck": null,
+          "builtArtifactProof": null,
+          "captureEvidence": null
+        },
+        "landing-page": {
+          "status": "missing",
+          "implementation": null,
+          "documentation": null,
+          "localizedCopy": null,
+          "persistence": null,
+          "focusedCheck": null,
+          "builtArtifactProof": null,
+          "captureEvidence": null
+        }
+      }
+    },
+    {
+      "id": "material-design",
+      "title": "Material Design",
+      "contract": "Canonical shared contract row; implementation and evidence remain pending until the owning lane lands.",
+      "article": "docs/features/uh-completeness/articles/material-design.md",
+      "surfaces": {
+        "desktop-app": {
+          "status": "missing",
+          "implementation": null,
+          "documentation": null,
+          "localizedCopy": null,
+          "persistence": null,
+          "focusedCheck": null,
+          "builtArtifactProof": null,
+          "captureEvidence": null
+        },
+        "landing-page": {
+          "status": "missing",
+          "implementation": null,
+          "documentation": null,
+          "localizedCopy": null,
+          "persistence": null,
+          "focusedCheck": null,
+          "builtArtifactProof": null,
+          "captureEvidence": null
+        }
+      }
+    },
+    {
+      "id": "appearance-editor",
+      "title": "Appearance Editor",
+      "contract": "Canonical shared contract row; implementation and evidence remain pending until the owning lane lands.",
+      "article": "docs/features/uh-completeness/articles/appearance-editor.md",
+      "surfaces": {
+        "desktop-app": {
+          "status": "missing",
+          "implementation": null,
+          "documentation": null,
+          "localizedCopy": null,
+          "persistence": null,
+          "focusedCheck": null,
+          "builtArtifactProof": null,
+          "captureEvidence": null
+        },
+        "landing-page": {
+          "status": "missing",
+          "implementation": null,
+          "documentation": null,
+          "localizedCopy": null,
+          "persistence": null,
+          "focusedCheck": null,
+          "builtArtifactProof": null,
+          "captureEvidence": null
+        }
+      }
+    },
+    {
+      "id": "infinite-color-translator",
+      "title": "Infinite Color Translator",
+      "contract": "Canonical shared contract row; implementation and evidence remain pending until the owning lane lands.",
+      "article": "docs/features/uh-completeness/articles/infinite-color-translator.md",
+      "surfaces": {
+        "desktop-app": {
+          "status": "missing",
+          "implementation": null,
+          "documentation": null,
+          "localizedCopy": null,
+          "persistence": null,
+          "focusedCheck": null,
+          "builtArtifactProof": null,
+          "captureEvidence": null
+        },
+        "landing-page": {
+          "status": "missing",
+          "implementation": null,
+          "documentation": null,
+          "localizedCopy": null,
+          "persistence": null,
+          "focusedCheck": null,
+          "builtArtifactProof": null,
+          "captureEvidence": null
+        }
+      }
+    },
+    {
+      "id": "app-logo-customization",
+      "title": "App Logo Customization",
+      "contract": "Canonical shared contract row; implementation and evidence remain pending until the owning lane lands.",
+      "article": "docs/features/uh-completeness/articles/app-logo-customization.md",
+      "surfaces": {
+        "desktop-app": {
+          "status": "missing",
+          "implementation": null,
+          "documentation": null,
+          "localizedCopy": null,
+          "persistence": null,
+          "focusedCheck": null,
+          "builtArtifactProof": null,
+          "captureEvidence": null
+        },
+        "landing-page": {
+          "status": "missing",
+          "implementation": null,
+          "documentation": null,
+          "localizedCopy": null,
+          "persistence": null,
+          "focusedCheck": null,
+          "builtArtifactProof": null,
+          "captureEvidence": null
+        }
+      }
+    },
+    {
+      "id": "file-converter",
+      "title": "File Converter",
+      "contract": "Canonical shared contract row; implementation and evidence remain pending until the owning lane lands.",
+      "article": "docs/features/uh-completeness/articles/file-converter.md",
+      "surfaces": {
+        "desktop-app": {
+          "status": "missing",
+          "implementation": null,
+          "documentation": null,
+          "localizedCopy": null,
+          "persistence": null,
+          "focusedCheck": null,
+          "builtArtifactProof": null,
+          "captureEvidence": null
+        },
+        "landing-page": {
+          "status": "missing",
+          "implementation": null,
+          "documentation": null,
+          "localizedCopy": null,
+          "persistence": null,
+          "focusedCheck": null,
+          "builtArtifactProof": null,
+          "captureEvidence": null
+        }
+      }
+    },
+    {
+      "id": "ollama-suite-manager",
+      "title": "Ollama Suite Manager",
+      "contract": "Canonical shared contract row; implementation and evidence remain pending until the owning lane lands.",
+      "article": "docs/features/uh-completeness/articles/ollama-suite-manager.md",
+      "surfaces": {
+        "desktop-app": {
+          "status": "missing",
+          "implementation": null,
+          "documentation": null,
+          "localizedCopy": null,
+          "persistence": null,
+          "focusedCheck": null,
+          "builtArtifactProof": null,
+          "captureEvidence": null
+        },
+        "landing-page": {
+          "status": "missing",
+          "implementation": null,
+          "documentation": null,
+          "localizedCopy": null,
+          "persistence": null,
+          "focusedCheck": null,
+          "builtArtifactProof": null,
+          "captureEvidence": null
+        }
+      }
+    },
+    {
+      "id": "model-store",
+      "title": "Model Store",
+      "contract": "Canonical shared contract row; implementation and evidence remain pending until the owning lane lands.",
+      "article": "docs/features/uh-completeness/articles/model-store.md",
+      "surfaces": {
+        "desktop-app": {
+          "status": "missing",
+          "implementation": null,
+          "documentation": null,
+          "localizedCopy": null,
+          "persistence": null,
+          "focusedCheck": null,
+          "builtArtifactProof": null,
+          "captureEvidence": null
+        },
+        "landing-page": {
+          "status": "missing",
+          "implementation": null,
+          "documentation": null,
+          "localizedCopy": null,
+          "persistence": null,
+          "focusedCheck": null,
+          "builtArtifactProof": null,
+          "captureEvidence": null
+        }
+      }
+    },
+    {
+      "id": "hardware-fit",
+      "title": "Hardware Fit",
+      "contract": "Canonical shared contract row; implementation and evidence remain pending until the owning lane lands.",
+      "article": "docs/features/uh-completeness/articles/hardware-fit.md",
+      "surfaces": {
+        "desktop-app": {
+          "status": "missing",
+          "implementation": null,
+          "documentation": null,
+          "localizedCopy": null,
+          "persistence": null,
+          "focusedCheck": null,
+          "builtArtifactProof": null,
+          "captureEvidence": null
+        },
+        "landing-page": {
+          "status": "missing",
+          "implementation": null,
+          "documentation": null,
+          "localizedCopy": null,
+          "persistence": null,
+          "focusedCheck": null,
+          "builtArtifactProof": null,
+          "captureEvidence": null
+        }
+      }
+    },
+    {
+      "id": "batch-pull-queue",
+      "title": "Batch Pull Queue",
+      "contract": "Canonical shared contract row; implementation and evidence remain pending until the owning lane lands.",
+      "article": "docs/features/uh-completeness/articles/batch-pull-queue.md",
+      "surfaces": {
+        "desktop-app": {
+          "status": "missing",
+          "implementation": null,
+          "documentation": null,
+          "localizedCopy": null,
+          "persistence": null,
+          "focusedCheck": null,
+          "builtArtifactProof": null,
+          "captureEvidence": null
+        },
+        "landing-page": {
+          "status": "missing",
+          "implementation": null,
+          "documentation": null,
+          "localizedCopy": null,
+          "persistence": null,
+          "focusedCheck": null,
+          "builtArtifactProof": null,
+          "captureEvidence": null
+        }
+      }
+    },
+    {
+      "id": "local-chat-sessions",
+      "title": "Local Chat Sessions",
+      "contract": "Canonical shared contract row; implementation and evidence remain pending until the owning lane lands.",
+      "article": "docs/features/uh-completeness/articles/local-chat-sessions.md",
+      "surfaces": {
+        "desktop-app": {
+          "status": "missing",
+          "implementation": null,
+          "documentation": null,
+          "localizedCopy": null,
+          "persistence": null,
+          "focusedCheck": null,
+          "builtArtifactProof": null,
+          "captureEvidence": null
+        },
+        "landing-page": {
+          "status": "missing",
+          "implementation": null,
+          "documentation": null,
+          "localizedCopy": null,
+          "persistence": null,
+          "focusedCheck": null,
+          "builtArtifactProof": null,
+          "captureEvidence": null
+        }
+      }
+    },
+    {
+      "id": "harness-profiles",
+      "title": "Harness Profiles",
+      "contract": "Canonical shared contract row; implementation and evidence remain pending until the owning lane lands.",
+      "article": "docs/features/uh-completeness/articles/harness-profiles.md",
+      "surfaces": {
+        "desktop-app": {
+          "status": "missing",
+          "implementation": null,
+          "documentation": null,
+          "localizedCopy": null,
+          "persistence": null,
+          "focusedCheck": null,
+          "builtArtifactProof": null,
+          "captureEvidence": null
+        },
+        "landing-page": {
+          "status": "missing",
+          "implementation": null,
+          "documentation": null,
+          "localizedCopy": null,
+          "persistence": null,
+          "focusedCheck": null,
+          "builtArtifactProof": null,
+          "captureEvidence": null
+        }
+      }
+    },
+    {
+      "id": "browser-tabs",
+      "title": "Browser Tabs",
+      "contract": "Canonical shared contract row; implementation and evidence remain pending until the owning lane lands.",
+      "article": "docs/features/uh-completeness/articles/browser-tabs.md",
+      "surfaces": {
+        "desktop-app": {
+          "status": "missing",
+          "implementation": null,
+          "documentation": null,
+          "localizedCopy": null,
+          "persistence": null,
+          "focusedCheck": null,
+          "builtArtifactProof": null,
+          "captureEvidence": null
+        },
+        "landing-page": {
+          "status": "missing",
+          "implementation": null,
+          "documentation": null,
+          "localizedCopy": null,
+          "persistence": null,
+          "focusedCheck": null,
+          "builtArtifactProof": null,
+          "captureEvidence": null
+        }
+      }
+    },
+    {
+      "id": "tab-docking-overflow",
+      "title": "Tab Docking Overflow",
+      "contract": "Canonical shared contract row; implementation and evidence remain pending until the owning lane lands.",
+      "article": "docs/features/uh-completeness/articles/tab-docking-overflow.md",
+      "surfaces": {
+        "desktop-app": {
+          "status": "missing",
+          "implementation": null,
+          "documentation": null,
+          "localizedCopy": null,
+          "persistence": null,
+          "focusedCheck": null,
+          "builtArtifactProof": null,
+          "captureEvidence": null
+        },
+        "landing-page": {
+          "status": "missing",
+          "implementation": null,
+          "documentation": null,
+          "localizedCopy": null,
+          "persistence": null,
+          "focusedCheck": null,
+          "builtArtifactProof": null,
+          "captureEvidence": null
+        }
+      }
+    },
+    {
+      "id": "tab-groups",
+      "title": "Tab Groups",
+      "contract": "Canonical shared contract row; implementation and evidence remain pending until the owning lane lands.",
+      "article": "docs/features/uh-completeness/articles/tab-groups.md",
+      "surfaces": {
+        "desktop-app": {
+          "status": "missing",
+          "implementation": null,
+          "documentation": null,
+          "localizedCopy": null,
+          "persistence": null,
+          "focusedCheck": null,
+          "builtArtifactProof": null,
+          "captureEvidence": null
+        },
+        "landing-page": {
+          "status": "missing",
+          "implementation": null,
+          "documentation": null,
+          "localizedCopy": null,
+          "persistence": null,
+          "focusedCheck": null,
+          "builtArtifactProof": null,
+          "captureEvidence": null
+        }
+      }
+    },
+    {
+      "id": "tab-discovery-searches",
+      "title": "Tab Discovery Searches",
+      "contract": "Canonical shared contract row; implementation and evidence remain pending until the owning lane lands.",
+      "article": "docs/features/uh-completeness/articles/tab-discovery-searches.md",
+      "surfaces": {
+        "desktop-app": {
+          "status": "missing",
+          "implementation": null,
+          "documentation": null,
+          "localizedCopy": null,
+          "persistence": null,
+          "focusedCheck": null,
+          "builtArtifactProof": null,
+          "captureEvidence": null
+        },
+        "landing-page": {
+          "status": "missing",
+          "implementation": null,
+          "documentation": null,
+          "localizedCopy": null,
+          "persistence": null,
+          "focusedCheck": null,
+          "builtArtifactProof": null,
+          "captureEvidence": null
+        }
+      }
+    },
+    {
+      "id": "tab-bulk-close",
+      "title": "Tab Bulk Close",
+      "contract": "Canonical shared contract row; implementation and evidence remain pending until the owning lane lands.",
+      "article": "docs/features/uh-completeness/articles/tab-bulk-close.md",
+      "surfaces": {
+        "desktop-app": {
+          "status": "missing",
+          "implementation": null,
+          "documentation": null,
+          "localizedCopy": null,
+          "persistence": null,
+          "focusedCheck": null,
+          "builtArtifactProof": null,
+          "captureEvidence": null
+        },
+        "landing-page": {
+          "status": "missing",
+          "implementation": null,
+          "documentation": null,
+          "localizedCopy": null,
+          "persistence": null,
+          "focusedCheck": null,
+          "builtArtifactProof": null,
+          "captureEvidence": null
+        }
+      }
+    },
+    {
+      "id": "offline-documentation-browser",
+      "title": "Offline Documentation Browser",
+      "contract": "Canonical shared contract row; implementation and evidence remain pending until the owning lane lands.",
+      "article": "docs/features/uh-completeness/articles/offline-documentation-browser.md",
+      "surfaces": {
+        "desktop-app": {
+          "status": "missing",
+          "implementation": null,
+          "documentation": null,
+          "localizedCopy": null,
+          "persistence": null,
+          "focusedCheck": null,
+          "builtArtifactProof": null,
+          "captureEvidence": null
+        },
+        "landing-page": {
+          "status": "missing",
+          "implementation": null,
+          "documentation": null,
+          "localizedCopy": null,
+          "persistence": null,
+          "focusedCheck": null,
+          "builtArtifactProof": null,
+          "captureEvidence": null
+        }
+      }
+    },
+    {
+      "id": "landing-page-boundary",
+      "title": "Landing Page Boundary",
+      "contract": "Canonical shared contract row; implementation and evidence remain pending until the owning lane lands.",
+      "article": "docs/features/uh-completeness/articles/landing-page-boundary.md",
+      "surfaces": {
+        "desktop-app": {
+          "status": "missing",
+          "implementation": null,
+          "documentation": null,
+          "localizedCopy": null,
+          "persistence": null,
+          "focusedCheck": null,
+          "builtArtifactProof": null,
+          "captureEvidence": null
+        },
+        "landing-page": {
+          "status": "missing",
+          "implementation": null,
+          "documentation": null,
+          "localizedCopy": null,
+          "persistence": null,
+          "focusedCheck": null,
+          "builtArtifactProof": null,
+          "captureEvidence": null
+        }
+      }
+    },
+    {
+      "id": "command-palette",
+      "title": "Command Palette",
+      "contract": "Canonical shared contract row; implementation and evidence remain pending until the owning lane lands.",
+      "article": "docs/features/uh-completeness/articles/command-palette.md",
+      "surfaces": {
+        "desktop-app": {
+          "status": "missing",
+          "implementation": null,
+          "documentation": null,
+          "localizedCopy": null,
+          "persistence": null,
+          "focusedCheck": null,
+          "builtArtifactProof": null,
+          "captureEvidence": null
+        },
+        "landing-page": {
+          "status": "missing",
+          "implementation": null,
+          "documentation": null,
+          "localizedCopy": null,
+          "persistence": null,
+          "focusedCheck": null,
+          "builtArtifactProof": null,
+          "captureEvidence": null
+        }
+      }
+    },
+    {
+      "id": "destructive-super-confirmation",
+      "title": "Destructive Super Confirmation",
+      "contract": "Canonical shared contract row; implementation and evidence remain pending until the owning lane lands.",
+      "article": "docs/features/uh-completeness/articles/destructive-super-confirmation.md",
+      "surfaces": {
+        "desktop-app": {
+          "status": "missing",
+          "implementation": null,
+          "documentation": null,
+          "localizedCopy": null,
+          "persistence": null,
+          "focusedCheck": null,
+          "builtArtifactProof": null,
+          "captureEvidence": null
+        },
+        "landing-page": {
+          "status": "missing",
+          "implementation": null,
+          "documentation": null,
+          "localizedCopy": null,
+          "persistence": null,
+          "focusedCheck": null,
+          "builtArtifactProof": null,
+          "captureEvidence": null
+        }
+      }
+    },
+    {
+      "id": "local-version-history",
+      "title": "Local Version History",
+      "contract": "Canonical shared contract row; implementation and evidence remain pending until the owning lane lands.",
+      "article": "docs/features/uh-completeness/articles/local-version-history.md",
+      "surfaces": {
+        "desktop-app": {
+          "status": "missing",
+          "implementation": null,
+          "documentation": null,
+          "localizedCopy": null,
+          "persistence": null,
+          "focusedCheck": null,
+          "builtArtifactProof": null,
+          "captureEvidence": null
+        },
+        "landing-page": {
+          "status": "missing",
+          "implementation": null,
+          "documentation": null,
+          "localizedCopy": null,
+          "persistence": null,
+          "focusedCheck": null,
+          "builtArtifactProof": null,
+          "captureEvidence": null
+        }
+      }
+    },
+    {
+      "id": "changelog-viewer",
+      "title": "Changelog Viewer",
+      "contract": "Canonical shared contract row; implementation and evidence remain pending until the owning lane lands.",
+      "article": "docs/features/uh-completeness/articles/changelog-viewer.md",
+      "surfaces": {
+        "desktop-app": {
+          "status": "missing",
+          "implementation": null,
+          "documentation": null,
+          "localizedCopy": null,
+          "persistence": null,
+          "focusedCheck": null,
+          "builtArtifactProof": null,
+          "captureEvidence": null
+        },
+        "landing-page": {
+          "status": "missing",
+          "implementation": null,
+          "documentation": null,
+          "localizedCopy": null,
+          "persistence": null,
+          "focusedCheck": null,
+          "builtArtifactProof": null,
+          "captureEvidence": null
+        }
+      }
+    },
+    {
+      "id": "external-editor",
+      "title": "External Editor",
+      "contract": "Canonical shared contract row; implementation and evidence remain pending until the owning lane lands.",
+      "article": "docs/features/uh-completeness/articles/external-editor.md",
+      "surfaces": {
+        "desktop-app": {
+          "status": "missing",
+          "implementation": null,
+          "documentation": null,
+          "localizedCopy": null,
+          "persistence": null,
+          "focusedCheck": null,
+          "builtArtifactProof": null,
+          "captureEvidence": null
+        },
+        "landing-page": {
+          "status": "missing",
+          "implementation": null,
+          "documentation": null,
+          "localizedCopy": null,
+          "persistence": null,
+          "focusedCheck": null,
+          "builtArtifactProof": null,
+          "captureEvidence": null
+        }
+      }
+    },
+    {
+      "id": "exports",
+      "title": "Exports",
+      "contract": "Canonical shared contract row; implementation and evidence remain pending until the owning lane lands.",
+      "article": "docs/features/uh-completeness/articles/exports.md",
+      "surfaces": {
+        "desktop-app": {
+          "status": "missing",
+          "implementation": null,
+          "documentation": null,
+          "localizedCopy": null,
+          "persistence": null,
+          "focusedCheck": null,
+          "builtArtifactProof": null,
+          "captureEvidence": null
+        },
+        "landing-page": {
+          "status": "missing",
+          "implementation": null,
+          "documentation": null,
+          "localizedCopy": null,
+          "persistence": null,
+          "focusedCheck": null,
+          "builtArtifactProof": null,
+          "captureEvidence": null
+        }
+      }
+    },
+    {
+      "id": "bulk-actions",
+      "title": "Bulk Actions",
+      "contract": "Canonical shared contract row; implementation and evidence remain pending until the owning lane lands.",
+      "article": "docs/features/uh-completeness/articles/bulk-actions.md",
+      "surfaces": {
+        "desktop-app": {
+          "status": "missing",
+          "implementation": null,
+          "documentation": null,
+          "localizedCopy": null,
+          "persistence": null,
+          "focusedCheck": null,
+          "builtArtifactProof": null,
+          "captureEvidence": null
+        },
+        "landing-page": {
+          "status": "missing",
+          "implementation": null,
+          "documentation": null,
+          "localizedCopy": null,
+          "persistence": null,
+          "focusedCheck": null,
+          "builtArtifactProof": null,
+          "captureEvidence": null
+        }
+      }
+    },
+    {
+      "id": "toy-locks",
+      "title": "Toy Locks",
+      "contract": "Canonical shared contract row; implementation and evidence remain pending until the owning lane lands.",
+      "article": "docs/features/uh-completeness/articles/toy-locks.md",
+      "surfaces": {
+        "desktop-app": {
+          "status": "missing",
+          "implementation": null,
+          "documentation": null,
+          "localizedCopy": null,
+          "persistence": null,
+          "focusedCheck": null,
+          "builtArtifactProof": null,
+          "captureEvidence": null
+        },
+        "landing-page": {
+          "status": "missing",
+          "implementation": null,
+          "documentation": null,
+          "localizedCopy": null,
+          "persistence": null,
+          "focusedCheck": null,
+          "builtArtifactProof": null,
+          "captureEvidence": null
+        }
+      }
+    },
+    {
+      "id": "support-tickets",
+      "title": "Support Tickets",
+      "contract": "Canonical shared contract row; implementation and evidence remain pending until the owning lane lands.",
+      "article": "docs/features/uh-completeness/articles/support-tickets.md",
+      "surfaces": {
+        "desktop-app": {
+          "status": "missing",
+          "implementation": null,
+          "documentation": null,
+          "localizedCopy": null,
+          "persistence": null,
+          "focusedCheck": null,
+          "builtArtifactProof": null,
+          "captureEvidence": null
+        },
+        "landing-page": {
+          "status": "missing",
+          "implementation": null,
+          "documentation": null,
+          "localizedCopy": null,
+          "persistence": null,
+          "focusedCheck": null,
+          "builtArtifactProof": null,
+          "captureEvidence": null
+        }
+      }
+    },
+    {
+      "id": "unlock-ladder",
+      "title": "Unlock Ladder",
+      "contract": "Canonical shared contract row; implementation and evidence remain pending until the owning lane lands.",
+      "article": "docs/features/uh-completeness/articles/unlock-ladder.md",
+      "surfaces": {
+        "desktop-app": {
+          "status": "missing",
+          "implementation": null,
+          "documentation": null,
+          "localizedCopy": null,
+          "persistence": null,
+          "focusedCheck": null,
+          "builtArtifactProof": null,
+          "captureEvidence": null
+        },
+        "landing-page": {
+          "status": "missing",
+          "implementation": null,
+          "documentation": null,
+          "localizedCopy": null,
+          "persistence": null,
+          "focusedCheck": null,
+          "builtArtifactProof": null,
+          "captureEvidence": null
+        }
+      }
+    },
+    {
+      "id": "two-factor-qr-pairing",
+      "title": "Two Factor Qr Pairing",
+      "contract": "Canonical shared contract row; implementation and evidence remain pending until the owning lane lands.",
+      "article": "docs/features/uh-completeness/articles/two-factor-qr-pairing.md",
+      "surfaces": {
+        "desktop-app": {
+          "status": "missing",
+          "implementation": null,
+          "documentation": null,
+          "localizedCopy": null,
+          "persistence": null,
+          "focusedCheck": null,
+          "builtArtifactProof": null,
+          "captureEvidence": null
+        },
+        "landing-page": {
+          "status": "missing",
+          "implementation": null,
+          "documentation": null,
+          "localizedCopy": null,
+          "persistence": null,
+          "focusedCheck": null,
+          "builtArtifactProof": null,
+          "captureEvidence": null
+        }
+      }
+    },
+    {
+      "id": "built-in-authenticator",
+      "title": "Built In Authenticator",
+      "contract": "Canonical shared contract row; implementation and evidence remain pending until the owning lane lands.",
+      "article": "docs/features/uh-completeness/articles/built-in-authenticator.md",
+      "surfaces": {
+        "desktop-app": {
+          "status": "missing",
+          "implementation": null,
+          "documentation": null,
+          "localizedCopy": null,
+          "persistence": null,
+          "focusedCheck": null,
+          "builtArtifactProof": null,
+          "captureEvidence": null
+        },
+        "landing-page": {
+          "status": "missing",
+          "implementation": null,
+          "documentation": null,
+          "localizedCopy": null,
+          "persistence": null,
+          "focusedCheck": null,
+          "builtArtifactProof": null,
+          "captureEvidence": null
+        }
+      }
+    },
+    {
+      "id": "browser-extension-download-capture",
+      "title": "Browser Extension Download Capture",
+      "contract": "Canonical shared contract row; implementation and evidence remain pending until the owning lane lands.",
+      "article": "docs/features/uh-completeness/articles/browser-extension-download-capture.md",
+      "surfaces": {
+        "desktop-app": {
+          "status": "missing",
+          "implementation": null,
+          "documentation": null,
+          "localizedCopy": null,
+          "persistence": null,
+          "focusedCheck": null,
+          "builtArtifactProof": null,
+          "captureEvidence": null
+        },
+        "landing-page": {
+          "status": "missing",
+          "implementation": null,
+          "documentation": null,
+          "localizedCopy": null,
+          "persistence": null,
+          "focusedCheck": null,
+          "builtArtifactProof": null,
+          "captureEvidence": null
+        }
+      }
+    },
+    {
+      "id": "shared-link-embed",
+      "title": "Shared Link Embed",
+      "contract": "Canonical shared contract row; implementation and evidence remain pending until the owning lane lands.",
+      "article": "docs/features/uh-completeness/articles/shared-link-embed.md",
+      "surfaces": {
+        "desktop-app": {
+          "status": "missing",
+          "implementation": null,
+          "documentation": null,
+          "localizedCopy": null,
+          "persistence": null,
+          "focusedCheck": null,
+          "builtArtifactProof": null,
+          "captureEvidence": null
+        },
+        "landing-page": {
+          "status": "missing",
+          "implementation": null,
+          "documentation": null,
+          "localizedCopy": null,
+          "persistence": null,
+          "focusedCheck": null,
+          "builtArtifactProof": null,
+          "captureEvidence": null
+        }
+      }
+    },
+    {
+      "id": "provider-authored-renderer",
+      "title": "Provider Authored Renderer",
+      "contract": "Canonical shared contract row; implementation and evidence remain pending until the owning lane lands.",
+      "article": "docs/features/uh-completeness/articles/provider-authored-renderer.md",
+      "surfaces": {
+        "desktop-app": {
+          "status": "missing",
+          "implementation": null,
+          "documentation": null,
+          "localizedCopy": null,
+          "persistence": null,
+          "focusedCheck": null,
+          "builtArtifactProof": null,
+          "captureEvidence": null
+        },
+        "landing-page": {
+          "status": "missing",
+          "implementation": null,
+          "documentation": null,
+          "localizedCopy": null,
+          "persistence": null,
+          "focusedCheck": null,
+          "builtArtifactProof": null,
+          "captureEvidence": null
+        }
+      }
+    },
+    {
+      "id": "guided-forms",
+      "title": "Guided Forms",
+      "contract": "Canonical shared contract row; implementation and evidence remain pending until the owning lane lands.",
+      "article": "docs/features/uh-completeness/articles/guided-forms.md",
+      "surfaces": {
+        "desktop-app": {
+          "status": "missing",
+          "implementation": null,
+          "documentation": null,
+          "localizedCopy": null,
+          "persistence": null,
+          "focusedCheck": null,
+          "builtArtifactProof": null,
+          "captureEvidence": null
+        },
+        "landing-page": {
+          "status": "missing",
+          "implementation": null,
+          "documentation": null,
+          "localizedCopy": null,
+          "persistence": null,
+          "focusedCheck": null,
+          "builtArtifactProof": null,
+          "captureEvidence": null
+        }
+      }
+    },
+    {
+      "id": "rich-controls",
+      "title": "Rich Controls",
+      "contract": "Canonical shared contract row; implementation and evidence remain pending until the owning lane lands.",
+      "article": "docs/features/uh-completeness/articles/rich-controls.md",
+      "surfaces": {
+        "desktop-app": {
+          "status": "missing",
+          "implementation": null,
+          "documentation": null,
+          "localizedCopy": null,
+          "persistence": null,
+          "focusedCheck": null,
+          "builtArtifactProof": null,
+          "captureEvidence": null
+        },
+        "landing-page": {
+          "status": "missing",
+          "implementation": null,
+          "documentation": null,
+          "localizedCopy": null,
+          "persistence": null,
+          "focusedCheck": null,
+          "builtArtifactProof": null,
+          "captureEvidence": null
+        }
+      }
+    },
+    {
+      "id": "settings-explanations-provenance",
+      "title": "Settings Explanations Provenance",
+      "contract": "Canonical shared contract row; implementation and evidence remain pending until the owning lane lands.",
+      "article": "docs/features/uh-completeness/articles/settings-explanations-provenance.md",
+      "surfaces": {
+        "desktop-app": {
+          "status": "missing",
+          "implementation": null,
+          "documentation": null,
+          "localizedCopy": null,
+          "persistence": null,
+          "focusedCheck": null,
+          "builtArtifactProof": null,
+          "captureEvidence": null
+        },
+        "landing-page": {
+          "status": "missing",
+          "implementation": null,
+          "documentation": null,
+          "localizedCopy": null,
+          "persistence": null,
+          "focusedCheck": null,
+          "builtArtifactProof": null,
+          "captureEvidence": null
+        }
+      }
+    },
+    {
+      "id": "overlays",
+      "title": "Overlays",
+      "contract": "Canonical shared contract row; implementation and evidence remain pending until the owning lane lands.",
+      "article": "docs/features/uh-completeness/articles/overlays.md",
+      "surfaces": {
+        "desktop-app": {
+          "status": "missing",
+          "implementation": null,
+          "documentation": null,
+          "localizedCopy": null,
+          "persistence": null,
+          "focusedCheck": null,
+          "builtArtifactProof": null,
+          "captureEvidence": null
+        },
+        "landing-page": {
+          "status": "missing",
+          "implementation": null,
+          "documentation": null,
+          "localizedCopy": null,
+          "persistence": null,
+          "focusedCheck": null,
+          "builtArtifactProof": null,
+          "captureEvidence": null
+        }
+      }
+    },
+    {
+      "id": "context-menu-shortcuts",
+      "title": "Context Menu Shortcuts",
+      "contract": "Canonical shared contract row; implementation and evidence remain pending until the owning lane lands.",
+      "article": "docs/features/uh-completeness/articles/context-menu-shortcuts.md",
+      "surfaces": {
+        "desktop-app": {
+          "status": "missing",
+          "implementation": null,
+          "documentation": null,
+          "localizedCopy": null,
+          "persistence": null,
+          "focusedCheck": null,
+          "builtArtifactProof": null,
+          "captureEvidence": null
+        },
+        "landing-page": {
+          "status": "missing",
+          "implementation": null,
+          "documentation": null,
+          "localizedCopy": null,
+          "persistence": null,
+          "focusedCheck": null,
+          "builtArtifactProof": null,
+          "captureEvidence": null
+        }
+      }
+    },
+    {
+      "id": "long-operation-progress",
+      "title": "Long Operation Progress",
+      "contract": "Canonical shared contract row; implementation and evidence remain pending until the owning lane lands.",
+      "article": "docs/features/uh-completeness/articles/long-operation-progress.md",
+      "surfaces": {
+        "desktop-app": {
+          "status": "missing",
+          "implementation": null,
+          "documentation": null,
+          "localizedCopy": null,
+          "persistence": null,
+          "focusedCheck": null,
+          "builtArtifactProof": null,
+          "captureEvidence": null
+        },
+        "landing-page": {
+          "status": "missing",
+          "implementation": null,
+          "documentation": null,
+          "localizedCopy": null,
+          "persistence": null,
+          "focusedCheck": null,
+          "builtArtifactProof": null,
+          "captureEvidence": null
+        }
+      }
+    },
+    {
+      "id": "failure-recovery",
+      "title": "Failure Recovery",
+      "contract": "Canonical shared contract row; implementation and evidence remain pending until the owning lane lands.",
+      "article": "docs/features/uh-completeness/articles/failure-recovery.md",
+      "surfaces": {
+        "desktop-app": {
+          "status": "missing",
+          "implementation": null,
+          "documentation": null,
+          "localizedCopy": null,
+          "persistence": null,
+          "focusedCheck": null,
+          "builtArtifactProof": null,
+          "captureEvidence": null
+        },
+        "landing-page": {
+          "status": "missing",
+          "implementation": null,
+          "documentation": null,
+          "localizedCopy": null,
+          "persistence": null,
+          "focusedCheck": null,
+          "builtArtifactProof": null,
+          "captureEvidence": null
+        }
+      }
+    },
+    {
+      "id": "forge-publishing",
+      "title": "Forge Publishing",
+      "contract": "Canonical shared contract row; implementation and evidence remain pending until the owning lane lands.",
+      "article": "docs/features/uh-completeness/articles/forge-publishing.md",
+      "surfaces": {
+        "desktop-app": {
+          "status": "missing",
+          "implementation": null,
+          "documentation": null,
+          "localizedCopy": null,
+          "persistence": null,
+          "focusedCheck": null,
+          "builtArtifactProof": null,
+          "captureEvidence": null
+        },
+        "landing-page": {
+          "status": "missing",
+          "implementation": null,
+          "documentation": null,
+          "localizedCopy": null,
+          "persistence": null,
+          "focusedCheck": null,
+          "builtArtifactProof": null,
+          "captureEvidence": null
+        }
+      }
+    },
+    {
+      "id": "collapsible-filters",
+      "title": "Collapsible Filters",
+      "contract": "Canonical shared contract row; implementation and evidence remain pending until the owning lane lands.",
+      "article": "docs/features/uh-completeness/articles/collapsible-filters.md",
+      "surfaces": {
+        "desktop-app": {
+          "status": "missing",
+          "implementation": null,
+          "documentation": null,
+          "localizedCopy": null,
+          "persistence": null,
+          "focusedCheck": null,
+          "builtArtifactProof": null,
+          "captureEvidence": null
+        },
+        "landing-page": {
+          "status": "missing",
+          "implementation": null,
+          "documentation": null,
+          "localizedCopy": null,
+          "persistence": null,
+          "focusedCheck": null,
+          "builtArtifactProof": null,
+          "captureEvidence": null
+        }
+      }
+    },
+    {
+      "id": "blank-slate-presets",
+      "title": "Blank Slate Presets",
+      "contract": "Canonical shared contract row; implementation and evidence remain pending until the owning lane lands.",
+      "article": "docs/features/uh-completeness/articles/blank-slate-presets.md",
+      "surfaces": {
+        "desktop-app": {
+          "status": "missing",
+          "implementation": null,
+          "documentation": null,
+          "localizedCopy": null,
+          "persistence": null,
+          "focusedCheck": null,
+          "builtArtifactProof": null,
+          "captureEvidence": null
+        },
+        "landing-page": {
+          "status": "missing",
+          "implementation": null,
+          "documentation": null,
+          "localizedCopy": null,
+          "persistence": null,
+          "focusedCheck": null,
+          "builtArtifactProof": null,
+          "captureEvidence": null
+        }
+      }
+    },
+    {
+      "id": "app-display-name",
+      "title": "App Display Name",
+      "contract": "Canonical shared contract row; implementation and evidence remain pending until the owning lane lands.",
+      "article": "docs/features/uh-completeness/articles/app-display-name.md",
+      "surfaces": {
+        "desktop-app": {
+          "status": "missing",
+          "implementation": null,
+          "documentation": null,
+          "localizedCopy": null,
+          "persistence": null,
+          "focusedCheck": null,
+          "builtArtifactProof": null,
+          "captureEvidence": null
+        },
+        "landing-page": {
+          "status": "missing",
+          "implementation": null,
+          "documentation": null,
+          "localizedCopy": null,
+          "persistence": null,
+          "focusedCheck": null,
+          "builtArtifactProof": null,
+          "captureEvidence": null
+        }
+      }
+    },
+    {
+      "id": "secret-display-history",
+      "title": "Secret Display History",
+      "contract": "Canonical shared contract row; implementation and evidence remain pending until the owning lane lands.",
+      "article": "docs/features/uh-completeness/articles/secret-display-history.md",
+      "surfaces": {
+        "desktop-app": {
+          "status": "missing",
+          "implementation": null,
+          "documentation": null,
+          "localizedCopy": null,
+          "persistence": null,
+          "focusedCheck": null,
+          "builtArtifactProof": null,
+          "captureEvidence": null
+        },
+        "landing-page": {
+          "status": "missing",
+          "implementation": null,
+          "documentation": null,
+          "localizedCopy": null,
+          "persistence": null,
+          "focusedCheck": null,
+          "builtArtifactProof": null,
+          "captureEvidence": null
+        }
+      }
+    },
+    {
+      "id": "cli-gui-parity",
+      "title": "Cli Gui Parity",
+      "contract": "Canonical shared contract row; implementation and evidence remain pending until the owning lane lands.",
+      "article": "docs/features/uh-completeness/articles/cli-gui-parity.md",
+      "surfaces": {
+        "desktop-app": {
+          "status": "missing",
+          "implementation": null,
+          "documentation": null,
+          "localizedCopy": null,
+          "persistence": null,
+          "focusedCheck": null,
+          "builtArtifactProof": null,
+          "captureEvidence": null
+        },
+        "landing-page": {
+          "status": "missing",
+          "implementation": null,
+          "documentation": null,
+          "localizedCopy": null,
+          "persistence": null,
+          "focusedCheck": null,
+          "builtArtifactProof": null,
+          "captureEvidence": null
+        }
+      }
+    },
+    {
+      "id": "gui-capability-registry",
+      "title": "Gui Capability Registry",
+      "contract": "Canonical shared contract row; implementation and evidence remain pending until the owning lane lands.",
+      "article": "docs/features/uh-completeness/articles/gui-capability-registry.md",
+      "surfaces": {
+        "desktop-app": {
+          "status": "missing",
+          "implementation": null,
+          "documentation": null,
+          "localizedCopy": null,
+          "persistence": null,
+          "focusedCheck": null,
+          "builtArtifactProof": null,
+          "captureEvidence": null
+        },
+        "landing-page": {
+          "status": "missing",
+          "implementation": null,
+          "documentation": null,
+          "localizedCopy": null,
+          "persistence": null,
+          "focusedCheck": null,
+          "builtArtifactProof": null,
+          "captureEvidence": null
+        }
+      }
+    },
+    {
+      "id": "config-profiles",
+      "title": "Config Profiles",
+      "contract": "Canonical shared contract row; implementation and evidence remain pending until the owning lane lands.",
+      "article": "docs/features/uh-completeness/articles/config-profiles.md",
+      "surfaces": {
+        "desktop-app": {
+          "status": "missing",
+          "implementation": null,
+          "documentation": null,
+          "localizedCopy": null,
+          "persistence": null,
+          "focusedCheck": null,
+          "builtArtifactProof": null,
+          "captureEvidence": null
+        },
+        "landing-page": {
+          "status": "missing",
+          "implementation": null,
+          "documentation": null,
+          "localizedCopy": null,
+          "persistence": null,
+          "focusedCheck": null,
+          "builtArtifactProof": null,
+          "captureEvidence": null
+        }
+      }
+    },
+    {
+      "id": "status-hub",
+      "title": "Status Hub",
+      "contract": "Canonical shared contract row; implementation and evidence remain pending until the owning lane lands.",
+      "article": "docs/features/uh-completeness/articles/status-hub.md",
+      "surfaces": {
+        "desktop-app": {
+          "status": "missing",
+          "implementation": null,
+          "documentation": null,
+          "localizedCopy": null,
+          "persistence": null,
+          "focusedCheck": null,
+          "builtArtifactProof": null,
+          "captureEvidence": null
+        },
+        "landing-page": {
+          "status": "missing",
+          "implementation": null,
+          "documentation": null,
+          "localizedCopy": null,
+          "persistence": null,
+          "focusedCheck": null,
+          "builtArtifactProof": null,
+          "captureEvidence": null
+        }
+      }
+    },
+    {
+      "id": "status-discord-bridge",
+      "title": "Status Discord Bridge",
+      "contract": "Canonical shared contract row; implementation and evidence remain pending until the owning lane lands.",
+      "article": "docs/features/uh-completeness/articles/status-discord-bridge.md",
+      "surfaces": {
+        "desktop-app": {
+          "status": "missing",
+          "implementation": null,
+          "documentation": null,
+          "localizedCopy": null,
+          "persistence": null,
+          "focusedCheck": null,
+          "builtArtifactProof": null,
+          "captureEvidence": null
+        },
+        "landing-page": {
+          "status": "missing",
+          "implementation": null,
+          "documentation": null,
+          "localizedCopy": null,
+          "persistence": null,
+          "focusedCheck": null,
+          "builtArtifactProof": null,
+          "captureEvidence": null
+        }
+      }
+    },
+    {
+      "id": "tidbyt-status-display",
+      "title": "Tidbyt Status Display",
+      "contract": "Canonical shared contract row; implementation and evidence remain pending until the owning lane lands.",
+      "article": "docs/features/uh-completeness/articles/tidbyt-status-display.md",
+      "surfaces": {
+        "desktop-app": {
+          "status": "missing",
+          "implementation": null,
+          "documentation": null,
+          "localizedCopy": null,
+          "persistence": null,
+          "focusedCheck": null,
+          "builtArtifactProof": null,
+          "captureEvidence": null
+        },
+        "landing-page": {
+          "status": "missing",
+          "implementation": null,
+          "documentation": null,
+          "localizedCopy": null,
+          "persistence": null,
+          "focusedCheck": null,
+          "builtArtifactProof": null,
+          "captureEvidence": null
+        }
+      }
+    },
+    {
+      "id": "vocabulary-hash-lock",
+      "title": "Vocabulary Hash Lock",
+      "contract": "Canonical shared contract row; implementation and evidence remain pending until the owning lane lands.",
+      "article": "docs/features/uh-completeness/articles/vocabulary-hash-lock.md",
+      "surfaces": {
+        "desktop-app": {
+          "status": "missing",
+          "implementation": null,
+          "documentation": null,
+          "localizedCopy": null,
+          "persistence": null,
+          "focusedCheck": null,
+          "builtArtifactProof": null,
+          "captureEvidence": null
+        },
+        "landing-page": {
+          "status": "missing",
+          "implementation": null,
+          "documentation": null,
+          "localizedCopy": null,
+          "persistence": null,
+          "focusedCheck": null,
+          "builtArtifactProof": null,
+          "captureEvidence": null
+        }
+      }
+    },
+    {
+      "id": "sanitized-instruction-copy",
+      "title": "Sanitized Instruction Copy",
+      "contract": "Canonical shared contract row; implementation and evidence remain pending until the owning lane lands.",
+      "article": "docs/features/uh-completeness/articles/sanitized-instruction-copy.md",
+      "surfaces": {
+        "desktop-app": {
+          "status": "missing",
+          "implementation": null,
+          "documentation": null,
+          "localizedCopy": null,
+          "persistence": null,
+          "focusedCheck": null,
+          "builtArtifactProof": null,
+          "captureEvidence": null
+        },
+        "landing-page": {
+          "status": "missing",
+          "implementation": null,
+          "documentation": null,
+          "localizedCopy": null,
+          "persistence": null,
+          "focusedCheck": null,
+          "builtArtifactProof": null,
+          "captureEvidence": null
+        }
+      }
+    },
+    {
+      "id": "repository-root-build-script",
+      "title": "Repository Root Build Script",
+      "contract": "Canonical shared contract row; implementation and evidence remain pending until the owning lane lands.",
+      "article": "docs/features/uh-completeness/articles/repository-root-build-script.md",
+      "surfaces": {
+        "desktop-app": {
+          "status": "missing",
+          "implementation": null,
+          "documentation": null,
+          "localizedCopy": null,
+          "persistence": null,
+          "focusedCheck": null,
+          "builtArtifactProof": null,
+          "captureEvidence": null
+        },
+        "landing-page": {
+          "status": "missing",
+          "implementation": null,
+          "documentation": null,
+          "localizedCopy": null,
+          "persistence": null,
+          "focusedCheck": null,
+          "builtArtifactProof": null,
+          "captureEvidence": null
+        }
+      }
+    },
+    {
+      "id": "dependency-bootstrap",
+      "title": "Dependency Bootstrap",
+      "contract": "Canonical shared contract row; implementation and evidence remain pending until the owning lane lands.",
+      "article": "docs/features/uh-completeness/articles/dependency-bootstrap.md",
+      "surfaces": {
+        "desktop-app": {
+          "status": "missing",
+          "implementation": null,
+          "documentation": null,
+          "localizedCopy": null,
+          "persistence": null,
+          "focusedCheck": null,
+          "builtArtifactProof": null,
+          "captureEvidence": null
+        },
+        "landing-page": {
+          "status": "missing",
+          "implementation": null,
+          "documentation": null,
+          "localizedCopy": null,
+          "persistence": null,
+          "focusedCheck": null,
+          "builtArtifactProof": null,
+          "captureEvidence": null
+        }
+      }
+    },
+    {
+      "id": "bundled-runtime-dependencies",
+      "title": "Bundled Runtime Dependencies",
+      "contract": "Canonical shared contract row; implementation and evidence remain pending until the owning lane lands.",
+      "article": "docs/features/uh-completeness/articles/bundled-runtime-dependencies.md",
+      "surfaces": {
+        "desktop-app": {
+          "status": "missing",
+          "implementation": null,
+          "documentation": null,
+          "localizedCopy": null,
+          "persistence": null,
+          "focusedCheck": null,
+          "builtArtifactProof": null,
+          "captureEvidence": null
+        },
+        "landing-page": {
+          "status": "missing",
+          "implementation": null,
+          "documentation": null,
+          "localizedCopy": null,
+          "persistence": null,
+          "focusedCheck": null,
+          "builtArtifactProof": null,
+          "captureEvidence": null
+        }
+      }
+    },
+    {
+      "id": "unsigned-release-policy",
+      "title": "Unsigned Release Policy",
+      "contract": "Canonical shared contract row; implementation and evidence remain pending until the owning lane lands.",
+      "article": "docs/features/uh-completeness/articles/unsigned-release-policy.md",
+      "surfaces": {
+        "desktop-app": {
+          "status": "missing",
+          "implementation": null,
+          "documentation": null,
+          "localizedCopy": null,
+          "persistence": null,
+          "focusedCheck": null,
+          "builtArtifactProof": null,
+          "captureEvidence": null
+        },
+        "landing-page": {
+          "status": "missing",
+          "implementation": null,
+          "documentation": null,
+          "localizedCopy": null,
+          "persistence": null,
+          "focusedCheck": null,
+          "builtArtifactProof": null,
+          "captureEvidence": null
+        }
+      }
+    },
+    {
+      "id": "release-line-count",
+      "title": "Release Line Count",
+      "contract": "Canonical shared contract row; implementation and evidence remain pending until the owning lane lands.",
+      "article": "docs/features/uh-completeness/articles/release-line-count.md",
+      "surfaces": {
+        "desktop-app": {
+          "status": "missing",
+          "implementation": null,
+          "documentation": null,
+          "localizedCopy": null,
+          "persistence": null,
+          "focusedCheck": null,
+          "builtArtifactProof": null,
+          "captureEvidence": null
+        },
+        "landing-page": {
+          "status": "missing",
+          "implementation": null,
+          "documentation": null,
+          "localizedCopy": null,
+          "persistence": null,
+          "focusedCheck": null,
+          "builtArtifactProof": null,
+          "captureEvidence": null
+        }
+      }
+    },
+    {
+      "id": "issue-handoff",
+      "title": "Issue Handoff",
+      "contract": "Canonical shared contract row; implementation and evidence remain pending until the owning lane lands.",
+      "article": "docs/features/uh-completeness/articles/issue-handoff.md",
+      "surfaces": {
+        "desktop-app": {
+          "status": "missing",
+          "implementation": null,
+          "documentation": null,
+          "localizedCopy": null,
+          "persistence": null,
+          "focusedCheck": null,
+          "builtArtifactProof": null,
+          "captureEvidence": null
+        },
+        "landing-page": {
+          "status": "missing",
+          "implementation": null,
+          "documentation": null,
+          "localizedCopy": null,
+          "persistence": null,
+          "focusedCheck": null,
+          "builtArtifactProof": null,
+          "captureEvidence": null
+        }
+      }
+    },
+    {
+      "id": "rolling-discussion",
+      "title": "Rolling Discussion",
+      "contract": "Canonical shared contract row; implementation and evidence remain pending until the owning lane lands.",
+      "article": "docs/features/uh-completeness/articles/rolling-discussion.md",
+      "surfaces": {
+        "desktop-app": {
+          "status": "missing",
+          "implementation": null,
+          "documentation": null,
+          "localizedCopy": null,
+          "persistence": null,
+          "focusedCheck": null,
+          "builtArtifactProof": null,
+          "captureEvidence": null
+        },
+        "landing-page": {
+          "status": "missing",
+          "implementation": null,
+          "documentation": null,
+          "localizedCopy": null,
+          "persistence": null,
+          "focusedCheck": null,
+          "builtArtifactProof": null,
+          "captureEvidence": null
+        }
+      }
+    },
+    {
+      "id": "project-status",
+      "title": "Project Status",
+      "contract": "Canonical shared contract row; implementation and evidence remain pending until the owning lane lands.",
+      "article": "docs/features/uh-completeness/articles/project-status.md",
+      "surfaces": {
+        "desktop-app": {
+          "status": "missing",
+          "implementation": null,
+          "documentation": null,
+          "localizedCopy": null,
+          "persistence": null,
+          "focusedCheck": null,
+          "builtArtifactProof": null,
+          "captureEvidence": null
+        },
+        "landing-page": {
+          "status": "missing",
+          "implementation": null,
+          "documentation": null,
+          "localizedCopy": null,
+          "persistence": null,
+          "focusedCheck": null,
+          "builtArtifactProof": null,
+          "captureEvidence": null
+        }
+      }
+    },
+    {
+      "id": "site-homepage-link",
+      "title": "Site Homepage Link",
+      "contract": "Canonical shared contract row; implementation and evidence remain pending until the owning lane lands.",
+      "article": "docs/features/uh-completeness/articles/site-homepage-link.md",
+      "surfaces": {
+        "desktop-app": {
+          "status": "missing",
+          "implementation": null,
+          "documentation": null,
+          "localizedCopy": null,
+          "persistence": null,
+          "focusedCheck": null,
+          "builtArtifactProof": null,
+          "captureEvidence": null
+        },
+        "landing-page": {
+          "status": "missing",
+          "implementation": null,
+          "documentation": null,
+          "localizedCopy": null,
+          "persistence": null,
+          "focusedCheck": null,
+          "builtArtifactProof": null,
+          "captureEvidence": null
+        }
+      }
+    },
+    {
+      "id": "api-documentation-and-collection",
+      "title": "Api Documentation And Collection",
+      "contract": "Canonical shared contract row; implementation and evidence remain pending until the owning lane lands.",
+      "article": "docs/features/uh-completeness/articles/api-documentation-and-collection.md",
+      "surfaces": {
+        "desktop-app": {
+          "status": "missing",
+          "implementation": null,
+          "documentation": null,
+          "localizedCopy": null,
+          "persistence": null,
+          "focusedCheck": null,
+          "builtArtifactProof": null,
+          "captureEvidence": null
+        },
+        "landing-page": {
+          "status": "missing",
+          "implementation": null,
+          "documentation": null,
+          "localizedCopy": null,
+          "persistence": null,
+          "focusedCheck": null,
+          "builtArtifactProof": null,
+          "captureEvidence": null
+        }
+      }
+    },
+    {
+      "id": "capture-manifest",
+      "title": "Capture Manifest",
+      "contract": "Canonical shared contract row; implementation and evidence remain pending until the owning lane lands.",
+      "article": "docs/features/uh-completeness/articles/capture-manifest.md",
+      "surfaces": {
+        "desktop-app": {
+          "status": "missing",
+          "implementation": null,
+          "documentation": null,
+          "localizedCopy": null,
+          "persistence": null,
+          "focusedCheck": null,
+          "builtArtifactProof": null,
+          "captureEvidence": null
+        },
+        "landing-page": {
+          "status": "missing",
+          "implementation": null,
+          "documentation": null,
+          "localizedCopy": null,
+          "persistence": null,
+          "focusedCheck": null,
+          "builtArtifactProof": null,
+          "captureEvidence": null
+        }
+      }
+    },
+    {
+      "id": "release-metadata",
+      "title": "Release Metadata",
+      "contract": "Canonical shared contract row; implementation and evidence remain pending until the owning lane lands.",
+      "article": "docs/features/uh-completeness/articles/release-metadata.md",
+      "surfaces": {
+        "desktop-app": {
+          "status": "missing",
+          "implementation": null,
+          "documentation": null,
+          "localizedCopy": null,
+          "persistence": null,
+          "focusedCheck": null,
+          "builtArtifactProof": null,
+          "captureEvidence": null
+        },
+        "landing-page": {
+          "status": "missing",
+          "implementation": null,
+          "documentation": null,
+          "localizedCopy": null,
+          "persistence": null,
+          "focusedCheck": null,
+          "builtArtifactProof": null,
+          "captureEvidence": null
+        }
+      }
+    },
+    {
+      "id": "cheap-transfer",
+      "title": "Cheap Transfer",
+      "contract": "Canonical shared contract row; implementation and evidence remain pending until the owning lane lands.",
+      "article": "docs/features/uh-completeness/articles/cheap-transfer.md",
+      "surfaces": {
+        "desktop-app": {
+          "status": "missing",
+          "implementation": null,
+          "documentation": null,
+          "localizedCopy": null,
+          "persistence": null,
+          "focusedCheck": null,
+          "builtArtifactProof": null,
+          "captureEvidence": null
+        },
+        "landing-page": {
+          "status": "missing",
+          "implementation": null,
+          "documentation": null,
+          "localizedCopy": null,
+          "persistence": null,
+          "focusedCheck": null,
+          "builtArtifactProof": null,
+          "captureEvidence": null
+        }
+      }
+    },
+    {
+      "id": "automatic-updates",
+      "title": "Automatic Updates",
+      "contract": "Canonical shared contract row; implementation and evidence remain pending until the owning lane lands.",
+      "article": "docs/features/uh-completeness/articles/automatic-updates.md",
+      "surfaces": {
+        "desktop-app": {
+          "status": "missing",
+          "implementation": null,
+          "documentation": null,
+          "localizedCopy": null,
+          "persistence": null,
+          "focusedCheck": null,
+          "builtArtifactProof": null,
+          "captureEvidence": null
+        },
+        "landing-page": {
+          "status": "missing",
+          "implementation": null,
+          "documentation": null,
+          "localizedCopy": null,
+          "persistence": null,
+          "focusedCheck": null,
+          "builtArtifactProof": null,
+          "captureEvidence": null
+        }
+      }
+    },
+    {
+      "id": "packaged-app-icon",
+      "title": "Packaged App Icon",
+      "contract": "Canonical shared contract row; implementation and evidence remain pending until the owning lane lands.",
+      "article": "docs/features/uh-completeness/articles/packaged-app-icon.md",
+      "surfaces": {
+        "desktop-app": {
+          "status": "missing",
+          "implementation": null,
+          "documentation": null,
+          "localizedCopy": null,
+          "persistence": null,
+          "focusedCheck": null,
+          "builtArtifactProof": null,
+          "captureEvidence": null
+        },
+        "landing-page": {
+          "status": "missing",
+          "implementation": null,
+          "documentation": null,
+          "localizedCopy": null,
+          "persistence": null,
+          "focusedCheck": null,
+          "builtArtifactProof": null,
+          "captureEvidence": null
+        }
+      }
+    },
+    {
+      "id": "no-network-privacy",
+      "title": "No Network Privacy",
+      "contract": "Canonical shared contract row; implementation and evidence remain pending until the owning lane lands.",
+      "article": "docs/features/uh-completeness/articles/no-network-privacy.md",
+      "surfaces": {
+        "desktop-app": {
+          "status": "missing",
+          "implementation": null,
+          "documentation": null,
+          "localizedCopy": null,
+          "persistence": null,
+          "focusedCheck": null,
+          "builtArtifactProof": null,
+          "captureEvidence": null
+        },
+        "landing-page": {
+          "status": "missing",
+          "implementation": null,
+          "documentation": null,
+          "localizedCopy": null,
+          "persistence": null,
+          "focusedCheck": null,
+          "builtArtifactProof": null,
+          "captureEvidence": null
+        }
+      }
+    }
+  ]
+}
