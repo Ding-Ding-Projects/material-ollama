@@ -26,6 +26,16 @@ const REQUIRED_EVIDENCE_KEYS = [
   'builtArtifactProof',
   'captureEvidence',
 ];
+const REQUIRED_SURFACE_ROW_KEYS = ['featureId', 'evidenceRef'];
+const REQUIRED_LANDING_ROW_KEYS = ['featureId', 'evidenceRef', 'responsiveEvidence'];
+const REQUIRED_RESPONSIVE_EVIDENCE_KEYS = [
+  'status',
+  'minWidth',
+  'orientation',
+  'touchTargets',
+  'horizontalOverflow',
+  'viewportBoundedOverlays',
+];
 
 // Keep this list in lockstep with the canonical feature contract. Exact IDs
 // are used throughout; no substring or descendant matching is permitted.
@@ -132,6 +142,64 @@ function validateInventory(inventory, { requireComplete = false } = {}) {
   if (!Array.isArray(inventory.features)) errors.push('features must be an array');
   if (inventory.features?.length !== REQUIRED_FEATURE_IDS.length) {
     errors.push(`features must contain exactly ${REQUIRED_FEATURE_IDS.length} rows`);
+  }
+
+  if (!exactKeys(inventory.surfaceRows, REQUIRED_SURFACES)) {
+    errors.push('surfaceRows must contain exactly desktop-app and landing-page');
+  } else {
+    for (const surfaceId of REQUIRED_SURFACES) {
+      const rows = inventory.surfaceRows[surfaceId];
+      if (!Array.isArray(rows) || rows.length !== REQUIRED_FEATURE_IDS.length) {
+        errors.push(`surfaceRows.${surfaceId} must contain exactly ${REQUIRED_FEATURE_IDS.length} rows`);
+        continue;
+      }
+      const rowIds = new Set();
+      for (const [index, row] of rows.entries()) {
+        const expectedKeys = surfaceId === 'landing-page'
+          ? REQUIRED_LANDING_ROW_KEYS
+          : REQUIRED_SURFACE_ROW_KEYS;
+        if (!exactKeys(row, expectedKeys)) {
+          errors.push(`surfaceRows.${surfaceId}[${index}] has incomplete exact-boundary fields`);
+          continue;
+        }
+        if (typeof row.featureId !== 'string' || !REQUIRED_FEATURE_IDS.includes(row.featureId)) {
+          errors.push(`surfaceRows.${surfaceId}[${index}].featureId is not canonical`);
+          continue;
+        }
+        if (rowIds.has(row.featureId)) errors.push(`duplicate ${surfaceId} row: ${row.featureId}`);
+        rowIds.add(row.featureId);
+        if (typeof row.evidenceRef !== 'string' || row.evidenceRef.trim() === '') {
+          errors.push(`surfaceRows.${surfaceId}[${index}].evidenceRef is empty`);
+        }
+        if (surfaceId === 'landing-page') {
+          if (!exactKeys(row.responsiveEvidence, REQUIRED_RESPONSIVE_EVIDENCE_KEYS)) {
+            errors.push(`surfaceRows.landing-page[${index}].responsiveEvidence is incomplete`);
+          } else {
+            if (!['missing', 'in-progress', 'verified', 'not-applicable'].includes(row.responsiveEvidence.status)) {
+              errors.push(`surfaceRows.landing-page[${index}].responsiveEvidence.status is invalid`);
+            }
+            for (const key of REQUIRED_RESPONSIVE_EVIDENCE_KEYS.slice(1)) {
+              if (row.responsiveEvidence[key] !== null && typeof row.responsiveEvidence[key] !== 'string') {
+                errors.push(`surfaceRows.landing-page[${index}].responsiveEvidence.${key} must be a string or null`);
+              }
+            }
+            if (requireComplete) {
+              if (row.responsiveEvidence.status !== 'verified') {
+                errors.push(`surfaceRows.landing-page[${index}].responsiveEvidence is ${row.responsiveEvidence.status}, not verified`);
+              }
+              for (const key of REQUIRED_RESPONSIVE_EVIDENCE_KEYS.slice(1)) {
+                if (typeof row.responsiveEvidence[key] !== 'string' || row.responsiveEvidence[key].trim() === '') {
+                  errors.push(`surfaceRows.landing-page[${index}].responsiveEvidence.${key} is missing completion evidence`);
+                }
+              }
+            }
+          }
+        }
+      }
+      for (const id of REQUIRED_FEATURE_IDS) {
+        if (!rowIds.has(id)) errors.push(`surfaceRows.${surfaceId} is missing canonical row: ${id}`);
+      }
+    }
   }
 
   const rows = inventory.features ?? [];

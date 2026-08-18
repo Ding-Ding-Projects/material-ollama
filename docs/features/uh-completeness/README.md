@@ -21,6 +21,8 @@ The site is a landing surface, not the installed runtime and not a playable subs
 
 The current base commit records the rows as `missing` with null evidence. That is intentional: the inventory is fail-closed and does not claim that a feature exists merely because its row exists. Each implementation lane must replace the nulls with exact paths, records, and evidence before the row can become `verified`.
 
+The root-level `surfaceRows` map repeats every canonical ID for both surfaces. The landing-page rows additionally carry a responsive-evidence object. Its contract is explicit: support 320px and wider layouts in portrait and landscape, keep touch targets large and separated, prevent sideways body scrolling, and keep menus, pickers, editors, and the command palette inside the viewport with internal scrolling where needed.
+
 The canonical ID list is duplicated in [`scripts/check-uh-inventory.mjs`](../../../scripts/check-uh-inventory.mjs). The duplication is deliberate. If a feature row disappears from the JSON, the checker still knows the row was required and fails instead of silently shrinking its expectations.
 
 ## Checks
@@ -37,7 +39,7 @@ The completion check is intentionally stricter and remains red until every deskt
 node scripts/check-uh-inventory.mjs --require-complete
 ```
 
-The checker uses exact ID equality and exact evidence-key sets. It does not use substring matching, descendant selectors, or a list derived from whatever rows happen to remain in the file.
+The checker uses exact ID equality and exact evidence-key sets for both the nested feature evidence and the root-level surface rows. It does not use substring matching, descendant selectors, or a list derived from whatever rows happen to remain in the file.
 
 ## Evidence contract
 
