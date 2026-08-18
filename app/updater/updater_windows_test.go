@@ -86,3 +86,16 @@ func TestIsInstallerRunning(t *testing.T) {
 		t.Fatal("not running")
 	}
 }
+
+func TestIsProcRunningGrowsUndersizedBuffer(t *testing.T) {
+	old := enumProcessesInitialCapacity
+	defer func() {
+		enumProcessesInitialCapacity = old
+	}()
+	enumProcessesInitialCapacity = 4
+
+	slog.SetLogLoggerLevel(slog.LevelDebug)
+	if len(IsProcRunning("go.exe")) == 0 {
+		t.Fatal("expected the parent go.exe process to survive a grown process-id buffer")
+	}
+}
