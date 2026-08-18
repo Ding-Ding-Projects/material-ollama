@@ -119,14 +119,14 @@ export default function CLIConfigPanel() {
   return (
     <section className="overflow-hidden rounded-xl bg-white dark:bg-neutral-800">
       <div className="space-y-5 p-4">
-        <div>
+        <Field>
           <Label>CLI and service configuration</Label>
           <Description>
             The GUI inventory is derived from the same commands, flags, aliases,
             and environment settings used by the Ollama CLI. Profiles apply only
             to the service managed by this app and require an explicit restart.
           </Description>
-        </div>
+        </Field>
 
         {registryQuery.isLoading || profilesQuery.isLoading ? (
           <Description>Loading command and configuration inventory…</Description>
