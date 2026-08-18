@@ -207,6 +207,13 @@ func main() {
 	st := &store.Store{}
 	appStore = st
 
+	configProfiles, configProfilesErr := ui.NewConfigProfileManager()
+	if configProfilesErr != nil {
+		slog.Warn("configuration profiles unavailable", "error", configProfilesErr)
+	} else if _, err := configProfiles.ApplyActive(); err != nil {
+		slog.Warn("active configuration profile was not applied", "error", err)
+	}
+
 	// Enable CORS in development mode
 	if devMode {
 		os.Setenv("OLLAMA_CORS", "1")
@@ -255,6 +262,7 @@ func main() {
 
 	uiServer := ui.Server{
 		Token: token,
+		ConfigProfiles: configProfiles,
 		Restart: func() {
 			ocancel()
 			<-done

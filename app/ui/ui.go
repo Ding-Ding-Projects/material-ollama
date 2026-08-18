@@ -100,6 +100,7 @@ type Server struct {
 	Restart      func()
 	Token        string
 	Store        *store.Store
+	ConfigProfiles *ConfigProfileManager
 	ToolRegistry *tools.Registry
 	Tools        bool   // if true, the server will use single-turn tools to fulfill the user's request
 	WebSearch    bool   // if true, the server will use single-turn browser tool to fulfill the user's request
@@ -112,6 +113,9 @@ type Server struct {
 	// Updater for checking and downloading updates
 	Updater             *updater.Updater
 	UpdateAvailableFunc func()
+
+	configProfilesOnce sync.Once
+	configProfilesErr  error
 }
 
 func (s *Server) log() *slog.Logger {
@@ -290,6 +294,12 @@ func (s *Server) Handler() http.Handler {
 	mux.Handle("POST /api/v1/model/upstream", handle(s.modelUpstream))
 	mux.Handle("GET /api/v1/settings", handle(s.getSettings))
 	mux.Handle("POST /api/v1/settings", handle(s.settings))
+	mux.Handle("GET /api/v1/capabilities", handle(s.capabilities))
+	mux.Handle("GET /api/v1/config/profiles", handle(s.getConfigProfiles))
+	mux.Handle("POST /api/v1/config/profiles", handle(s.createConfigProfile))
+	mux.Handle("PUT /api/v1/config/profiles/{id}", handle(s.updateConfigProfile))
+	mux.Handle("DELETE /api/v1/config/profiles/{id}", handle(s.deleteConfigProfile))
+	mux.Handle("POST /api/v1/config/profiles/{id}/apply", handle(s.applyConfigProfile))
 	mux.Handle("GET /api/v1/cloud", handle(s.getCloudSetting))
 	mux.Handle("POST /api/v1/cloud", handle(s.cloudSetting))
 

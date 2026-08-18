@@ -15,6 +15,13 @@ import { parseJsonlFromResponse } from "./util/jsonl-parsing";
 import { ollamaClient as ollama } from "./lib/ollama-client";
 import type { ModelResponse } from "ollama/browser";
 import { API_BASE, OLLAMA_DOT_COM } from "./lib/config";
+import type {
+  CapabilityRegistry,
+  ConfigProfile,
+  ConfigProfileApplyResponse,
+  ConfigProfileRequest,
+  ConfigProfilesResponse,
+} from "./lib/cli-config";
 
 // Extend Model class with utility methods
 declare module "@/gotypes" {
@@ -477,4 +484,75 @@ export async function getCloudStatus(): Promise<CloudStatusResponse | null> {
     disabled: Boolean(data.disabled),
     source: (data.source as CloudStatusSource) || "none",
   };
+}
+
+export async function getCapabilityRegistry(): Promise<CapabilityRegistry> {
+  const response = await fetch(`${API_BASE}/api/v1/capabilities`);
+  if (!response.ok) {
+    throw new Error(`Failed to fetch CLI capabilities: ${response.statusText}`);
+  }
+  return (await response.json()) as CapabilityRegistry;
+}
+
+export async function getConfigProfiles(): Promise<ConfigProfilesResponse> {
+  const response = await fetch(`${API_BASE}/api/v1/config/profiles`);
+  if (!response.ok) {
+    throw new Error(
+      `Failed to fetch configuration profiles: ${response.statusText}`,
+    );
+  }
+  return (await response.json()) as ConfigProfilesResponse;
+}
+
+export async function createConfigProfile(
+  request: ConfigProfileRequest,
+): Promise<ConfigProfile> {
+  const response = await fetch(`${API_BASE}/api/v1/config/profiles`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(request),
+  });
+  if (!response.ok) {
+    throw new Error(await response.text());
+  }
+  return (await response.json()) as ConfigProfile;
+}
+
+export async function updateConfigProfile(
+  id: string,
+  request: ConfigProfileRequest,
+): Promise<ConfigProfile> {
+  const response = await fetch(`${API_BASE}/api/v1/config/profiles/${id}`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(request),
+  });
+  if (!response.ok) {
+    throw new Error(await response.text());
+  }
+  return (await response.json()) as ConfigProfile;
+}
+
+export async function applyConfigProfile(
+  id: string,
+): Promise<ConfigProfileApplyResponse> {
+  const response = await fetch(
+    `${API_BASE}/api/v1/config/profiles/${id}/apply`,
+    {
+      method: "POST",
+    },
+  );
+  if (!response.ok) {
+    throw new Error(await response.text());
+  }
+  return (await response.json()) as ConfigProfileApplyResponse;
+}
+
+export async function deleteConfigProfile(id: string): Promise<void> {
+  const response = await fetch(`${API_BASE}/api/v1/config/profiles/${id}`, {
+    method: "DELETE",
+  });
+  if (!response.ok) {
+    throw new Error(await response.text());
+  }
 }
