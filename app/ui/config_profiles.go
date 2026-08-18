@@ -34,10 +34,10 @@ type ConfigProfile struct {
 }
 
 type configProfilesFile struct {
-	SchemaVersion int                         `json:"schemaVersion"`
-	ActiveProfile string                      `json:"activeProfile,omitempty"`
-	AppliedValues map[string]string           `json:"appliedValues,omitempty"`
-	Profiles      []ConfigProfile             `json:"profiles"`
+	SchemaVersion int               `json:"schemaVersion"`
+	ActiveProfile string            `json:"activeProfile,omitempty"`
+	AppliedValues map[string]string `json:"appliedValues,omitempty"`
+	Profiles      []ConfigProfile   `json:"profiles"`
 }
 
 // ConfigProfilesResponse is returned to the Settings surface together with
@@ -64,10 +64,10 @@ type ConfigProfileManager struct {
 
 	path string
 
-	allowed map[string]struct{}
-	baseline map[string]string
+	allowed     map[string]struct{}
+	baseline    map[string]string
 	baselineSet map[string]bool
-	external map[string]bool
+	external    map[string]bool
 
 	state configProfilesFile
 }
@@ -80,11 +80,11 @@ func NewConfigProfileManager() (*ConfigProfileManager, error) {
 
 	values := envconfig.AsMap()
 	m := &ConfigProfileManager{
-		path: filepath.Join(configDir, "Ollama", "config-profiles.json"),
-		allowed: make(map[string]struct{}, len(values)),
-		baseline: make(map[string]string, len(values)),
+		path:        filepath.Join(configDir, "Ollama", "config-profiles.json"),
+		allowed:     make(map[string]struct{}, len(values)),
+		baseline:    make(map[string]string, len(values)),
 		baselineSet: make(map[string]bool, len(values)),
-		external: make(map[string]bool, len(values)),
+		external:    make(map[string]bool, len(values)),
 		state: configProfilesFile{
 			SchemaVersion: configProfilesSchemaVersion,
 			Profiles:      []ConfigProfile{},

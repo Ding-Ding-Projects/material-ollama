@@ -51,13 +51,13 @@ type CommandCapability struct {
 // current effective value. Values are strings because Ollama's CLI accepts
 // environment values as strings and performs the type conversion at use time.
 type ConfigurationOption struct {
-	Name           string `json:"name"`
-	Type           string `json:"type"`
-	Description    string `json:"description,omitempty"`
-	EffectiveValue string `json:"effectiveValue,omitempty"`
-	Source         string `json:"source"`
-	Editable       bool   `json:"editable"`
-	RestartRequired bool  `json:"restartRequired"`
+	Name            string `json:"name"`
+	Type            string `json:"type"`
+	Description     string `json:"description,omitempty"`
+	EffectiveValue  string `json:"effectiveValue,omitempty"`
+	Source          string `json:"source"`
+	Editable        bool   `json:"editable"`
+	RestartRequired bool   `json:"restartRequired"`
 }
 
 // CapabilityRegistry is generated from the live Cobra tree and envconfig

@@ -38,23 +38,23 @@ var (
 // CodexEnvVar is a single explicit environment entry. Secret values are
 // accepted for one invocation but are never returned or written to history.
 type CodexEnvVar struct {
-	Name        string `json:"name"`
-	Value       string `json:"value,omitempty"`
-	Secret      bool   `json:"secret,omitempty"`
-	Configured  bool   `json:"configured,omitempty"`
+	Name       string `json:"name"`
+	Value      string `json:"value,omitempty"`
+	Secret     bool   `json:"secret,omitempty"`
+	Configured bool   `json:"configured,omitempty"`
 }
 
 // CodexProfile is the only input shape accepted by the harness. Arguments are
 // argv tokens, never a shell command string.
 type CodexProfile struct {
-	ID                string        `json:"id"`
-	Name              string        `json:"name"`
-	Executable        string        `json:"executable"`
-	Arguments         []string      `json:"arguments,omitempty"`
-	Environment       []CodexEnvVar `json:"environment,omitempty"`
-	WorkingDirectory  string        `json:"workingDirectory,omitempty"`
-	TimeoutSeconds    int           `json:"timeoutSeconds,omitempty"`
-	UpdatedAt         time.Time     `json:"updatedAt"`
+	ID               string        `json:"id"`
+	Name             string        `json:"name"`
+	Executable       string        `json:"executable"`
+	Arguments        []string      `json:"arguments,omitempty"`
+	Environment      []CodexEnvVar `json:"environment,omitempty"`
+	WorkingDirectory string        `json:"workingDirectory,omitempty"`
+	TimeoutSeconds   int           `json:"timeoutSeconds,omitempty"`
+	UpdatedAt        time.Time     `json:"updatedAt"`
 }
 
 type codexCommand struct {
@@ -71,13 +71,13 @@ type codexFlag struct {
 }
 
 type codexDiscovery struct {
-	Available   bool           `json:"available"`
-	Executable  string         `json:"executable,omitempty"`
-	Version     string         `json:"version,omitempty"`
-	Commands    []codexCommand `json:"commands,omitempty"`
-	Flags       []codexFlag    `json:"flags,omitempty"`
-	CheckedAt   time.Time      `json:"checkedAt"`
-	Error       string         `json:"error,omitempty"`
+	Available  bool           `json:"available"`
+	Executable string         `json:"executable,omitempty"`
+	Version    string         `json:"version,omitempty"`
+	Commands   []codexCommand `json:"commands,omitempty"`
+	Flags      []codexFlag    `json:"flags,omitempty"`
+	CheckedAt  time.Time      `json:"checkedAt"`
+	Error      string         `json:"error,omitempty"`
 }
 
 type codexEnvDisplay struct {
@@ -88,36 +88,36 @@ type codexEnvDisplay struct {
 }
 
 type codexPreflight struct {
-	Profile            CodexProfile     `json:"profile"`
-	Executable         string           `json:"executable"`
-	Arguments          []string         `json:"arguments"`
-	CommandPreview     string           `json:"commandPreview"`
-	Environment        []codexEnvDisplay `json:"environment,omitempty"`
-	WorkingDirectory   string           `json:"workingDirectory"`
-	TimeoutSeconds     int              `json:"timeoutSeconds"`
-	Warnings           []string         `json:"warnings,omitempty"`
+	Profile          CodexProfile      `json:"profile"`
+	Executable       string            `json:"executable"`
+	Arguments        []string          `json:"arguments"`
+	CommandPreview   string            `json:"commandPreview"`
+	Environment      []codexEnvDisplay `json:"environment,omitempty"`
+	WorkingDirectory string            `json:"workingDirectory"`
+	TimeoutSeconds   int               `json:"timeoutSeconds"`
+	Warnings         []string          `json:"warnings,omitempty"`
 }
 
 type codexSession struct {
-	ID              string        `json:"id"`
-	ProfileID       string        `json:"profileId,omitempty"`
-	ProfileName     string        `json:"profileName,omitempty"`
-	CommandPreview  string        `json:"commandPreview"`
-	WorkingDirectory string       `json:"workingDirectory"`
-	State           string        `json:"state"`
-	RollbackState   string        `json:"rollbackState"`
-	StartedAt       time.Time     `json:"startedAt"`
-	EndedAt         *time.Time    `json:"endedAt,omitempty"`
-	ExitCode        *int          `json:"exitCode,omitempty"`
-	Stdout          string        `json:"stdout,omitempty"`
-	Stderr          string        `json:"stderr,omitempty"`
-	Error           string        `json:"error,omitempty"`
+	ID               string     `json:"id"`
+	ProfileID        string     `json:"profileId,omitempty"`
+	ProfileName      string     `json:"profileName,omitempty"`
+	CommandPreview   string     `json:"commandPreview"`
+	WorkingDirectory string     `json:"workingDirectory"`
+	State            string     `json:"state"`
+	RollbackState    string     `json:"rollbackState"`
+	StartedAt        time.Time  `json:"startedAt"`
+	EndedAt          *time.Time `json:"endedAt,omitempty"`
+	ExitCode         *int       `json:"exitCode,omitempty"`
+	Stdout           string     `json:"stdout,omitempty"`
+	Stderr           string     `json:"stderr,omitempty"`
+	Error            string     `json:"error,omitempty"`
 }
 
 type codexRunRequest struct {
-	Profile          CodexProfile `json:"profile"`
-	Prompt           string       `json:"prompt,omitempty"`
-	RollbackOnFailure bool        `json:"rollbackOnFailure,omitempty"`
+	Profile           CodexProfile `json:"profile"`
+	Prompt            string       `json:"prompt,omitempty"`
+	RollbackOnFailure bool         `json:"rollbackOnFailure,omitempty"`
 }
 
 type codexEditorRequest struct {
@@ -147,13 +147,13 @@ type codexHistoryFile struct {
 }
 
 type codexManager struct {
-	mu       sync.Mutex
-	profiles []CodexProfile
-	history  []codexSession
-	sessions map[string]*codexSessionRuntime
+	mu        sync.Mutex
+	profiles  []CodexProfile
+	history   []codexSession
+	sessions  map[string]*codexSessionRuntime
 	discovery codexDiscovery
-	loaded   bool
-	path     string
+	loaded    bool
+	path      string
 }
 
 func (s *Server) codexManager() *codexManager {
@@ -566,7 +566,12 @@ func (m *codexManager) preflight(profile CodexProfile, prompt string) (codexPref
 	}
 	for _, env := range validated.Environment {
 		preview.Environment = append(preview.Environment, codexEnvDisplay{
-			Name: env.Name, Value: func() string { if env.Secret { return "•••" }; return env.Value }(), Secret: env.Secret, Configured: env.Configured,
+			Name: env.Name, Value: func() string {
+				if env.Secret {
+					return "•••"
+				}
+				return env.Value
+			}(), Secret: env.Secret, Configured: env.Configured,
 		})
 	}
 	if strings.HasSuffix(strings.ToLower(filepath.Ext(executable)), ".ps1") {
@@ -589,12 +594,16 @@ func (m *codexManager) saveProfile(profile CodexProfile) (CodexProfile, error) {
 	for i := range m.profiles {
 		if m.profiles[i].ID == validated.ID {
 			m.profiles[i] = validated
-			if err := m.persistLocked(); err != nil { return profile, err }
+			if err := m.persistLocked(); err != nil {
+				return profile, err
+			}
 			return sanitizeProfileForResponse(validated), nil
 		}
 	}
 	m.profiles = append(m.profiles, validated)
-	if err := m.persistLocked(); err != nil { return profile, err }
+	if err := m.persistLocked(); err != nil {
+		return profile, err
+	}
 	return sanitizeProfileForResponse(validated), nil
 }
 
@@ -615,7 +624,9 @@ func mergeCodexEnvironment(entries []CodexEnvVar) ([]string, error) {
 	env := os.Environ()
 	positions := make(map[string]int, len(env))
 	for i, item := range env {
-		if key, _, ok := strings.Cut(item, "="); ok { positions[key] = i }
+		if key, _, ok := strings.Cut(item, "="); ok {
+			positions[key] = i
+		}
 	}
 	for _, entry := range entries {
 		if entry.Secret && entry.Value == "" {
@@ -623,24 +634,35 @@ func mergeCodexEnvironment(entries []CodexEnvVar) ([]string, error) {
 		}
 		value := entry.Value
 		line := entry.Name + "=" + value
-		if pos, ok := positions[entry.Name]; ok { env[pos] = line } else { positions[entry.Name] = len(env); env = append(env, line) }
+		if pos, ok := positions[entry.Name]; ok {
+			env[pos] = line
+		} else {
+			positions[entry.Name] = len(env)
+			env = append(env, line)
+		}
 	}
 	return env, nil
 }
 
 func (m *codexManager) start(request codexRunRequest) (codexPreflight, *codexSessionRuntime, error) {
 	preview, profile, err := m.preflight(request.Profile, request.Prompt)
-	if err != nil { return codexPreflight{}, nil, err }
+	if err != nil {
+		return codexPreflight{}, nil, err
+	}
 	args := slices.Clone(preview.Arguments)
 	env, err := mergeCodexEnvironment(profile.Environment)
-	if err != nil { return codexPreflight{}, nil, err }
+	if err != nil {
+		return codexPreflight{}, nil, err
+	}
 	_ = env // the command goroutine merges again after its context is created.
 	start := time.Now()
 	id, err := uuid.NewV7()
-	if err != nil { return codexPreflight{}, nil, err }
+	if err != nil {
+		return codexPreflight{}, nil, err
+	}
 	runtimeState := &codexSessionRuntime{
 		codexSession: codexSession{ID: id.String(), ProfileID: profile.ID, ProfileName: profile.Name, CommandPreview: preview.CommandPreview, WorkingDirectory: profile.WorkingDirectory, State: "queued", RollbackState: "available", StartedAt: start},
-		done: make(chan struct{}), subscribers: make(map[chan codexEvent]struct{}), snapshot: profile,
+		done:         make(chan struct{}), subscribers: make(map[chan codexEvent]struct{}), snapshot: profile,
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(profile.TimeoutSeconds)*time.Second)
 	runtimeState.cancel = cancel
@@ -648,7 +670,9 @@ func (m *codexManager) start(request codexRunRequest) (codexPreflight, *codexSes
 	m.loadLocked()
 	m.sessions[runtimeState.ID] = runtimeState
 	m.history = append(m.history, sanitizeSession(runtimeState.codexSession))
-	if len(m.history) > codexHistoryLimit { m.history = m.history[len(m.history)-codexHistoryLimit:] }
+	if len(m.history) > codexHistoryLimit {
+		m.history = m.history[len(m.history)-codexHistoryLimit:]
+	}
 	_ = m.persistLocked()
 	m.mu.Unlock()
 	go m.run(ctx, runtimeState, profile, args, request.RollbackOnFailure)
@@ -661,14 +685,28 @@ func (m *codexManager) run(ctx context.Context, session *codexSessionRuntime, pr
 	command := codexExecCommand(ctx, profile.Executable, args...)
 	command.Dir = profile.WorkingDirectory
 	env, err := mergeCodexEnvironment(profile.Environment)
-	if err != nil { m.finishSession(session, "failed", nil, err); return }
+	if err != nil {
+		m.finishSession(session, "failed", nil, err)
+		return
+	}
 	command.Env = env
 	stdout, err := command.StdoutPipe()
-	if err != nil { m.finishSession(session, "failed", nil, err); return }
+	if err != nil {
+		m.finishSession(session, "failed", nil, err)
+		return
+	}
 	stderr, err := command.StderrPipe()
-	if err != nil { m.finishSession(session, "failed", nil, err); return }
-	if err := command.Start(); err != nil { m.finishSession(session, "failed", nil, err); return }
-	session.mu.Lock(); session.State = "running"; session.mu.Unlock()
+	if err != nil {
+		m.finishSession(session, "failed", nil, err)
+		return
+	}
+	if err := command.Start(); err != nil {
+		m.finishSession(session, "failed", nil, err)
+		return
+	}
+	session.mu.Lock()
+	session.State = "running"
+	session.mu.Unlock()
 	m.publish(session, codexEvent{Name: "state", Data: map[string]any{"state": "running"}})
 	var wg sync.WaitGroup
 	read := func(reader io.Reader, stream string) {
@@ -678,13 +716,20 @@ func (m *codexManager) run(ctx context.Context, session *codexSessionRuntime, pr
 		for scanner.Scan() {
 			line := redactText(scanner.Text())
 			session.mu.Lock()
-			if stream == "stdout" { session.Stdout = redactText(session.Stdout + line + "\n") } else { session.Stderr = redactText(session.Stderr + line + "\n") }
+			if stream == "stdout" {
+				session.Stdout = redactText(session.Stdout + line + "\n")
+			} else {
+				session.Stderr = redactText(session.Stderr + line + "\n")
+			}
 			session.mu.Unlock()
 			m.publish(session, codexEvent{Name: stream, Data: map[string]string{"line": line}})
 		}
 	}
-	wg.Add(2); go read(stdout, "stdout"); go read(stderr, "stderr")
-	err = command.Wait(); wg.Wait()
+	wg.Add(2)
+	go read(stdout, "stdout")
+	go read(stderr, "stderr")
+	err = command.Wait()
+	wg.Wait()
 	if ctx.Err() == context.DeadlineExceeded {
 		m.finishSession(session, "timed_out", nil, errors.New("Codex session exceeded its timeout"))
 		return
@@ -717,8 +762,16 @@ func (m *codexManager) run(ctx context.Context, session *codexSessionRuntime, pr
 func ptrInt(value int) *int { return &value }
 
 func (m *codexManager) restoreProfile(profile CodexProfile) {
-	m.mu.Lock(); defer m.mu.Unlock(); m.loadLocked()
-	for i := range m.profiles { if m.profiles[i].ID == profile.ID { m.profiles[i] = profile; _ = m.persistLocked(); return } }
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.loadLocked()
+	for i := range m.profiles {
+		if m.profiles[i].ID == profile.ID {
+			m.profiles[i] = profile
+			_ = m.persistLocked()
+			return
+		}
+	}
 }
 
 func (m *codexManager) finishSession(session *codexSessionRuntime, state string, exitCode *int, err error) {
@@ -727,28 +780,52 @@ func (m *codexManager) finishSession(session *codexSessionRuntime, state string,
 	session.State = state
 	session.EndedAt = &ended
 	session.ExitCode = exitCode
-	if err != nil { session.Error = redactText(err.Error()) }
+	if err != nil {
+		session.Error = redactText(err.Error())
+	}
 	sessionCopy := sanitizeSession(session.codexSession)
 	session.mu.Unlock()
 	m.publish(session, codexEvent{Name: "state", Data: map[string]any{"state": state, "exitCode": exitCode, "error": sessionCopy.Error}})
 	m.publish(session, codexEvent{Name: "done", Data: sessionCopy})
 	m.mu.Lock()
-	for i := range m.history { if m.history[i].ID == session.ID { m.history[i] = sessionCopy; break } }
+	for i := range m.history {
+		if m.history[i].ID == session.ID {
+			m.history[i] = sessionCopy
+			break
+		}
+	}
 	_ = m.persistLocked()
 	m.mu.Unlock()
 }
 
 func (m *codexManager) publish(session *codexSessionRuntime, event codexEvent) {
-	session.mu.Lock(); session.events = append(session.events, event); subscribers := make([]chan codexEvent, 0, len(session.subscribers)); for sub := range session.subscribers { subscribers = append(subscribers, sub) }; session.mu.Unlock()
-	for _, sub := range subscribers { select { case sub <- event: default: } }
+	session.mu.Lock()
+	session.events = append(session.events, event)
+	subscribers := make([]chan codexEvent, 0, len(session.subscribers))
+	for sub := range session.subscribers {
+		subscribers = append(subscribers, sub)
+	}
+	session.mu.Unlock()
+	for _, sub := range subscribers {
+		select {
+		case sub <- event:
+		default:
+		}
+	}
 }
 
 func (m *codexManager) subscribe(id string) (*codexSessionRuntime, <-chan codexEvent, func(), error) {
-	m.mu.Lock(); session, ok := m.sessions[id]; m.mu.Unlock()
-	if !ok { return nil, nil, nil, errors.New("Codex session not found") }
+	m.mu.Lock()
+	session, ok := m.sessions[id]
+	m.mu.Unlock()
+	if !ok {
+		return nil, nil, nil, errors.New("Codex session not found")
+	}
 	channel := make(chan codexEvent, 32)
 	session.mu.Lock()
-	for _, event := range session.events { channel <- event }
+	for _, event := range session.events {
+		channel <- event
+	}
 	session.subscribers[channel] = struct{}{}
 	session.mu.Unlock()
 	closeFn := func() { session.mu.Lock(); delete(session.subscribers, channel); session.mu.Unlock() }
@@ -756,14 +833,45 @@ func (m *codexManager) subscribe(id string) (*codexSessionRuntime, <-chan codexE
 }
 
 func (m *codexManager) getSession(id string) (codexSession, error) {
-	m.mu.Lock(); session, ok := m.sessions[id]; history := slices.Clone(m.history); m.mu.Unlock()
-	if ok { session.mu.Lock(); defer session.mu.Unlock(); return sanitizeSession(session.codexSession), nil }
-	for _, item := range history { if item.ID == id { return item, nil } }
+	m.mu.Lock()
+	session, ok := m.sessions[id]
+	history := slices.Clone(m.history)
+	m.mu.Unlock()
+	if ok {
+		session.mu.Lock()
+		defer session.mu.Unlock()
+		return sanitizeSession(session.codexSession), nil
+	}
+	for _, item := range history {
+		if item.ID == id {
+			return item, nil
+		}
+	}
 	return codexSession{}, errors.New("Codex session not found")
 }
 
-func (m *codexManager) listProfiles() []CodexProfile { m.mu.Lock(); defer m.mu.Unlock(); m.loadLocked(); out := make([]CodexProfile, len(m.profiles)); for i, profile := range m.profiles { out[i] = sanitizeProfileForResponse(profile) }; return out }
-func (m *codexManager) listHistory() []codexSession { m.mu.Lock(); defer m.mu.Unlock(); m.loadLocked(); out := make([]codexSession, len(m.history)); for i, session := range m.history { out[i] = sanitizeSession(session) }; slices.Reverse(out); return out }
+func (m *codexManager) listProfiles() []CodexProfile {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.loadLocked()
+	out := make([]CodexProfile, len(m.profiles))
+	for i, profile := range m.profiles {
+		out[i] = sanitizeProfileForResponse(profile)
+	}
+	return out
+}
+
+func (m *codexManager) listHistory() []codexSession {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.loadLocked()
+	out := make([]codexSession, len(m.history))
+	for i, session := range m.history {
+		out[i] = sanitizeSession(session)
+	}
+	slices.Reverse(out)
+	return out
+}
 
 func (s *Server) codexDiscovery(w http.ResponseWriter, r *http.Request) error {
 	refresh := r.URL.Query().Get("refresh") == "1"
@@ -777,11 +885,19 @@ func (s *Server) codexProfiles(w http.ResponseWriter, r *http.Request) error {
 		return json.NewEncoder(w).Encode(map[string]any{"profiles": manager.listProfiles()})
 	case http.MethodPost:
 		var profile CodexProfile
-		if err := json.NewDecoder(io.LimitReader(r.Body, 512*1024)).Decode(&profile); err != nil { return fmt.Errorf("invalid Codex profile: %w", err) }
-		saved, err := manager.saveProfile(profile); if err != nil { return err }
+		if err := json.NewDecoder(io.LimitReader(r.Body, 512*1024)).Decode(&profile); err != nil {
+			return fmt.Errorf("invalid Codex profile: %w", err)
+		}
+		saved, err := manager.saveProfile(profile)
+		if err != nil {
+			return err
+		}
 		return json.NewEncoder(w).Encode(saved)
 	case http.MethodDelete:
-		id := r.URL.Query().Get("id"); if id == "" { return errors.New("profile id is required") }
+		id := r.URL.Query().Get("id")
+		if id == "" {
+			return errors.New("profile id is required")
+		}
 		return manager.deleteProfile(id)
 	default:
 		return errors.New("method not allowed")
@@ -790,28 +906,44 @@ func (s *Server) codexProfiles(w http.ResponseWriter, r *http.Request) error {
 
 func (s *Server) codexPreflight(w http.ResponseWriter, r *http.Request) error {
 	var request codexRunRequest
-	if err := json.NewDecoder(io.LimitReader(r.Body, 512*1024)).Decode(&request); err != nil { return fmt.Errorf("invalid Codex preflight: %w", err) }
-	preview, _, err := s.codexManager().preflight(request.Profile, request.Prompt); if err != nil { return err }
+	if err := json.NewDecoder(io.LimitReader(r.Body, 512*1024)).Decode(&request); err != nil {
+		return fmt.Errorf("invalid Codex preflight: %w", err)
+	}
+	preview, _, err := s.codexManager().preflight(request.Profile, request.Prompt)
+	if err != nil {
+		return err
+	}
 	return json.NewEncoder(w).Encode(preview)
 }
 
 func (s *Server) codexRun(w http.ResponseWriter, r *http.Request) error {
 	var request codexRunRequest
-	if err := json.NewDecoder(io.LimitReader(r.Body, 512*1024)).Decode(&request); err != nil { return fmt.Errorf("invalid Codex run: %w", err) }
-	preview, session, err := s.codexManager().start(request); if err != nil { return err }
+	if err := json.NewDecoder(io.LimitReader(r.Body, 512*1024)).Decode(&request); err != nil {
+		return fmt.Errorf("invalid Codex run: %w", err)
+	}
+	preview, session, err := s.codexManager().start(request)
+	if err != nil {
+		return err
+	}
 	return json.NewEncoder(w).Encode(map[string]any{"session": sanitizeSession(session.codexSession), "preflight": preview})
 }
 
 func (s *Server) codexSessions(w http.ResponseWriter, r *http.Request) error {
 	manager := s.codexManager()
-	if r.Method == http.MethodGet { return json.NewEncoder(w).Encode(map[string]any{"sessions": manager.listHistory()}) }
+	if r.Method == http.MethodGet {
+		return json.NewEncoder(w).Encode(map[string]any{"sessions": manager.listHistory()})
+	}
 	return errors.New("method not allowed")
 }
 
 func (s *Server) codexSession(w http.ResponseWriter, r *http.Request) error {
 	id := r.PathValue("id")
 	manager := s.codexManager()
-	session, err := manager.getSession(id); if err != nil { return err }; return json.NewEncoder(w).Encode(session)
+	session, err := manager.getSession(id)
+	if err != nil {
+		return err
+	}
+	return json.NewEncoder(w).Encode(session)
 }
 
 func (s *Server) codexSessionEvents(w http.ResponseWriter, r *http.Request) error {
@@ -819,53 +951,137 @@ func (s *Server) codexSessionEvents(w http.ResponseWriter, r *http.Request) erro
 }
 
 func (s *Server) codexSessionCancel(w http.ResponseWriter, r *http.Request) error {
-	if r.Method != http.MethodPost { return errors.New("method not allowed") }
-	manager := s.codexManager(); id := r.PathValue("id")
-	manager.mu.Lock(); session, ok := manager.sessions[id]; manager.mu.Unlock()
-	if !ok { return errors.New("Codex session not found") }
+	if r.Method != http.MethodPost {
+		return errors.New("method not allowed")
+	}
+	manager := s.codexManager()
+	id := r.PathValue("id")
+	manager.mu.Lock()
+	session, ok := manager.sessions[id]
+	manager.mu.Unlock()
+	if !ok {
+		return errors.New("Codex session not found")
+	}
 	session.cancel()
 	return json.NewEncoder(w).Encode(map[string]string{"state": "cancellation_requested"})
 }
 
 func (s *Server) codexSessionRollback(w http.ResponseWriter, r *http.Request) error {
-	if r.Method != http.MethodPost { return errors.New("method not allowed") }
-	manager := s.codexManager(); id := r.PathValue("id")
-	manager.mu.Lock(); session, ok := manager.sessions[id]; manager.mu.Unlock()
-	if !ok { return errors.New("Codex session not found") }
+	if r.Method != http.MethodPost {
+		return errors.New("method not allowed")
+	}
+	manager := s.codexManager()
+	id := r.PathValue("id")
+	manager.mu.Lock()
+	session, ok := manager.sessions[id]
+	manager.mu.Unlock()
+	if !ok {
+		return errors.New("Codex session not found")
+	}
 	manager.restoreProfile(session.snapshot)
-	session.mu.Lock(); session.RollbackState = "restored"; if session.State != "running" && session.State != "queued" { session.State = "rolled_back" }; snapshot := sanitizeSession(session.codexSession); session.mu.Unlock()
+	session.mu.Lock()
+	session.RollbackState = "restored"
+	if session.State != "running" && session.State != "queued" {
+		session.State = "rolled_back"
+	}
+	snapshot := sanitizeSession(session.codexSession)
+	session.mu.Unlock()
 	manager.publish(session, codexEvent{Name: "state", Data: map[string]any{"state": snapshot.State, "rollbackState": "restored"}})
 	return json.NewEncoder(w).Encode(snapshot)
 }
 
 func (m *codexManager) codexEvents(w http.ResponseWriter, r *http.Request, id string) error {
-	session, events, closeEvents, err := m.subscribe(id); if err != nil { return err }; defer closeEvents()
-	w.Header().Set("Content-Type", "text/event-stream"); w.Header().Set("Cache-Control", "no-cache"); w.Header().Set("Connection", "keep-alive")
-	flusher, ok := w.(http.Flusher); if !ok { return errors.New("streaming is not supported") }
-	write := func(event codexEvent) { payload, _ := json.Marshal(event.Data); fmt.Fprintf(w, "event: %s\ndata: %s\n\n", event.Name, payload); flusher.Flush() }
-	for { select { case event, ok := <-events: if !ok { return nil }; write(event); case <-r.Context().Done(): return nil; case <-session.done: for { select { case event := <-events: write(event); default: return nil } } } }
+	session, events, closeEvents, err := m.subscribe(id)
+	if err != nil {
+		return err
+	}
+	defer closeEvents()
+	w.Header().Set("Content-Type", "text/event-stream")
+	w.Header().Set("Cache-Control", "no-cache")
+	w.Header().Set("Connection", "keep-alive")
+	flusher, ok := w.(http.Flusher)
+	if !ok {
+		return errors.New("streaming is not supported")
+	}
+	write := func(event codexEvent) {
+		payload, _ := json.Marshal(event.Data)
+		fmt.Fprintf(w, "event: %s\ndata: %s\n\n", event.Name, payload)
+		flusher.Flush()
+	}
+	for {
+		select {
+		case event, ok := <-events:
+			if !ok {
+				return nil
+			}
+			write(event)
+		case <-r.Context().Done():
+			return nil
+		case <-session.done:
+			for {
+				select {
+				case event := <-events:
+					write(event)
+				default:
+					return nil
+				}
+			}
+		}
+	}
 }
 
 func (s *Server) codexEditor(w http.ResponseWriter, r *http.Request) error {
 	var request codexEditorRequest
-	if err := json.NewDecoder(io.LimitReader(r.Body, 64*1024)).Decode(&request); err != nil { return fmt.Errorf("invalid editor request: %w", err) }
-	path, err := filepath.Abs(request.Path); if err != nil { return err }
-	if _, err := os.Stat(path); err != nil { return fmt.Errorf("path is not accessible: %w", err) }
-	editor, err := resolveCodexEditor(request.Editor); if err != nil { return err }
+	if err := json.NewDecoder(io.LimitReader(r.Body, 64*1024)).Decode(&request); err != nil {
+		return fmt.Errorf("invalid editor request: %w", err)
+	}
+	path, err := filepath.Abs(request.Path)
+	if err != nil {
+		return err
+	}
+	if _, err := os.Stat(path); err != nil {
+		return fmt.Errorf("path is not accessible: %w", err)
+	}
+	editor, err := resolveCodexEditor(request.Editor)
+	if err != nil {
+		return err
+	}
 	args := []string{path}
-	if strings.Contains(strings.ToLower(filepath.Base(editor)), "code") { args = []string{"--reuse-window", path} }
-	if err := exec.Command(editor, args...).Start(); err != nil { return fmt.Errorf("open editor: %w", err) }
+	if strings.Contains(strings.ToLower(filepath.Base(editor)), "code") {
+		args = []string{"--reuse-window", path}
+	}
+	if err := exec.Command(editor, args...).Start(); err != nil {
+		return fmt.Errorf("open editor: %w", err)
+	}
 	return json.NewEncoder(w).Encode(map[string]string{"editor": editor, "path": path})
 }
 
 func resolveCodexEditor(requested string) (string, error) {
-	if requested == "" { requested = os.Getenv("OLLAMA_EDITOR") }
-	if requested == "" { requested = os.Getenv("VISUAL") }
-	if requested == "" { requested = os.Getenv("EDITOR") }
-	if requested == "" { requested = "code" }
-	if strings.ContainsAny(requested, " \t\r\n\x00") { return "", errors.New("editor must be a single executable path, not a shell command") }
-	path, err := exec.LookPath(requested); if err != nil { return "", fmt.Errorf("editor %q was not found", requested) }
-	base := strings.ToLower(filepath.Base(path)); allowed := []string{"code", "code-insiders", "codium", "notepad", "vim", "nvim", "zed", "cursor"}
-	for _, name := range allowed { if strings.HasPrefix(strings.TrimSuffix(base, filepath.Ext(base)), name) { return path, nil } }
+	if requested == "" {
+		requested = os.Getenv("OLLAMA_EDITOR")
+	}
+	if requested == "" {
+		requested = os.Getenv("VISUAL")
+	}
+	if requested == "" {
+		requested = os.Getenv("EDITOR")
+	}
+	if requested == "" {
+		requested = "code"
+	}
+	if strings.ContainsAny(requested, " \t\r\n\x00") {
+		return "", errors.New("editor must be a single executable path, not a shell command")
+	}
+	path, err := exec.LookPath(requested)
+	if err != nil {
+		return "", fmt.Errorf("editor %q was not found", requested)
+	}
+	base := strings.ToLower(filepath.Base(path))
+	allowed := []string{"code", "code-insiders", "codium", "notepad", "vim", "nvim", "zed", "cursor"}
+	for _, name := range allowed {
+		if strings.HasPrefix(strings.TrimSuffix(base, filepath.Ext(base)), name) {
+			return path, nil
+		}
+	}
 	return "", errors.New("editor is not on the allowlist (supported: code, code-insiders, codium, notepad, vim, nvim, zed, cursor)")
 }

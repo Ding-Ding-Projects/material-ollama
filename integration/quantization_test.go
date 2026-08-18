@@ -129,7 +129,6 @@ func runQuantization(t *testing.T) {
 				}
 
 				t.Logf("passed")
-
 			})
 		}
 	}
