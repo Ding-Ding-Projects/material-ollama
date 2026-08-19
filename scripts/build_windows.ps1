@@ -1223,18 +1223,29 @@ function buildApp {
 	# like a working build right up until someone looks at the file in Explorer.
 	# Go links any .syso sitting beside the main package automatically, so this
 	# must land in ./app/cmd/app/ before the build below.
-	$windres = Get-Command 'x86_64-w64-mingw32-windres' -ErrorAction SilentlyContinue
+	# The .syso MUST carry the _windows_<arch> suffix. Go links any .syso
+	# sitting beside the main package regardless of architecture, so a single
+	# ollama.syso built for x64 gets pulled into the arm64 link too and fails
+	# with "machine type x64 conflicts with arm64". The suffix is what scopes
+	# it to one GOARCH. Learned the hard way: an unsuffixed file broke the
+	# arm64 build while the amd64 build stayed perfectly green.
+	$sysoDir = Join-Path $script:SRC_DIR 'app\cmd\app'
+	$stale = Join-Path $sysoDir 'ollama.syso'
+	if (Test-Path $stale) { Remove-Item $stale -Force }
+
+	$windresName = if ($arch -eq 'arm64') { 'aarch64-w64-mingw32-windres' } else { 'x86_64-w64-mingw32-windres' }
+	$windres = Get-Command $windresName -ErrorAction SilentlyContinue
 	if ($windres) {
-		$syso = Join-Path $script:SRC_DIR 'app\cmd\app\ollama.syso'
+		$syso = Join-Path $sysoDir "ollama_windows_${arch}.syso"
 		& $windres.Source --include-dir (Join-Path $script:SRC_DIR 'app') -i (Join-Path $script:SRC_DIR 'app\ollama.rc') -o $syso
-		if ($LASTEXITCODE -ne 0) { throw "windres failed to compile app\ollama.rc" }
+		if ($LASTEXITCODE -ne 0) { throw "windres failed to compile app\ollama.rc for $arch" }
 		if (-not (Test-Path $syso)) { throw "windres reported success but produced no $syso" }
-		write-host "embedded application icon resource: $syso"
+		write-host "embedded application icon resource for ${arch}: $syso"
 	} else {
 		# Not fatal: a machine without the mingw toolchain can still produce a
 		# runnable binary. Say so loudly rather than silently shipping the
 		# default icon and letting a release gate discover it later.
-		write-warning "x86_64-w64-mingw32-windres not found; the executable will NOT carry the application icon"
+		write-warning "$windresName not found; the ${arch} executable will NOT carry the application icon"
 	}
 
 	& go build -trimpath -ldflags "-s -w -H windowsgui -X=github.com/ollama/ollama/app/version.Version=$script:VERSION -X=github.com/ollama/ollama/app/version.Commit=$appCommit" -o .\dist\windows-ollama-app-${arch}.exe ./app/cmd/app/
