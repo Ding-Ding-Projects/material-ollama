@@ -2,7 +2,7 @@
 
 ## Behaviour
 
-TODO(rolling-discussion): describe what this feature actually does, on every surface the shared contract lists, in plain factual prose.
+Keeping a rolling progress GitHub Discussion thread is a development-process practice conducted with the `gh` CLI against GitHub's own Discussions feature -- it produces no file in this repository and has no corresponding screen in the running desktop app. The genuine artifact, where one exists, is the Discussion thread itself on this repository's GitHub page.
 
 ## Configuration
 
