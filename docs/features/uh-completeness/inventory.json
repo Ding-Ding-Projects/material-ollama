@@ -1859,7 +1859,7 @@
           "persistence": "app/store/store.go",
           "focusedCheck": null,
           "builtArtifactProof": "docs/features/uh-completeness/captures/manifest.json#captures.0.artifact.sha256",
-          "captureEvidence": "docs/features/uh-completeness/captures/images/models.png@sha256:a1fc4bef38ed0d208a303932208826f742e6a2ddeb8f0378d4b2114b459beb7a"
+          "captureEvidence": "docs/features/uh-completeness/captures/images/models.png@sha256:591a4bfd2979ee9b0726104d09f7b6f03092a1f5ea9a3099d499e4ce8a68b312"
         },
         "landing-page": {
           "status": "missing",
@@ -1999,7 +1999,7 @@
           "persistence": "app/store/store.go",
           "focusedCheck": "app/ui/catalog_test.go::TestRunCatalogRefresh_OneFailingTagPageYieldsPartialVerdict",
           "builtArtifactProof": "docs/features/uh-completeness/captures/manifest.json#captures.0.artifact.sha256",
-          "captureEvidence": "docs/features/uh-completeness/captures/images/models.png@sha256:a1fc4bef38ed0d208a303932208826f742e6a2ddeb8f0378d4b2114b459beb7a"
+          "captureEvidence": "docs/features/uh-completeness/captures/images/models.png@sha256:591a4bfd2979ee9b0726104d09f7b6f03092a1f5ea9a3099d499e4ce8a68b312"
         },
         "landing-page": {
           "status": "missing",
@@ -2027,7 +2027,7 @@
           "persistence": "app/ui/catalog.go",
           "focusedCheck": "app/ui/catalog_test.go::TestRunCatalogRefresh_OneFailingTagPageYieldsPartialVerdict",
           "builtArtifactProof": "docs/features/uh-completeness/captures/manifest.json#captures.0.artifact.sha256",
-          "captureEvidence": "docs/features/uh-completeness/captures/images/models.png@sha256:a1fc4bef38ed0d208a303932208826f742e6a2ddeb8f0378d4b2114b459beb7a"
+          "captureEvidence": "docs/features/uh-completeness/captures/images/models.png@sha256:591a4bfd2979ee9b0726104d09f7b6f03092a1f5ea9a3099d499e4ce8a68b312"
         },
         "landing-page": {
           "status": "missing",
@@ -2055,7 +2055,7 @@
           "persistence": "app/store/store.go",
           "focusedCheck": "app/ui/hardware_test.go::TestComputeFitVerdict_FitsFreeVRAMYieldsRunsWell",
           "builtArtifactProof": "docs/features/uh-completeness/captures/manifest.json#captures.0.artifact.sha256",
-          "captureEvidence": "docs/features/uh-completeness/captures/images/models.png@sha256:a1fc4bef38ed0d208a303932208826f742e6a2ddeb8f0378d4b2114b459beb7a"
+          "captureEvidence": "docs/features/uh-completeness/captures/images/models.png@sha256:591a4bfd2979ee9b0726104d09f7b6f03092a1f5ea9a3099d499e4ce8a68b312"
         },
         "landing-page": {
           "status": "missing",
@@ -2167,7 +2167,7 @@
           "persistence": "app/ui/app/src/components/shell/useShellTabs.ts",
           "focusedCheck": "app/ui/app/src/components/md3/TabStrip.dom.test.tsx::left dock (vertical): ArrowDown/ArrowUp move the active tab, ArrowLeft/ArrowRight do nothing",
           "builtArtifactProof": "docs/features/uh-completeness/captures/manifest.json#captures.0.artifact.sha256",
-          "captureEvidence": "docs/features/uh-completeness/captures/images/models.png@sha256:a1fc4bef38ed0d208a303932208826f742e6a2ddeb8f0378d4b2114b459beb7a"
+          "captureEvidence": "docs/features/uh-completeness/captures/images/models.png@sha256:591a4bfd2979ee9b0726104d09f7b6f03092a1f5ea9a3099d499e4ce8a68b312"
         },
         "landing-page": {
           "status": "missing",
@@ -2363,7 +2363,7 @@
           "persistence": "not-persisted: the open/closed state, query text, and regex-mode toggle live in component state only and reset every time the dialog closes.",
           "focusedCheck": "app/ui/app/src/components/shell/CommandPalette.dom.test.tsx::opens showing every destination",
           "builtArtifactProof": "docs/features/uh-completeness/captures/manifest.json#captures.10.artifact.sha256",
-          "captureEvidence": "docs/features/uh-completeness/captures/images/command-palette.png@sha256:ebed111b10d2104b298ec5bbe0d71345cf3ef8215b77c18eb91b6ff75358dfb7"
+          "captureEvidence": "docs/features/uh-completeness/captures/images/command-palette.png@sha256:adf7a4b353f4fa30d79a43d9b145ff76a352c19e2a575a1c867acf1b0d0ff7b8"
         },
         "landing-page": {
           "status": "missing",
@@ -3427,7 +3427,7 @@
           "persistence": "app/ui/release.go",
           "focusedCheck": "app/ui/release_test.go::TestReleaseInfo_DevBuildReports0_0_0WithNoCodeName",
           "builtArtifactProof": "docs/features/uh-completeness/captures/manifest.json#captures.7.artifact.sha256",
-          "captureEvidence": "docs/features/uh-completeness/captures/images/status.png@sha256:1a5ed3a4840ed7d7e36d9cc26ac8faf20db4bda5082ee12ea5eb90a0fd361412"
+          "captureEvidence": "docs/features/uh-completeness/captures/images/status.png@sha256:f6a79731aaade400948f50ed6fa63fcfccfa2452892e44b574d52ea46c3ed3f1"
         },
         "landing-page": {
           "status": "missing",
