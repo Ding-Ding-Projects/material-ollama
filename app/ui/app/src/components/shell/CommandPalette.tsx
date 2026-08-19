@@ -47,7 +47,7 @@ export function CommandPalette({ open, onClose, onSelect }: CommandPaletteProps)
       icon="search"
       title={<Txt ns="shell" k="commandPalette" channel="copy" />}
     >
-      <div className="flex flex-col gap-3">
+      <div className="flex flex-col gap-3" data-capture-id="command-palette" data-capture-ready="true">
         <SearchField
           value={query}
           onChange={setQuery}
