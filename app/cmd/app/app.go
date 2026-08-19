@@ -281,6 +281,15 @@ func main() {
 		},
 	}
 
+	// The file converter only accepts paths the native OS picker actually
+	// issued. Without this wiring every conversion job is refused, which is
+	// the correct fail-closed default but also means the feature does
+	// nothing. Registering the hook here rather than exposing it over HTTP
+	// is deliberate: an HTTP registration route would hand a compromised
+	// renderer the exact arbitrary-file-read bypass the allow-list exists
+	// to prevent. See RegisterPickedPaths in app/ui/convert.go.
+	onFilesPicked = uiServer.RegisterPickedPaths
+
 	srv := &http.Server{
 		Handler: uiServer.Handler(),
 	}

@@ -36,6 +36,12 @@ type Webview struct {
 // Run initializes the webview and starts its event loop.
 // Note: this must be called from the primary app thread
 // This returns the OS native window handle to the caller
+// onFilesPicked is set by app.go to the ui.Server method that records which
+// paths the native OS file picker actually issued. It is a package-level hook
+// rather than an HTTP route on purpose: exposing registration to the renderer
+// would defeat the very allow-list it feeds.
+var onFilesPicked func(paths []string)
+
 func (w *Webview) Run(path string) unsafe.Pointer {
 	var url string
 	if devMode {
@@ -352,6 +358,20 @@ func (w *Webview) Run(path string) unsafe.Pointer {
 				if len(files) == 0 {
 					callCallback(nil)
 				} else {
+					// Tell the converter which paths the OS picker genuinely
+					// issued. Only paths that passed through this dialog are
+					// eligible for a probe or conversion job; anything else is
+					// refused, so a compromised renderer cannot turn the
+					// converter into an arbitrary-file-read primitive.
+					if onFilesPicked != nil {
+						picked := make([]string, 0, len(files))
+						for _, f := range files {
+							if p := f["path"]; p != "" {
+								picked = append(picked, p)
+							}
+						}
+						onFilesPicked(picked)
+					}
 					callCallback(files)
 				}
 			}()

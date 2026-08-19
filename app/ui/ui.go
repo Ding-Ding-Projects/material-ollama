@@ -410,6 +410,20 @@ func (s *Server) Handler() http.Handler {
 	// app/ui/docs.go.
 	mux.Handle("GET /api/v1/docs/inventory", handle(s.docsInventory))
 	mux.Handle("GET /api/v1/docs/article/{id}", handle(s.docsArticleByID))
+	// Universal file converter: a persisted, bounded-concurrency job
+	// queue over real in-process adapters (Structured Data, Code/Text,
+	// Binary Encodings, Images, Archives, PDF text extraction), plus an
+	// honest catalog naming every format this build cannot yet reach
+	// offline and exactly why. See app/ui/convert.go's header comment for
+	// the full pipeline and app/ui/convert_windows.go for the Windows Job
+	// Object isolation used for any external converter child process.
+	mux.Handle("GET /api/v1/convert/catalog", handle(s.convertCatalogHandler))
+	mux.Handle("POST /api/v1/convert/probe", handle(s.convertProbeHandler))
+	mux.Handle("GET /api/v1/convert/jobs", handle(s.convertJobsHandler))
+	mux.Handle("POST /api/v1/convert/jobs", handle(s.convertJobsHandler))
+	mux.Handle("GET /api/v1/convert/events", handle(s.convertJobEventsHandler))
+	mux.Handle("POST /api/v1/convert/jobs/{id}/cancel", handle(s.convertJobCancelHandler))
+	mux.Handle("DELETE /api/v1/convert/jobs/{id}", handle(s.convertJobDeleteHandler))
 
 	// Ollama proxy endpoints
 	ollamaProxy := s.ollamaProxy()
