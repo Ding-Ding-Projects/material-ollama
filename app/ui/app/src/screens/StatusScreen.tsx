@@ -1,11 +1,6 @@
-import { useT } from "@/uh"
-import { PlaceholderScreen } from "./PlaceholderScreen"
-
-export default function StatusScreen() {
-  const t = useT("tools")
-  return (
-    <div className="h-full" data-capture-id="status" data-capture-ready="true">
-      <PlaceholderScreen icon="monitor_heart" heading={t("statusTitle")} subheading={t("statusSub")} />
-    </div>
-  )
-}
+// Thin re-export so routes/status.tsx's `import StatusScreen from
+// "@/screens/StatusScreen"` keeps working unchanged. The real
+// implementation -- release identity, changelog, local version history,
+// support tickets, dim sum -- lives entirely under ./status/, this file's
+// one allowed sibling path.
+export { StatusScreen as default } from "./status/StatusScreen"
