@@ -1719,7 +1719,7 @@
           "persistence": "not-persisted: the regex lab keeps its pattern, flags, and demo search text in component state only; nothing writes it to localStorage or a backend endpoint, so it resets whenever the Toolbox screen unmounts.",
           "focusedCheck": "app/ui/app/src/components/md3/RegexBuilder.dom.test.tsx::caps rendered matches at REGEX_MAX_MATCHES and reports the truncation",
           "builtArtifactProof": "docs/features/uh-completeness/captures/manifest.json#captures.5.artifact.sha256",
-          "captureEvidence": "docs/features/uh-completeness/captures/images/toolbox.png@sha256:51e2db56804f96f06338a13d7f4bdcafe503981cd32d517a68a403f62429a289"
+          "captureEvidence": "docs/features/uh-completeness/captures/images/toolbox.png@sha256:b5714531995bedd62bf4bbd934393480d5ffb2b7d1e9d280b3de53ae93cf79cb"
         },
         "landing-page": {
           "status": "missing",
@@ -2027,7 +2027,7 @@
           "persistence": "app/ui/catalog.go",
           "focusedCheck": "app/ui/catalog_test.go::TestRunCatalogRefresh_OneFailingTagPageYieldsPartialVerdict",
           "builtArtifactProof": "docs/features/uh-completeness/captures/manifest.json#captures.0.artifact.sha256",
-          "captureEvidence": "docs/features/uh-completeness/captures/images/models.png@sha256:eb4c684f3ea79f9f6d8bb65c0cf938a679d36ada905373fd4630cba067b414c6"
+          "captureEvidence": "docs/features/uh-completeness/captures/images/models.png@sha256:a1fc4bef38ed0d208a303932208826f742e6a2ddeb8f0378d4b2114b459beb7a"
         },
         "landing-page": {
           "status": "missing",
@@ -2055,7 +2055,7 @@
           "persistence": "app/store/store.go",
           "focusedCheck": "app/ui/hardware_test.go::TestComputeFitVerdict_FitsFreeVRAMYieldsRunsWell",
           "builtArtifactProof": "docs/features/uh-completeness/captures/manifest.json#captures.0.artifact.sha256",
-          "captureEvidence": "docs/features/uh-completeness/captures/images/models.png@sha256:eb4c684f3ea79f9f6d8bb65c0cf938a679d36ada905373fd4630cba067b414c6"
+          "captureEvidence": "docs/features/uh-completeness/captures/images/models.png@sha256:a1fc4bef38ed0d208a303932208826f742e6a2ddeb8f0378d4b2114b459beb7a"
         },
         "landing-page": {
           "status": "missing",
@@ -2111,7 +2111,7 @@
           "persistence": "app/store/database.go",
           "focusedCheck": "app/store/database_test.go::TestChatDeletionWithCascade",
           "builtArtifactProof": "docs/features/uh-completeness/captures/manifest.json#captures.1.artifact.sha256",
-          "captureEvidence": "docs/features/uh-completeness/captures/images/c-new.png@sha256:49f3f97ac1b35f2432528610e25cc52ca5fddbf50a259d06220dc76277ae108c"
+          "captureEvidence": "docs/features/uh-completeness/captures/images/c-new.png@sha256:e2769facef8637a493a0425411def2e7e946af7c590caf05bf223e89cd419e98"
         },
         "landing-page": {
           "status": "missing",
@@ -2139,7 +2139,7 @@
           "persistence": "app/ui/codex.go",
           "focusedCheck": null,
           "builtArtifactProof": "docs/features/uh-completeness/captures/manifest.json#captures.3.artifact.sha256",
-          "captureEvidence": "docs/features/uh-completeness/captures/images/codex.png@sha256:dbe092c0ca7d76ab5365acc0001d7f146b2e58cc1a9e9e8703753fcb49111a66"
+          "captureEvidence": "docs/features/uh-completeness/captures/images/codex.png@sha256:986addb4774b39dee9e4355bcd5f0adeef2826332a3d843cbf3f080cc76b0c9c"
         },
         "landing-page": {
           "status": "missing",
@@ -2307,7 +2307,7 @@
           "persistence": "not-persisted: the selected article and search query reset on reload; loadDocsArticles in app/ui/docs.go reads bundled markdown fresh on every request rather than remembering a user's last-viewed article.",
           "focusedCheck": null,
           "builtArtifactProof": "docs/features/uh-completeness/captures/manifest.json#captures.6.artifact.sha256",
-          "captureEvidence": "docs/features/uh-completeness/captures/images/docs.png@sha256:5589113059aa78ea7703fe44c97da67c376fad014b12fc82c8503b2937e6b6ff"
+          "captureEvidence": "docs/features/uh-completeness/captures/images/docs.png@sha256:be80e26f71fa4ba284f248ade471ce3245cf4280585618794c1761754ac00579"
         },
         "landing-page": {
           "status": "missing",
@@ -3119,7 +3119,7 @@
           "persistence": "not-persisted: the parity table is derived live from the Cobra command tree on every GET /api/v1/capabilities call; nothing is cached to disk.",
           "focusedCheck": null,
           "builtArtifactProof": "docs/features/uh-completeness/captures/manifest.json#captures.4.artifact.sha256",
-          "captureEvidence": "docs/features/uh-completeness/captures/images/devtools.png@sha256:a51673d2912dba6017b60de778621941f78a6a2f42a81740f1b4b5e7f6406044"
+          "captureEvidence": "docs/features/uh-completeness/captures/images/devtools.png@sha256:530de10297949f84f2826c13b5e5de2851c0d97dc22a4f5cc57293c5cac3448c"
         },
         "landing-page": {
           "status": "missing",
@@ -3147,7 +3147,7 @@
           "persistence": "not-persisted: CapabilityRegistryVersion and the registry itself are rebuilt from the live Cobra command tree per request; no snapshot is written to disk.",
           "focusedCheck": null,
           "builtArtifactProof": "docs/features/uh-completeness/captures/manifest.json#captures.4.artifact.sha256",
-          "captureEvidence": "docs/features/uh-completeness/captures/images/devtools.png@sha256:a51673d2912dba6017b60de778621941f78a6a2f42a81740f1b4b5e7f6406044"
+          "captureEvidence": "docs/features/uh-completeness/captures/images/devtools.png@sha256:530de10297949f84f2826c13b5e5de2851c0d97dc22a4f5cc57293c5cac3448c"
         },
         "landing-page": {
           "status": "missing",

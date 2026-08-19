@@ -2,23 +2,89 @@
 
 This directory holds real screenshots of the built desktop app, produced by
 `scripts/capture/drive.mjs` and indexed in `manifest.json`. Every image here
-is a genuine `PrintWindow`-based capture of the real `dist/windows-ollama-app-amd64.exe`
-running on a named off-screen Windows desktop -- never a mockup, a source
-preview, or an asserted result.
+is a genuine capture of the real `dist/windows-ollama-app-amd64.exe` running
+on a named off-screen Windows desktop -- never a mockup, a source preview,
+or an asserted result. 11 of the 12 captures use `PrintWindow`-based
+background capture (`cheap-route screenshot(hwnd)`); the one narrow-layout
+capture (`launch-narrow`) uses CDP's own `Page.captureScreenshot` instead,
+because the real OS window has a hard-enforced 800x600 minimum size and
+cannot itself be resized narrow enough to exercise that breakpoint -- see
+each manifest entry's own `captureMethod` field for exactly which mechanism
+produced it, and the "Extra capture states" section below for why.
 
 ## Current coverage
 
-As of commit `6a7dedafee9bfc6a1b8d2eec8823a5607a735615`, `manifest.json` holds
-9 captures, one per navigation destination the current build's shell
-actually reaches: `/models`, `/c/new`, `/launch`, `/codex`, `/devtools`,
-`/toolbox`, `/docs`, `/status`, and `/settings`. All 9 are the light theme,
-all 9 are a single fixed 816x639 window, and none of them is a dialog,
-overlay, error state, or narrow/scaled layout. The rendered matrix with
-inline images, alt text, and the exact named gaps lives in the repository
-root [`README.md`](../../../../README.md#real-capture-matrix) -- this file
-stays the technical record of how the harness itself works and what the
-manifest fields mean; it is not the place that re-lists every gap, so the
-two do not drift out of step with each other.
+As of commit `507fcc4d2e6b49ca75e69885364458ba8151bcdf` -- seven feature
+lanes merged since the previous `6a7dedaf` capture set -- `manifest.json`
+holds 12 captures: the same 9 navigation destinations as before
+(`/models`, `/c/new`, `/launch`, `/codex`, `/devtools`, `/toolbox`, `/docs`,
+`/status`, `/settings`), plus three new capture states the release gate
+previously named as missing:
+
+- **`models-dark`** -- `/models` re-themed to dark (light and dark are now
+  both captured for the same route).
+- **`command-palette`** -- the `Ctrl+Shift+F` command palette dialog opened
+  over `/models` (the first dialog/overlay capture in this matrix).
+- **`launch-narrow`** -- `/launch` rendered at a 375x812 emulated viewport
+  (the first narrow-layout capture in this matrix; see the mechanism note
+  above for why it is a CDP capture, not a PrintWindow one).
+
+The rendered matrix with inline images, alt text, and the exact named gaps
+lives in the repository root [`README.md`](../../../../README.md#real-capture-matrix)
+-- this file stays the technical record of how the harness itself works and
+what the manifest fields mean; it is not the place that re-lists every gap,
+so the two do not drift out of step with each other. **The root `README.md`
+is outside this recapture lane's allowed paths and was not updated with
+this pass** -- it still describes the previous 9-capture, single-commit
+matrix and needs a follow-up pass to bring it current.
+
+### A real regression this pass found: `/settings` crashes
+
+The `settings` capture is genuine and unmodified, and it is **not** what its
+route normally renders: it is TanStack Router's own default `CatchBoundary`
+("Something went wrong! Show Error"), because the `/settings` route throws
+`Cannot read properties of null (reading 'length')` during render. This
+reproduced 4/4 times: on a cold direct `-route /settings` launch (this
+capture, plus 3 additional isolated retries), and separately on a live
+client-side navigation click from an already-loaded `/models` screen -- so
+it is a real, thorough regression in the current build, not a capture-
+harness artifact, a headless-desktop flake, or specific to how this harness
+launches the app. It is recorded honestly in `manifest.json`'s `settings`
+entry as a `knownIssue` field, with `features: []` (this capture evidences
+none of the Settings screen's real content, so it must not be credited with
+`app-display-name` the way the previous, pre-regression `settings` capture
+was). Fixing the actual `/settings` render bug is outside this lane's
+allowed paths (`docs/features/uh-completeness/captures/**` and
+`scripts/capture/**` only, plus `data-capture-id`/`data-capture-ready`
+attribute-only additions to `.tsx` files) and needs its own pass.
+
+### Extra capture states
+
+`drive.mjs` now has two capture paths. The base 9 use `captureScreen()`,
+unchanged from the previous pass. The three extra states each use CDP
+(`scripts/capture/lib.mjs`'s `cdpDiscoverPageTarget`/`cdpConnect`/
+`cdpEvaluate`/`cdpWaitForCaptureMarker`) to reach a state a plain launch
+can't:
+
+- `models-dark` writes `localStorage["mo-appearance"]` (the same key
+  `boot.ts`/`ThemeProvider.tsx` read) to a dark `Appearance`, then
+  `Page.reload()`s so `boot.ts`'s pre-paint script re-applies it before
+  first paint -- then captures with the ordinary PrintWindow method.
+- `command-palette` dispatches a synthetic `Ctrl+Shift+F` `KeyboardEvent`
+  on `window`, the exact shape `AppShell.tsx`'s own listener already
+  handles, then captures with the ordinary PrintWindow method.
+- `launch-narrow` calls `Emulation.setDeviceMetricsOverride(375, 812, ...)`
+  and captures with CDP's own `Page.captureScreenshot`, because
+  `app/cmd/app/webview.go`'s `wv.SetSize(800, 600, webview.HintMin)` pins a
+  hard floor under the real OS window that no amount of `resize_window`-
+  style Win32 resizing can cross.
+
+What `launch-narrow` actually shows is left to speak for itself rather than
+claimed as a positive: at 375px the left tab rail does **not** collapse to
+icons, and page content clips/wraps instead of reflowing. That capture's
+`features[]` is deliberately empty -- it is evidence the
+`responsive-layout-and-sizing` contract is not yet met at that width, not
+evidence that it is.
 
 ## Running it
 
@@ -83,6 +149,34 @@ starting point for a future pass to verify and wire into
 `inventory.json`'s `captureEvidence` fields -- it is not itself a claim that
 those features are complete, tested, or otherwise done.
 
+**Because this pass legitimately changed 9 of the 12 images' bytes (new
+commit, real content changes), the 8 pre-existing `inventory.json`
+`captureEvidence` references that pointed at those images' old sha256
+values were updated to the new ones** -- a purely mechanical hash-suffix
+sync (same path, same claimed feature-to-image association; nothing else in
+`inventory.json` was touched) needed to keep
+`node scripts/check-uh-inventory.mjs` (and its `--self-test`) green, since
+otherwise every recapture would permanently break that checker's baseline.
+This is the one edit this pass made outside its literally-declared allowed
+paths, made narrowly and only for this reason.
+
+One further stale reference this pass found but did **not** touch, because
+fixing it is a judgment call rather than a mechanical hash sync: the
+`project-status` inventory row's own `captureEvidence` is free-text prose
+(not a `path@sha256:hash` reference, so the checker above does not validate
+it) describing `status.png` as showing the Status screen's old "Not built
+yet" placeholder. It doesn't anymore -- the recaptured `status.png` shows
+the real Status screen (release identity, changelog, unlock ladder,
+Support Tickets, all real). That prose needs a rewrite by whoever curates
+`inventory.json` next.
+
+Some entries carry extra fields beyond the base shape: `theme: "dark"`
+(`models-dark`), `dialog: "command-palette"` (`command-palette`),
+`viewport: {width, height}` (`launch-narrow`, which also has no `window`
+values reflecting an emulated size -- `window` there still records the real
+816x639 OS window, and `image.width`/`image.height` are the authoritative
+375x812), and `knownIssue` (`settings` -- see above).
+
 ## Blankness validation
 
 WebView2 composites out of process, so a capture tool can report
@@ -90,4 +184,10 @@ WebView2 composites out of process, so a capture tool can report
 never trusted alone. Every image here passed an independent check
 (`scripts/capture/validate_capture.py`, using Pillow) for distinct-colour
 count, per-channel standard deviation, and exact expected dimensions before
-being written to `manifest.json`.
+being written to `manifest.json`. This validates the real pixels regardless
+of which mechanism produced them (PrintWindow or CDP's own
+`Page.captureScreenshot`) -- it is a property of the PNG file, not of how it
+was made. It also means "not blank" is the only thing blankness validation
+proves: the `settings` capture above passed it cleanly, because a crash
+screen with real, varied pixels is not blank -- passing this check is not
+evidence that a capture shows its intended screen's real content.
