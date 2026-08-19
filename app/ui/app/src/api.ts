@@ -379,39 +379,15 @@ export async function getModelUpstreamInfo(
   }
 }
 
-export async function* pullModel(
-  modelName: string,
-  signal?: AbortSignal,
-): AsyncGenerator<{
-  status: string;
-  digest?: string;
-  total?: number;
-  completed?: number;
-  done?: boolean;
-}> {
-  const response = await fetch(`${API_BASE}/api/v1/models/pull`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({ name: modelName }),
-    signal,
-  });
-
-  if (!response.ok) {
-    throw new Error(`Failed to pull model: ${response.statusText}`);
-  }
-
-  for await (const event of parseJsonlFromResponse<{
-    status: string;
-    digest?: string;
-    total?: number;
-    completed?: number;
-    done?: boolean;
-  }>(response)) {
-    yield event;
-  }
-}
+// NOTE: model pull/delete/queue management now lives behind the real
+// server-owned routes registered in app/ui/models.go (POST
+// /api/v1/models/pull enqueues a durable, resumable download; progress is
+// read from the SSE stream at GET /api/v1/models/pull/events). The
+// generator that used to live here POSTed to this same path expecting a
+// streaming NDJSON response body, but no such route existed — the request
+// fell through to the SPA catch-all and "parsed" index.html as if it were
+// progress data. It had no callers. Removed rather than left as a trap for
+// whichever UI lane wires up the model store next.
 
 export interface ModelRecommendation {
   model: string;

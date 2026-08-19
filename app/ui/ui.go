@@ -297,6 +297,22 @@ func (s *Server) Handler() http.Handler {
 
 	mux.Handle("GET /api/v1/inference-compute", handle(s.getInferenceCompute))
 	mux.Handle("POST /api/v1/model/upstream", handle(s.modelUpstream))
+
+	// Hardware snapshot (system RAM, detected GPUs/VRAM, free disk) and the
+	// model store: server-owned install list, running list, and pull
+	// queue. Deliberately not routed through the Ollama reverse proxy
+	// below -- see the comment at the top of app/ui/models.go for why.
+	mux.Handle("GET /api/v1/hardware", handle(s.getHardware))
+	mux.Handle("GET /api/v1/models/installed", handle(s.modelsInstalled))
+	mux.Handle("GET /api/v1/models/running", handle(s.modelsRunning))
+	mux.Handle("POST /api/v1/models/pull", handle(s.pullEnqueue))
+	mux.Handle("GET /api/v1/models/pull/queue", handle(s.pullQueueList))
+	mux.Handle("GET /api/v1/models/pull/events", handle(s.pullEvents))
+	mux.Handle("POST /api/v1/models/pull/{id}/pause", handle(s.pullPause))
+	mux.Handle("POST /api/v1/models/pull/{id}/resume", handle(s.pullResume))
+	mux.Handle("POST /api/v1/models/pull/{id}/cancel", handle(s.pullCancel))
+	mux.Handle("POST /api/v1/models/delete", handle(s.modelsDelete))
+
 	mux.Handle("GET /api/v1/settings", handle(s.getSettings))
 	mux.Handle("POST /api/v1/settings", handle(s.settings))
 	mux.Handle("GET /api/v1/capabilities", handle(s.capabilities))
