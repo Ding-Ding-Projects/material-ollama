@@ -1,0 +1,41 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="256" height="256" role="img" aria-labelledby="material-ollama-mark-title">
+  <!--
+    Material Ollama mark -- original artwork for this fork.
+
+    Not a trace or derivative of upstream Ollama's llama mark, and not an
+    imitation of any other real organisation's branding. The shape reads as
+    a small local hub-and-spoke network (three connected nodes): a nod both
+    to "Material" (Google Material's rounded-square shape language, M3
+    "large" corner radius) and to "Ollama" (models running as a small
+    connected cluster of local processes rather than one remote endpoint).
+
+    Geometry lives in this file as three primitive kinds only -- one <rect>,
+    two <line>s, three <circle>s, one 2-stop <linearGradient> -- on purpose:
+    scripts/build-app-icon.mjs parses exactly this shape vocabulary with a
+    small hand-rolled reader (see its header comment) rather than a general
+    SVG engine. Keep any future edit to this file within that vocabulary,
+    or update the generator's reader in the same change.
+
+    Legibility at 16px is the hard constraint this was designed against:
+    a single rounded-square silhouette, three bold circular nodes, two
+    thick rounded-cap connectors, no fine detail, no text. The glyph
+    (nodes + connectors) is also readable as a standalone single-colour
+    mark -- see the "mono" variant rendered by AppMark.tsx -- for contexts
+    that need one ink colour rather than the two-tone version below.
+  -->
+  <title id="material-ollama-mark-title">Material Ollama mark</title>
+  <defs>
+    <linearGradient id="molBg" x1="8" y1="8" x2="248" y2="248" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#4C57D6"/>
+      <stop offset="1" stop-color="#6A4FC0"/>
+    </linearGradient>
+  </defs>
+  <rect x="8" y="8" width="240" height="240" rx="54" fill="url(#molBg)"/>
+  <g fill="none" stroke="#FFFFFF" stroke-width="20" stroke-linecap="round">
+    <line x1="128" y1="78" x2="75" y2="180"/>
+    <line x1="128" y1="78" x2="181" y2="180"/>
+  </g>
+  <circle cx="128" cy="78" r="27" fill="#FFFFFF"/>
+  <circle cx="75" cy="180" r="23" fill="#FFFFFF"/>
+  <circle cx="181" cy="180" r="23" fill="#FFFFFF"/>
+</svg>
