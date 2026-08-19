@@ -308,6 +308,15 @@ func (s *Server) Handler() http.Handler {
 	mux.Handle("GET /api/v1/cloud", handle(s.getCloudSetting))
 	mux.Handle("POST /api/v1/cloud", handle(s.cloudSetting))
 
+	// Dedicated UI-preferences routes. Deliberately NOT folded into the
+	// general /api/v1/settings pair above -- see app/ui/uh.go's header
+	// comment for why.
+	mux.Handle("GET /api/v1/uh/preferences", handle(s.uhGetPreferences))
+	mux.Handle("PATCH /api/v1/uh/preferences", handle(s.uhPatchPreferences))
+	mux.Handle("POST /api/v1/uh/school/pin", handle(s.uhSetSchoolPIN))
+	mux.Handle("POST /api/v1/uh/school/unlock", handle(s.uhUnlockSchool))
+	mux.Handle("DELETE /api/v1/uh/school/pin", handle(s.uhClearSchoolPIN))
+
 	// Local Codex CLI harness. These routes accept argv tokens and explicit
 	// environment entries only; the harness never evaluates shell strings.
 	mux.Handle("GET /api/v1/codex/discovery", handle(s.codexDiscovery))
