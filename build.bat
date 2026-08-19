@@ -1,0 +1,53 @@
+@echo off
+setlocal enabledelayedexpansion
+
+rem build.bat - repository-root gate + delegated Windows build.
+rem
+rem Before any packaging step runs, this proves the shared user-facing
+rem feature inventory is genuinely fail-closed:
+rem
+rem   1. the checker's own --self-test case table must pass: every guard it
+rem      knows how to raise turns red on its own exact mutation and green
+rem      again after restoration (a guard nobody has watched fail proves
+rem      nothing);
+rem   2. the current docs\features\uh-completeness\inventory.json must pass
+rem      the plain structural + evidence-resolution check with no flags.
+rem
+rem Only once both are green does this delegate to scripts\build_windows.ps1
+rem for the real Windows build. Every argument given to build.bat is passed
+rem straight through, unchanged, to build_windows.ps1's own step-name
+rem argument list (for example `build.bat app` builds only the app step);
+rem with no arguments build_windows.ps1 runs its full default build.
+
+set "SCRIPT_DIR=%~dp0"
+cd /d "%SCRIPT_DIR%"
+
+where node >nul 2>nul
+if errorlevel 1 (
+    echo [build.bat] ERROR: node was not found on PATH. Install Node.js and try again.
+    exit /b 1
+)
+
+echo [build.bat] Running inventory checker self-test ^(guard-of-guards^)...
+call node scripts\check-uh-inventory.mjs --self-test
+if errorlevel 1 (
+    echo [build.bat] ERROR: inventory checker self-test failed. The fail-closed gate itself is broken - fix scripts\check-uh-inventory.mjs before building.
+    exit /b 1
+)
+
+echo [build.bat] Running inventory structural + evidence check...
+call node scripts\check-uh-inventory.mjs
+if errorlevel 1 (
+    echo [build.bat] ERROR: inventory structural check failed. Fix docs\features\uh-completeness\inventory.json before building.
+    exit /b 1
+)
+
+echo [build.bat] Inventory gate is green. Delegating to scripts\build_windows.ps1...
+powershell -NoProfile -ExecutionPolicy Bypass -File "%SCRIPT_DIR%scripts\build_windows.ps1" %*
+if errorlevel 1 (
+    echo [build.bat] ERROR: scripts\build_windows.ps1 failed.
+    exit /b 1
+)
+
+echo [build.bat] Build complete.
+exit /b 0
