@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { getSettings, updateSettings } from "@/api"
+import { Settings } from "@/gotypes"
 import { ProgressBar, Surface, Switch, useSnackbar } from "@/components/md3"
 import { Icon } from "@/components/md3/Icon"
 import { Txt, useT } from "@/uh"
@@ -58,7 +59,7 @@ export function AutomaticUpdatesCard() {
         <Switch
           checked={settings.AutoUpdateEnabled}
           onChange={(checked) => {
-            mutation.mutate({ ...settings, AutoUpdateEnabled: checked })
+            mutation.mutate(new Settings({ ...settings, AutoUpdateEnabled: checked }))
           }}
           label={t("autoUpdatesToggleLabel")}
           disabled={mutation.isPending}

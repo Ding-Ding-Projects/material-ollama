@@ -276,6 +276,7 @@ export class InferenceCompute {
     driver: string;
     name: string;
     vram: string;
+    vramBytes?: number;
 
     constructor(source: any = {}) {
         if ('string' === typeof source) source = JSON.parse(source);
@@ -285,6 +286,7 @@ export class InferenceCompute {
         this.driver = source["driver"];
         this.name = source["name"];
         this.vram = source["vram"];
+        this.vramBytes = source["vramBytes"];
     }
 }
 export class InferenceComputeResponse {
@@ -399,6 +401,176 @@ export class ErrorEvent {
         this.details = source["details"];
     }
 }
+export class Endpoint {
+    id: string;
+    kind: string;
+    label: string;
+    baseUrl: string;
+    tokenSet: boolean;
+
+    constructor(source: any = {}) {
+        if ('string' === typeof source) source = JSON.parse(source);
+        this.id = source["id"];
+        this.kind = source["kind"];
+        this.label = source["label"];
+        this.baseUrl = source["baseUrl"];
+        this.tokenSet = source["tokenSet"];
+    }
+}
+export class EndpointPrefs {
+    activeId: string;
+    endpoints: Endpoint[];
+
+    constructor(source: any = {}) {
+        if ('string' === typeof source) source = JSON.parse(source);
+        this.activeId = source["activeId"];
+        this.endpoints = this.convertValues(source["endpoints"], Endpoint);
+    }
+
+	convertValues(a: any, classs: any, asMap: boolean = false): any {
+	    if (!a) {
+	        return a;
+	    }
+	    if (Array.isArray(a)) {
+	        return (a as any[]).map(elem => this.convertValues(elem, classs));
+	    } else if ("object" === typeof a) {
+	        if (asMap) {
+	            for (const key of Object.keys(a)) {
+	                a[key] = new classs(a[key]);
+	            }
+	            return a;
+	        }
+	        return new classs(a);
+	    }
+	    return a;
+	}
+}
+export class HardwareOverrides {
+    ramBytes?: number;
+    vramBytes?: number;
+    note: string;
+
+    constructor(source: any = {}) {
+        if ('string' === typeof source) source = JSON.parse(source);
+        this.ramBytes = source["ramBytes"];
+        this.vramBytes = source["vramBytes"];
+        this.note = source["note"];
+    }
+}
+export class ScheduleRule {
+    time: string;
+    kind: string;
+
+    constructor(source: any = {}) {
+        if ('string' === typeof source) source = JSON.parse(source);
+        this.time = source["time"];
+        this.kind = source["kind"];
+    }
+}
+export class VocabRule {
+    find: string;
+    repl: string;
+
+    constructor(source: any = {}) {
+        if ('string' === typeof source) source = JSON.parse(source);
+        this.find = source["find"];
+        this.repl = source["repl"];
+    }
+}
+export class AppearancePrefs {
+    seed: string;
+    theme: string;
+    density: string;
+    radius: number;
+    appName: string;
+    glyph: string;
+    overrides: {[key: string]: string};
+
+    constructor(source: any = {}) {
+        if ('string' === typeof source) source = JSON.parse(source);
+        this.seed = source["seed"];
+        this.theme = source["theme"];
+        this.density = source["density"];
+        this.radius = source["radius"];
+        this.appName = source["appName"];
+        this.glyph = source["glyph"];
+        this.overrides = source["overrides"];
+    }
+}
+export class NarrationPrefs {
+    on: boolean;
+    lang: string;
+    voice: string;
+    rate: number;
+
+    constructor(source: any = {}) {
+        if ('string' === typeof source) source = JSON.parse(source);
+        this.on = source["on"];
+        this.lang = source["lang"];
+        this.voice = source["voice"];
+        this.rate = source["rate"];
+    }
+}
+export class SchoolPrefs {
+    on: boolean;
+    name: string;
+    pinSet: boolean;
+
+    constructor(source: any = {}) {
+        if ('string' === typeof source) source = JSON.parse(source);
+        this.on = source["on"];
+        this.name = source["name"];
+        this.pinSet = source["pinSet"];
+    }
+}
+export class UIPreferences {
+    version: number;
+    langMode: string;
+    funnyEn: number;
+    funnyYue: number;
+    emoji: boolean;
+    school: SchoolPrefs;
+    narration: NarrationPrefs;
+    appearance: AppearancePrefs;
+    vocab: VocabRule[];
+    schedules: ScheduleRule[];
+    hardware: {[key: string]: HardwareOverrides};
+    endpoints: EndpointPrefs;
+
+    constructor(source: any = {}) {
+        if ('string' === typeof source) source = JSON.parse(source);
+        this.version = source["version"];
+        this.langMode = source["langMode"];
+        this.funnyEn = source["funnyEn"];
+        this.funnyYue = source["funnyYue"];
+        this.emoji = source["emoji"];
+        this.school = this.convertValues(source["school"], SchoolPrefs);
+        this.narration = this.convertValues(source["narration"], NarrationPrefs);
+        this.appearance = this.convertValues(source["appearance"], AppearancePrefs);
+        this.vocab = this.convertValues(source["vocab"], VocabRule);
+        this.schedules = this.convertValues(source["schedules"], ScheduleRule);
+        this.hardware = this.convertValues(source["hardware"], HardwareOverrides, true);
+        this.endpoints = this.convertValues(source["endpoints"], EndpointPrefs);
+    }
+
+	convertValues(a: any, classs: any, asMap: boolean = false): any {
+	    if (!a) {
+	        return a;
+	    }
+	    if (Array.isArray(a)) {
+	        return (a as any[]).map(elem => this.convertValues(elem, classs));
+	    } else if ("object" === typeof a) {
+	        if (asMap) {
+	            for (const key of Object.keys(a)) {
+	                a[key] = new classs(a[key]);
+	            }
+	            return a;
+	        }
+	        return new classs(a);
+	    }
+	    return a;
+	}
+}
 export class Settings {
     Expose: boolean;
     Browser: boolean;
@@ -416,6 +588,7 @@ export class Settings {
     SidebarOpen: boolean;
     LastHomeView: string;
     AutoUpdateEnabled: boolean;
+    UIPreferences: UIPreferences;
 
     constructor(source: any = {}) {
         if ('string' === typeof source) source = JSON.parse(source);
@@ -435,7 +608,26 @@ export class Settings {
         this.SidebarOpen = source["SidebarOpen"];
         this.LastHomeView = source["LastHomeView"];
         this.AutoUpdateEnabled = source["AutoUpdateEnabled"];
+        this.UIPreferences = this.convertValues(source["UIPreferences"], UIPreferences);
     }
+
+	convertValues(a: any, classs: any, asMap: boolean = false): any {
+	    if (!a) {
+	        return a;
+	    }
+	    if (Array.isArray(a)) {
+	        return (a as any[]).map(elem => this.convertValues(elem, classs));
+	    } else if ("object" === typeof a) {
+	        if (asMap) {
+	            for (const key of Object.keys(a)) {
+	                a[key] = new classs(a[key]);
+	            }
+	            return a;
+	        }
+	        return new classs(a);
+	    }
+	    return a;
+	}
 }
 export class SettingsResponse {
     settings: Settings;
