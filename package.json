@@ -2,10 +2,11 @@
   "name": "material-ollama",
   "private": true,
   "version": "0.0.0",
-  "description": "Repository-root verification gate for the shared user-facing feature inventory. This package intentionally declares no dependencies: `verify`/`verify:inventory`/`progress` all run the plain Node.js checker at scripts/check-uh-inventory.mjs directly.",
+  "description": "Repository-root verification gates for the shared user-facing feature inventory and the hand-written local-suite inventory. This package intentionally declares no dependencies: every `verify*`/`progress` script runs a plain Node.js checker (scripts/check-uh-inventory.mjs or scripts/check-suite-inventory.mjs) directly.",
   "scripts": {
-    "verify": "npm run verify:inventory",
+    "verify": "npm run verify:inventory && npm run verify:suites",
     "verify:inventory": "node scripts/check-uh-inventory.mjs --self-test && node scripts/check-uh-inventory.mjs",
+    "verify:suites": "node scripts/check-suite-inventory.mjs --self-test && node scripts/check-suite-inventory.mjs",
     "progress": "node scripts/check-uh-inventory.mjs --progress"
   }
 }
