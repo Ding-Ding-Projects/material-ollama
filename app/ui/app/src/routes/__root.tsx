@@ -3,6 +3,7 @@ import { createRootRouteWithContext, Outlet } from "@tanstack/react-router";
 import { getSettings } from "@/api";
 import { useQuery } from "@tanstack/react-query";
 import { useCloudStatus } from "@/hooks/useCloudStatus";
+import { AppShell } from "@/components/shell/AppShell";
 
 function RootComponent() {
   // This hook ensures settings are fetched on app startup
@@ -14,9 +15,9 @@ function RootComponent() {
   useCloudStatus();
 
   return (
-    <div>
+    <AppShell>
       <Outlet />
-    </div>
+    </AppShell>
   );
 }
 

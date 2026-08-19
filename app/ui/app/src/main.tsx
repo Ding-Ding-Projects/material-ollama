@@ -6,6 +6,7 @@ import { routeTree } from "./routeTree.gen";
 import { fetchUser } from "./api";
 import { StreamingProvider } from "./contexts/StreamingContext";
 import { ThemeProvider } from "./theme/ThemeProvider";
+import { UhProvider } from "./uh";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -42,11 +43,13 @@ if (!rootElement.innerHTML) {
   root.render(
     <StrictMode>
       <QueryClientProvider client={queryClient}>
-        <ThemeProvider>
-          <StreamingProvider>
-            <RouterProvider router={router} />
-          </StreamingProvider>
-        </ThemeProvider>
+        <UhProvider>
+          <ThemeProvider>
+            <StreamingProvider>
+              <RouterProvider router={router} />
+            </StreamingProvider>
+          </ThemeProvider>
+        </UhProvider>
       </QueryClientProvider>
     </StrictMode>,
   );
