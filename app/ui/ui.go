@@ -333,6 +333,16 @@ func (s *Server) Handler() http.Handler {
 	mux.Handle("POST /api/v1/uh/school/unlock", handle(s.uhUnlockSchool))
 	mux.Handle("DELETE /api/v1/uh/school/pin", handle(s.uhClearSchoolPIN))
 
+	// Local TOTP/HOTP authenticator. Pairing secrets never touch these
+	// responses except the one documented pairing-uri reveal; every secret
+	// lives in the OS credential vault (store.SecretStore) -- see
+	// app/ui/totp.go's header comment for the full boundary.
+	mux.Handle("GET /api/v1/uh/totp/accounts", handle(s.totpListAccounts))
+	mux.Handle("POST /api/v1/uh/totp/accounts", handle(s.totpCreateAccount))
+	mux.Handle("DELETE /api/v1/uh/totp/accounts/{id}", handle(s.totpDeleteAccount))
+	mux.Handle("GET /api/v1/uh/totp/codes", handle(s.totpCodes))
+	mux.Handle("POST /api/v1/uh/totp/pairing-uri", handle(s.totpPairingURI))
+
 	// Local Codex CLI harness. These routes accept argv tokens and explicit
 	// environment entries only; the harness never evaluates shell strings.
 	mux.Handle("GET /api/v1/codex/discovery", handle(s.codexDiscovery))
