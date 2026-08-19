@@ -42,6 +42,13 @@ type InferenceCompute struct {
 	Driver  string `json:"driver"`
 	Name    string `json:"name"`
 	VRAM    string `json:"vram"`
+	// VRAMBytes is a best-effort parse of VRAM (which is a formatted display
+	// string scraped from the server log, e.g. "8.0 GiB"). It is populated
+	// alongside VRAM, never in place of it, so a parse failure here never
+	// takes down the existing display string. See parseLogBytes in
+	// app/ui/hardware.go. Zero means "not parsed", not "zero VRAM" — check
+	// VRAM != "" before trusting a zero here.
+	VRAMBytes uint64 `json:"vramBytes,omitempty"`
 }
 
 type InferenceComputeResponse struct {
