@@ -733,3 +733,50 @@ export function subscribeCodexSession(
   source.onerror = (error) => handlers.onError?.(error);
   return () => source.close();
 }
+
+// Launch screen -- app/ui/launch.go's reconciled intersection of
+// cmd/launch's integration registry and app/store/database.go's
+// validLaunchView allow-list. See that file's header comment for why the
+// two disagree and which one wins; this client only ever sees the
+// already-reconciled result.
+export interface LaunchIntegration {
+  id: string;
+  homeView: string;
+  name: string;
+  description: string;
+  command: string;
+  installed: boolean;
+  missingBinary?: string;
+  installHint?: string;
+}
+
+export interface LaunchRunResult {
+  integration: string;
+  homeView: string;
+  command: string;
+  launched: boolean;
+}
+
+async function launchJson<T>(path: string, init?: RequestInit): Promise<T> {
+  const response = await fetch(`${API_BASE}${path}`, init);
+  if (!response.ok) {
+    const body = await response.text();
+    throw new Error(body || `Launch request failed: ${response.status}`);
+  }
+  return (await response.json()) as T;
+}
+
+export async function getLaunchIntegrations(): Promise<LaunchIntegration[]> {
+  const data = await launchJson<{ integrations: LaunchIntegration[] }>(
+    "/api/v1/launch/integrations",
+  );
+  return data.integrations || [];
+}
+
+export function runLaunchIntegration(id: string): Promise<LaunchRunResult> {
+  return launchJson<LaunchRunResult>("/api/v1/launch/run", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ integration: id }),
+  });
+}
