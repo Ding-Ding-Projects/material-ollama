@@ -216,11 +216,16 @@ Root: HKA; Subkey: "Software\Classes\ollama\shell\open\command"; ValueType: stri
 [Code]
 
 const
-  { Must stay in sync with [Setup] AppId above. Hardcoded (rather than
-    derived via {#SetupSetting("AppId")}) so the preprocessor's escaping of
-    the literal '{' in AppId can never silently drift from this string -
-    this way there's exactly one place a mismatch could hide, and it's
-    visible by inspection next to AppId itself. }
+  { Must stay in sync with [Setup] AppId above. Hardcoded rather than derived
+    from a preprocessor lookup of AppId, so the preprocessor's escaping of the
+    literal brace in AppId can never silently drift from this string - this way
+    there is exactly one place a mismatch could hide, and it is visible by
+    inspection next to AppId itself.
+
+    Do not name that preprocessor function here. A Pascal comment ends at the
+    first closing brace, so writing the directive inline terminates this
+    comment early and the rest of the line parses as code - which is exactly
+    how this file failed to compile once already. }
   PerUserUninstallKey = 'Software\Microsoft\Windows\CurrentVersion\Uninstall\{44E83376-CE68-45EB-8FC1-393500EB558C}_is1';
 
 { Resolves where the PATH entry for *this* copy belongs: HKLM's system
@@ -267,11 +272,15 @@ begin
 end;
 
 { Builds the new Path value for the [Registry] entry above. Deliberately not
-  just "{olddata};{app}": when there is no existing Path value at all (fresh
-  machine, or a fresh HKLM environment key), {olddata} expands to an empty
-  string and that naive form would write a stray leading ";{app}" into the
-  registry. This only appends a separating ";" when there is something to
-  separate from. }
+  the naive "olddata, semicolon, app" form: when there is no existing Path
+  value at all (a fresh machine, or a fresh HKLM environment key) the old data
+  expands to an empty string and that form writes a stray leading semicolon
+  into the registry. This appends a separator only when there is something to
+  separate from.
+
+  Note the constants are described in prose rather than written literally: a
+  Pascal comment ends at its first closing brace, so an Inno constant inside
+  one terminates the comment early and the remainder parses as code. }
 function GetPathValueData(Param: string): string;
 var
   RootKey: Integer;
