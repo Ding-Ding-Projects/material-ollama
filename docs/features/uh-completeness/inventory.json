@@ -1405,11 +1405,11 @@
       "surfaces": {
         "desktop-app": {
           "status": "in-progress",
-          "implementation": "app/ui/app/src/uh/provider.tsx#L1-L161,app/ui/app/src/uh/t.ts#L1-L44,app/ui/uh.go#L40-L133",
+          "implementation": "app/ui/app/src/uh/provider.tsx#L1-L161,app/ui/app/src/uh/t.ts#L1-L44,app/ui/uh.go#L40-L133,app/ui/app/src/screens/Settings/LanguageVoiceCard.tsx#L1-L284,app/ui/app/src/screens/Settings/usePreferencesSync.ts#L1-L93",
           "documentation": "docs/features/uh-completeness/articles/language-modes.md#behaviour",
-          "localizedCopy": "no-copy: no settings UI exists yet to change langMode -- provider.tsx only reads a localStorage key that nothing in this codebase currently writes, so there is no mode-selector copy to point at.",
-          "persistence": "app/ui/app/src/uh/provider.tsx",
-          "focusedCheck": null,
+          "localizedCopy": "app/ui/app/src/screens/Settings/LanguageVoiceCard.tsx#langModeLabel",
+          "persistence": "app/store/store.go",
+          "focusedCheck": "app/ui/app/src/screens/SettingsScreen.dom.test.tsx::distinguishes a stored value from the compiled-in default in the same render",
           "builtArtifactProof": null,
           "captureEvidence": null
         },
@@ -1433,10 +1433,10 @@
       "surfaces": {
         "desktop-app": {
           "status": "in-progress",
-          "implementation": "app/ui/app/src/uh/funny.ts#L1-L32,app/ui/app/src/uh/Txt.tsx#L1-L123",
+          "implementation": "app/ui/app/src/uh/funny.ts#L1-L32,app/ui/app/src/uh/Txt.tsx#L1-L123,app/ui/app/src/screens/Settings/LanguageVoiceCard.tsx#L94-L145",
           "documentation": "docs/features/uh-completeness/articles/funny-level-controls.md#behaviour",
-          "localizedCopy": "no-copy: the SUFFIX_EN/SUFFIX_YUE suffix tables are inline string literals in funny.ts rather than dictionary-registered entries, and no settings slider exists yet for either language.",
-          "persistence": "app/ui/app/src/uh/provider.tsx",
+          "localizedCopy": "app/ui/app/src/screens/Settings/LanguageVoiceCard.tsx#funnyEnLabel",
+          "persistence": "app/store/store.go",
           "focusedCheck": null,
           "builtArtifactProof": null,
           "captureEvidence": null
@@ -1461,11 +1461,11 @@
       "surfaces": {
         "desktop-app": {
           "status": "in-progress",
-          "implementation": "app/ui/app/src/uh/funny.ts#L1-L32,app/ui/app/src/uh/provider.tsx#L1-L161",
+          "implementation": "app/ui/app/src/uh/funny.ts#L1-L32,app/ui/app/src/uh/provider.tsx#L1-L161,app/ui/app/src/screens/Settings/GeneralCard.tsx#L112-L126",
           "documentation": "docs/features/uh-completeness/articles/dialog-emoji-toggle.md#behaviour",
-          "localizedCopy": "no-copy: the emoji suffixes (\" ✨\" / \" 🎉🥟\") are inline literals in funny.ts, and no settings toggle exists yet to let a user turn emoji on or off.",
-          "persistence": "app/ui/app/src/uh/provider.tsx",
-          "focusedCheck": null,
+          "localizedCopy": "app/ui/app/src/screens/Settings/GeneralCard.tsx#emojiLabel",
+          "persistence": "app/store/store.go",
+          "focusedCheck": "app/ui/app/src/screens/SettingsScreen.dom.test.tsx::distinguishes a stored value from the compiled-in default in the same render",
           "builtArtifactProof": null,
           "captureEvidence": null
         },
@@ -1489,11 +1489,11 @@
       "surfaces": {
         "desktop-app": {
           "status": "in-progress",
-          "implementation": "app/ui/app/src/uh/school.ts#L1-L40,app/ui/uh.go#L182-L302",
+          "implementation": "app/ui/app/src/uh/school.ts#L1-L40,app/ui/uh.go#L182-L302,app/ui/app/src/screens/Settings/SchoolModeCard.tsx#L1-L225",
           "documentation": "docs/features/uh-completeness/articles/school-mode.md#behaviour",
-          "localizedCopy": "no-copy: app.dict.ts defines schoolUnlockBody/schoolReset entries but no call site in the codebase renders them, and there is no frontend PIN-entry or rename UI wired to uh.go's real endpoints yet.",
+          "localizedCopy": "app/ui/app/src/screens/Settings/SchoolModeCard.tsx#schoolOnLabel",
           "persistence": "app/store/store.go",
-          "focusedCheck": null,
+          "focusedCheck": "app/ui/app/src/uh/localization.dom.test.tsx::hides Cantonese, humour, dim sum and personal vocabulary while on, and shows all four while off",
           "builtArtifactProof": null,
           "captureEvidence": null
         },
@@ -1545,9 +1545,9 @@
       "surfaces": {
         "desktop-app": {
           "status": "in-progress",
-          "implementation": "app/ui/app/src/uh/narration.ts#L1-L167",
+          "implementation": "app/ui/app/src/uh/narration.ts#L1-L167,app/ui/app/src/screens/Settings/LanguageVoiceCard.tsx#L146-L166",
           "documentation": "docs/features/uh-completeness/articles/narration.md#behaviour",
-          "localizedCopy": "no-copy: narration.dict.ts defines a 'noCantoneseVoice' entry, but no call site anywhere in the codebase imports narrationDict or renders that key, so it is unreachable today.",
+          "localizedCopy": "app/ui/app/src/screens/Settings/LanguageVoiceCard.tsx#narratorOnLabel",
           "persistence": "app/store/store.go",
           "focusedCheck": null,
           "builtArtifactProof": null,
@@ -1572,11 +1572,11 @@
       "article": "docs/features/uh-completeness/articles/narrator-voice-selection.md",
       "surfaces": {
         "desktop-app": {
-          "status": "missing",
-          "implementation": null,
-          "documentation": null,
-          "localizedCopy": null,
-          "persistence": null,
+          "status": "in-progress",
+          "implementation": "app/ui/app/src/screens/Settings/narratorVoices.ts#L1-L96,app/ui/app/src/screens/Settings/LanguageVoiceCard.tsx#L167-L260",
+          "documentation": "docs/features/uh-completeness/articles/narrator-voice-selection.md#behaviour",
+          "localizedCopy": "app/ui/app/src/screens/Settings/LanguageVoiceCard.tsx#narratorVoiceEnLabel",
+          "persistence": "app/store/store.go",
           "focusedCheck": null,
           "builtArtifactProof": null,
           "captureEvidence": null
@@ -1600,11 +1600,11 @@
       "article": "docs/features/uh-completeness/articles/scheduled-settings.md",
       "surfaces": {
         "desktop-app": {
-          "status": "missing",
-          "implementation": null,
-          "documentation": null,
-          "localizedCopy": null,
-          "persistence": null,
+          "status": "in-progress",
+          "implementation": "app/ui/app/src/screens/Settings/AdvancedCard.tsx#L1-L102",
+          "documentation": "docs/features/uh-completeness/articles/scheduled-settings.md#behaviour",
+          "localizedCopy": "app/ui/app/src/screens/Settings/AdvancedCard.tsx#scheduleLabel",
+          "persistence": "app/store/store.go",
           "focusedCheck": null,
           "builtArtifactProof": null,
           "captureEvidence": null
@@ -1628,11 +1628,11 @@
       "article": "docs/features/uh-completeness/articles/external-settings-sources.md",
       "surfaces": {
         "desktop-app": {
-          "status": "missing",
-          "implementation": null,
-          "documentation": null,
-          "localizedCopy": null,
-          "persistence": null,
+          "status": "in-progress",
+          "implementation": "app/ui/app/src/screens/Settings/AdvancedCard.tsx#L103-L133,app/ui/app/src/screens/Settings/types.ts#L54-L64",
+          "documentation": "docs/features/uh-completeness/articles/external-settings-sources.md#behaviour",
+          "localizedCopy": "app/ui/app/src/screens/Settings/AdvancedCard.tsx#endpointsLabel",
+          "persistence": "app/store/store.go",
           "focusedCheck": null,
           "builtArtifactProof": null,
           "captureEvidence": null
@@ -1656,12 +1656,12 @@
       "article": "docs/features/uh-completeness/articles/dim-sum-surprise.md",
       "surfaces": {
         "desktop-app": {
-          "status": "missing",
-          "implementation": null,
-          "documentation": null,
-          "localizedCopy": null,
-          "persistence": null,
-          "focusedCheck": null,
+          "status": "in-progress",
+          "implementation": "app/ui/app/src/screens/status/DimSumSurpriseCard.tsx#L1-L50,app/ui/app/src/screens/status/dimSumSurprise.ts#L1-L25",
+          "documentation": "docs/features/uh-completeness/articles/dim-sum-surprise.md#behaviour",
+          "localizedCopy": "app/ui/app/src/screens/status/DimSumSurpriseCard.tsx#dimSumSurpriseHeading",
+          "persistence": "not-persisted: the roll re-evaluates fresh on every mount via Math.random(); no draw is remembered across a reload.",
+          "focusedCheck": "app/ui/app/src/screens/status/dimSumSurprise.test.ts::never fabricates a dish outside the supplied catalog",
           "builtArtifactProof": null,
           "captureEvidence": null
         },
@@ -1684,11 +1684,11 @@
       "article": "docs/features/uh-completeness/articles/dim-sum-release-catalog.md",
       "surfaces": {
         "desktop-app": {
-          "status": "missing",
-          "implementation": null,
-          "documentation": null,
-          "localizedCopy": null,
-          "persistence": null,
+          "status": "in-progress",
+          "implementation": "app/ui/app/src/screens/status/DimSumCatalogCard.tsx#L1-L56,app/ui/release.go#L1-L60",
+          "documentation": "docs/features/uh-completeness/articles/dim-sum-release-catalog.md#behaviour",
+          "localizedCopy": "app/ui/app/src/screens/status/DimSumCatalogCard.tsx#dimSumCatalogHeading",
+          "persistence": "app/ui/release.go",
           "focusedCheck": null,
           "builtArtifactProof": null,
           "captureEvidence": null
@@ -1719,7 +1719,7 @@
           "persistence": "not-persisted: the regex lab keeps its pattern, flags, and demo search text in component state only; nothing writes it to localStorage or a backend endpoint, so it resets whenever the Toolbox screen unmounts.",
           "focusedCheck": "app/ui/app/src/components/md3/RegexBuilder.dom.test.tsx::caps rendered matches at REGEX_MAX_MATCHES and reports the truncation",
           "builtArtifactProof": "docs/features/uh-completeness/captures/manifest.json#captures.5.artifact.sha256",
-          "captureEvidence": "docs/features/uh-completeness/captures/images/toolbox.png@sha256:51e2db56804f96f06338a13d7f4bdcafe503981cd32d517a68a403f62429a289"
+          "captureEvidence": "docs/features/uh-completeness/captures/images/toolbox.png@sha256:b5714531995bedd62bf4bbd934393480d5ffb2b7d1e9d280b3de53ae93cf79cb"
         },
         "landing-page": {
           "status": "missing",
@@ -1796,12 +1796,12 @@
       "article": "docs/features/uh-completeness/articles/accessibility.md",
       "surfaces": {
         "desktop-app": {
-          "status": "missing",
-          "implementation": null,
-          "documentation": null,
-          "localizedCopy": null,
-          "persistence": null,
-          "focusedCheck": null,
+          "status": "in-progress",
+          "implementation": "app/ui/app/src/uh/a11yFocusTrap.ts#L1-L95,app/ui/app/src/uh/a11yLayoutAudit.ts#L1-L68,app/ui/app/src/uh/a11yRovingTabindex.ts#L1-L98,app/ui/app/src/uh/a11yScrollRegion.tsx#L1-L73",
+          "documentation": "docs/features/uh-completeness/articles/accessibility.md#behaviour",
+          "localizedCopy": "app/ui/app/src/components/exports/ExportPreview.tsx#previewLabel",
+          "persistence": "not-persisted: focus-trap, layout-audit, roving-tabindex, and scroll-region state are all transient DOM/component state with no persisted configuration.",
+          "focusedCheck": "app/ui/app/src/uh/a11yScrollRegion.dom.test.tsx::is exactly what a11yLayoutAudit flags as a violation when it's NOT used",
           "builtArtifactProof": null,
           "captureEvidence": null
         },
@@ -1824,12 +1824,12 @@
       "article": "docs/features/uh-completeness/articles/responsive-layout-and-sizing.md",
       "surfaces": {
         "desktop-app": {
-          "status": "missing",
-          "implementation": null,
-          "documentation": null,
-          "localizedCopy": null,
-          "persistence": null,
-          "focusedCheck": null,
+          "status": "in-progress",
+          "implementation": "app/ui/app/src/uh/a11yScrollRegion.tsx#L1-L73,app/ui/app/src/components/md3/TabStrip.tsx#L94-L166",
+          "documentation": "docs/features/uh-completeness/articles/responsive-layout-and-sizing.md#behaviour",
+          "localizedCopy": "app/ui/app/src/components/exports/ExportPreview.tsx#previewLabel",
+          "persistence": "not-persisted: layout containment is computed live from the DOM on every render; nothing about it is stored.",
+          "focusedCheck": "app/ui/app/src/uh/a11yScrollRegion.dom.test.tsx::keeps the whole page's own scrollWidth in check once wide content is properly contained",
           "builtArtifactProof": null,
           "captureEvidence": null
         },
@@ -1852,14 +1852,14 @@
       "article": "docs/features/uh-completeness/articles/material-design.md",
       "surfaces": {
         "desktop-app": {
-          "status": "missing",
-          "implementation": null,
-          "documentation": null,
-          "localizedCopy": null,
-          "persistence": null,
+          "status": "in-progress",
+          "implementation": "app/ui/app/src/components/md3/tokens.ts#L1-L177,app/ui/app/src/theme/applyScheme.ts#L1-L25,app/ui/app/src/styles/tokens.css",
+          "documentation": "docs/features/uh-completeness/articles/material-design.md#behaviour",
+          "localizedCopy": "app/ui/app/src/screens/Settings/AppearanceCard.tsx#themeLabel",
+          "persistence": "app/store/store.go",
           "focusedCheck": null,
-          "builtArtifactProof": null,
-          "captureEvidence": null
+          "builtArtifactProof": "docs/features/uh-completeness/captures/manifest.json#captures.0.artifact.sha256",
+          "captureEvidence": "docs/features/uh-completeness/captures/images/models.png@sha256:a1fc4bef38ed0d208a303932208826f742e6a2ddeb8f0378d4b2114b459beb7a"
         },
         "landing-page": {
           "status": "missing",
@@ -1880,12 +1880,12 @@
       "article": "docs/features/uh-completeness/articles/appearance-editor.md",
       "surfaces": {
         "desktop-app": {
-          "status": "missing",
-          "implementation": null,
-          "documentation": null,
-          "localizedCopy": null,
-          "persistence": null,
-          "focusedCheck": null,
+          "status": "in-progress",
+          "implementation": "app/ui/app/src/screens/Settings/AppearanceCard.tsx#L1-L331,app/ui/app/src/theme/ThemeProvider.tsx#L1-L60",
+          "documentation": "docs/features/uh-completeness/articles/appearance-editor.md#behaviour",
+          "localizedCopy": "app/ui/app/src/screens/Settings/AppearanceCard.tsx#seedLabel",
+          "persistence": "app/store/store.go",
+          "focusedCheck": "app/ui/app/src/screens/SettingsScreen.dom.test.tsx::reaches the live theme when a seed colour swatch is picked",
           "builtArtifactProof": null,
           "captureEvidence": null
         },
@@ -1908,11 +1908,11 @@
       "article": "docs/features/uh-completeness/articles/infinite-color-translator.md",
       "surfaces": {
         "desktop-app": {
-          "status": "missing",
-          "implementation": null,
-          "documentation": null,
-          "localizedCopy": null,
-          "persistence": null,
+          "status": "in-progress",
+          "implementation": "app/ui/app/src/screens/Settings/ColorTranslator.tsx#L1-L274,app/ui/app/src/screens/Settings/colorMath.ts#L1-L223",
+          "documentation": "docs/features/uh-completeness/articles/infinite-color-translator.md#behaviour",
+          "localizedCopy": "app/ui/app/src/screens/Settings/ColorTranslator.tsx#hexFieldLabel",
+          "persistence": "not-persisted: ColorTranslator is a mixing workspace holding its own draft color in component state; it only reaches storage when the caller explicitly commits it (e.g. AppearanceCard's \"Use as seed colour\").",
           "focusedCheck": null,
           "builtArtifactProof": null,
           "captureEvidence": null
@@ -1936,11 +1936,11 @@
       "article": "docs/features/uh-completeness/articles/app-logo-customization.md",
       "surfaces": {
         "desktop-app": {
-          "status": "missing",
-          "implementation": null,
-          "documentation": null,
-          "localizedCopy": null,
-          "persistence": null,
+          "status": "in-progress",
+          "implementation": "app/ui/app/src/screens/Settings/AppearanceCard.tsx#L27-L39,app/ui/app/src/screens/Settings/AppearanceCard.tsx#L260-L285",
+          "documentation": "docs/features/uh-completeness/articles/app-logo-customization.md#behaviour",
+          "localizedCopy": "app/ui/app/src/screens/Settings/AppearanceCard.tsx#glyphLabel",
+          "persistence": "app/store/store.go",
           "focusedCheck": null,
           "builtArtifactProof": null,
           "captureEvidence": null
@@ -1964,12 +1964,12 @@
       "article": "docs/features/uh-completeness/articles/file-converter.md",
       "surfaces": {
         "desktop-app": {
-          "status": "missing",
-          "implementation": null,
-          "documentation": null,
-          "localizedCopy": null,
-          "persistence": null,
-          "focusedCheck": null,
+          "status": "in-progress",
+          "implementation": "app/ui/app/src/screens/toolbox/ConverterSection.tsx#L1-L302,app/ui/app/src/screens/toolbox/ConvertCategoryList.tsx#L1-L120,app/ui/convert.go#L1-L400",
+          "documentation": "docs/features/uh-completeness/articles/file-converter.md#behaviour",
+          "localizedCopy": "app/ui/app/src/screens/toolbox/ConvertCategoryList.tsx#missingDependency",
+          "persistence": "app/ui/convert.go",
+          "focusedCheck": "app/ui/app/src/screens/toolbox/ConvertCategoryList.dom.test.tsx::shows a disabled format's exact missing dependency and expected path, never hiding it",
           "builtArtifactProof": null,
           "captureEvidence": null
         },
@@ -1992,14 +1992,14 @@
       "article": "docs/features/uh-completeness/articles/ollama-suite-manager.md",
       "surfaces": {
         "desktop-app": {
-          "status": "missing",
-          "implementation": null,
-          "documentation": null,
-          "localizedCopy": null,
-          "persistence": null,
-          "focusedCheck": null,
-          "builtArtifactProof": null,
-          "captureEvidence": null
+          "status": "in-progress",
+          "implementation": "app/ui/models.go#L1-L100,app/ui/catalog.go#L1-L100,app/ui/hardware.go#L1-L100",
+          "documentation": "docs/features/uh-completeness/articles/ollama-suite-manager.md#behaviour",
+          "localizedCopy": "app/ui/app/src/screens/models/CatalogSection.tsx#catalogTitle",
+          "persistence": "app/store/store.go",
+          "focusedCheck": "app/ui/catalog_test.go::TestRunCatalogRefresh_OneFailingTagPageYieldsPartialVerdict",
+          "builtArtifactProof": "docs/features/uh-completeness/captures/manifest.json#captures.0.artifact.sha256",
+          "captureEvidence": "docs/features/uh-completeness/captures/images/models.png@sha256:a1fc4bef38ed0d208a303932208826f742e6a2ddeb8f0378d4b2114b459beb7a"
         },
         "landing-page": {
           "status": "missing",
@@ -2027,7 +2027,7 @@
           "persistence": "app/ui/catalog.go",
           "focusedCheck": "app/ui/catalog_test.go::TestRunCatalogRefresh_OneFailingTagPageYieldsPartialVerdict",
           "builtArtifactProof": "docs/features/uh-completeness/captures/manifest.json#captures.0.artifact.sha256",
-          "captureEvidence": "docs/features/uh-completeness/captures/images/models.png@sha256:eb4c684f3ea79f9f6d8bb65c0cf938a679d36ada905373fd4630cba067b414c6"
+          "captureEvidence": "docs/features/uh-completeness/captures/images/models.png@sha256:a1fc4bef38ed0d208a303932208826f742e6a2ddeb8f0378d4b2114b459beb7a"
         },
         "landing-page": {
           "status": "missing",
@@ -2055,7 +2055,7 @@
           "persistence": "app/store/store.go",
           "focusedCheck": "app/ui/hardware_test.go::TestComputeFitVerdict_FitsFreeVRAMYieldsRunsWell",
           "builtArtifactProof": "docs/features/uh-completeness/captures/manifest.json#captures.0.artifact.sha256",
-          "captureEvidence": "docs/features/uh-completeness/captures/images/models.png@sha256:eb4c684f3ea79f9f6d8bb65c0cf938a679d36ada905373fd4630cba067b414c6"
+          "captureEvidence": "docs/features/uh-completeness/captures/images/models.png@sha256:a1fc4bef38ed0d208a303932208826f742e6a2ddeb8f0378d4b2114b459beb7a"
         },
         "landing-page": {
           "status": "missing",
@@ -2111,7 +2111,7 @@
           "persistence": "app/store/database.go",
           "focusedCheck": "app/store/database_test.go::TestChatDeletionWithCascade",
           "builtArtifactProof": "docs/features/uh-completeness/captures/manifest.json#captures.1.artifact.sha256",
-          "captureEvidence": "docs/features/uh-completeness/captures/images/c-new.png@sha256:49f3f97ac1b35f2432528610e25cc52ca5fddbf50a259d06220dc76277ae108c"
+          "captureEvidence": "docs/features/uh-completeness/captures/images/c-new.png@sha256:e2769facef8637a493a0425411def2e7e946af7c590caf05bf223e89cd419e98"
         },
         "landing-page": {
           "status": "missing",
@@ -2139,7 +2139,7 @@
           "persistence": "app/ui/codex.go",
           "focusedCheck": null,
           "builtArtifactProof": "docs/features/uh-completeness/captures/manifest.json#captures.3.artifact.sha256",
-          "captureEvidence": "docs/features/uh-completeness/captures/images/codex.png@sha256:dbe092c0ca7d76ab5365acc0001d7f146b2e58cc1a9e9e8703753fcb49111a66"
+          "captureEvidence": "docs/features/uh-completeness/captures/images/codex.png@sha256:986addb4774b39dee9e4355bcd5f0adeef2826332a3d843cbf3f080cc76b0c9c"
         },
         "landing-page": {
           "status": "missing",
@@ -2160,14 +2160,14 @@
       "article": "docs/features/uh-completeness/articles/browser-tabs.md",
       "surfaces": {
         "desktop-app": {
-          "status": "in-progress",
-          "implementation": "app/ui/app/src/components/md3/TabStrip.tsx#L1-L139,app/ui/app/src/components/shell/useShellTabs.ts#L1-L165,app/ui/app/src/components/shell/destinations.ts#L1-L87",
+          "status": "verified",
+          "implementation": "app/ui/app/src/components/md3/TabStrip.tsx#L1-L407,app/ui/app/src/components/shell/useShellTabs.ts#L1-L442,app/ui/app/src/components/shell/destinations.ts#L1-L87",
           "documentation": "docs/features/uh-completeness/articles/browser-tabs.md#behaviour",
           "localizedCopy": "app/ui/app/src/components/shell/destinations.ts#models",
-          "persistence": "not-persisted: useShellTabs holds open tabs, pin state, and per-tab group color in useState; tab order, pins, and groups all reset on restart.",
-          "focusedCheck": null,
-          "builtArtifactProof": null,
-          "captureEvidence": null
+          "persistence": "app/ui/app/src/components/shell/useShellTabs.ts",
+          "focusedCheck": "app/ui/app/src/components/md3/TabStrip.dom.test.tsx::left dock (vertical): ArrowDown/ArrowUp move the active tab, ArrowLeft/ArrowRight do nothing",
+          "builtArtifactProof": "docs/features/uh-completeness/captures/manifest.json#captures.0.artifact.sha256",
+          "captureEvidence": "docs/features/uh-completeness/captures/images/models.png@sha256:a1fc4bef38ed0d208a303932208826f742e6a2ddeb8f0378d4b2114b459beb7a"
         },
         "landing-page": {
           "status": "missing",
@@ -2188,12 +2188,12 @@
       "article": "docs/features/uh-completeness/articles/tab-docking-overflow.md",
       "surfaces": {
         "desktop-app": {
-          "status": "missing",
-          "implementation": null,
-          "documentation": null,
-          "localizedCopy": null,
-          "persistence": null,
-          "focusedCheck": null,
+          "status": "in-progress",
+          "implementation": "app/ui/app/src/components/md3/TabStrip.tsx#L94-L166,app/ui/app/src/components/shell/TabOverflowSearch.tsx#L1-L75",
+          "documentation": "docs/features/uh-completeness/articles/tab-docking-overflow.md#behaviour",
+          "localizedCopy": "app/ui/app/src/components/shell/AppShell.tsx#dockLabel",
+          "persistence": "app/ui/app/src/components/shell/useShellTabs.ts",
+          "focusedCheck": "app/ui/app/src/components/md3/TabStrip.dom.test.tsx::top dock (horizontal): ArrowRight/ArrowLeft move the active tab, ArrowUp/ArrowDown do nothing",
           "builtArtifactProof": null,
           "captureEvidence": null
         },
@@ -2216,12 +2216,12 @@
       "article": "docs/features/uh-completeness/articles/tab-groups.md",
       "surfaces": {
         "desktop-app": {
-          "status": "missing",
-          "implementation": null,
-          "documentation": null,
-          "localizedCopy": null,
-          "persistence": null,
-          "focusedCheck": null,
+          "status": "in-progress",
+          "implementation": "app/ui/app/src/components/shell/useShellTabs.ts#L131-L165,app/ui/app/src/components/shell/TabGroupsPanel.tsx#L1-L214,app/ui/app/src/components/shell/TabMoveToGroupPicker.tsx#L1-L106",
+          "documentation": "docs/features/uh-completeness/articles/tab-groups.md#behaviour",
+          "localizedCopy": "app/ui/app/src/components/shell/AppShell.tsx#addToGroup",
+          "persistence": "app/ui/app/src/components/shell/useShellTabs.ts",
+          "focusedCheck": "app/ui/app/src/components/shell/TabGroupsPanel.dom.test.tsx::filters one group's own member tabs without touching the other group's members",
           "builtArtifactProof": null,
           "captureEvidence": null
         },
@@ -2244,12 +2244,12 @@
       "article": "docs/features/uh-completeness/articles/tab-discovery-searches.md",
       "surfaces": {
         "desktop-app": {
-          "status": "missing",
-          "implementation": null,
-          "documentation": null,
-          "localizedCopy": null,
-          "persistence": null,
-          "focusedCheck": null,
+          "status": "in-progress",
+          "implementation": "app/ui/app/src/components/shell/tabSearch.ts#L1-L55,app/ui/app/src/components/shell/TabSearchField.tsx#L1-L109,app/ui/app/src/components/shell/TabSearchDialog.tsx#L1-L85",
+          "documentation": "docs/features/uh-completeness/articles/tab-discovery-searches.md#behaviour",
+          "localizedCopy": "app/ui/app/src/components/shell/AppShell.tsx#searchAllTabs",
+          "persistence": "not-persisted: each of the four discovery searches keeps its own TabSearchQuery (text, regexMode, flags) in component state only; nothing survives a reload.",
+          "focusedCheck": "app/ui/app/src/components/shell/TabGroupsPanel.dom.test.tsx::filters the groups list by name — a non-matching group disappears entirely",
           "builtArtifactProof": null,
           "captureEvidence": null
         },
@@ -2272,12 +2272,12 @@
       "article": "docs/features/uh-completeness/articles/tab-bulk-close.md",
       "surfaces": {
         "desktop-app": {
-          "status": "missing",
-          "implementation": null,
-          "documentation": null,
-          "localizedCopy": null,
-          "persistence": null,
-          "focusedCheck": null,
+          "status": "in-progress",
+          "implementation": "app/ui/app/src/components/shell/tabBulkClose.ts#L1-L83,app/ui/app/src/components/shell/TabBulkCloseDialog.tsx#L1-L107",
+          "documentation": "docs/features/uh-completeness/articles/tab-bulk-close.md#behaviour",
+          "localizedCopy": "app/ui/app/src/components/shell/TabBulkCloseDialog.tsx#bulkCloseTitle",
+          "persistence": "not-persisted: TabBulkCloseDialog resets its mode, query, and includePinned flag via a useEffect keyed on `open` every time it opens, so a prior bulk-close session never carries over.",
+          "focusedCheck": "app/ui/app/src/components/shell/tabBulkClose.test.ts::excludes pinned matches by default and reports them separately, in both directions",
           "builtArtifactProof": null,
           "captureEvidence": null
         },
@@ -2307,7 +2307,7 @@
           "persistence": "not-persisted: the selected article and search query reset on reload; loadDocsArticles in app/ui/docs.go reads bundled markdown fresh on every request rather than remembering a user's last-viewed article.",
           "focusedCheck": null,
           "builtArtifactProof": "docs/features/uh-completeness/captures/manifest.json#captures.6.artifact.sha256",
-          "captureEvidence": "docs/features/uh-completeness/captures/images/docs.png@sha256:5589113059aa78ea7703fe44c97da67c376fad014b12fc82c8503b2937e6b6ff"
+          "captureEvidence": "docs/features/uh-completeness/captures/images/docs.png@sha256:be80e26f71fa4ba284f248ade471ce3245cf4280585618794c1761754ac00579"
         },
         "landing-page": {
           "status": "missing",
@@ -2356,14 +2356,14 @@
       "article": "docs/features/uh-completeness/articles/command-palette.md",
       "surfaces": {
         "desktop-app": {
-          "status": "in-progress",
+          "status": "verified",
           "implementation": "app/ui/app/src/components/shell/CommandPalette.tsx#L1-L84,app/ui/app/src/components/shell/destinations.ts#L1-L87",
           "documentation": "docs/features/uh-completeness/articles/command-palette.md#behaviour",
           "localizedCopy": "app/ui/app/src/components/shell/CommandPalette.tsx#commandPalette",
           "persistence": "not-persisted: the open/closed state, query text, and regex-mode toggle live in component state only and reset every time the dialog closes.",
           "focusedCheck": "app/ui/app/src/components/shell/CommandPalette.dom.test.tsx::opens showing every destination",
-          "builtArtifactProof": null,
-          "captureEvidence": null
+          "builtArtifactProof": "docs/features/uh-completeness/captures/manifest.json#captures.10.artifact.sha256",
+          "captureEvidence": "docs/features/uh-completeness/captures/images/command-palette.png@sha256:ebed111b10d2104b298ec5bbe0d71345cf3ef8215b77c18eb91b6ff75358dfb7"
         },
         "landing-page": {
           "status": "missing",
@@ -2412,12 +2412,12 @@
       "article": "docs/features/uh-completeness/articles/local-version-history.md",
       "surfaces": {
         "desktop-app": {
-          "status": "missing",
-          "implementation": null,
-          "documentation": null,
-          "localizedCopy": null,
-          "persistence": null,
-          "focusedCheck": null,
+          "status": "in-progress",
+          "implementation": "app/ui/app/src/screens/status/LocalHistoryCard.tsx#L1-L198,app/ui/app/src/screens/status/useHistoryEvents.ts#L1-L31",
+          "documentation": "docs/features/uh-completeness/articles/local-version-history.md#behaviour",
+          "localizedCopy": "app/ui/app/src/screens/status/LocalHistoryCard.tsx#historyHeading",
+          "persistence": "app/store/database.go",
+          "focusedCheck": "app/ui/app/src/screens/status/LocalHistoryCard.dom.test.tsx::records a new checkpoint through POST /api/v1/history and shows it in the list",
           "builtArtifactProof": null,
           "captureEvidence": null
         },
@@ -2440,12 +2440,12 @@
       "article": "docs/features/uh-completeness/articles/changelog-viewer.md",
       "surfaces": {
         "desktop-app": {
-          "status": "missing",
-          "implementation": null,
-          "documentation": null,
-          "localizedCopy": null,
-          "persistence": null,
-          "focusedCheck": null,
+          "status": "in-progress",
+          "implementation": "app/ui/app/src/screens/status/ChangelogCard.tsx#L1-L129,app/ui/app/src/screens/status/changelogEntries.ts#L1-L99,app/ui/app/src/screens/status/dateRange.ts#L1-L18",
+          "documentation": "docs/features/uh-completeness/articles/changelog-viewer.md#behaviour",
+          "localizedCopy": "app/ui/app/src/screens/status/ChangelogCard.tsx#changelogHeading",
+          "persistence": "not-persisted: CHANGELOG_ENTRIES is a hand-copied, compile-time-constant array; the search query and date-range filter live in component state only and reset on unmount.",
+          "focusedCheck": "app/ui/app/src/screens/status/changelogEntries.test.ts::every entry has a real full 40-character SHA and a real ISO date",
           "builtArtifactProof": null,
           "captureEvidence": null
         },
@@ -2468,12 +2468,12 @@
       "article": "docs/features/uh-completeness/articles/external-editor.md",
       "surfaces": {
         "desktop-app": {
-          "status": "missing",
-          "implementation": null,
-          "documentation": null,
-          "localizedCopy": null,
-          "persistence": null,
-          "focusedCheck": null,
+          "status": "in-progress",
+          "implementation": "app/ui/app/src/components/exports/openInEditor.ts#L1-L100",
+          "documentation": "docs/features/uh-completeness/articles/external-editor.md#behaviour",
+          "localizedCopy": "app/ui/app/src/components/exports/ExportDialog.tsx#editorBridgeUnavailable",
+          "persistence": "not-persisted: no external-editor preference or detection result is cached; every call re-detects the bridge fresh.",
+          "focusedCheck": "app/ui/app/src/components/exports/openInEditor.dom.test.tsx::treats a throwing bridge as bridge-unavailable, never a false not-installed claim",
           "builtArtifactProof": null,
           "captureEvidence": null
         },
@@ -2496,12 +2496,12 @@
       "article": "docs/features/uh-completeness/articles/exports.md",
       "surfaces": {
         "desktop-app": {
-          "status": "missing",
-          "implementation": null,
-          "documentation": null,
-          "localizedCopy": null,
-          "persistence": null,
-          "focusedCheck": null,
+          "status": "in-progress",
+          "implementation": "app/ui/app/src/components/exports/exportFormats.ts#L1-L200,app/ui/app/src/components/exports/ExportDialog.tsx#L1-L120,app/ui/app/src/components/exports/useExport.ts",
+          "documentation": "docs/features/uh-completeness/articles/exports.md#behaviour",
+          "localizedCopy": "app/ui/app/src/components/exports/ExportDialog.tsx#title",
+          "persistence": "not-persisted: the selected export format and preview mode live in ExportDialog's own component state and reset every time the dialog closes.",
+          "focusedCheck": "app/ui/app/src/components/exports/exportFormats.test.ts::never drops a row or a column across any of the seven formats",
           "builtArtifactProof": null,
           "captureEvidence": null
         },
@@ -2524,12 +2524,12 @@
       "article": "docs/features/uh-completeness/articles/bulk-actions.md",
       "surfaces": {
         "desktop-app": {
-          "status": "missing",
-          "implementation": null,
-          "documentation": null,
-          "localizedCopy": null,
-          "persistence": null,
-          "focusedCheck": null,
+          "status": "in-progress",
+          "implementation": "app/ui/app/src/components/bulk/useBulkSelection.ts#L1-L191,app/ui/app/src/components/bulk/useBulkActionRunner.ts#L1-L117,app/ui/app/src/components/bulk/BulkSelectableList.tsx#L1-L116,app/ui/app/src/components/bulk/BulkActionBar.tsx#L1-L141",
+          "documentation": "docs/features/uh-completeness/articles/bulk-actions.md#behaviour",
+          "localizedCopy": "app/ui/app/src/components/bulk/BulkActionBar.tsx#selectedCountPage",
+          "persistence": "not-persisted: selection scope/ids/exclusions and the running batch's progress all live in component state (useBulkSelection/useBulkActionRunner) and reset on unmount.",
+          "focusedCheck": "app/ui/app/src/components/bulk/useBulkSelection.dom.test.ts::invert() from a page-scope selection (with an exclusion) also matches the exact complement",
           "builtArtifactProof": null,
           "captureEvidence": null
         },
@@ -2552,12 +2552,12 @@
       "article": "docs/features/uh-completeness/articles/toy-locks.md",
       "surfaces": {
         "desktop-app": {
-          "status": "missing",
-          "implementation": null,
-          "documentation": null,
-          "localizedCopy": null,
-          "persistence": null,
-          "focusedCheck": null,
+          "status": "in-progress",
+          "implementation": "app/ui/app/src/components/locks/Lockable.tsx#L1-L159,app/ui/app/src/components/locks/LockManager.tsx#L1-L200,app/ui/app/src/uh/locksStore.ts#L1-L200,app/ui/app/src/uh/locksCrypto.ts#L1-L100",
+          "documentation": "docs/features/uh-completeness/articles/toy-locks.md#behaviour",
+          "localizedCopy": "app/ui/app/src/components/locks/Lockable.tsx#lockThisElement",
+          "persistence": "not-persisted: a lock's credential and metadata live in this renderer's own localStorage, disclosed as a placeholder for a real OS-credential-vault-backed store this lane's frontend-only allowed paths could not add.",
+          "focusedCheck": "app/ui/app/src/components/locks/Lockable.dom.test.tsx::two independently locked elements never share a credential",
           "builtArtifactProof": null,
           "captureEvidence": null
         },
@@ -2580,12 +2580,12 @@
       "article": "docs/features/uh-completeness/articles/support-tickets.md",
       "surfaces": {
         "desktop-app": {
-          "status": "missing",
-          "implementation": null,
-          "documentation": null,
-          "localizedCopy": null,
-          "persistence": null,
-          "focusedCheck": null,
+          "status": "in-progress",
+          "implementation": "app/ui/app/src/screens/status/SupportTicketsCard.tsx#L1-L223,app/ui/app/src/screens/status/useSupportTickets.ts#L1-L114",
+          "documentation": "docs/features/uh-completeness/articles/support-tickets.md#behaviour",
+          "localizedCopy": "app/ui/app/src/screens/status/SupportTicketsCard.tsx#ticketsHeading",
+          "persistence": "not-persisted: useSupportTickets keeps filed tickets in component/hook state only; nothing writes them to the local database, so the list resets on reload.",
+          "focusedCheck": "app/ui/app/src/screens/status/SupportTicketsCard.dom.test.tsx::files a ticket, shows the canned response, and moves it to resolved on Resolve",
           "builtArtifactProof": null,
           "captureEvidence": null
         },
@@ -2608,12 +2608,12 @@
       "article": "docs/features/uh-completeness/articles/unlock-ladder.md",
       "surfaces": {
         "desktop-app": {
-          "status": "missing",
-          "implementation": null,
-          "documentation": null,
-          "localizedCopy": null,
-          "persistence": null,
-          "focusedCheck": null,
+          "status": "in-progress",
+          "implementation": "app/ui/app/src/uh/locksLadder.ts#L1-L260,app/ui/app/src/components/locks/UnlockLadder.tsx#L1-L200",
+          "documentation": "docs/features/uh-completeness/articles/unlock-ladder.md#behaviour",
+          "localizedCopy": "app/ui/app/src/components/locks/UnlockLadder.tsx#dimsumQuestionLabel",
+          "persistence": "not-persisted: ladder progress, nonces, and the rolling skip-budget window all live in localStorage/component state under the toy-lock system's own local profile; nothing is a durable server-side record.",
+          "focusedCheck": "app/ui/app/src/uh/locksLadder.dom.test.tsx::caps ladder skips at LADDER_BUDGET per rolling hour, independent of per-lock state",
           "builtArtifactProof": null,
           "captureEvidence": null
         },
@@ -2636,12 +2636,12 @@
       "article": "docs/features/uh-completeness/articles/two-factor-qr-pairing.md",
       "surfaces": {
         "desktop-app": {
-          "status": "missing",
-          "implementation": null,
-          "documentation": null,
-          "localizedCopy": null,
-          "persistence": null,
-          "focusedCheck": null,
+          "status": "in-progress",
+          "implementation": "app/ui/app/src/screens/toolbox/PairingDialog.tsx#L1-L213,app/ui/app/src/screens/toolbox/QrCode.tsx#L1-L53,app/ui/app/src/screens/toolbox/qrEncoder.ts",
+          "documentation": "docs/features/uh-completeness/articles/two-factor-qr-pairing.md#behaviour",
+          "localizedCopy": "app/ui/app/src/screens/toolbox/PairingDialog.tsx#nameRequired",
+          "persistence": "app/ui/totp.go",
+          "focusedCheck": "app/ui/app/src/screens/toolbox/qrEncoder.test.ts::round-trips a real otpauth:// pairing URI",
           "builtArtifactProof": null,
           "captureEvidence": null
         },
@@ -2664,12 +2664,12 @@
       "article": "docs/features/uh-completeness/articles/built-in-authenticator.md",
       "surfaces": {
         "desktop-app": {
-          "status": "missing",
-          "implementation": null,
-          "documentation": null,
-          "localizedCopy": null,
-          "persistence": null,
-          "focusedCheck": null,
+          "status": "in-progress",
+          "implementation": "app/ui/app/src/screens/toolbox/AuthenticatorSection.tsx#L1-L83,app/ui/app/src/screens/toolbox/TotpAccountRow.tsx#L1-L112,app/ui/totp.go#L1-L200",
+          "documentation": "docs/features/uh-completeness/articles/built-in-authenticator.md#behaviour",
+          "localizedCopy": "app/ui/app/src/screens/toolbox/AuthenticatorSection.tsx#addAccount",
+          "persistence": "app/ui/totp.go",
+          "focusedCheck": "app/ui/totp_test.go::TestTOTPRFC6238Vectors",
           "builtArtifactProof": null,
           "captureEvidence": null
         },
@@ -2748,12 +2748,12 @@
       "article": "docs/features/uh-completeness/articles/provider-authored-renderer.md",
       "surfaces": {
         "desktop-app": {
-          "status": "missing",
-          "implementation": null,
-          "documentation": null,
-          "localizedCopy": null,
-          "persistence": null,
-          "focusedCheck": null,
+          "status": "in-progress",
+          "implementation": "app/ui/app/src/components/StreamingMarkdownContent.tsx#L1-L200,app/ui/app/src/components/exports/ExportPreview.tsx#L1-L93",
+          "documentation": "docs/features/uh-completeness/articles/provider-authored-renderer.md#behaviour",
+          "localizedCopy": "app/ui/app/src/components/exports/ExportPreview.tsx#previewLabel",
+          "persistence": "not-persisted: which preview mode (rendered vs. raw source) is showing lives in ExportPreview's own component state and resets on remount.",
+          "focusedCheck": "app/ui/app/src/components/StreamingMarkdownContent.test.tsx::does not enable raw HTML parsing",
           "builtArtifactProof": null,
           "captureEvidence": null
         },
@@ -2776,11 +2776,11 @@
       "article": "docs/features/uh-completeness/articles/guided-forms.md",
       "surfaces": {
         "desktop-app": {
-          "status": "missing",
-          "implementation": null,
-          "documentation": null,
-          "localizedCopy": null,
-          "persistence": null,
+          "status": "in-progress",
+          "implementation": "app/ui/app/src/screens/Settings/AppearanceCard.tsx#L1-L200,app/ui/app/src/screens/Settings/SettingRow.tsx#L1-L83",
+          "documentation": "docs/features/uh-completeness/articles/guided-forms.md#behaviour",
+          "localizedCopy": "app/ui/app/src/screens/Settings/AppearanceCard.tsx#seedSwatchLabel",
+          "persistence": "app/store/store.go",
           "focusedCheck": null,
           "builtArtifactProof": null,
           "captureEvidence": null
@@ -2804,12 +2804,12 @@
       "article": "docs/features/uh-completeness/articles/rich-controls.md",
       "surfaces": {
         "desktop-app": {
-          "status": "missing",
-          "implementation": null,
-          "documentation": null,
-          "localizedCopy": null,
-          "persistence": null,
-          "focusedCheck": null,
+          "status": "in-progress",
+          "implementation": "app/ui/app/src/components/bulk/BulkSelectableList.tsx#L1-L116,app/ui/app/src/components/bulk/BulkSelectAllHeader.tsx#L1-L50",
+          "documentation": "docs/features/uh-completeness/articles/rich-controls.md#behaviour",
+          "localizedCopy": "app/ui/app/src/components/bulk/BulkSelectAllHeader.tsx#selectAllMatching",
+          "persistence": "not-persisted: which row control is focused/active is transient DOM/component state.",
+          "focusedCheck": "app/ui/app/src/components/bulk/BulkSelectableList.dom.test.tsx::renders a caller-supplied rich control per row instead of printed text (the rich-controls contract)",
           "builtArtifactProof": null,
           "captureEvidence": null
         },
@@ -2832,12 +2832,12 @@
       "article": "docs/features/uh-completeness/articles/settings-explanations-provenance.md",
       "surfaces": {
         "desktop-app": {
-          "status": "missing",
-          "implementation": null,
-          "documentation": null,
-          "localizedCopy": null,
-          "persistence": null,
-          "focusedCheck": null,
+          "status": "in-progress",
+          "implementation": "app/ui/app/src/screens/Settings/SettingRow.tsx#L1-L83,app/ui/app/src/screens/Settings/provenance.ts#L1-L36",
+          "documentation": "docs/features/uh-completeness/articles/settings-explanations-provenance.md#behaviour",
+          "localizedCopy": "app/ui/app/src/screens/Settings/SettingRow.tsx#explainToggle",
+          "persistence": "not-persisted: expanded/collapsed explanation state is per-row component state (useState) and resets on remount; only the underlying preference values themselves persist.",
+          "focusedCheck": "app/ui/app/src/screens/SettingsScreen.dom.test.tsx::distinguishes a stored value from the compiled-in default in the same render",
           "builtArtifactProof": null,
           "captureEvidence": null
         },
@@ -2860,11 +2860,11 @@
       "article": "docs/features/uh-completeness/articles/overlays.md",
       "surfaces": {
         "desktop-app": {
-          "status": "missing",
-          "implementation": null,
-          "documentation": null,
-          "localizedCopy": null,
-          "persistence": null,
+          "status": "in-progress",
+          "implementation": "app/ui/app/src/components/locks/AnchoredPanel.tsx#L1-L93,app/ui/app/src/components/shell/TabContextMenu.tsx#L1-L116",
+          "documentation": "docs/features/uh-completeness/articles/overlays.md#behaviour",
+          "localizedCopy": "app/ui/app/src/components/locks/LockWizard.tsx#wizardTitleLock",
+          "persistence": "not-persisted: an overlay's open/closed state and measured position are transient component state, recomputed fresh every time it opens.",
           "focusedCheck": null,
           "builtArtifactProof": null,
           "captureEvidence": null
@@ -2888,11 +2888,11 @@
       "article": "docs/features/uh-completeness/articles/context-menu-shortcuts.md",
       "surfaces": {
         "desktop-app": {
-          "status": "missing",
-          "implementation": null,
-          "documentation": null,
-          "localizedCopy": null,
-          "persistence": null,
+          "status": "in-progress",
+          "implementation": "app/ui/app/src/components/shell/TabContextMenu.tsx#L1-L116,app/ui/app/src/components/shell/useShellKeyboardShortcuts.ts#L1-L40",
+          "documentation": "docs/features/uh-completeness/articles/context-menu-shortcuts.md#behaviour",
+          "localizedCopy": "app/ui/app/src/components/shell/AppShell.tsx#closeTab",
+          "persistence": "not-persisted: Ctrl+W is a fixed, non-configurable binding -- there is no settings surface to remap or disable it.",
           "focusedCheck": null,
           "builtArtifactProof": null,
           "captureEvidence": null
@@ -2916,11 +2916,11 @@
       "article": "docs/features/uh-completeness/articles/long-operation-progress.md",
       "surfaces": {
         "desktop-app": {
-          "status": "missing",
-          "implementation": null,
-          "documentation": null,
-          "localizedCopy": null,
-          "persistence": null,
+          "status": "in-progress",
+          "implementation": "app/ui/app/src/screens/toolbox/ConvertJobRow.tsx#L1-L116,app/ui/app/src/screens/toolbox/ConvertJobQueue.tsx#L1-L138",
+          "documentation": "docs/features/uh-completeness/articles/long-operation-progress.md#behaviour",
+          "localizedCopy": "app/ui/app/src/screens/toolbox/ConvertJobRow.tsx#retryJob",
+          "persistence": "app/ui/convert.go",
           "focusedCheck": null,
           "builtArtifactProof": null,
           "captureEvidence": null
@@ -2944,12 +2944,12 @@
       "article": "docs/features/uh-completeness/articles/failure-recovery.md",
       "surfaces": {
         "desktop-app": {
-          "status": "missing",
-          "implementation": null,
-          "documentation": null,
-          "localizedCopy": null,
-          "persistence": null,
-          "focusedCheck": null,
+          "status": "in-progress",
+          "implementation": "app/ui/app/src/screens/toolbox/TotpAccountRow.tsx#L1-L112,app/ui/app/src/components/exports/openInEditor.ts#L1-L100",
+          "documentation": "docs/features/uh-completeness/articles/failure-recovery.md#behaviour",
+          "localizedCopy": "app/ui/app/src/screens/toolbox/TotpAccountRow.tsx#errorRetry",
+          "persistence": "not-persisted: a failure/retry state is transient component state, cleared the moment the retried action succeeds.",
+          "focusedCheck": "app/ui/app/src/screens/toolbox/TotpAccountRow.dom.test.tsx::shows the real failure and a retry route when the delete call fails",
           "builtArtifactProof": null,
           "captureEvidence": null
         },
@@ -3028,11 +3028,11 @@
       "article": "docs/features/uh-completeness/articles/blank-slate-presets.md",
       "surfaces": {
         "desktop-app": {
-          "status": "missing",
-          "implementation": null,
-          "documentation": null,
-          "localizedCopy": null,
-          "persistence": null,
+          "status": "in-progress",
+          "implementation": "app/ui/app/src/components/locks/LockWizard.tsx#L1-L226",
+          "documentation": "docs/features/uh-completeness/articles/blank-slate-presets.md#behaviour",
+          "localizedCopy": "app/ui/app/src/components/locks/LockWizard.tsx#presetsHeading",
+          "persistence": "not-persisted: applying a preset only sets the wizard's own draft method/duration state; nothing is written until the wizard's own Confirm step runs.",
           "focusedCheck": null,
           "builtArtifactProof": null,
           "captureEvidence": null
@@ -3056,11 +3056,11 @@
       "article": "docs/features/uh-completeness/articles/app-display-name.md",
       "surfaces": {
         "desktop-app": {
-          "status": "missing",
-          "implementation": null,
-          "documentation": null,
-          "localizedCopy": null,
-          "persistence": null,
+          "status": "in-progress",
+          "implementation": "app/ui/app/src/screens/Settings/AppearanceCard.tsx#L112-L114,app/ui/app/src/screens/Settings/AppearanceCard.tsx#L236-L257,app/ui/app/src/components/shell/AppShell.tsx#L40-L40",
+          "documentation": "docs/features/uh-completeness/articles/app-display-name.md#behaviour",
+          "localizedCopy": "app/ui/app/src/screens/Settings/AppearanceCard.tsx#appNameLabel",
+          "persistence": "app/store/store.go",
           "focusedCheck": null,
           "builtArtifactProof": null,
           "captureEvidence": null
@@ -3084,12 +3084,12 @@
       "article": "docs/features/uh-completeness/articles/secret-display-history.md",
       "surfaces": {
         "desktop-app": {
-          "status": "missing",
-          "implementation": null,
-          "documentation": null,
-          "localizedCopy": null,
-          "persistence": null,
-          "focusedCheck": null,
+          "status": "in-progress",
+          "implementation": "app/ui/app/src/uh/locksHistory.ts#L1-L100",
+          "documentation": "docs/features/uh-completeness/articles/secret-display-history.md#behaviour",
+          "localizedCopy": "app/ui/app/src/components/locks/LockManager.tsx#searchLabel",
+          "persistence": "not-persisted: locksHistory.ts stores its append-only entries in this renderer's own localStorage, not a Git-backed history repository.",
+          "focusedCheck": "app/ui/app/src/uh/locksHistory.dom.test.tsx::never carries a credential-shaped field -- the input type structurally forbids it",
           "builtArtifactProof": null,
           "captureEvidence": null
         },
@@ -3119,7 +3119,7 @@
           "persistence": "not-persisted: the parity table is derived live from the Cobra command tree on every GET /api/v1/capabilities call; nothing is cached to disk.",
           "focusedCheck": null,
           "builtArtifactProof": "docs/features/uh-completeness/captures/manifest.json#captures.4.artifact.sha256",
-          "captureEvidence": "docs/features/uh-completeness/captures/images/devtools.png@sha256:a51673d2912dba6017b60de778621941f78a6a2f42a81740f1b4b5e7f6406044"
+          "captureEvidence": "docs/features/uh-completeness/captures/images/devtools.png@sha256:530de10297949f84f2826c13b5e5de2851c0d97dc22a4f5cc57293c5cac3448c"
         },
         "landing-page": {
           "status": "missing",
@@ -3147,7 +3147,7 @@
           "persistence": "not-persisted: CapabilityRegistryVersion and the registry itself are rebuilt from the live Cobra command tree per request; no snapshot is written to disk.",
           "focusedCheck": null,
           "builtArtifactProof": "docs/features/uh-completeness/captures/manifest.json#captures.4.artifact.sha256",
-          "captureEvidence": "docs/features/uh-completeness/captures/images/devtools.png@sha256:a51673d2912dba6017b60de778621941f78a6a2f42a81740f1b4b5e7f6406044"
+          "captureEvidence": "docs/features/uh-completeness/captures/images/devtools.png@sha256:530de10297949f84f2826c13b5e5de2851c0d97dc22a4f5cc57293c5cac3448c"
         },
         "landing-page": {
           "status": "missing",
@@ -3420,14 +3420,14 @@
       "article": "docs/features/uh-completeness/articles/unsigned-release-policy.md",
       "surfaces": {
         "desktop-app": {
-          "status": "missing",
-          "implementation": null,
-          "documentation": null,
-          "localizedCopy": null,
-          "persistence": null,
-          "focusedCheck": null,
-          "builtArtifactProof": null,
-          "captureEvidence": null
+          "status": "verified",
+          "implementation": "app/ui/app/src/screens/status/ReleaseCard.tsx#L1-L143,app/ui/release.go#L1-L140",
+          "documentation": "docs/features/uh-completeness/articles/unsigned-release-policy.md#behaviour",
+          "localizedCopy": "app/ui/app/src/screens/status/ReleaseCard.tsx#unsignedHeading",
+          "persistence": "app/ui/release.go",
+          "focusedCheck": "app/ui/release_test.go::TestReleaseInfo_DevBuildReports0_0_0WithNoCodeName",
+          "builtArtifactProof": "docs/features/uh-completeness/captures/manifest.json#captures.7.artifact.sha256",
+          "captureEvidence": "docs/features/uh-completeness/captures/images/status.png@sha256:1a5ed3a4840ed7d7e36d9cc26ac8faf20db4bda5082ee12ea5eb90a0fd361412"
         },
         "landing-page": {
           "status": "missing",
@@ -3700,12 +3700,12 @@
       "article": "docs/features/uh-completeness/articles/automatic-updates.md",
       "surfaces": {
         "desktop-app": {
-          "status": "missing",
-          "implementation": null,
-          "documentation": null,
-          "localizedCopy": null,
-          "persistence": null,
-          "focusedCheck": null,
+          "status": "in-progress",
+          "implementation": "app/ui/app/src/screens/status/AutomaticUpdatesCard.tsx#L1-L74,app/updater/updater.go",
+          "documentation": "docs/features/uh-completeness/articles/automatic-updates.md#behaviour",
+          "localizedCopy": "app/ui/app/src/screens/status/AutomaticUpdatesCard.tsx#autoUpdatesToggleLabel",
+          "persistence": "app/store/store.go",
+          "focusedCheck": "app/updater/updater_test.go::TestAutoUpdateDisabledSkipsDownload",
           "builtArtifactProof": null,
           "captureEvidence": null
         },

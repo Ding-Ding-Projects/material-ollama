@@ -30,18 +30,20 @@ surface-tone ladder (`lowest` -> `low` -> `base` -> `high` -> `highest`)
 rather than raw box-shadow values scattered per component.
 
 The result a user actually sees: every screen currently wired into the app
-shell (Models/Launch/Toolbox/DevTools/Status/Docs, plus the command
-palette, dialogs, and context menus) renders through this one shared
-primitive set, so a token change in one place -- a new seed color, a
-density change, a corner-radius change -- propagates to literally every
-rendered control at once rather than requiring a per-screen sweep. As of
-this article, the primitive library itself, the token layer, and the
-runtime `applyScheme()` mechanism exist and are wired into shipped screens;
-the separate per-element appearance *editor* the shared canonical contract
-also requires (right-click "Edit appearance...", the infinite color
-picker/translator, Word-depth typography controls, named presets with
-export/import) is its own inventory row -- see `appearance-editor.md` --
-and is not yet built.
+shell (Models/Launch/Toolbox/DevTools/Status/Docs/Settings, plus the command
+palette, tab context menu, dialogs, and toy-lock surfaces) renders through
+this one shared primitive set, so a token change in one place -- a new seed
+color, a density change, a corner-radius change -- propagates to literally
+every rendered control at once rather than requiring a per-screen sweep. As
+of this update, the primitive library, the token layer, and the runtime
+`applyScheme()` mechanism exist and are wired into every shipped screen
+including the new ones; a genuine seed-color/theme-mode/radius *editor*
+(the Settings screen's Appearance card, see `appearance-editor.md`) now
+also exists and dual-writes into `applyScheme()` live. What remains
+missing from the fuller canonical contract is the *per-element* editor --
+right-click "Edit appearance..." on an arbitrary rendered element, Word-
+depth typography controls, and named presets with export/import -- which
+is still not built anywhere in the codebase.
 
 ## Configuration
 
