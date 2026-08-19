@@ -11,16 +11,58 @@
 // Import Routes
 
 import { Route as rootRoute } from './routes/__root'
+import { Route as ToolboxImport } from './routes/toolbox'
+import { Route as StatusImport } from './routes/status'
 import { Route as SettingsImport } from './routes/settings'
+import { Route as ModelsImport } from './routes/models'
+import { Route as LaunchImport } from './routes/launch'
+import { Route as DocsImport } from './routes/docs'
+import { Route as DevtoolsImport } from './routes/devtools'
 import { Route as CodexImport } from './routes/codex'
 import { Route as IndexImport } from './routes/index'
 import { Route as CChatIdImport } from './routes/c.$chatId'
 
 // Create/Update Routes
 
+const ToolboxRoute = ToolboxImport.update({
+  id: '/toolbox',
+  path: '/toolbox',
+  getParentRoute: () => rootRoute,
+} as any)
+
+const StatusRoute = StatusImport.update({
+  id: '/status',
+  path: '/status',
+  getParentRoute: () => rootRoute,
+} as any)
+
 const SettingsRoute = SettingsImport.update({
   id: '/settings',
   path: '/settings',
+  getParentRoute: () => rootRoute,
+} as any)
+
+const ModelsRoute = ModelsImport.update({
+  id: '/models',
+  path: '/models',
+  getParentRoute: () => rootRoute,
+} as any)
+
+const LaunchRoute = LaunchImport.update({
+  id: '/launch',
+  path: '/launch',
+  getParentRoute: () => rootRoute,
+} as any)
+
+const DocsRoute = DocsImport.update({
+  id: '/docs',
+  path: '/docs',
+  getParentRoute: () => rootRoute,
+} as any)
+
+const DevtoolsRoute = DevtoolsImport.update({
+  id: '/devtools',
+  path: '/devtools',
   getParentRoute: () => rootRoute,
 } as any)
 
@@ -60,11 +102,53 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof CodexImport
       parentRoute: typeof rootRoute
     }
+    '/devtools': {
+      id: '/devtools'
+      path: '/devtools'
+      fullPath: '/devtools'
+      preLoaderRoute: typeof DevtoolsImport
+      parentRoute: typeof rootRoute
+    }
+    '/docs': {
+      id: '/docs'
+      path: '/docs'
+      fullPath: '/docs'
+      preLoaderRoute: typeof DocsImport
+      parentRoute: typeof rootRoute
+    }
+    '/launch': {
+      id: '/launch'
+      path: '/launch'
+      fullPath: '/launch'
+      preLoaderRoute: typeof LaunchImport
+      parentRoute: typeof rootRoute
+    }
+    '/models': {
+      id: '/models'
+      path: '/models'
+      fullPath: '/models'
+      preLoaderRoute: typeof ModelsImport
+      parentRoute: typeof rootRoute
+    }
     '/settings': {
       id: '/settings'
       path: '/settings'
       fullPath: '/settings'
       preLoaderRoute: typeof SettingsImport
+      parentRoute: typeof rootRoute
+    }
+    '/status': {
+      id: '/status'
+      path: '/status'
+      fullPath: '/status'
+      preLoaderRoute: typeof StatusImport
+      parentRoute: typeof rootRoute
+    }
+    '/toolbox': {
+      id: '/toolbox'
+      path: '/toolbox'
+      fullPath: '/toolbox'
+      preLoaderRoute: typeof ToolboxImport
       parentRoute: typeof rootRoute
     }
     '/c/$chatId': {
@@ -82,14 +166,26 @@ declare module '@tanstack/react-router' {
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/codex': typeof CodexRoute
+  '/devtools': typeof DevtoolsRoute
+  '/docs': typeof DocsRoute
+  '/launch': typeof LaunchRoute
+  '/models': typeof ModelsRoute
   '/settings': typeof SettingsRoute
+  '/status': typeof StatusRoute
+  '/toolbox': typeof ToolboxRoute
   '/c/$chatId': typeof CChatIdRoute
 }
 
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/codex': typeof CodexRoute
+  '/devtools': typeof DevtoolsRoute
+  '/docs': typeof DocsRoute
+  '/launch': typeof LaunchRoute
+  '/models': typeof ModelsRoute
   '/settings': typeof SettingsRoute
+  '/status': typeof StatusRoute
+  '/toolbox': typeof ToolboxRoute
   '/c/$chatId': typeof CChatIdRoute
 }
 
@@ -97,30 +193,79 @@ export interface FileRoutesById {
   __root__: typeof rootRoute
   '/': typeof IndexRoute
   '/codex': typeof CodexRoute
+  '/devtools': typeof DevtoolsRoute
+  '/docs': typeof DocsRoute
+  '/launch': typeof LaunchRoute
+  '/models': typeof ModelsRoute
   '/settings': typeof SettingsRoute
+  '/status': typeof StatusRoute
+  '/toolbox': typeof ToolboxRoute
   '/c/$chatId': typeof CChatIdRoute
 }
 
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/codex' | '/settings' | '/c/$chatId'
+  fullPaths:
+    | '/'
+    | '/codex'
+    | '/devtools'
+    | '/docs'
+    | '/launch'
+    | '/models'
+    | '/settings'
+    | '/status'
+    | '/toolbox'
+    | '/c/$chatId'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/codex' | '/settings' | '/c/$chatId'
-  id: '__root__' | '/' | '/codex' | '/settings' | '/c/$chatId'
+  to:
+    | '/'
+    | '/codex'
+    | '/devtools'
+    | '/docs'
+    | '/launch'
+    | '/models'
+    | '/settings'
+    | '/status'
+    | '/toolbox'
+    | '/c/$chatId'
+  id:
+    | '__root__'
+    | '/'
+    | '/codex'
+    | '/devtools'
+    | '/docs'
+    | '/launch'
+    | '/models'
+    | '/settings'
+    | '/status'
+    | '/toolbox'
+    | '/c/$chatId'
   fileRoutesById: FileRoutesById
 }
 
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   CodexRoute: typeof CodexRoute
+  DevtoolsRoute: typeof DevtoolsRoute
+  DocsRoute: typeof DocsRoute
+  LaunchRoute: typeof LaunchRoute
+  ModelsRoute: typeof ModelsRoute
   SettingsRoute: typeof SettingsRoute
+  StatusRoute: typeof StatusRoute
+  ToolboxRoute: typeof ToolboxRoute
   CChatIdRoute: typeof CChatIdRoute
 }
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   CodexRoute: CodexRoute,
+  DevtoolsRoute: DevtoolsRoute,
+  DocsRoute: DocsRoute,
+  LaunchRoute: LaunchRoute,
+  ModelsRoute: ModelsRoute,
   SettingsRoute: SettingsRoute,
+  StatusRoute: StatusRoute,
+  ToolboxRoute: ToolboxRoute,
   CChatIdRoute: CChatIdRoute,
 }
 
@@ -136,7 +281,13 @@ export const routeTree = rootRoute
       "children": [
         "/",
         "/codex",
+        "/devtools",
+        "/docs",
+        "/launch",
+        "/models",
         "/settings",
+        "/status",
+        "/toolbox",
         "/c/$chatId"
       ]
     },
@@ -146,8 +297,26 @@ export const routeTree = rootRoute
     "/codex": {
       "filePath": "codex.tsx"
     },
+    "/devtools": {
+      "filePath": "devtools.tsx"
+    },
+    "/docs": {
+      "filePath": "docs.tsx"
+    },
+    "/launch": {
+      "filePath": "launch.tsx"
+    },
+    "/models": {
+      "filePath": "models.tsx"
+    },
     "/settings": {
       "filePath": "settings.tsx"
+    },
+    "/status": {
+      "filePath": "status.tsx"
+    },
+    "/toolbox": {
+      "filePath": "toolbox.tsx"
     },
     "/c/$chatId": {
       "filePath": "c.$chatId.tsx"

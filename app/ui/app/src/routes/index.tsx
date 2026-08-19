@@ -7,12 +7,22 @@ export const Route = createFileRoute("/")({
       queryKey: ["settings"],
       queryFn: getSettings,
     });
-    const chatId =
-      settingsData?.settings?.LastHomeView === "chat" ? "new" : "launch";
+
+    // "chat" keeps landing straight on a fresh chat, unchanged. Every other
+    // (including unset) LastHomeView now defaults to /models, the new home
+    // — it used to fall through to the internal /c/launch screen instead.
+    if (settingsData?.settings?.LastHomeView === "chat") {
+      throw redirect({
+        to: "/c/$chatId",
+        params: { chatId: "new" },
+        mask: {
+          to: "/",
+        },
+      });
+    }
 
     throw redirect({
-      to: "/c/$chatId",
-      params: { chatId },
+      to: "/models",
       mask: {
         to: "/",
       },

@@ -82,5 +82,9 @@
   },
   "overrides": {
     "mdast-util-gfm-autolink-literal": "2.0.0"
+  },
+  "allowScripts": {
+    "@tailwindcss/oxide@4.1.11": true,
+    "esbuild@0.25.5": true
   }
 }
