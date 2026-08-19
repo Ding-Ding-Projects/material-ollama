@@ -32,6 +32,8 @@ destination's screen) is the fuller "rows are rich controls, teleport to
 the exact element" behavior the shared canonical contract also describes,
 and is not yet built; see `rich-controls.md`.
 
+A real capture (`captures/images/command-palette.png`, taken via a synthetic Ctrl+Shift+F `KeyboardEvent` dispatched over CDP against the packaged build) shows the dialog open over the Models screen with five real destination results ("Models", "Chat", "Launch", "Codex CLI", "Developer") and their "Screen" kind labels, confirming the described behavior actually renders in the built artifact rather than only in the component test.
+
 ## Configuration
 
 TODO(command-palette): describe how a user or operator configures this feature -- the settings surface, its defaults, and where the choice persists.

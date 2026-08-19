@@ -2,7 +2,7 @@
 
 ## Behaviour
 
-TODO(tidbyt-status-display): describe what this feature actually does, on every surface the shared contract lists, in plain factual prose.
+Pushing status frames to a physical Tidbyt pixel display is a sub-feature of the cross-project Status Hub (see `project-status.md` and `status-discord-bridge.md`), driven from the `agent-global-memory` repository against a registered device. material-ollama has no Status Hub registration and no relationship to a Tidbyt device; the display itself is hardware, not a screen this app could render.
 
 ## Configuration
 

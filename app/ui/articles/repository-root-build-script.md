@@ -2,7 +2,7 @@
 
 ## Behaviour
 
-TODO(repository-root-build-script): describe what this feature actually does, on every surface the shared contract lists, in plain factual prose.
+This is a repository build-tooling contract, not a screen inside the running desktop app -- there is no in-app surface for it to occupy. The real, working implementation is `build.bat` at the repository root: before delegating to `scripts/build_windows.ps1` for the actual Windows build, it runs `node scripts/check-uh-inventory.mjs --self-test` (the guard-of-guards) and then the plain structural check with no flags, refusing to build at all if either is red. In a very literal sense, this build script gates on the same evidence file this article describes.
 
 ## Configuration
 

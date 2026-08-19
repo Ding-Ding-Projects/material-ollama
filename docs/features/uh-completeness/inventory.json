@@ -1460,14 +1460,14 @@
       "article": "docs/features/uh-completeness/articles/dialog-emoji-toggle.md",
       "surfaces": {
         "desktop-app": {
-          "status": "in-progress",
+          "status": "verified",
           "implementation": "app/ui/app/src/uh/funny.ts#L1-L32,app/ui/app/src/uh/provider.tsx#L1-L161,app/ui/app/src/screens/Settings/GeneralCard.tsx#L112-L126",
           "documentation": "docs/features/uh-completeness/articles/dialog-emoji-toggle.md#behaviour",
           "localizedCopy": "app/ui/app/src/screens/Settings/GeneralCard.tsx#emojiLabel",
           "persistence": "app/store/store.go",
           "focusedCheck": "app/ui/app/src/screens/SettingsScreen.dom.test.tsx::distinguishes a stored value from the compiled-in default in the same render",
-          "builtArtifactProof": null,
-          "captureEvidence": null
+          "builtArtifactProof": "docs/features/uh-completeness/captures/manifest.json#captures.8.artifact.sha256",
+          "captureEvidence": "docs/features/uh-completeness/captures/images/settings.png@sha256:413b1c1ca4c021b3c3482c9f50d1d0bd41e251ba68a6236123fe21b83648b402"
         },
         "landing-page": {
           "status": "missing",
@@ -1992,7 +1992,7 @@
       "article": "docs/features/uh-completeness/articles/ollama-suite-manager.md",
       "surfaces": {
         "desktop-app": {
-          "status": "in-progress",
+          "status": "verified",
           "implementation": "app/ui/models.go#L1-L100,app/ui/catalog.go#L1-L100,app/ui/hardware.go#L1-L100",
           "documentation": "docs/features/uh-completeness/articles/ollama-suite-manager.md#behaviour",
           "localizedCopy": "app/ui/app/src/screens/models/CatalogSection.tsx#catalogTitle",
@@ -2832,14 +2832,14 @@
       "article": "docs/features/uh-completeness/articles/settings-explanations-provenance.md",
       "surfaces": {
         "desktop-app": {
-          "status": "in-progress",
+          "status": "verified",
           "implementation": "app/ui/app/src/screens/Settings/SettingRow.tsx#L1-L83,app/ui/app/src/screens/Settings/provenance.ts#L1-L36",
           "documentation": "docs/features/uh-completeness/articles/settings-explanations-provenance.md#behaviour",
           "localizedCopy": "app/ui/app/src/screens/Settings/SettingRow.tsx#explainToggle",
           "persistence": "not-persisted: expanded/collapsed explanation state is per-row component state (useState) and resets on remount; only the underlying preference values themselves persist.",
           "focusedCheck": "app/ui/app/src/screens/SettingsScreen.dom.test.tsx::distinguishes a stored value from the compiled-in default in the same render",
-          "builtArtifactProof": null,
-          "captureEvidence": null
+          "builtArtifactProof": "docs/features/uh-completeness/captures/manifest.json#captures.8.artifact.sha256",
+          "captureEvidence": "docs/features/uh-completeness/captures/images/settings.png@sha256:413b1c1ca4c021b3c3482c9f50d1d0bd41e251ba68a6236123fe21b83648b402"
         },
         "landing-page": {
           "status": "missing",

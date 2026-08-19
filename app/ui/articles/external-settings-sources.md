@@ -2,7 +2,9 @@
 
 ## Behaviour
 
-TODO(external-settings-sources): describe what this feature actually does, on every surface the shared contract lists, in plain factual prose.
+`AdvancedCard.tsx` renders a real, read-only view of the Ollama-compatible endpoints already tracked in `preferences.endpoints` (`EndpointPrefs{activeId, endpoints}`, `app/ui/app/src/screens/Settings/types.ts`): each configured `Endpoint` (id, kind, label, base URL, whether a token is set) is listed with its label and base URL, and the currently-active one carries an "Active" badge (`endpointActiveFact`). An honest empty state renders when no endpoints are configured.
+
+This is visibility only, not the external-source contract the canonical feature describes. There is no UI anywhere in the codebase to add, edit, or remove an endpoint, no per-schedule-rule choice of "local data / validated HTTPS API / Home Assistant boolean entity" as a settings source, and no Home Assistant entity linking, token storage, or bounded-refresh/fallback machinery. `scheduled-settings.md`'s schedule rules are all fixed local actions and carry no source selection at all. `EndpointPrefs`/`Endpoint` are real, already-shipped Go types (`app/ui/app/src/screens/Settings/types.ts` mirrors them) that something else in the codebase evidently populates, but this card is a reader of that state, not an editor of it, and nothing here drives a scheduled setting from an external source.
 
 ## Configuration
 
