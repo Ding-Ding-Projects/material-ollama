@@ -8,6 +8,10 @@ import { ModelCard } from "./models/ModelCard"
 import { PullQueueCard } from "./models/PullQueueCard"
 import type { InstalledModel, RunningModel } from "./models/types"
 import "./models/modelsUi.dict"
+// (also transitively imported by every child below, but every direct
+// consumer of the "modelsUi" namespace registers it explicitly — the same
+// convention PlaceholderScreen follows for "shell" — rather than relying
+// on import order through a sibling module.)
 
 function matchesQuery(model: InstalledModel, query: string, regex: boolean): boolean {
   const trimmed = query.trim()
