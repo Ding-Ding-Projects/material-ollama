@@ -13,13 +13,15 @@ A Material Design 3 rewrite of that UI is **in progress and incomplete**. The
 foundations have landed; the screens have not. Concretely: the design token
 system, runtime theming, bundled fonts and icons, a cross-cutting
 language/tone/accessibility layer, the settings store, the MD3 primitive
-component set, and the model-store backend all exist. **The nine screens the
-design specifies do not yet exist**, and the app still renders its original
-pre-rewrite interface.
+component set, and the model-store backend all exist. The app shell now renders the MD3 title bar, browser-style tab strip and
+navigation rail, and six destinations exist as explicit "not built yet"
+placeholders. **The real content of those six screens does not exist yet.**
+Chat, Codex and Settings still render their original pre-rewrite components,
+unchanged and working.
 
 ## Current state
 
-- Default branch tip: see `git log -1 main`. Sixteen commits landed in the
+- Default branch tip: see `git log -1 main`. Nineteen commits landed in the
   rewrite session that produced this handoff.
 - Published baseline: **`v0.0.0-build.11`**, a non-draft release targeting
   commit `58ba7e87`, carrying 55 assets with no zero-byte asset, including
@@ -43,8 +45,8 @@ pre-rewrite interface.
 | MD3 primitive components (21) | landed, **zero call sites** |
 | Model store backend: hardware detection, fit verdicts, pull queue | landed, **no UI** |
 | Nine MD3 screens | **not started** |
-| App shell (title bar, tab strip, navigation rail) | in progress, unmerged |
-| Docker container manager | in progress, unmerged |
+| App shell (title bar, tab strip, navigation rail) | landed |
+| Docker container manager | landed |
 | Catalog service, file converter, docs articles, capture harness | **not started** |
 
 ## Verification status — read this before trusting anything above
@@ -88,7 +90,7 @@ the shipped stylesheet is wrong. Everything else tests source.
 
 ## Boundaries and known problems
 
-1. **Pushes do not trigger CI runs.** Sixteen commits were pushed; zero
+1. **Pushes do not trigger CI runs.** Nineteen commits were pushed; zero
    workflow runs were created. `gh workflow run` works immediately every time.
    The workflow is `state: active`, declares `on: push`, and the repository is
    neither archived nor disabled. This points at an account- or billing-level
@@ -132,13 +134,12 @@ the shipped stylesheet is wrong. Everything else tests source.
    support, uninstall-time PATH removal and a migration guard. Inno Setup was
    not run, and no install, upgrade or uninstall was performed.
 
-8. **Two lanes are unmerged and in progress**: the app shell and the Docker
-   container manager. See the branch list.
+8. **NavigationRail is not a full listbox pattern.** It lacks `aria-orientation="vertical"` and up/down roving tabindex; items are individually Tab-focusable. The app name, logo glyph and restricted-mode pill render static defaults and are not yet wired to user renaming.
 
 ## Next actions, in the order they unblock the most
 
 1. Resolve the CI push trigger (item 1). Everything else is slower without it.
-2. Land the app shell and Docker lanes.
+2. Replace the six placeholder screens with real content.
 3. Build the nine screens against the backends that already exist.
 4. Harden `check-uh-inventory.mjs` so evidence must resolve on disk, with
    negative regressions proving each new assertion fires.
