@@ -348,6 +348,22 @@ func (s *Server) Handler() http.Handler {
 	mux.Handle("POST /api/v1/codex/sessions/{id}/rollback", handle(s.codexSessionRollback))
 	mux.Handle("POST /api/v1/codex/editor", handle(s.codexEditor))
 
+	// Local Docker container manager for the bundled Ollama server image.
+	// Talks to the docker CLI through a strict argv allow-list (never a
+	// shell string); GPU capability is established by actually probing a
+	// container, never assumed from the host. See app/ui/docker.go's
+	// header comment for the full boundary.
+	mux.Handle("GET /api/v1/docker/status", handle(s.dockerStatus))
+	mux.Handle("POST /api/v1/docker/probe-gpu", handle(s.dockerProbeGPU))
+	mux.Handle("GET /api/v1/docker/container", handle(s.dockerContainerGet))
+	mux.Handle("POST /api/v1/docker/container", handle(s.dockerContainerCreate))
+	mux.Handle("POST /api/v1/docker/container/start", handle(s.dockerContainerStart))
+	mux.Handle("POST /api/v1/docker/container/stop", handle(s.dockerContainerStop))
+	mux.Handle("POST /api/v1/docker/container/restart", handle(s.dockerContainerRestart))
+	mux.Handle("DELETE /api/v1/docker/container", handle(s.dockerContainerDelete))
+	mux.Handle("GET /api/v1/docker/container/logs", handle(s.dockerContainerLogs))
+	mux.Handle("GET /api/v1/docker/container/health", handle(s.dockerContainerHealth))
+
 	// Ollama proxy endpoints
 	ollamaProxy := s.ollamaProxy()
 	mux.Handle("GET /api/tags", ollamaProxy)
