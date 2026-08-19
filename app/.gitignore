@@ -4,7 +4,15 @@ ollama.syso
 /app/app
 /app/squirrel
 ollama
-*cover*
+# Coverage output. Anchored deliberately: the previous pattern was `*cover*`,
+# an unanchored glob that matched any path containing "cover" -- which silently
+# ignored `components/recovery/`, and would equally swallow `discovery`,
+# `coverflow`, or anything else with those six letters in it. A whole feature
+# directory was invisible to `git status` and `git add -A` because of it, and
+# nothing warns you: the files simply are not there.
+/app/coverage/
+coverage.out
+*.cover.out
 .vscode
 .env
 .DS_Store
