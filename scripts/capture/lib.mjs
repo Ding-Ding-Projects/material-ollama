@@ -650,6 +650,12 @@ export function cdpConnect(target, { timeoutMs = 15_000 } = {}) {
   // Listeners registered via `onEvent()` below are the only way a caller
   // gets at them; nothing in this module read them before this addition.
   const eventListeners = new Set()
+  // CDP *events* (messages with a `method` but no `id` -- e.g.
+  // "Network.requestWillBeSent") are dispatched to any handler registered
+  // via `.on(method, handler)` below, separately from the id-keyed
+  // command/response bookkeeping above, which only ever sees the
+  // request/response pairs a `.send()` call itself made.
+  const eventHandlers = new Map()
 
   const opened = new Promise((resolve, reject) => {
     const timer = setTimeout(() => reject(new Error(`CDP websocket to ${target.webSocketDebuggerUrl} did not open within ${timeoutMs}ms`)), timeoutMs)
@@ -665,16 +671,29 @@ export function cdpConnect(target, { timeoutMs = 15_000 } = {}) {
       return
     }
     if (msg.id === undefined) {
-      // A CDP protocol event, not a reply to any send() -- fan it out to
-      // every registered listener. A listener that throws must not take
-      // the websocket's own message handler down with it (that would
-      // silently stop every future response/event on this connection).
-      if (msg.method) {
+      // A CDP protocol event, not a reply to any send(). Two lanes added event
+      // dispatch independently and both have live callers, so both survive:
+      // onEvent() is a catch-all that sees every method, on(method) is a
+      // per-method subscription. A handler that throws must not take the
+      // websocket's own message handler down with it -- that would silently
+      // stop every future response AND event on this connection, which reads
+      // as a hung capture rather than a thrown error.
+      if (typeof msg.method === 'string') {
         for (const fn of eventListeners) {
           try {
             fn(msg.method, msg.params ?? {})
           } catch {
             // deliberately swallowed -- see comment above
+          }
+        }
+        const handlers = eventHandlers.get(msg.method)
+        if (handlers) {
+          for (const handler of handlers) {
+            try {
+              handler(msg.params ?? {})
+            } catch {
+              // deliberately swallowed -- see comment above
+            }
           }
         }
       }
@@ -720,11 +739,27 @@ export function cdpConnect(target, { timeoutMs = 15_000 } = {}) {
       eventListeners.add(fn)
       return () => eventListeners.delete(fn)
     },
+    /** Register a handler for a CDP event (e.g. "Network.requestWillBeSent").
+     * Multiple handlers for the same method may be registered; all are
+     * called, in registration order, with the event's `params`. */
+    on(method, handler) {
+      if (!eventHandlers.has(method)) eventHandlers.set(method, [])
+      eventHandlers.get(method).push(handler)
+    },
     close() {
       try { ws.close() } catch { /* already closed */ }
     },
   }
 }
+
+// ---------------------------------------------------------------------------
+// no-network-privacy: recording and asserting every real HTTP(S) request the
+// running app makes over the CDP Network domain is genuinely loopback-only.
+// The classification function below is pure (no CDP, no filesystem) so it
+// can be unit-tested directly against synthetic URLs; the collector wires
+// it to a live cdpConnect() client's real "Network.requestWillBeSent"
+// events during an actual capture run.
+// ---------------------------------------------------------------------------
 
 /** Runtime.evaluate one synchronous expression and return its value
  * (unwrapped from CDP's `{type, value}` result envelope). Never passes

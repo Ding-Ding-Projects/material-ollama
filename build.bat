@@ -42,6 +42,13 @@ if errorlevel 1 (
     exit /b 1
 )
 
+echo [build.bat] Running vocabulary hash lock check...
+call node scripts\check-vocabulary.mjs
+if errorlevel 1 (
+    echo [build.bat] ERROR: vocabulary hash lock check failed. A private vocabulary source was found but does not match its lock - see the message above, review the change, then re-run `node scripts\check-vocabulary.mjs --lock`.
+    exit /b 1
+)
+
 echo [build.bat] Inventory gate is green. Delegating to scripts\build_windows.ps1...
 powershell -NoProfile -ExecutionPolicy Bypass -File "%SCRIPT_DIR%scripts\build_windows.ps1" %*
 if errorlevel 1 (

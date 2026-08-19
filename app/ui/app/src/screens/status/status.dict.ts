@@ -39,6 +39,7 @@ export const statusDict = defineDict("status", {
     "呢個項目永久唔簽署代碼。Deen No 可能會彈「未知發行商」警告 —— 呢個係預咗嘅，唔係 bug。",
   ],
   unsignedEvidenceLabel: ["Enforced by", "由呢度執行"],
+  visitWebsiteLink: ["Visit the project website", "去項目網站睇睇"],
   assetManifestUnavailableHeading: ["Installer asset count", "安裝包檔案數"],
   assetManifestUnavailable: [
     "Not available offline — the asset manifest is only computed after packaging finishes, well after this binary was built.",

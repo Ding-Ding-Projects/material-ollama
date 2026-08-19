@@ -15,6 +15,18 @@
 
 export const CHANGELOG_REPO_URL = "https://github.com/Ding-Ding-Projects/material-ollama"
 
+/**
+ * The repository's own GitHub "homepage" field (verified with
+ * `gh repo view Ding-Ding-Projects/material-ollama --json homepageUrl`) --
+ * the landing/documentation site this desktop app is a companion to. Kept
+ * here rather than fetched at runtime: it is a stable project fact, not
+ * something that changes between builds, and the release-card link this
+ * backs must keep working even when the app is fully offline. See the
+ * site-homepage-link contract article for why this link exists on the
+ * desktop-app surface specifically.
+ */
+export const PROJECT_HOMEPAGE_URL = "https://material-ollama-day-teet-hui.halowbak123.chatgpt.site"
+
 export interface ChangelogEntry {
   /** Full 40-character commit SHA. */
   sha: string

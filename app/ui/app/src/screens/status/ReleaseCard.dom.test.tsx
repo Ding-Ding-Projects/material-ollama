@@ -108,4 +108,36 @@ describe("ReleaseCard", () => {
       screen.getByText("release.yaml \"Verify unsigned Windows package\" step"),
     ).toBeInTheDocument()
   })
+
+  it("links to the repository's real GitHub homepage, as a real anchor a user can open", async () => {
+    renderWithFetch(DEV_BUILD)
+    await screen.findByText("Development build — no release code name")
+
+    const link = screen.getByTestId("release-card-homepage-link")
+    // The exact URL `gh repo view Ding-Ding-Projects/material-ollama
+    // --json homepageUrl` reports, so this test would fail the moment the
+    // link and the repository's own recorded homepage disagree.
+    expect(link).toHaveAttribute("href", "https://material-ollama-day-teet-hui.halowbak123.chatgpt.site")
+  })
+
+  // Landing-page-boundary: the desktop app may LINK to the site, but must
+  // never offer it as a substitute runtime -- no iframe, no embedded
+  // browser view, no route that renders the site's own pages inside this
+  // app's own window. A real anchor with target="_blank" hands the page
+  // to the OS's own browser and leaves this window untouched; anything
+  // that instead swaps this window's own content for the site's content
+  // would violate that boundary.
+  it("opens the site in a new tab via a real anchor, never as an embedded route inside this window", async () => {
+    renderWithFetch(DEV_BUILD)
+    await screen.findByText("Development build — no release code name")
+
+    const link = screen.getByTestId("release-card-homepage-link")
+    expect(link.tagName).toBe("A")
+    expect(link).toHaveAttribute("target", "_blank")
+    expect(link).toHaveAttribute("rel", expect.stringContaining("noopener"))
+
+    // No iframe/webview embedding the site anywhere in the rendered card.
+    expect(document.querySelector("iframe")).not.toBeInTheDocument()
+    expect(document.querySelector("webview")).not.toBeInTheDocument()
+  })
 })
