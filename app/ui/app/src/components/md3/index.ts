@@ -33,3 +33,4 @@ export {
   type NavigationRailProps,
 } from "./NavigationRail"
 export { Badge, type BadgeProps } from "./Badge"
+export { AppMark } from "./AppMark"

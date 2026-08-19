@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, type ReactNode } from "react"
 import {
+  AppMark,
   ContextMenu,
   NavigationRail,
   SnackbarProvider,
@@ -23,7 +24,9 @@ import "./shell.dict"
 // these are the shipped defaults rendered as static content rather than
 // dictionary copy (an app name isn't prose to translate). Module-scope
 // constants, not JSX literals, so a future rename only touches one place.
-const APP_GLYPH = "raven" as const
+// The project mark itself, not a borrowed icon-font glyph. See
+// app/assets/material-ollama-mark.svg for the committed vector master and
+// scripts/build-app-icon.mjs for the packaged .ico generated from it.
 const APP_NAME = "Material Ollama"
 const SCHOOL_MODE_NAME = "School mode"
 
@@ -134,7 +137,7 @@ export function AppShell({ children }: { children: ReactNode }) {
     <SnackbarProvider>
       <div className="flex h-screen flex-col overflow-hidden bg-background text-sm text-on-surface">
         <div className="flex h-11 flex-none items-center gap-2.5 bg-surface-low pr-3 pl-4">
-          <Icon name={APP_GLYPH} size={20} className="shrink-0 text-primary" />
+          <AppMark size={20} className="shrink-0" title={APP_NAME} />
           <span className="text-sm font-semibold tracking-[.1px]">
             <Txt channel="content" as="span">
               {APP_NAME}
