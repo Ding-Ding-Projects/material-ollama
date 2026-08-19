@@ -3,6 +3,7 @@ import { Badge, ProgressBar, Surface } from "@/components/md3"
 import { Icon } from "@/components/md3/Icon"
 import { Txt, useShows, useT } from "@/uh"
 import { useReleaseInfo } from "./useReleaseInfo"
+import { PROJECT_HOMEPAGE_URL } from "./changelogEntries"
 import "./status.dict"
 
 function FactRow({ label, children }: { label: string; children: ReactNode }) {
@@ -60,6 +61,16 @@ export function ReleaseCard() {
             <Txt ns="status" k="devBuildBadge" channel="label" />
           </Badge>
         ) : null}
+        <a
+          href={PROJECT_HOMEPAGE_URL}
+          target="_blank"
+          rel="noopener noreferrer"
+          data-testid="release-card-homepage-link"
+          className="ml-auto inline-flex shrink-0 items-center gap-1 rounded text-[12px] font-medium text-primary hover:underline"
+        >
+          <Icon name="open_in_new" size={14} className="shrink-0" />
+          {t("visitWebsiteLink")}
+        </a>
       </div>
 
       {info.isDevBuild ? (

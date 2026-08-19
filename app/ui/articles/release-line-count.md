@@ -2,7 +2,7 @@
 
 ## Behaviour
 
-TODO(release-line-count): describe what this feature actually does, on every surface the shared contract lists, in plain factual prose.
+Reporting the project's own line count is a release-notes concern, not an application feature -- there is no screen in the app that would show it. `scripts/count-lines.mjs` is the real, committed counter; the release workflow runs it and writes its output to `dist/line-count.md`, which the publish job later reads back in to build the GitHub Release body (see `forge-publishing.md`).
 
 ## Configuration
 

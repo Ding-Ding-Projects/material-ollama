@@ -2,7 +2,9 @@
 
 ## Behaviour
 
-TODO(notification-center): describe what this feature actually does, on every surface the shared contract lists, in plain factual prose.
+`app/ui/app/src/components/shell/useShellEvents.ts` is a real, if modest, in-memory event log: `record(icon, text)` prepends a timestamped entry to a capped 30-item list, and `NotificationCenter.tsx` (opened from the app shell's bell icon) renders that list with a "Clear all" action and an honest empty "No notifications" state -- nothing is seeded or faked, matching the module's own comment that "an empty inbox is the honest starting state." `AppShell.tsx` wires real shell actions into it today: pinning, grouping, or closing a tab from its context menu each calls `record()` with a localized description of what happened.
+
+The log is entirely in-memory (`useState`, no localStorage, no backend endpoint), so it resets to empty on every restart -- there is no durable notification history yet, and no dedicated review/history panel beyond the shell's own dropdown.
 
 ## Configuration
 

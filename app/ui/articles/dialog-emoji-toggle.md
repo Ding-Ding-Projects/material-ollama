@@ -2,7 +2,11 @@
 
 ## Behaviour
 
-TODO(dialog-emoji-toggle): describe what this feature actually does, on every surface the shared contract lists, in plain factual prose.
+The emoji half of `app/ui/app/src/uh/funny.ts`'s `funny()` is real: at funny level 2 or higher, with `opts.emoji` true, it appends ` ✨` (or ` 🎉🥟` at level 4) to the already-suffixed copy string. `voice.emoji` (a plain boolean on the `Voice` object `provider.tsx` builds) is what `Txt.tsx`'s `copy` channel passes through as that `opts.emoji` flag, so the mechanism is genuinely wired end-to-end for any `channel="copy"` text.
+
+The toggle itself now exists: the Settings screen's General card (`app/ui/app/src/screens/Settings/GeneralCard.tsx`) renders a `Switch` bound to `preferences.emoji` under the label "Show emojis in dialogs" (`emojiLabel`/`emojiToggleLabel`), whose `onChange` calls `patchPreferences({ emoji: checked })` -- PATCHing the real `/api/v1/uh/preferences` endpoint and, via the same mirror-to-localStorage step `language-modes.md` describes, updating `provider.tsx`'s live `Voice.emoji` with no reload. `emoji` still defaults to `false` (`DEFAULT_UI_PREFERENCES.emoji`). This exact row is what `SettingsScreen.dom.test.tsx`'s "distinguishes a stored value from the compiled-in default in the same render" test directly asserts on: with a fixture where `emoji: true` (deliberately differing from the default), the "Show emojis in dialogs" row's own provenance line reads "currently your saved value: on".
+
+As with `language-modes.md`, the real `/settings` route currently crashes before a user can reach this card in the packaged build (see that article's caveat), so this is proven at the component-test level only for now.
 
 ## Configuration
 

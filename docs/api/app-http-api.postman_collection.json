@@ -1,0 +1,2973 @@
+{
+  "info": {
+    "name": "Material Ollama -- Desktop App Local HTTP API",
+    "description": "Generated from the real mux.Handle(...) registrations in app/ui/ui.go's Server.Handler() -- run `node scripts/generate-postman-collection.mjs` to regenerate after a route changes. This is the desktop app's OWN local API (served by the app process itself, on an OS-assigned loopback port -- see {{baseUrl}} below), distinct from the upstream Ollama server API documented in docs/api.md and docs/openapi.yaml, which most `ollama-proxy` folder routes here simply forward to unchanged.\n\nAuthentication: every route except the `root`, `ollama-proxy`, and OPTIONS preflight routes requires the app's own session `token` cookie (set by the running app; there is no login endpoint -- the app process itself owns the token and only accepts requests carrying it) unless the server is started in Dev mode (`-dev`), which skips the check entirely for local development.\n\nBase URL: the app binds 127.0.0.1:0 (an OS-assigned ephemeral port), so {{baseUrl}} has no fixed default -- set it to `http://127.0.0.1:<port>` for the port the running instance actually bound (discoverable the same way scripts/capture/lib.mjs's discoverListeningPort() does: inspect the running process's own listening TCP sockets).",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://127.0.0.1:PORT",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "root",
+      "item": [
+        {
+          "name": "OPTIONS /",
+          "request": {
+            "method": "OPTIONS",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": []
+            },
+            "description": "Handled by app/ui/ui.go's Server.corsPreflight (registered at source line 286). Requires the app's own `token` cookie unless the server is running in Dev mode -- see this folder's auth note."
+          }
+        },
+        {
+          "name": "GET /",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": []
+            },
+            "description": "Handled by app/ui/ui.go's Server.s.appHandler( (registered at source line 440). Requires the app's own `token` cookie unless the server is running in Dev mode -- see this folder's auth note."
+          }
+        },
+        {
+          "name": "PUT /",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": []
+            },
+            "description": "Handled by app/ui/ui.go's Server.s.appHandler( (registered at source line 441). Requires the app's own `token` cookie unless the server is running in Dev mode -- see this folder's auth note.",
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "POST /",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": []
+            },
+            "description": "Handled by app/ui/ui.go's Server.s.appHandler( (registered at source line 442). Requires the app's own `token` cookie unless the server is running in Dev mode -- see this folder's auth note.",
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "PATCH /",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": []
+            },
+            "description": "Handled by app/ui/ui.go's Server.s.appHandler( (registered at source line 443). Requires the app's own `token` cookie unless the server is running in Dev mode -- see this folder's auth note.",
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "DELETE /",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": []
+            },
+            "description": "Handled by app/ui/ui.go's Server.s.appHandler( (registered at source line 444). Requires the app's own `token` cookie unless the server is running in Dev mode -- see this folder's auth note."
+          }
+        }
+      ]
+    },
+    {
+      "name": "chats",
+      "item": [
+        {
+          "name": "GET /api/v1/chats",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/chats",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "chats"
+              ]
+            },
+            "description": "Handled by app/ui/ui.go's Server.listChats (registered at source line 291). Requires the app's own `token` cookie unless the server is running in Dev mode -- see this folder's auth note."
+          }
+        }
+      ]
+    },
+    {
+      "name": "chat",
+      "item": [
+        {
+          "name": "GET /api/v1/chat/{id}",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/chat/:id",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "chat",
+                ":id"
+              ],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "",
+                  "description": "Path parameter: id"
+                }
+              ]
+            },
+            "description": "Handled by app/ui/ui.go's Server.getChat (registered at source line 292). Requires the app's own `token` cookie unless the server is running in Dev mode -- see this folder's auth note."
+          }
+        },
+        {
+          "name": "POST /api/v1/chat/{id}",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/chat/:id",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "chat",
+                ":id"
+              ],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "",
+                  "description": "Path parameter: id"
+                }
+              ]
+            },
+            "description": "Handled by app/ui/ui.go's Server.chat (registered at source line 293). Requires the app's own `token` cookie unless the server is running in Dev mode -- see this folder's auth note.",
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "DELETE /api/v1/chat/{id}",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/chat/:id",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "chat",
+                ":id"
+              ],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "",
+                  "description": "Path parameter: id"
+                }
+              ]
+            },
+            "description": "Handled by app/ui/ui.go's Server.deleteChat (registered at source line 294). Requires the app's own `token` cookie unless the server is running in Dev mode -- see this folder's auth note."
+          }
+        },
+        {
+          "name": "PUT /api/v1/chat/{id}/rename",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/chat/:id/rename",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "chat",
+                ":id",
+                "rename"
+              ],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "",
+                  "description": "Path parameter: id"
+                }
+              ]
+            },
+            "description": "Handled by app/ui/ui.go's Server.renameChat (registered at source line 296). Requires the app's own `token` cookie unless the server is running in Dev mode -- see this folder's auth note.",
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "create-chat",
+      "item": [
+        {
+          "name": "POST /api/v1/create-chat",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/create-chat",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "create-chat"
+              ]
+            },
+            "description": "Handled by app/ui/ui.go's Server.createChat (registered at source line 295). Requires the app's own `token` cookie unless the server is running in Dev mode -- see this folder's auth note.",
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "inference-compute",
+      "item": [
+        {
+          "name": "GET /api/v1/inference-compute",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/inference-compute",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "inference-compute"
+              ]
+            },
+            "description": "Handled by app/ui/ui.go's Server.getInferenceCompute (registered at source line 298). Requires the app's own `token` cookie unless the server is running in Dev mode -- see this folder's auth note."
+          }
+        }
+      ]
+    },
+    {
+      "name": "model",
+      "item": [
+        {
+          "name": "POST /api/v1/model/upstream",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/model/upstream",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "model",
+                "upstream"
+              ]
+            },
+            "description": "Handled by app/ui/ui.go's Server.modelUpstream (registered at source line 299). Requires the app's own `token` cookie unless the server is running in Dev mode -- see this folder's auth note.",
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "hardware",
+      "item": [
+        {
+          "name": "GET /api/v1/hardware",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/hardware",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "hardware"
+              ]
+            },
+            "description": "Handled by app/ui/ui.go's Server.getHardware (registered at source line 305). Requires the app's own `token` cookie unless the server is running in Dev mode -- see this folder's auth note."
+          }
+        }
+      ]
+    },
+    {
+      "name": "models",
+      "item": [
+        {
+          "name": "GET /api/v1/models/installed",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/models/installed",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "models",
+                "installed"
+              ]
+            },
+            "description": "Handled by app/ui/ui.go's Server.modelsInstalled (registered at source line 306). Requires the app's own `token` cookie unless the server is running in Dev mode -- see this folder's auth note."
+          }
+        },
+        {
+          "name": "GET /api/v1/models/running",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/models/running",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "models",
+                "running"
+              ]
+            },
+            "description": "Handled by app/ui/ui.go's Server.modelsRunning (registered at source line 307). Requires the app's own `token` cookie unless the server is running in Dev mode -- see this folder's auth note."
+          }
+        },
+        {
+          "name": "POST /api/v1/models/pull",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/models/pull",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "models",
+                "pull"
+              ]
+            },
+            "description": "Handled by app/ui/ui.go's Server.pullEnqueue (registered at source line 308). Requires the app's own `token` cookie unless the server is running in Dev mode -- see this folder's auth note.",
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "GET /api/v1/models/pull/queue",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/models/pull/queue",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "models",
+                "pull",
+                "queue"
+              ]
+            },
+            "description": "Handled by app/ui/ui.go's Server.pullQueueList (registered at source line 309). Requires the app's own `token` cookie unless the server is running in Dev mode -- see this folder's auth note."
+          }
+        },
+        {
+          "name": "GET /api/v1/models/pull/events",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/models/pull/events",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "models",
+                "pull",
+                "events"
+              ]
+            },
+            "description": "Handled by app/ui/ui.go's Server.pullEvents (registered at source line 310). Requires the app's own `token` cookie unless the server is running in Dev mode -- see this folder's auth note."
+          }
+        },
+        {
+          "name": "POST /api/v1/models/pull/{id}/pause",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/models/pull/:id/pause",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "models",
+                "pull",
+                ":id",
+                "pause"
+              ],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "",
+                  "description": "Path parameter: id"
+                }
+              ]
+            },
+            "description": "Handled by app/ui/ui.go's Server.pullPause (registered at source line 311). Requires the app's own `token` cookie unless the server is running in Dev mode -- see this folder's auth note.",
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "POST /api/v1/models/pull/{id}/resume",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/models/pull/:id/resume",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "models",
+                "pull",
+                ":id",
+                "resume"
+              ],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "",
+                  "description": "Path parameter: id"
+                }
+              ]
+            },
+            "description": "Handled by app/ui/ui.go's Server.pullResume (registered at source line 312). Requires the app's own `token` cookie unless the server is running in Dev mode -- see this folder's auth note.",
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "POST /api/v1/models/pull/{id}/cancel",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/models/pull/:id/cancel",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "models",
+                "pull",
+                ":id",
+                "cancel"
+              ],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "",
+                  "description": "Path parameter: id"
+                }
+              ]
+            },
+            "description": "Handled by app/ui/ui.go's Server.pullCancel (registered at source line 313). Requires the app's own `token` cookie unless the server is running in Dev mode -- see this folder's auth note.",
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "POST /api/v1/models/delete",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/models/delete",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "models",
+                "delete"
+              ]
+            },
+            "description": "Handled by app/ui/ui.go's Server.modelsDelete (registered at source line 314). Requires the app's own `token` cookie unless the server is running in Dev mode -- see this folder's auth note.",
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "GET /api/v1/models/catalog",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/models/catalog",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "models",
+                "catalog"
+              ]
+            },
+            "description": "Handled by app/ui/ui.go's Server.modelCatalogGet (registered at source line 323). Requires the app's own `token` cookie unless the server is running in Dev mode -- see this folder's auth note."
+          }
+        },
+        {
+          "name": "GET /api/v1/models/catalog/status",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/models/catalog/status",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "models",
+                "catalog",
+                "status"
+              ]
+            },
+            "description": "Handled by app/ui/ui.go's Server.modelCatalogStatus (registered at source line 324). Requires the app's own `token` cookie unless the server is running in Dev mode -- see this folder's auth note."
+          }
+        },
+        {
+          "name": "POST /api/v1/models/catalog/refresh",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/models/catalog/refresh",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "models",
+                "catalog",
+                "refresh"
+              ]
+            },
+            "description": "Handled by app/ui/ui.go's Server.modelCatalogRefresh (registered at source line 325). Requires the app's own `token` cookie unless the server is running in Dev mode -- see this folder's auth note.",
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "GET /api/v1/models/variant",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/models/variant",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "models",
+                "variant"
+              ]
+            },
+            "description": "Handled by app/ui/ui.go's Server.modelVariantGet (registered at source line 326). Requires the app's own `token` cookie unless the server is running in Dev mode -- see this folder's auth note."
+          }
+        }
+      ]
+    },
+    {
+      "name": "settings",
+      "item": [
+        {
+          "name": "GET /api/v1/settings",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/settings",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "settings"
+              ]
+            },
+            "description": "Handled by app/ui/ui.go's Server.getSettings (registered at source line 328). Requires the app's own `token` cookie unless the server is running in Dev mode -- see this folder's auth note."
+          }
+        },
+        {
+          "name": "POST /api/v1/settings",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/settings",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "settings"
+              ]
+            },
+            "description": "Handled by app/ui/ui.go's Server.settings (registered at source line 329). Requires the app's own `token` cookie unless the server is running in Dev mode -- see this folder's auth note.",
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "capabilities",
+      "item": [
+        {
+          "name": "GET /api/v1/capabilities",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/capabilities",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "capabilities"
+              ]
+            },
+            "description": "Handled by app/ui/ui.go's Server.capabilities (registered at source line 330). Requires the app's own `token` cookie unless the server is running in Dev mode -- see this folder's auth note."
+          }
+        }
+      ]
+    },
+    {
+      "name": "release",
+      "item": [
+        {
+          "name": "GET /api/v1/release",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/release",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "release"
+              ]
+            },
+            "description": "Handled by app/ui/ui.go's Server.releaseInfo (registered at source line 335). Requires the app's own `token` cookie unless the server is running in Dev mode -- see this folder's auth note."
+          }
+        }
+      ]
+    },
+    {
+      "name": "history",
+      "item": [
+        {
+          "name": "GET /api/v1/history",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/history",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "history"
+              ]
+            },
+            "description": "Handled by app/ui/ui.go's Server.listHistory (registered at source line 339). Requires the app's own `token` cookie unless the server is running in Dev mode -- see this folder's auth note."
+          }
+        },
+        {
+          "name": "POST /api/v1/history",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/history",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "history"
+              ]
+            },
+            "description": "Handled by app/ui/ui.go's Server.appendHistory (registered at source line 340). Requires the app's own `token` cookie unless the server is running in Dev mode -- see this folder's auth note.",
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "config",
+      "item": [
+        {
+          "name": "GET /api/v1/config/profiles",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/config/profiles",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "config",
+                "profiles"
+              ]
+            },
+            "description": "Handled by app/ui/ui.go's Server.getConfigProfiles (registered at source line 341). Requires the app's own `token` cookie unless the server is running in Dev mode -- see this folder's auth note."
+          }
+        },
+        {
+          "name": "POST /api/v1/config/profiles",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/config/profiles",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "config",
+                "profiles"
+              ]
+            },
+            "description": "Handled by app/ui/ui.go's Server.createConfigProfile (registered at source line 342). Requires the app's own `token` cookie unless the server is running in Dev mode -- see this folder's auth note.",
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "PUT /api/v1/config/profiles/{id}",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/config/profiles/:id",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "config",
+                "profiles",
+                ":id"
+              ],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "",
+                  "description": "Path parameter: id"
+                }
+              ]
+            },
+            "description": "Handled by app/ui/ui.go's Server.updateConfigProfile (registered at source line 343). Requires the app's own `token` cookie unless the server is running in Dev mode -- see this folder's auth note.",
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "DELETE /api/v1/config/profiles/{id}",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/config/profiles/:id",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "config",
+                "profiles",
+                ":id"
+              ],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "",
+                  "description": "Path parameter: id"
+                }
+              ]
+            },
+            "description": "Handled by app/ui/ui.go's Server.deleteConfigProfile (registered at source line 344). Requires the app's own `token` cookie unless the server is running in Dev mode -- see this folder's auth note."
+          }
+        },
+        {
+          "name": "POST /api/v1/config/profiles/{id}/apply",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/config/profiles/:id/apply",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "config",
+                "profiles",
+                ":id",
+                "apply"
+              ],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "",
+                  "description": "Path parameter: id"
+                }
+              ]
+            },
+            "description": "Handled by app/ui/ui.go's Server.applyConfigProfile (registered at source line 345). Requires the app's own `token` cookie unless the server is running in Dev mode -- see this folder's auth note.",
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "cloud",
+      "item": [
+        {
+          "name": "GET /api/v1/cloud",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/cloud",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "cloud"
+              ]
+            },
+            "description": "Handled by app/ui/ui.go's Server.getCloudSetting (registered at source line 346). Requires the app's own `token` cookie unless the server is running in Dev mode -- see this folder's auth note."
+          }
+        },
+        {
+          "name": "POST /api/v1/cloud",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/cloud",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "cloud"
+              ]
+            },
+            "description": "Handled by app/ui/ui.go's Server.cloudSetting (registered at source line 347). Requires the app's own `token` cookie unless the server is running in Dev mode -- see this folder's auth note.",
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "uh",
+      "item": [
+        {
+          "name": "GET /api/v1/uh/preferences",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/uh/preferences",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "uh",
+                "preferences"
+              ]
+            },
+            "description": "Handled by app/ui/ui.go's Server.uhGetPreferences (registered at source line 352). Requires the app's own `token` cookie unless the server is running in Dev mode -- see this folder's auth note."
+          }
+        },
+        {
+          "name": "PATCH /api/v1/uh/preferences",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/uh/preferences",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "uh",
+                "preferences"
+              ]
+            },
+            "description": "Handled by app/ui/ui.go's Server.uhPatchPreferences (registered at source line 353). Requires the app's own `token` cookie unless the server is running in Dev mode -- see this folder's auth note.",
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "POST /api/v1/uh/school/pin",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/uh/school/pin",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "uh",
+                "school",
+                "pin"
+              ]
+            },
+            "description": "Handled by app/ui/ui.go's Server.uhSetSchoolPIN (registered at source line 354). Requires the app's own `token` cookie unless the server is running in Dev mode -- see this folder's auth note.",
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "POST /api/v1/uh/school/unlock",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/uh/school/unlock",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "uh",
+                "school",
+                "unlock"
+              ]
+            },
+            "description": "Handled by app/ui/ui.go's Server.uhUnlockSchool (registered at source line 355). Requires the app's own `token` cookie unless the server is running in Dev mode -- see this folder's auth note.",
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "DELETE /api/v1/uh/school/pin",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/uh/school/pin",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "uh",
+                "school",
+                "pin"
+              ]
+            },
+            "description": "Handled by app/ui/ui.go's Server.uhClearSchoolPIN (registered at source line 356). Requires the app's own `token` cookie unless the server is running in Dev mode -- see this folder's auth note."
+          }
+        },
+        {
+          "name": "GET /api/v1/uh/totp/accounts",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/uh/totp/accounts",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "uh",
+                "totp",
+                "accounts"
+              ]
+            },
+            "description": "Handled by app/ui/ui.go's Server.totpListAccounts (registered at source line 362). Requires the app's own `token` cookie unless the server is running in Dev mode -- see this folder's auth note."
+          }
+        },
+        {
+          "name": "POST /api/v1/uh/totp/accounts",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/uh/totp/accounts",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "uh",
+                "totp",
+                "accounts"
+              ]
+            },
+            "description": "Handled by app/ui/ui.go's Server.totpCreateAccount (registered at source line 363). Requires the app's own `token` cookie unless the server is running in Dev mode -- see this folder's auth note.",
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "DELETE /api/v1/uh/totp/accounts/{id}",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/uh/totp/accounts/:id",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "uh",
+                "totp",
+                "accounts",
+                ":id"
+              ],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "",
+                  "description": "Path parameter: id"
+                }
+              ]
+            },
+            "description": "Handled by app/ui/ui.go's Server.totpDeleteAccount (registered at source line 364). Requires the app's own `token` cookie unless the server is running in Dev mode -- see this folder's auth note."
+          }
+        },
+        {
+          "name": "GET /api/v1/uh/totp/codes",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/uh/totp/codes",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "uh",
+                "totp",
+                "codes"
+              ]
+            },
+            "description": "Handled by app/ui/ui.go's Server.totpCodes (registered at source line 365). Requires the app's own `token` cookie unless the server is running in Dev mode -- see this folder's auth note."
+          }
+        },
+        {
+          "name": "POST /api/v1/uh/totp/pairing-uri",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/uh/totp/pairing-uri",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "uh",
+                "totp",
+                "pairing-uri"
+              ]
+            },
+            "description": "Handled by app/ui/ui.go's Server.totpPairingURI (registered at source line 366). Requires the app's own `token` cookie unless the server is running in Dev mode -- see this folder's auth note.",
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "codex",
+      "item": [
+        {
+          "name": "GET /api/v1/codex/discovery",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/codex/discovery",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "codex",
+                "discovery"
+              ]
+            },
+            "description": "Handled by app/ui/ui.go's Server.codexDiscovery (registered at source line 370). Requires the app's own `token` cookie unless the server is running in Dev mode -- see this folder's auth note."
+          }
+        },
+        {
+          "name": "GET /api/v1/codex/profiles",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/codex/profiles",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "codex",
+                "profiles"
+              ]
+            },
+            "description": "Handled by app/ui/ui.go's Server.codexProfiles (registered at source line 371). Requires the app's own `token` cookie unless the server is running in Dev mode -- see this folder's auth note."
+          }
+        },
+        {
+          "name": "POST /api/v1/codex/profiles",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/codex/profiles",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "codex",
+                "profiles"
+              ]
+            },
+            "description": "Handled by app/ui/ui.go's Server.codexProfiles (registered at source line 372). Requires the app's own `token` cookie unless the server is running in Dev mode -- see this folder's auth note.",
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "DELETE /api/v1/codex/profiles",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/codex/profiles",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "codex",
+                "profiles"
+              ]
+            },
+            "description": "Handled by app/ui/ui.go's Server.codexProfiles (registered at source line 373). Requires the app's own `token` cookie unless the server is running in Dev mode -- see this folder's auth note."
+          }
+        },
+        {
+          "name": "POST /api/v1/codex/preflight",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/codex/preflight",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "codex",
+                "preflight"
+              ]
+            },
+            "description": "Handled by app/ui/ui.go's Server.codexPreflight (registered at source line 374). Requires the app's own `token` cookie unless the server is running in Dev mode -- see this folder's auth note.",
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "GET /api/v1/codex/sessions",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/codex/sessions",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "codex",
+                "sessions"
+              ]
+            },
+            "description": "Handled by app/ui/ui.go's Server.codexSessions (registered at source line 375). Requires the app's own `token` cookie unless the server is running in Dev mode -- see this folder's auth note."
+          }
+        },
+        {
+          "name": "POST /api/v1/codex/sessions",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/codex/sessions",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "codex",
+                "sessions"
+              ]
+            },
+            "description": "Handled by app/ui/ui.go's Server.codexRun (registered at source line 376). Requires the app's own `token` cookie unless the server is running in Dev mode -- see this folder's auth note.",
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "GET /api/v1/codex/sessions/{id}",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/codex/sessions/:id",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "codex",
+                "sessions",
+                ":id"
+              ],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "",
+                  "description": "Path parameter: id"
+                }
+              ]
+            },
+            "description": "Handled by app/ui/ui.go's Server.codexSession (registered at source line 377). Requires the app's own `token` cookie unless the server is running in Dev mode -- see this folder's auth note."
+          }
+        },
+        {
+          "name": "GET /api/v1/codex/sessions/{id}/events",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/codex/sessions/:id/events",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "codex",
+                "sessions",
+                ":id",
+                "events"
+              ],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "",
+                  "description": "Path parameter: id"
+                }
+              ]
+            },
+            "description": "Handled by app/ui/ui.go's Server.codexSessionEvents (registered at source line 378). Requires the app's own `token` cookie unless the server is running in Dev mode -- see this folder's auth note."
+          }
+        },
+        {
+          "name": "POST /api/v1/codex/sessions/{id}/cancel",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/codex/sessions/:id/cancel",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "codex",
+                "sessions",
+                ":id",
+                "cancel"
+              ],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "",
+                  "description": "Path parameter: id"
+                }
+              ]
+            },
+            "description": "Handled by app/ui/ui.go's Server.codexSessionCancel (registered at source line 379). Requires the app's own `token` cookie unless the server is running in Dev mode -- see this folder's auth note.",
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "POST /api/v1/codex/sessions/{id}/rollback",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/codex/sessions/:id/rollback",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "codex",
+                "sessions",
+                ":id",
+                "rollback"
+              ],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "",
+                  "description": "Path parameter: id"
+                }
+              ]
+            },
+            "description": "Handled by app/ui/ui.go's Server.codexSessionRollback (registered at source line 380). Requires the app's own `token` cookie unless the server is running in Dev mode -- see this folder's auth note.",
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "POST /api/v1/codex/editor",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/codex/editor",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "codex",
+                "editor"
+              ]
+            },
+            "description": "Handled by app/ui/ui.go's Server.codexEditor (registered at source line 381). Requires the app's own `token` cookie unless the server is running in Dev mode -- see this folder's auth note.",
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "launch",
+      "item": [
+        {
+          "name": "GET /api/v1/launch/integrations",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/launch/integrations",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "launch",
+                "integrations"
+              ]
+            },
+            "description": "Handled by app/ui/ui.go's Server.launchIntegrations (registered at source line 387). Requires the app's own `token` cookie unless the server is running in Dev mode -- see this folder's auth note."
+          }
+        },
+        {
+          "name": "POST /api/v1/launch/run",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/launch/run",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "launch",
+                "run"
+              ]
+            },
+            "description": "Handled by app/ui/ui.go's Server.launchRun (registered at source line 388). Requires the app's own `token` cookie unless the server is running in Dev mode -- see this folder's auth note.",
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "docker",
+      "item": [
+        {
+          "name": "GET /api/v1/docker/status",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/docker/status",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "docker",
+                "status"
+              ]
+            },
+            "description": "Handled by app/ui/ui.go's Server.dockerStatus (registered at source line 395). Requires the app's own `token` cookie unless the server is running in Dev mode -- see this folder's auth note."
+          }
+        },
+        {
+          "name": "POST /api/v1/docker/probe-gpu",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/docker/probe-gpu",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "docker",
+                "probe-gpu"
+              ]
+            },
+            "description": "Handled by app/ui/ui.go's Server.dockerProbeGPU (registered at source line 396). Requires the app's own `token` cookie unless the server is running in Dev mode -- see this folder's auth note.",
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "GET /api/v1/docker/container",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/docker/container",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "docker",
+                "container"
+              ]
+            },
+            "description": "Handled by app/ui/ui.go's Server.dockerContainerGet (registered at source line 397). Requires the app's own `token` cookie unless the server is running in Dev mode -- see this folder's auth note."
+          }
+        },
+        {
+          "name": "POST /api/v1/docker/container",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/docker/container",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "docker",
+                "container"
+              ]
+            },
+            "description": "Handled by app/ui/ui.go's Server.dockerContainerCreate (registered at source line 398). Requires the app's own `token` cookie unless the server is running in Dev mode -- see this folder's auth note.",
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "POST /api/v1/docker/container/start",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/docker/container/start",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "docker",
+                "container",
+                "start"
+              ]
+            },
+            "description": "Handled by app/ui/ui.go's Server.dockerContainerStart (registered at source line 399). Requires the app's own `token` cookie unless the server is running in Dev mode -- see this folder's auth note.",
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "POST /api/v1/docker/container/stop",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/docker/container/stop",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "docker",
+                "container",
+                "stop"
+              ]
+            },
+            "description": "Handled by app/ui/ui.go's Server.dockerContainerStop (registered at source line 400). Requires the app's own `token` cookie unless the server is running in Dev mode -- see this folder's auth note.",
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "POST /api/v1/docker/container/restart",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/docker/container/restart",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "docker",
+                "container",
+                "restart"
+              ]
+            },
+            "description": "Handled by app/ui/ui.go's Server.dockerContainerRestart (registered at source line 401). Requires the app's own `token` cookie unless the server is running in Dev mode -- see this folder's auth note.",
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "DELETE /api/v1/docker/container",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/docker/container",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "docker",
+                "container"
+              ]
+            },
+            "description": "Handled by app/ui/ui.go's Server.dockerContainerDelete (registered at source line 402). Requires the app's own `token` cookie unless the server is running in Dev mode -- see this folder's auth note."
+          }
+        },
+        {
+          "name": "GET /api/v1/docker/container/logs",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/docker/container/logs",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "docker",
+                "container",
+                "logs"
+              ]
+            },
+            "description": "Handled by app/ui/ui.go's Server.dockerContainerLogs (registered at source line 403). Requires the app's own `token` cookie unless the server is running in Dev mode -- see this folder's auth note."
+          }
+        },
+        {
+          "name": "GET /api/v1/docker/container/health",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/docker/container/health",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "docker",
+                "container",
+                "health"
+              ]
+            },
+            "description": "Handled by app/ui/ui.go's Server.dockerContainerHealth (registered at source line 404). Requires the app's own `token` cookie unless the server is running in Dev mode -- see this folder's auth note."
+          }
+        }
+      ]
+    },
+    {
+      "name": "docs",
+      "item": [
+        {
+          "name": "GET /api/v1/docs/inventory",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/docs/inventory",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "docs",
+                "inventory"
+              ]
+            },
+            "description": "Handled by app/ui/ui.go's Server.docsInventory (registered at source line 411). Requires the app's own `token` cookie unless the server is running in Dev mode -- see this folder's auth note."
+          }
+        },
+        {
+          "name": "GET /api/v1/docs/article/{id}",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/docs/article/:id",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "docs",
+                "article",
+                ":id"
+              ],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "",
+                  "description": "Path parameter: id"
+                }
+              ]
+            },
+            "description": "Handled by app/ui/ui.go's Server.docsArticleByID (registered at source line 412). Requires the app's own `token` cookie unless the server is running in Dev mode -- see this folder's auth note."
+          }
+        }
+      ]
+    },
+    {
+      "name": "convert",
+      "item": [
+        {
+          "name": "GET /api/v1/convert/catalog",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/convert/catalog",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "convert",
+                "catalog"
+              ]
+            },
+            "description": "Handled by app/ui/ui.go's Server.convertCatalogHandler (registered at source line 420). Requires the app's own `token` cookie unless the server is running in Dev mode -- see this folder's auth note."
+          }
+        },
+        {
+          "name": "POST /api/v1/convert/probe",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/convert/probe",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "convert",
+                "probe"
+              ]
+            },
+            "description": "Handled by app/ui/ui.go's Server.convertProbeHandler (registered at source line 421). Requires the app's own `token` cookie unless the server is running in Dev mode -- see this folder's auth note.",
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "GET /api/v1/convert/jobs",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/convert/jobs",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "convert",
+                "jobs"
+              ]
+            },
+            "description": "Handled by app/ui/ui.go's Server.convertJobsHandler (registered at source line 422). Requires the app's own `token` cookie unless the server is running in Dev mode -- see this folder's auth note."
+          }
+        },
+        {
+          "name": "POST /api/v1/convert/jobs",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/convert/jobs",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "convert",
+                "jobs"
+              ]
+            },
+            "description": "Handled by app/ui/ui.go's Server.convertJobsHandler (registered at source line 423). Requires the app's own `token` cookie unless the server is running in Dev mode -- see this folder's auth note.",
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "GET /api/v1/convert/events",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/convert/events",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "convert",
+                "events"
+              ]
+            },
+            "description": "Handled by app/ui/ui.go's Server.convertJobEventsHandler (registered at source line 424). Requires the app's own `token` cookie unless the server is running in Dev mode -- see this folder's auth note."
+          }
+        },
+        {
+          "name": "POST /api/v1/convert/jobs/{id}/cancel",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/convert/jobs/:id/cancel",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "convert",
+                "jobs",
+                ":id",
+                "cancel"
+              ],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "",
+                  "description": "Path parameter: id"
+                }
+              ]
+            },
+            "description": "Handled by app/ui/ui.go's Server.convertJobCancelHandler (registered at source line 425). Requires the app's own `token` cookie unless the server is running in Dev mode -- see this folder's auth note.",
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "DELETE /api/v1/convert/jobs/{id}",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/convert/jobs/:id",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "convert",
+                "jobs",
+                ":id"
+              ],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "",
+                  "description": "Path parameter: id"
+                }
+              ]
+            },
+            "description": "Handled by app/ui/ui.go's Server.convertJobDeleteHandler (registered at source line 426). Requires the app's own `token` cookie unless the server is running in Dev mode -- see this folder's auth note."
+          }
+        }
+      ]
+    },
+    {
+      "name": "ollama-proxy",
+      "item": [
+        {
+          "name": "GET /api/tags",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/tags",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "tags"
+              ]
+            },
+            "description": "Forwarded verbatim to the real Ollama server's own HTTP API -- see docs/api.md for its request/response shape. Handled by ui.go's ollamaProxy reverse proxy (source line 430)."
+          }
+        },
+        {
+          "name": "POST /api/show",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/show",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "show"
+              ]
+            },
+            "description": "Forwarded verbatim to the real Ollama server's own HTTP API -- see docs/api.md for its request/response shape. Handled by ui.go's ollamaProxy reverse proxy (source line 431)."
+          }
+        },
+        {
+          "name": "GET /api/version",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/version",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "version"
+              ]
+            },
+            "description": "Forwarded verbatim to the real Ollama server's own HTTP API -- see docs/api.md for its request/response shape. Handled by ui.go's ollamaProxy reverse proxy (source line 432)."
+          }
+        },
+        {
+          "name": "GET /api/status",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/status",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "status"
+              ]
+            },
+            "description": "Forwarded verbatim to the real Ollama server's own HTTP API -- see docs/api.md for its request/response shape. Handled by ui.go's ollamaProxy reverse proxy (source line 433)."
+          }
+        },
+        {
+          "name": "HEAD /api/version",
+          "request": {
+            "method": "HEAD",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/version",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "version"
+              ]
+            },
+            "description": "Forwarded verbatim to the real Ollama server's own HTTP API -- see docs/api.md for its request/response shape. Handled by ui.go's ollamaProxy reverse proxy (source line 434)."
+          }
+        },
+        {
+          "name": "POST /api/me",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/me",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "me"
+              ]
+            },
+            "description": "Forwarded verbatim to the real Ollama server's own HTTP API -- see docs/api.md for its request/response shape. Handled by ui.go's ollamaProxy reverse proxy (source line 435)."
+          }
+        },
+        {
+          "name": "POST /api/signout",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/signout",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "signout"
+              ]
+            },
+            "description": "Forwarded verbatim to the real Ollama server's own HTTP API -- see docs/api.md for its request/response shape. Handled by ui.go's ollamaProxy reverse proxy (source line 436)."
+          }
+        },
+        {
+          "name": "GET /api/experimental/model-recommendations",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/experimental/model-recommendations",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "experimental",
+                "model-recommendations"
+              ]
+            },
+            "description": "Forwarded verbatim to the real Ollama server's own HTTP API -- see docs/api.md for its request/response shape. Handled by ui.go's ollamaProxy reverse proxy (source line 437)."
+          }
+        }
+      ]
+    }
+  ]
+}

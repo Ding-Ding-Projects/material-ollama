@@ -1,0 +1,31 @@
+#!/bin/sh
+# scripts/git-hooks/pre-push
+#
+# Runs the vocabulary hash lock check (scripts/check-vocabulary.mjs)
+# before every `git push`. Fails the push closed only when a private
+# vocabulary source is present on this machine and does not match its
+# lock file -- anyone without the private source (the common case for
+# this public repository) sees it skip and the push proceeds normally.
+#
+# NOT active by default -- Git only runs hooks from this file once a
+# maintainer opts in with:
+#
+#   git config core.hooksPath scripts/git-hooks
+#
+# See docs/features/uh-completeness/articles/vocabulary-hash-lock.md for
+# the full contract and docs/features/uh-completeness/articles/
+# sanitized-instruction-copy.md's neighbours for why this lives as a
+# committed, opt-in script rather than something this repository silently
+# flips on for every clone.
+
+set -e
+
+repo_root="$(cd "$(dirname "$0")/../.." && pwd)"
+cd "$repo_root"
+
+if ! command -v node >/dev/null 2>&1; then
+  echo "[pre-push] node not found on PATH -- skipping vocabulary hash lock check" >&2
+  exit 0
+fi
+
+node scripts/check-vocabulary.mjs

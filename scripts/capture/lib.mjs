@@ -644,6 +644,12 @@ export function cdpConnect(target, { timeoutMs = 15_000 } = {}) {
   const ws = new WebSocket(target.webSocketDebuggerUrl)
   let nextId = 1
   const pending = new Map()
+  // CDP *events* (messages with a `method` but no `id` -- e.g.
+  // "Network.requestWillBeSent") are dispatched to any handler registered
+  // via `.on(method, handler)` below, separately from the id-keyed
+  // command/response bookkeeping above, which only ever sees the
+  // request/response pairs a `.send()` call itself made.
+  const eventHandlers = new Map()
 
   const opened = new Promise((resolve, reject) => {
     const timer = setTimeout(() => reject(new Error(`CDP websocket to ${target.webSocketDebuggerUrl} did not open within ${timeoutMs}ms`)), timeoutMs)
@@ -656,6 +662,13 @@ export function cdpConnect(target, { timeoutMs = 15_000 } = {}) {
     try {
       msg = JSON.parse(event.data)
     } catch {
+      return
+    }
+    if (msg.id === undefined && typeof msg.method === 'string') {
+      const handlers = eventHandlers.get(msg.method)
+      if (handlers) {
+        for (const handler of handlers) handler(msg.params)
+      }
       return
     }
     const waiter = pending.get(msg.id)
@@ -691,10 +704,99 @@ export function cdpConnect(target, { timeoutMs = 15_000 } = {}) {
         ws.send(JSON.stringify({ id, method, params }))
       })
     },
+    /** Register a handler for a CDP event (e.g. "Network.requestWillBeSent").
+     * Multiple handlers for the same method may be registered; all are
+     * called, in registration order, with the event's `params`. */
+    on(method, handler) {
+      if (!eventHandlers.has(method)) eventHandlers.set(method, [])
+      eventHandlers.get(method).push(handler)
+    },
     close() {
       try { ws.close() } catch { /* already closed */ }
     },
   }
+}
+
+// ---------------------------------------------------------------------------
+// no-network-privacy: recording and asserting every real HTTP(S) request the
+// running app makes over the CDP Network domain is genuinely loopback-only.
+// The classification function below is pure (no CDP, no filesystem) so it
+// can be unit-tested directly against synthetic URLs; the collector wires
+// it to a live cdpConnect() client's real "Network.requestWillBeSent"
+// events during an actual capture run.
+// ---------------------------------------------------------------------------
+
+/** True if `hostname` (already extracted from a URL -- see
+ * classifyRequestUrl below) is a loopback address: "localhost" in any
+ * casing, the IPv4 loopback block 127.0.0.0/8 (not just the bare
+ * "127.0.0.1" -- Windows and most resolvers accept the whole block), or
+ * the IPv6 loopback "::1" (with or without the brackets a URL's host
+ * component carries them in). */
+export function isLoopbackHostname(hostname) {
+  const h = hostname.toLowerCase()
+  if (h === 'localhost') return true
+  if (h === '::1' || h === '[::1]') return true
+  const ipv4Match = h.match(/^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/)
+  if (ipv4Match) {
+    const first = Number(ipv4Match[1])
+    return first === 127
+  }
+  return false
+}
+
+/** Classify one request URL as { ok: true } (loopback, or a scheme this
+ * app is expected to use locally -- "data:" and "blob:" URLs never touch
+ * the network at all) or { ok: false, reason } for anything that would
+ * mean a real request left the machine. Throws nothing -- an unparseable
+ * URL is itself reported as a failure via the returned shape, not an
+ * exception, so a caller auditing many URLs can collect every offender in
+ * one pass instead of stopping at the first bad one. */
+export function classifyRequestUrl(url) {
+  if (url.startsWith('data:') || url.startsWith('blob:')) {
+    return { ok: true, url, reason: 'local scheme (data:/blob:), never a network request' }
+  }
+  let parsed
+  try {
+    parsed = new URL(url)
+  } catch (err) {
+    return { ok: false, url, reason: `not a parseable URL: ${err.message}` }
+  }
+  if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+    // ws:/wss: (the CDP connection itself, if it were ever observed this
+    // way) and file: are the only other schemes this app could plausibly
+    // touch; neither is a network request to a remote host either.
+    return { ok: true, url, reason: `non-HTTP(S) scheme '${parsed.protocol}'` }
+  }
+  if (!isLoopbackHostname(parsed.hostname)) {
+    return { ok: false, url, reason: `non-loopback host '${parsed.hostname}'` }
+  }
+  return { ok: true, url, reason: 'loopback' }
+}
+
+/** Classify a whole list of recorded request URLs at once and return a
+ * summary: { ok, total, offenders }. `ok` is true only when every single
+ * URL classified as loopback -- this is the assertion the no-network-
+ * privacy contract actually needs: not "most requests stayed local," but
+ * "every one did." */
+export function assertLoopbackOnly(urls) {
+  const results = urls.map(classifyRequestUrl)
+  const offenders = results.filter((r) => !r.ok)
+  return { ok: offenders.length === 0, total: urls.length, offenders }
+}
+
+/** Wire a cdpConnect() client to record every real request URL the page
+ * makes: enables the Network domain, registers a
+ * "Network.requestWillBeSent" handler that pushes each request's URL into
+ * the returned array, and returns that array (mutated in place as events
+ * arrive, so the caller can inspect it at any point after this resolves,
+ * including mid-session). */
+export async function cdpRecordNetworkRequests(client) {
+  const urls = []
+  client.on('Network.requestWillBeSent', (params) => {
+    if (params?.request?.url) urls.push(params.request.url)
+  })
+  await client.send('Network.enable')
+  return urls
 }
 
 /** Runtime.evaluate one synchronous expression and return its value

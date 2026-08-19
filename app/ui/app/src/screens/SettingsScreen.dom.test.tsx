@@ -171,6 +171,45 @@ describe("SettingsScreen", () => {
     })
   })
 
+  it("collapses and re-expands the search field via the toggle, without losing the query", async () => {
+    installFetchMock()
+    const user = userEvent.setup()
+    renderSettingsScreen()
+
+    await screen.findByRole("heading", { name: "General" })
+
+    // Starts expanded: the search field is present by default.
+    const searchBefore = screen.getByLabelText("Search settings")
+    await user.type(searchBefore, "School")
+    await waitFor(() => {
+      expect(screen.getByRole("heading", { name: "School mode" })).toBeInTheDocument()
+      expect(screen.queryByRole("heading", { name: "General" })).not.toBeInTheDocument()
+    })
+
+    const toggle = screen.getByRole("button", { name: "Collapse search" })
+    expect(toggle).toHaveAttribute("aria-expanded", "true")
+
+    await user.click(toggle)
+
+    // Collapsing removes the field from the DOM entirely (it is not just
+    // visually hidden) -- and the filtered card selection this search
+    // already applied stays in effect while the field itself is gone.
+    expect(screen.queryByLabelText("Search settings")).not.toBeInTheDocument()
+    expect(screen.getByRole("heading", { name: "School mode" })).toBeInTheDocument()
+    const collapsedToggle = screen.getByRole("button", { name: "Expand search" })
+    expect(collapsedToggle).toHaveAttribute("aria-expanded", "false")
+
+    await user.click(collapsedToggle)
+
+    // Re-expanding brings the field back with the same query it held
+    // before collapsing (React state was never torn down, only the
+    // rendered input was withheld) -- and the same filtered result.
+    const searchAfter = await screen.findByLabelText("Search settings")
+    expect(searchAfter).toHaveValue("School")
+    expect(screen.getByRole("heading", { name: "School mode" })).toBeInTheDocument()
+    expect(screen.queryByRole("heading", { name: "General" })).not.toBeInTheDocument()
+  })
+
   it("shows the no-matches state for a query nothing satisfies", async () => {
     installFetchMock()
     const user = userEvent.setup()
