@@ -6,7 +6,9 @@ The Settings screen's cards consistently populate pickers from real, live data r
 
 `AppearanceCard.tsx`'s seed-color field also demonstrates the "sanitized suggested default instead of a blank box" half of the contract: `SEED_PRESETS` offers eight real, named swatches a user can click directly, with the free-text hex field available alongside for anything the presets do not anticipate -- never the only path when a real list of valid values exists. `TotpAccountRow.tsx`'s delete action and `ConfirmDialog.tsx`'s destructive actions require an exact typed keyword rather than a bare confirm click, and the required keyword itself is shown in the UI rather than left for the user to guess.
 
-Not yet found in this codebase: a native path-browse control paired with every path-shaped text field (the Models directory field in `GeneralCard.tsx` uses a webview file picker for browsing but this was not independently verified against the "typed and browsed values run through identical validation" requirement in this pass).
+The Models directory field in `GeneralCard.tsx` (visible in `settings.png`, this inventory's real Settings capture) pairs its text box with a real "Browse…" button whose `handleBrowse` calls `window.webview.selectModelsDirectory()` -- a genuine native OS folder picker, not a decorative button -- and both the typed path and the browsed one flow through the identical `change("Models", directory)` write path into the same settings mutation, so neither route is trusted more than the other. Both the field and its Browse control are built from `SettingRow`, the exact same shared shape every other Settings row uses.
+
+Not yet found in this codebase: a native path-browse control paired with every OTHER path-shaped text field in the app beyond this one Models-directory case.
 
 ## Configuration
 
@@ -20,9 +22,15 @@ TODO(guided-forms): describe what happens when this feature cannot do its job --
 
 TODO(guided-forms): describe what this feature must never expose or allow, and the exact mechanism that enforces it.
 
+## Test coverage
+
+`SettingRow.dom.test.tsx` renders the shared row shape directly (not through a specific card, since every card builds on it identically) and asserts: with no `disabledReason`, the real control renders and the explanation stays collapsed by default; with a `disabledReason` set, the control is entirely absent from the DOM and the named unmet condition renders in its place under the "Unavailable —" prefix, proving the substitution is real rather than a greyed-out control with no text; and clicking the lightbulb toggle expands the previously-hidden explanation and flips `aria-expanded` to `"true"`.
+
 ## Verification
 
-TODO(guided-forms): name the focused test(s), the built-artifact interaction proof, and the real capture evidence that back this feature.
+- Focused test: `app/ui/app/src/screens/Settings/SettingRow.dom.test.tsx::substitutes the real control with the named unmet condition when disabled, rather than a bare disabled control` (plus its two sibling cases in the same file).
+- Built-artifact proof: `docs/features/uh-completeness/captures/manifest.json#captures.8.artifact.sha256`.
+- Capture evidence: `docs/features/uh-completeness/captures/images/settings.png`, showing the real "Model location" row built on `SettingRow` with its native "Browse…" control beside the text field.
 
 ## Suggested articles
 

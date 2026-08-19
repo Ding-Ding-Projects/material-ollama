@@ -8,6 +8,10 @@ The two sliders now exist: `LanguageVoiceCard.tsx` renders `funnyEn` and `funnyY
 
 As with `language-modes.md`, the real `/settings` route currently crashes before a user can reach this card in the packaged build (see that article's caveat and the `settings.png` capture's recorded `knownIssue`), so this is proven at the component-test level only for now.
 
+## Test coverage
+
+`LanguageVoiceCard.dom.test.tsx` now supplies that component-level proof: with default preferences, both rows' provenance lines read "Currently the compiled-in default: Balanced" independently; clicking the English group's "Maximum fun" chip flips the English row to "Currently your saved value: Maximum fun" while the Cantonese row stays at its compiled-in default, unmoved; and a third case does the mirror check the other direction (lowering Cantonese to "Fully serious" leaves English at its default) -- together proving the two sliders genuinely never share a value rather than one control silently driving both.
+
 ## Configuration
 
 TODO(funny-level-controls): describe how a user or operator configures this feature -- the settings surface, its defaults, and where the choice persists.
@@ -22,7 +26,9 @@ TODO(funny-level-controls): describe what this feature must never expose or allo
 
 ## Verification
 
-TODO(funny-level-controls): name the focused test(s), the built-artifact interaction proof, and the real capture evidence that back this feature.
+- Focused test: `app/ui/app/src/screens/Settings/LanguageVoiceCard.dom.test.tsx::raising the English level to Maximum fun leaves the Cantonese level untouched` (plus its two sibling cases in the same file).
+- Built-artifact proof: not yet attached -- `settings.png` shows only the General card; the Language & Voice card holding these two sliders sits further down the same scrolling page.
+- Capture evidence: not yet attached, for the same reason. Recapturing `/settings` scrolled to the funny-level rows would close this gap honestly.
 
 ## Suggested articles
 

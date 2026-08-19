@@ -1437,7 +1437,7 @@
           "documentation": "docs/features/uh-completeness/articles/funny-level-controls.md#behaviour",
           "localizedCopy": "app/ui/app/src/screens/Settings/LanguageVoiceCard.tsx#funnyEnLabel",
           "persistence": "app/store/store.go",
-          "focusedCheck": null,
+          "focusedCheck": "app/ui/app/src/screens/Settings/LanguageVoiceCard.dom.test.tsx::raising the English level to Maximum fun leaves the Cantonese level untouched",
           "builtArtifactProof": null,
           "captureEvidence": null
         },
@@ -1521,7 +1521,7 @@
           "documentation": "docs/features/uh-completeness/articles/personal-vocabulary.md#behaviour",
           "localizedCopy": "no-copy: applyVocab operates on user-supplied find/replace pairs, not translated dictionary text, and no settings UI exists yet for uploading or managing a vocabulary JSON file.",
           "persistence": "app/store/store.go",
-          "focusedCheck": null,
+          "focusedCheck": "app/ui/app/src/uh/vocab.test.ts::applies rules in order, letting a later rule act on an earlier rule's output",
           "builtArtifactProof": null,
           "captureEvidence": null
         },
@@ -1549,7 +1549,7 @@
           "documentation": "docs/features/uh-completeness/articles/narration.md#behaviour",
           "localizedCopy": "app/ui/app/src/screens/Settings/LanguageVoiceCard.tsx#narratorOnLabel",
           "persistence": "app/store/store.go",
-          "focusedCheck": null,
+          "focusedCheck": "app/ui/app/src/uh/narration.test.ts::reports skipped-disabled and never throws when narration is off (the shipped default)",
           "builtArtifactProof": null,
           "captureEvidence": null
         },
@@ -1577,7 +1577,7 @@
           "documentation": "docs/features/uh-completeness/articles/narrator-voice-selection.md#behaviour",
           "localizedCopy": "app/ui/app/src/screens/Settings/LanguageVoiceCard.tsx#narratorVoiceEnLabel",
           "persistence": "app/store/store.go",
-          "focusedCheck": null,
+          "focusedCheck": "app/ui/app/src/screens/Settings/narratorVoices.test.ts::round-trips two distinct per-language voice URIs exactly",
           "builtArtifactProof": null,
           "captureEvidence": null
         },
@@ -1605,7 +1605,7 @@
           "documentation": "docs/features/uh-completeness/articles/scheduled-settings.md#behaviour",
           "localizedCopy": "app/ui/app/src/screens/Settings/AdvancedCard.tsx#scheduleLabel",
           "persistence": "app/store/store.go",
-          "focusedCheck": null,
+          "focusedCheck": "app/ui/app/src/screens/Settings/AdvancedCard.dom.test.tsx::adds a rule with the picked time and action, and it appears in the real list",
           "builtArtifactProof": null,
           "captureEvidence": null
         },
@@ -1633,7 +1633,7 @@
           "documentation": "docs/features/uh-completeness/articles/external-settings-sources.md#behaviour",
           "localizedCopy": "app/ui/app/src/screens/Settings/AdvancedCard.tsx#endpointsLabel",
           "persistence": "app/store/store.go",
-          "focusedCheck": null,
+          "focusedCheck": "app/ui/app/src/screens/Settings/AdvancedCard.dom.test.tsx::lists a real configured endpoint and badges only the active one",
           "builtArtifactProof": null,
           "captureEvidence": null
         },
@@ -1689,7 +1689,7 @@
           "documentation": "docs/features/uh-completeness/articles/dim-sum-release-catalog.md#behaviour",
           "localizedCopy": "app/ui/app/src/screens/status/DimSumCatalogCard.tsx#dimSumCatalogHeading",
           "persistence": "app/ui/release.go",
-          "focusedCheck": null,
+          "focusedCheck": "app/ui/app/src/screens/status/DimSumCatalogCard.dom.test.tsx::renders nothing at all while School mode is on, rather than disabling the card",
           "builtArtifactProof": null,
           "captureEvidence": null
         },
@@ -1745,7 +1745,7 @@
           "documentation": "docs/features/uh-completeness/articles/notifications.md#behaviour",
           "localizedCopy": "app/ui/app/src/screens/toolbox/RegexLabSection.tsx#appliedToast",
           "persistence": "not-persisted: the toast queue is in-memory component state (useState) inside SnackbarProvider; a reload or restart clears it and there is no history.",
-          "focusedCheck": null,
+          "focusedCheck": "app/ui/app/src/components/md3/Snackbar.dom.test.tsx::shows two queued messages one at a time, not stacked together",
           "builtArtifactProof": null,
           "captureEvidence": null
         },
@@ -1773,7 +1773,7 @@
           "documentation": "docs/features/uh-completeness/articles/notification-center.md#behaviour",
           "localizedCopy": "app/ui/app/src/components/shell/NotificationCenter.tsx#notifications",
           "persistence": "not-persisted: useShellEvents keeps its capped 30-item log in useState only; the inbox is empty again after every restart.",
-          "focusedCheck": null,
+          "focusedCheck": "app/ui/app/src/components/shell/NotificationCenter.dom.test.tsx::lists real recorded events and calls onClearAll from the real button",
           "builtArtifactProof": null,
           "captureEvidence": null
         },
@@ -1913,7 +1913,7 @@
           "documentation": "docs/features/uh-completeness/articles/infinite-color-translator.md#behaviour",
           "localizedCopy": "app/ui/app/src/screens/Settings/ColorTranslator.tsx#hexFieldLabel",
           "persistence": "not-persisted: ColorTranslator is a mixing workspace holding its own draft color in component state; it only reaches storage when the caller explicitly commits it (e.g. AppearanceCard's \"Use as seed colour\").",
-          "focusedCheck": null,
+          "focusedCheck": "app/ui/app/src/screens/Settings/colorMath.test.ts::computes the real WCAG maximum (21:1) contrast between pure black and white",
           "builtArtifactProof": null,
           "captureEvidence": null
         },
@@ -1941,7 +1941,7 @@
           "documentation": "docs/features/uh-completeness/articles/app-logo-customization.md#behaviour",
           "localizedCopy": "app/ui/app/src/screens/Settings/AppearanceCard.tsx#glyphLabel",
           "persistence": "app/store/store.go",
-          "focusedCheck": null,
+          "focusedCheck": "app/ui/app/src/screens/Settings/AppearanceCard.dom.test.tsx::selecting a glyph marks it pressed and updates the live preview icon",
           "builtArtifactProof": null,
           "captureEvidence": null
         },
@@ -2081,7 +2081,7 @@
           "documentation": "docs/features/uh-completeness/articles/batch-pull-queue.md#behaviour",
           "localizedCopy": "app/ui/app/src/screens/models/PullQueueCard.tsx#cancelAction",
           "persistence": "app/ui/models.go",
-          "focusedCheck": null,
+          "focusedCheck": "app/ui/app/src/screens/models/PullQueueCard.dom.test.tsx::renders nothing at all once every item has completed",
           "builtArtifactProof": null,
           "captureEvidence": null
         },
@@ -2104,10 +2104,10 @@
       "article": "docs/features/uh-completeness/articles/local-chat-sessions.md",
       "surfaces": {
         "desktop-app": {
-          "status": "in-progress",
+          "status": "verified",
           "implementation": "app/ui/app/src/routes/c.$chatId.tsx#L1-L161,app/ui/app/src/components/Chat.tsx#L1-L298,app/ui/app/src/components/ChatSidebar.tsx#L1-L408",
           "documentation": "docs/features/uh-completeness/articles/local-chat-sessions.md#behaviour",
-          "localizedCopy": null,
+          "localizedCopy": "no-copy: Chat.tsx, ChatForm.tsx, ChatSidebar.tsx and routes/c.$chatId.tsx render plain hardcoded English strings (e.g. the composer placeholder Send a message visible in c-new.png) -- none of them import useT/Txt or a chat.dict.ts namespace, so there is no localized copy to cite yet.",
           "persistence": "app/store/database.go",
           "focusedCheck": "app/store/database_test.go::TestChatDeletionWithCascade",
           "builtArtifactProof": "docs/features/uh-completeness/captures/manifest.json#captures.1.artifact.sha256",
@@ -2132,12 +2132,12 @@
       "article": "docs/features/uh-completeness/articles/harness-profiles.md",
       "surfaces": {
         "desktop-app": {
-          "status": "in-progress",
+          "status": "verified",
           "implementation": "app/ui/app/src/components/CodexHarness.tsx#L1-L332,app/ui/app/src/screens/launch/LaunchIntegrationCard.tsx#L1-L104,app/ui/codex.go#L1-L225",
           "documentation": "docs/features/uh-completeness/articles/harness-profiles.md#behaviour",
           "localizedCopy": "app/ui/app/src/screens/launch/LaunchIntegrationCard.tsx#launchAction",
           "persistence": "app/ui/codex.go",
-          "focusedCheck": null,
+          "focusedCheck": "app/ui/app/src/screens/launch/LaunchIntegrationCard.dom.test.tsx::disables Launch and names the exact install hint for an uninstalled harness",
           "builtArtifactProof": "docs/features/uh-completeness/captures/manifest.json#captures.3.artifact.sha256",
           "captureEvidence": "docs/features/uh-completeness/captures/images/codex.png@sha256:986addb4774b39dee9e4355bcd5f0adeef2826332a3d843cbf3f080cc76b0c9c"
         },
@@ -2300,12 +2300,12 @@
       "article": "docs/features/uh-completeness/articles/offline-documentation-browser.md",
       "surfaces": {
         "desktop-app": {
-          "status": "in-progress",
+          "status": "verified",
           "implementation": "app/ui/app/src/screens/docs/DocsBrowser.tsx#L1-L56,app/ui/app/src/screens/docs/DocsDrawer.tsx#L1-L87,app/ui/app/src/screens/docs/ArticlePane.tsx#L1-L86,app/ui/docs.go#L1-L173",
           "documentation": "docs/features/uh-completeness/articles/offline-documentation-browser.md#behaviour",
           "localizedCopy": "app/ui/app/src/screens/docs/DocsDrawer.tsx#noMatches",
           "persistence": "not-persisted: the selected article and search query reset on reload; loadDocsArticles in app/ui/docs.go reads bundled markdown fresh on every request rather than remembering a user's last-viewed article.",
-          "focusedCheck": null,
+          "focusedCheck": "app/ui/app/src/screens/docs/DocsDrawer.dom.test.tsx::filters the list to matches of the typed query and updates the match count",
           "builtArtifactProof": "docs/features/uh-completeness/captures/manifest.json#captures.6.artifact.sha256",
           "captureEvidence": "docs/features/uh-completeness/captures/images/docs.png@sha256:be80e26f71fa4ba284f248ade471ce3245cf4280585618794c1761754ac00579"
         },
@@ -2776,14 +2776,14 @@
       "article": "docs/features/uh-completeness/articles/guided-forms.md",
       "surfaces": {
         "desktop-app": {
-          "status": "in-progress",
+          "status": "verified",
           "implementation": "app/ui/app/src/screens/Settings/AppearanceCard.tsx#L1-L200,app/ui/app/src/screens/Settings/SettingRow.tsx#L1-L83",
           "documentation": "docs/features/uh-completeness/articles/guided-forms.md#behaviour",
           "localizedCopy": "app/ui/app/src/screens/Settings/AppearanceCard.tsx#seedSwatchLabel",
           "persistence": "app/store/store.go",
-          "focusedCheck": null,
-          "builtArtifactProof": null,
-          "captureEvidence": null
+          "focusedCheck": "app/ui/app/src/screens/Settings/SettingRow.dom.test.tsx::substitutes the real control with the named unmet condition when disabled, rather than a bare disabled control",
+          "builtArtifactProof": "docs/features/uh-completeness/captures/manifest.json#captures.8.artifact.sha256",
+          "captureEvidence": "docs/features/uh-completeness/captures/images/settings.png@sha256:413b1c1ca4c021b3c3482c9f50d1d0bd41e251ba68a6236123fe21b83648b402"
         },
         "landing-page": {
           "status": "missing",
@@ -2865,7 +2865,7 @@
           "documentation": "docs/features/uh-completeness/articles/overlays.md#behaviour",
           "localizedCopy": "app/ui/app/src/components/locks/LockWizard.tsx#wizardTitleLock",
           "persistence": "not-persisted: an overlay's open/closed state and measured position are transient component state, recomputed fresh every time it opens.",
-          "focusedCheck": null,
+          "focusedCheck": "app/ui/app/src/components/locks/AnchoredPanel.dom.test.tsx::clamps its position inside the viewport rather than opening off-screen",
           "builtArtifactProof": null,
           "captureEvidence": null
         },
@@ -2893,7 +2893,7 @@
           "documentation": "docs/features/uh-completeness/articles/context-menu-shortcuts.md#behaviour",
           "localizedCopy": "app/ui/app/src/components/shell/AppShell.tsx#closeTab",
           "persistence": "not-persisted: Ctrl+W is a fixed, non-configurable binding -- there is no settings surface to remap or disable it.",
-          "focusedCheck": null,
+          "focusedCheck": "app/ui/app/src/components/shell/useShellKeyboardShortcuts.dom.test.tsx::calls the handler for Ctrl+W and prevents the browser's own default",
           "builtArtifactProof": null,
           "captureEvidence": null
         },
@@ -2921,7 +2921,7 @@
           "documentation": "docs/features/uh-completeness/articles/long-operation-progress.md#behaviour",
           "localizedCopy": "app/ui/app/src/screens/toolbox/ConvertJobRow.tsx#retryJob",
           "persistence": "app/ui/convert.go",
-          "focusedCheck": null,
+          "focusedCheck": "app/ui/app/src/screens/toolbox/ConvertJobRow.dom.test.tsx::shows Cancel but not Retry or Remove for a running job, and never a completed-percentage readout",
           "builtArtifactProof": null,
           "captureEvidence": null
         },
@@ -3033,7 +3033,7 @@
           "documentation": "docs/features/uh-completeness/articles/blank-slate-presets.md#behaviour",
           "localizedCopy": "app/ui/app/src/components/locks/LockWizard.tsx#presetsHeading",
           "persistence": "not-persisted: applying a preset only sets the wizard's own draft method/duration state; nothing is written until the wizard's own Confirm step runs.",
-          "focusedCheck": null,
+          "focusedCheck": "app/ui/app/src/components/locks/LockWizard.dom.test.tsx::applying the Session code preset switches both the method and duration controls together",
           "builtArtifactProof": null,
           "captureEvidence": null
         },
@@ -3061,7 +3061,7 @@
           "documentation": "docs/features/uh-completeness/articles/app-display-name.md#behaviour",
           "localizedCopy": "app/ui/app/src/screens/Settings/AppearanceCard.tsx#appNameLabel",
           "persistence": "app/store/store.go",
-          "focusedCheck": null,
+          "focusedCheck": "app/ui/app/src/screens/Settings/AppearanceCard.dom.test.tsx::debounce-commits a typed name and the provenance line reflects the stored value",
           "builtArtifactProof": null,
           "captureEvidence": null
         },
@@ -3112,12 +3112,12 @@
       "article": "docs/features/uh-completeness/articles/cli-gui-parity.md",
       "surfaces": {
         "desktop-app": {
-          "status": "in-progress",
+          "status": "verified",
           "implementation": "app/ui/app/src/screens/devtools/CommandParityPanel.tsx#L1-L221,app/ui/capabilities.go#L1-L150",
           "documentation": "docs/features/uh-completeness/articles/cli-gui-parity.md#behaviour",
           "localizedCopy": "app/ui/app/src/screens/devtools/CommandParityPanel.tsx#parityIntro",
           "persistence": "not-persisted: the parity table is derived live from the Cobra command tree on every GET /api/v1/capabilities call; nothing is cached to disk.",
-          "focusedCheck": null,
+          "focusedCheck": "app/ui/app/src/screens/devtools/CommandParityPanel.dom.test.tsx::filters the command list to matches of the typed query",
           "builtArtifactProof": "docs/features/uh-completeness/captures/manifest.json#captures.4.artifact.sha256",
           "captureEvidence": "docs/features/uh-completeness/captures/images/devtools.png@sha256:530de10297949f84f2826c13b5e5de2851c0d97dc22a4f5cc57293c5cac3448c"
         },
@@ -3140,12 +3140,12 @@
       "article": "docs/features/uh-completeness/articles/gui-capability-registry.md",
       "surfaces": {
         "desktop-app": {
-          "status": "in-progress",
+          "status": "verified",
           "implementation": "app/ui/capabilities.go#L1-L284,app/ui/app/src/screens/DevToolsScreen.tsx#L1-L107",
           "documentation": "docs/features/uh-completeness/articles/gui-capability-registry.md#behaviour",
           "localizedCopy": "app/ui/app/src/screens/DevToolsScreen.tsx#commandsCount",
           "persistence": "not-persisted: CapabilityRegistryVersion and the registry itself are rebuilt from the live Cobra command tree per request; no snapshot is written to disk.",
-          "focusedCheck": null,
+          "focusedCheck": "app/ui/capabilities_test.go::TestCommandGUIRoute_HiddenUnknownCommandGetsDeveloperPrefix",
           "builtArtifactProof": "docs/features/uh-completeness/captures/manifest.json#captures.4.artifact.sha256",
           "captureEvidence": "docs/features/uh-completeness/captures/images/devtools.png@sha256:530de10297949f84f2826c13b5e5de2851c0d97dc22a4f5cc57293c5cac3448c"
         },
@@ -3173,7 +3173,7 @@
           "documentation": "docs/features/uh-completeness/articles/config-profiles.md#behaviour",
           "localizedCopy": "app/ui/app/src/screens/devtools/ConfigProfilesPanel.tsx#profilesIntro",
           "persistence": "app/ui/config_profiles.go",
-          "focusedCheck": null,
+          "focusedCheck": "app/ui/app/src/screens/devtools/ConfigProfilesPanel.dom.test.tsx::posts a real create-profile request with the typed name and shows the saved status",
           "builtArtifactProof": null,
           "captureEvidence": null
         },

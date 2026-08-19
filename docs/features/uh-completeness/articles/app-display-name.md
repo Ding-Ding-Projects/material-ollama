@@ -8,6 +8,10 @@ That write half is real; the read half is not yet wired to anything. A repositor
 
 Per the canonical contract's decoupling requirement, at least the write half is safe by construction: `appearance.appName` lives only in the `UIPreferences` JSON blob and is never read by the application's package identifier, data directory, installer identity, or update feed -- there is no code path from it to any of those identity-bearing values, so wiring the read half in later cannot retroactively break that separation.
 
+## Test coverage
+
+`AppearanceCard.dom.test.tsx` exercises the write half directly: typing into the "App display name" field does not commit immediately (the provenance line still reads the compiled-in default at that instant, proving `DebouncedTextField`'s debounce is real rather than decorative); after the real 600ms debounce elapses, the provenance line updates to "Currently your saved value: My Llama"; and a sibling case starts from a stored custom name, clicks "Reset to \"Material Ollama\"", and asserts both that the provenance line returns to the compiled-in default and that the Reset button itself disables once the name really is empty again. No test covers the read half, because -- as this article says above -- there is no read half to cover yet.
+
 ## Configuration
 
 TODO(app-display-name): describe how a user or operator configures this feature -- the settings surface, its defaults, and where the choice persists.
@@ -22,7 +26,9 @@ TODO(app-display-name): describe what this feature must never expose or allow, a
 
 ## Verification
 
-TODO(app-display-name): name the focused test(s), the built-artifact interaction proof, and the real capture evidence that back this feature.
+- Focused test: `app/ui/app/src/screens/Settings/AppearanceCard.dom.test.tsx::debounce-commits a typed name and the provenance line reflects the stored value` (plus its sibling reset case in the same file).
+- Built-artifact proof: deliberately not attached. `settings.png` (this inventory's Settings capture) shows only the General card's "Model location" and "Expose to network" rows -- the Appearance card holding this control sits further down the same scrolling page and is not in frame. Attaching `settings.png` anyway, on the strength of it merely being *a* Settings screenshot, would be exactly the over-claiming this inventory's evidence discipline exists to refuse.
+- Capture evidence: not yet attached, for the same reason. Recapturing `/settings` scrolled to the Appearance card's "App display name" row would close this gap honestly.
 
 ## Suggested articles
 
