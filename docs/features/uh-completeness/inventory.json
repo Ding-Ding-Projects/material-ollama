@@ -1852,12 +1852,12 @@
       "article": "docs/features/uh-completeness/articles/material-design.md",
       "surfaces": {
         "desktop-app": {
-          "status": "in-progress",
+          "status": "verified",
           "implementation": "app/ui/app/src/components/md3/tokens.ts#L1-L177,app/ui/app/src/theme/applyScheme.ts#L1-L25,app/ui/app/src/styles/tokens.css",
           "documentation": "docs/features/uh-completeness/articles/material-design.md#behaviour",
           "localizedCopy": "app/ui/app/src/screens/Settings/AppearanceCard.tsx#themeLabel",
           "persistence": "app/store/store.go",
-          "focusedCheck": null,
+          "focusedCheck": "app/ui/app/src/screens/SettingsScreen.dom.test.tsx::reaches the live theme when a seed colour swatch is picked",
           "builtArtifactProof": "docs/features/uh-completeness/captures/manifest.json#captures.0.artifact.sha256",
           "captureEvidence": "docs/features/uh-completeness/captures/images/models.png@sha256:591a4bfd2979ee9b0726104d09f7b6f03092a1f5ea9a3099d499e4ce8a68b312"
         },
@@ -2328,14 +2328,14 @@
       "article": "docs/features/uh-completeness/articles/landing-page-boundary.md",
       "surfaces": {
         "desktop-app": {
-          "status": "missing",
-          "implementation": null,
-          "documentation": null,
-          "localizedCopy": null,
-          "persistence": null,
-          "focusedCheck": null,
-          "builtArtifactProof": null,
-          "captureEvidence": null
+          "status": "verified",
+          "implementation": "app/ui/app/src/test/sourceGuards.test.ts#L100-L154,app/ui/app/src/components/exports/ExportPreview.tsx#L80-L93,app/ui/app/src/screens/status/ReleaseCard.tsx#L63-L72",
+          "documentation": "docs/features/uh-completeness/articles/landing-page-boundary.md#behaviour",
+          "localizedCopy": "no-copy: the boundary itself is an architectural absence enforced by a source guard; the one permitted link reuses visitWebsiteLink, already recorded under site-homepage-link.",
+          "persistence": "not-persisted: this is a structural source-level boundary, not runtime or per-user state.",
+          "focusedCheck": "app/ui/app/src/test/sourceGuards.test.ts::never loads the landing site (or any other remote URL) into an iframe/webview as a substitute runtime",
+          "builtArtifactProof": "docs/features/uh-completeness/captures/manifest.json#captures.7.artifact.sha256",
+          "captureEvidence": "docs/features/uh-completeness/captures/images/status.png@sha256:f6a79731aaade400948f50ed6fa63fcfccfa2452892e44b574d52ea46c3ed3f1"
         },
         "landing-page": {
           "status": "missing",
@@ -2692,14 +2692,14 @@
       "article": "docs/features/uh-completeness/articles/browser-extension-download-capture.md",
       "surfaces": {
         "desktop-app": {
-          "status": "missing",
-          "implementation": null,
-          "documentation": null,
-          "localizedCopy": null,
-          "persistence": null,
-          "focusedCheck": null,
-          "builtArtifactProof": null,
-          "captureEvidence": null
+          "status": "not-applicable",
+          "implementation": "Not applicable: this repository ships no browser extension of any kind -- no manifest.json anywhere in the tree declares a manifest_version field, and no committed source references chrome.runtime/browser.runtime. There is no extension-triggered capture-handoff surface (Start download, Downloading, completion dialog) for this contract to apply to, and that absence is itself checked by scripts/test/browser-extension-download-capture.test.mjs rather than merely assumed.",
+          "documentation": "Not applicable: this repository ships no browser extension of any kind -- no manifest.json anywhere in the tree declares a manifest_version field, and no committed source references chrome.runtime/browser.runtime. There is no extension-triggered capture-handoff surface (Start download, Downloading, completion dialog) for this contract to apply to, and that absence is itself checked by scripts/test/browser-extension-download-capture.test.mjs rather than merely assumed.",
+          "localizedCopy": "Not applicable: this repository ships no browser extension of any kind -- no manifest.json anywhere in the tree declares a manifest_version field, and no committed source references chrome.runtime/browser.runtime. There is no extension-triggered capture-handoff surface (Start download, Downloading, completion dialog) for this contract to apply to, and that absence is itself checked by scripts/test/browser-extension-download-capture.test.mjs rather than merely assumed.",
+          "persistence": "Not applicable: this repository ships no browser extension of any kind -- no manifest.json anywhere in the tree declares a manifest_version field, and no committed source references chrome.runtime/browser.runtime. There is no extension-triggered capture-handoff surface (Start download, Downloading, completion dialog) for this contract to apply to, and that absence is itself checked by scripts/test/browser-extension-download-capture.test.mjs rather than merely assumed.",
+          "focusedCheck": "Not applicable: this repository ships no browser extension of any kind -- no manifest.json anywhere in the tree declares a manifest_version field, and no committed source references chrome.runtime/browser.runtime. There is no extension-triggered capture-handoff surface (Start download, Downloading, completion dialog) for this contract to apply to, and that absence is itself checked by scripts/test/browser-extension-download-capture.test.mjs rather than merely assumed.",
+          "builtArtifactProof": "Not applicable: this repository ships no browser extension of any kind -- no manifest.json anywhere in the tree declares a manifest_version field, and no committed source references chrome.runtime/browser.runtime. There is no extension-triggered capture-handoff surface (Start download, Downloading, completion dialog) for this contract to apply to, and that absence is itself checked by scripts/test/browser-extension-download-capture.test.mjs rather than merely assumed.",
+          "captureEvidence": "Not applicable: this repository ships no browser extension of any kind -- no manifest.json anywhere in the tree declares a manifest_version field, and no committed source references chrome.runtime/browser.runtime. There is no extension-triggered capture-handoff surface (Start download, Downloading, completion dialog) for this contract to apply to, and that absence is itself checked by scripts/test/browser-extension-download-capture.test.mjs rather than merely assumed."
         },
         "landing-page": {
           "status": "missing",
@@ -2720,14 +2720,14 @@
       "article": "docs/features/uh-completeness/articles/shared-link-embed.md",
       "surfaces": {
         "desktop-app": {
-          "status": "missing",
-          "implementation": null,
-          "documentation": null,
-          "localizedCopy": null,
-          "persistence": null,
-          "focusedCheck": null,
-          "builtArtifactProof": null,
-          "captureEvidence": null
+          "status": "verified",
+          "implementation": "scripts/build-social-preview.mjs#L1-L308",
+          "documentation": "docs/features/uh-completeness/articles/shared-link-embed.md#behaviour",
+          "localizedCopy": "no-copy: a generated social-preview graphic has no user-facing string of its own.",
+          "persistence": "not-persisted: a committed, deterministically-regenerable build artifact at the repository root, not runtime or per-user state.",
+          "focusedCheck": "scripts/test/shared-link-embed.test.mjs::social-preview.png is byte-identical to what the generator currently produces from the real app mark",
+          "builtArtifactProof": "docs/features/uh-completeness/captures/manifest.json#commit",
+          "captureEvidence": "social-preview.png@sha256:2fafa4cc898227ab0afc924815b529a41c779fb4f9c1621b4df68cfa7544b67c"
         },
         "landing-page": {
           "status": "missing",
@@ -3000,14 +3000,14 @@
       "article": "docs/features/uh-completeness/articles/collapsible-filters.md",
       "surfaces": {
         "desktop-app": {
-          "status": "missing",
-          "implementation": null,
-          "documentation": null,
-          "localizedCopy": null,
-          "persistence": null,
-          "focusedCheck": null,
-          "builtArtifactProof": null,
-          "captureEvidence": null
+          "status": "verified",
+          "implementation": "app/ui/app/src/screens/SettingsScreen.tsx#L44-L150",
+          "documentation": "docs/features/uh-completeness/articles/collapsible-filters.md#behaviour",
+          "localizedCopy": "app/ui/app/src/screens/SettingsScreen.tsx#collapseSearch",
+          "persistence": "not-persisted: the collapsed/expanded state is ephemeral per-session React state (useState) and resets on remount; only the underlying query/regex-mode state is preserved across the toggle, never written to a settings store.",
+          "focusedCheck": "app/ui/app/src/screens/SettingsScreen.dom.test.tsx::collapses and re-expands the search field via the toggle, without losing the query",
+          "builtArtifactProof": "docs/features/uh-completeness/captures/manifest.json#captures.8.artifact.sha256",
+          "captureEvidence": "docs/features/uh-completeness/captures/images/settings.png@sha256:413b1c1ca4c021b3c3482c9f50d1d0bd41e251ba68a6236123fe21b83648b402"
         },
         "landing-page": {
           "status": "missing",
@@ -3196,14 +3196,14 @@
       "article": "docs/features/uh-completeness/articles/status-hub.md",
       "surfaces": {
         "desktop-app": {
-          "status": "missing",
-          "implementation": null,
-          "documentation": null,
-          "localizedCopy": null,
-          "persistence": null,
-          "focusedCheck": null,
-          "builtArtifactProof": null,
-          "captureEvidence": null
+          "status": "verified",
+          "implementation": "app/ui/app/src/screens/status/StatusScreen.tsx#L1-L53",
+          "documentation": "docs/features/uh-completeness/articles/status-hub.md#behaviour",
+          "localizedCopy": "app/ui/app/src/screens/status/StatusScreen.tsx#pageTitle",
+          "persistence": "not-persisted: the screen itself holds no state of its own; each card fetches and persists through its own real endpoint (release, settings, history), documented in those features' own rows.",
+          "focusedCheck": "app/ui/app/src/screens/status/StatusScreen.dom.test.tsx::assembles every real status card with genuinely fetched data, not a placeholder shell",
+          "builtArtifactProof": "docs/features/uh-completeness/captures/manifest.json#captures.7.artifact.sha256",
+          "captureEvidence": "docs/features/uh-completeness/captures/images/status.png@sha256:f6a79731aaade400948f50ed6fa63fcfccfa2452892e44b574d52ea46c3ed3f1"
         },
         "landing-page": {
           "status": "missing",
@@ -3280,12 +3280,12 @@
       "article": "docs/features/uh-completeness/articles/vocabulary-hash-lock.md",
       "surfaces": {
         "desktop-app": {
-          "status": "missing",
-          "implementation": null,
-          "documentation": null,
-          "localizedCopy": null,
-          "persistence": null,
-          "focusedCheck": null,
+          "status": "in-progress",
+          "implementation": "scripts/check-vocabulary.mjs#L1-L389,scripts/git-hooks/pre-push#L1-L31",
+          "documentation": "docs/features/uh-completeness/articles/vocabulary-hash-lock.md#behaviour",
+          "localizedCopy": "no-copy: a build/push gate with no user-facing string of its own.",
+          "persistence": "not-persisted: the lock file it reads/writes lives outside this repository (beside the private source, in the operating user's home directory), never inside the app's own settings store.",
+          "focusedCheck": "scripts/test/vocabulary-hash-lock.test.mjs::check-vocabulary.mjs --self-test: every fail-open/fail-closed branch passes",
           "builtArtifactProof": null,
           "captureEvidence": null
         },
@@ -3308,12 +3308,12 @@
       "article": "docs/features/uh-completeness/articles/sanitized-instruction-copy.md",
       "surfaces": {
         "desktop-app": {
-          "status": "missing",
-          "implementation": null,
-          "documentation": null,
-          "localizedCopy": null,
-          "persistence": null,
-          "focusedCheck": null,
+          "status": "in-progress",
+          "implementation": "README.md#L1-L139,AGENTS.md#L1-L192",
+          "documentation": "docs/features/uh-completeness/articles/sanitized-instruction-copy.md#behaviour",
+          "localizedCopy": "no-copy: repository documentation content, not an in-app user-facing string.",
+          "persistence": "not-persisted: static documentation content, refreshed by hand, not runtime or per-user state.",
+          "focusedCheck": "scripts/test/sanitized-instruction-copy.test.mjs::AGENTS.md carries a real, substantial sanitized mirror of the shared agent operating instructions",
           "builtArtifactProof": null,
           "captureEvidence": null
         },
@@ -3392,12 +3392,12 @@
       "article": "docs/features/uh-completeness/articles/bundled-runtime-dependencies.md",
       "surfaces": {
         "desktop-app": {
-          "status": "missing",
-          "implementation": null,
-          "documentation": null,
-          "localizedCopy": null,
-          "persistence": null,
-          "focusedCheck": null,
+          "status": "in-progress",
+          "implementation": "app/ui/app/src/styles/fonts.css#L1-L43,app/ui/app/src/assets/icons.svg#L1-L95,app/ui/app/src/test/sourceGuards.test.ts#L54-L98",
+          "documentation": "docs/features/uh-completeness/articles/bundled-runtime-dependencies.md#behaviour",
+          "localizedCopy": "no-copy: this is a source-provenance guard over which fonts/icons are bundled, not a user-facing string of its own.",
+          "persistence": "not-persisted: bundling is a build-time property of the source tree, not a runtime or per-user setting.",
+          "focusedCheck": "app/ui/app/src/test/sourceGuards.test.ts::references no remote font, script, or stylesheet CDN host anywhere under src/",
           "builtArtifactProof": null,
           "captureEvidence": null
         },
@@ -3560,14 +3560,14 @@
       "article": "docs/features/uh-completeness/articles/site-homepage-link.md",
       "surfaces": {
         "desktop-app": {
-          "status": "missing",
-          "implementation": null,
-          "documentation": null,
-          "localizedCopy": null,
-          "persistence": null,
-          "focusedCheck": null,
-          "builtArtifactProof": null,
-          "captureEvidence": null
+          "status": "verified",
+          "implementation": "app/ui/app/src/screens/status/ReleaseCard.tsx#L63-L72,app/ui/app/src/screens/status/changelogEntries.ts#L20-L28",
+          "documentation": "docs/features/uh-completeness/articles/site-homepage-link.md#behaviour",
+          "localizedCopy": "app/ui/app/src/screens/status/ReleaseCard.tsx#visitWebsiteLink",
+          "persistence": "not-persisted: PROJECT_HOMEPAGE_URL is a stable, build-time repository fact exported as a constant, not a per-user or runtime setting.",
+          "focusedCheck": "app/ui/app/src/screens/status/ReleaseCard.dom.test.tsx::links to the repository's real GitHub homepage, as a real anchor a user can open",
+          "builtArtifactProof": "docs/features/uh-completeness/captures/manifest.json#captures.7.artifact.sha256",
+          "captureEvidence": "docs/features/uh-completeness/captures/images/status.png@sha256:f6a79731aaade400948f50ed6fa63fcfccfa2452892e44b574d52ea46c3ed3f1"
         },
         "landing-page": {
           "status": "missing",
@@ -3588,13 +3588,13 @@
       "article": "docs/features/uh-completeness/articles/api-documentation-and-collection.md",
       "surfaces": {
         "desktop-app": {
-          "status": "missing",
-          "implementation": null,
-          "documentation": null,
-          "localizedCopy": null,
-          "persistence": null,
-          "focusedCheck": null,
-          "builtArtifactProof": null,
+          "status": "in-progress",
+          "implementation": "scripts/generate-postman-collection.mjs#L1-L224,app/ui/ui.go#L1-L1931",
+          "documentation": "docs/features/uh-completeness/articles/api-documentation-and-collection.md#behaviour",
+          "localizedCopy": "no-copy: a generated API-documentation artifact has no user-facing string of its own.",
+          "persistence": "not-persisted: the generated collection is a static, regenerable build artifact committed to the repository, not per-user or runtime state.",
+          "focusedCheck": "scripts/test/api-postman-collection.test.mjs::the collection contains exactly one request per real mux.Handle(...) registration in app/ui/ui.go",
+          "builtArtifactProof": "docs/api/app-http-api.postman_collection.json#info.schema",
           "captureEvidence": null
         },
         "landing-page": {
@@ -3672,12 +3672,12 @@
       "article": "docs/features/uh-completeness/articles/cheap-transfer.md",
       "surfaces": {
         "desktop-app": {
-          "status": "missing",
-          "implementation": null,
-          "documentation": null,
-          "localizedCopy": null,
-          "persistence": null,
-          "focusedCheck": null,
+          "status": "in-progress",
+          "implementation": ".gitattributes#L1-L28",
+          "documentation": "docs/features/uh-completeness/articles/cheap-transfer.md#behaviour",
+          "localizedCopy": "no-copy: a repository-content policy check with no user-facing string of its own.",
+          "persistence": "not-persisted: a structural property of the committed .gitattributes file, not runtime or per-user state.",
+          "focusedCheck": "scripts/test/cheap-transfer.test.mjs::no committed .gitattributes file declares filter=lfs for any path",
           "builtArtifactProof": null,
           "captureEvidence": null
         },
@@ -3728,14 +3728,14 @@
       "article": "docs/features/uh-completeness/articles/packaged-app-icon.md",
       "surfaces": {
         "desktop-app": {
-          "status": "missing",
-          "implementation": null,
-          "documentation": null,
-          "localizedCopy": null,
-          "persistence": null,
-          "focusedCheck": null,
-          "builtArtifactProof": null,
-          "captureEvidence": null
+          "status": "verified",
+          "implementation": "app/ollama.rc#L1-L26,scripts/build_windows.ps1#L1219-L1248,scripts/build-app-icon.mjs#L1-L598,app/ui/app/src/components/md3/AppMark.tsx#L1-L103,app/ui/app/src/components/shell/AppShell.tsx#L283-L290",
+          "documentation": "docs/features/uh-completeness/articles/packaged-app-icon.md#behaviour",
+          "localizedCopy": "no-copy: the packaged icon and its in-app AppMark echo are a static brand glyph rendered aria-hidden (adjacent visible \"Material Ollama\" text already names the app), so there is no localizable string of its own for the icon.",
+          "persistence": "not-persisted: the icon is baked into the executable at build time via a compiled .syso resource; there is no runtime or per-user state.",
+          "focusedCheck": "scripts/test/app-icon.test.mjs::app.ico frame table is exactly 16/24/32/48/64/128/256px, in that order",
+          "builtArtifactProof": "docs/features/uh-completeness/captures/manifest.json#captures.7.artifact.sha256",
+          "captureEvidence": "docs/features/uh-completeness/captures/images/status.png@sha256:f6a79731aaade400948f50ed6fa63fcfccfa2452892e44b574d52ea46c3ed3f1"
         },
         "landing-page": {
           "status": "missing",
@@ -3756,13 +3756,13 @@
       "article": "docs/features/uh-completeness/articles/no-network-privacy.md",
       "surfaces": {
         "desktop-app": {
-          "status": "missing",
-          "implementation": null,
-          "documentation": null,
-          "localizedCopy": null,
-          "persistence": null,
+          "status": "in-progress",
+          "implementation": "scripts/capture/audit-network.mjs#L1-L192,scripts/capture/lib.mjs#L859-L917",
+          "documentation": "docs/features/uh-completeness/articles/no-network-privacy.md#behaviour",
+          "localizedCopy": "no-copy: this is a network-provenance guard with no user-facing string of its own.",
+          "persistence": "not-persisted: the audit result is a durable evidence record in docs/features/uh-completeness/captures/manifest.json, not a runtime or per-user setting.",
           "focusedCheck": null,
-          "builtArtifactProof": null,
+          "builtArtifactProof": "docs/features/uh-completeness/captures/manifest.json#networkAudit.allLoopback",
           "captureEvidence": null
         },
         "landing-page": {
