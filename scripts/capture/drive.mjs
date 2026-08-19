@@ -59,6 +59,9 @@ import {
   cdpConnect,
   cdpEvaluate,
   cdpWaitForCaptureMarker,
+  cdpRecordNetworkRequests,
+  classifyRequestUrl,
+  assertLoopbackOnly,
 } from './lib.mjs'
 
 const DESKTOP_NAME = 'mo-capture-drive'
@@ -560,6 +563,149 @@ async function captureNarrowLayout({ cliPath, git, uiSourceHash, onPidLaunched }
   }
 }
 
+/**
+ * no-network-privacy evidence: launch `screen.route` fresh, connect CDP as
+ * early as the target can be discovered, enable the Network domain, then
+ * Page.reload() to force one complete clean page-load cycle to happen
+ * strictly AFTER recording started -- Network.requestWillBeSent only fires
+ * for requests issued after Network.enable takes effect, and the app has
+ * already begun its initial navigation by the time launchScreenReliable()
+ * returns (port discovery + window resolution both take real time), so
+ * without the reload the very first requests (index.html, the JS bundle,
+ * the first API fetch) would be invisible to this recorder even though
+ * they plainly happened. A reload of the same route by the same mounted
+ * app is the same requests the original load made -- same component,
+ * same effects, same API calls -- so this is not manufacturing evidence,
+ * it is the only way to observe the real set completely.
+ *
+ * Independent of, and does not touch, this screen's own PrintWindow
+ * capture in captureScreen() above -- this launches its own separate
+ * process/profile/CDP port so a hang or throw here can never affect an
+ * already-produced screenshot.
+ */
+async function auditNetworkForScreen({ screen, cliPath }) {
+  const runId = tmpRunId(`netaudit-${screen.id}`)
+  const profileDir = makeScratchProfileDir(runId)
+  const cdpPort = 19_460 + SCREENS.indexOf(screen)
+
+  const pid = launchScreenReliable({ desktopName: DESKTOP_NAME, route: screen.route, profileDir, cdpPort, cliPath })
+  let cdp
+  try {
+    discoverListeningPort(pid, { timeoutMs: 20_000 }) // wait for the Go server too, for parity with a real capture
+    const target = await cdpDiscoverPageTarget(cdpPort, { timeoutMs: 15_000 })
+    cdp = cdpConnect(target)
+    await cdp.ready
+
+    const recorder = await cdpRecordNetworkRequests(cdp) // Network.enable lands before the reload below fires anything
+    await cdp.send('Page.enable', {})
+    await cdp.send('Page.reload', { ignoreCache: true })
+    // Not every screen renders synchronously the instant the DOM exists
+    // (some fetch data after mount); tolerate the marker never reappearing
+    // -- a screen whose data-capture-ready marker is genuinely broken is
+    // already caught by the real screenshot capture above, and this pass
+    // should not fail to produce network evidence just because of that.
+    await cdpWaitForCaptureMarker(cdp, screen.id, { timeoutMs: 20_000 }).catch(() => {})
+    sleepMs(1_500) // let any post-mount async fetches (model list, hardware probe, etc.) fire before we stop listening
+    recorder.stop()
+
+    return { id: screen.id, route: screen.route, requests: recorder.requests }
+  } finally {
+    if (cdp) cdp.close()
+    killPidTree(pid, { cliPath })
+  }
+}
+
+/**
+ * Runs auditNetworkForScreen() across every base SCREENS route and folds
+ * the result into one summary object for the manifest -- this is the
+ * `no-network-privacy` evidence: every URL the real running app's own
+ * WebView2 instance actually requested, independently classified as
+ * loopback or not, never trusted from anything the app claims about
+ * itself. A screen whose audit throws is recorded as its own failure
+ * entry rather than aborting the whole audit -- one screen's launch
+ * flake should not erase the evidence already gathered from the others.
+ */
+async function runNetworkAudit({ cliPath, git, uiSourceHash }) {
+  const perScreen = []
+  const auditErrors = []
+  // Keyed by full request URL -- the SAME endpoint (e.g. GET /api/tags) is
+  // requested by nearly every screen, so recording it once per unique URL
+  // (with which screens issued it) is real evidence without repeating an
+  // identical line nine times.
+  const byUrl = new Map()
+
+  for (const screen of SCREENS) {
+    console.error(`drive.mjs: network-auditing ${screen.id} (${screen.route})...`)
+    try {
+      const result = await auditNetworkForScreen({ screen, cliPath })
+      const classified = result.requests.map((r) => ({ ...r, ...classifyRequestUrl(r.url) }))
+      const offenders = classified.filter((r) => !r.loopback)
+      perScreen.push({ id: result.id, route: result.route, requestCount: classified.length, offenderCount: offenders.length })
+      for (const r of classified) {
+        const existing = byUrl.get(r.url)
+        if (existing) {
+          if (!existing.screens.includes(screen.id)) existing.screens.push(screen.id)
+          existing.count += 1
+        } else {
+          byUrl.set(r.url, {
+            url: r.url,
+            scheme: r.scheme,
+            hostname: r.hostname,
+            classification: r.classification,
+            loopback: r.loopback,
+            screens: [screen.id],
+            count: 1,
+          })
+        }
+      }
+      console.error(`drive.mjs: OK network-audit ${screen.id} -- ${classified.length} requests, ${offenders.length} non-loopback`)
+    } catch (err) {
+      console.error(`drive.mjs: FAILED network-audit ${screen.id}: ${err.message}`)
+      auditErrors.push({ id: screen.id, route: screen.route, error: err.message })
+    }
+  }
+
+  const uniqueRequests = [...byUrl.values()].sort((a, b) => a.url.localeCompare(b.url))
+  const offenders = uniqueRequests.filter((r) => !r.loopback)
+  const totalRequests = perScreen.reduce((sum, s) => sum + s.requestCount, 0)
+
+  // assertLoopbackOnly() throws when it finds a non-loopback URL -- reuse
+  // it (over the byUrl bookkeeping above) as the actual pass/fail
+  // assertion the task asked for, rather than only computing `offenders`
+  // and eyeballing whether it is empty.
+  let assertion
+  try {
+    assertLoopbackOnly(uniqueRequests.map((r) => ({ url: r.url })))
+    assertion = { ok: true, error: null }
+  } catch (err) {
+    assertion = { ok: false, error: err.message }
+  }
+
+  return {
+    method:
+      'Real built-artifact CDP audit: for each of the 9 base screens, launch dist/windows-ollama-app-amd64.exe fresh ' +
+      "with an isolated profile, connect CDP, enable the Network domain, then Page.reload() the same route to force " +
+      'one complete request cycle strictly after recording started (Network.requestWillBeSent only fires for ' +
+      'requests issued after Network.enable takes effect, and the app has already begun navigating by the time a ' +
+      'CDP connection can be established). Every captured Network.requestWillBeSent URL is classified as loopback ' +
+      '(127.0.0.0/8, localhost, ::1) or external -- never trusted from anything the app claims about itself.',
+    commit: git.commit,
+    dirty: git.dirty,
+    uiSourceHash,
+    auditedAt: new Date().toISOString(),
+    screensAudited: perScreen.map((s) => s.id),
+    screenCount: perScreen.length,
+    perScreen,
+    totalRequests,
+    uniqueRequestCount: uniqueRequests.length,
+    uniqueRequests,
+    offenderCount: offenders.length,
+    allLoopback: assertion.ok,
+    assertionError: assertion.error,
+    errors: auditErrors,
+  }
+}
+
 async function main() {
   runPreflight()
 
@@ -624,6 +770,16 @@ async function main() {
     }
   }
 
+  // Network audit runs while the same tray host / desktop is still up
+  // (it launches its own processes on DESKTOP_NAME too) -- before the
+  // orphan sweep and trayPid teardown below, so it never needs its own
+  // separate ensureTrayHost() call.
+  const networkAudit = await runNetworkAudit({ cliPath, git, uiSourceHash: stamp.uiSourceHash })
+  console.error(
+    `drive.mjs: network audit -- ${networkAudit.uniqueRequestCount} unique request(s) across ${networkAudit.screenCount} screens, ` +
+      `${networkAudit.offenderCount} non-loopback, allLoopback=${networkAudit.allLoopback}`,
+  )
+
   // Defense-in-depth: catch any ollama.exe backend child that a per-screen
   // killPidTree's settle window still missed (see lib.mjs's header comment
   // on why the app can spawn one lazily on a model-list request).
@@ -644,14 +800,18 @@ async function main() {
     orphanedChildrenCleaned: orphans.length,
     captures,
     errors,
+    networkAudit,
   }
 
   mkdirSync(CAPTURE_DIR, { recursive: true })
   writeFileSync(MANIFEST_PATH, `${JSON.stringify(manifest, null, 2)}\n`, 'utf8')
   console.error(`drive.mjs: wrote ${MANIFEST_PATH}`)
   console.error(`drive.mjs: ${captures.length}/${SCREENS.length + EXTRA_CAPTURES.length} captures produced, ${errors.length} failed.`)
+  if (!networkAudit.allLoopback) {
+    console.error(`drive.mjs: NETWORK AUDIT FAILED: ${networkAudit.assertionError}`)
+  }
 
-  if (errors.length > 0) process.exitCode = 1
+  if (errors.length > 0 || !networkAudit.allLoopback) process.exitCode = 1
 }
 
 main().catch((err) => {
