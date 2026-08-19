@@ -280,7 +280,11 @@ export default function Settings() {
   };
 
   return (
-    <main className="flex h-screen w-full flex-col select-none dark:bg-neutral-900">
+    <main
+      className="flex h-screen w-full flex-col select-none dark:bg-neutral-900"
+      data-capture-id="settings"
+      data-capture-ready="true"
+    >
       <header
         className="w-full flex flex-none justify-between h-[52px] py-2.5 items-center border-b border-neutral-200 dark:border-neutral-800 select-none"
         onMouseDown={() => window.drag && window.drag()}

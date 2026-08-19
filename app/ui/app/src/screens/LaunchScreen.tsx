@@ -63,7 +63,7 @@ export default function LaunchScreen() {
   const integrations = integrationsQuery.data ?? []
 
   return (
-    <div className="flex h-full flex-col overflow-y-auto px-6 py-8 sm:px-8">
+    <div className="flex h-full flex-col overflow-y-auto px-6 py-8 sm:px-8" data-capture-id="launch" data-capture-ready="true">
       <div className="mx-auto w-full max-w-3xl">
         <h1 className="text-xl font-semibold text-on-surface">{t("launchTitle")}</h1>
         <p className="mt-1 text-sm text-on-surface-variant">{t("launchSub")}</p>

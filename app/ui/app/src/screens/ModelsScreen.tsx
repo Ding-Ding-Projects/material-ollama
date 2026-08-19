@@ -55,7 +55,7 @@ export default function ModelsScreen() {
   )
 
   return (
-    <div className="mx-auto flex max-w-[960px] flex-col gap-4 p-7">
+    <div className="mx-auto flex max-w-[960px] flex-col gap-4 p-7" data-capture-id="models" data-capture-ready="true">
       <div className="flex flex-wrap items-end gap-3.5">
         <div className="min-w-[220px] flex-1">
           <h1 className="text-2xl font-semibold text-on-surface">

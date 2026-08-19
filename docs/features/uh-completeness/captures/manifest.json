@@ -1,0 +1,342 @@
+{
+  "schemaVersion": 1,
+  "generatedAt": "2026-08-19T06:36:51.200Z",
+  "generatedOn": "COMPUTER",
+  "commit": "6a7dedafee9bfc6a1b8d2eec8823a5607a735615",
+  "dirty": false,
+  "uiSourceHash": "1ca7c7992062236e79be2737dfcf89abffb99eb16eaaf7788cfcb1a24cb24c1f",
+  "targetWindow": {
+    "class": "webview",
+    "title": "Ollama"
+  },
+  "exe": "dist/windows-ollama-app-amd64.exe",
+  "captureCount": 9,
+  "failureCount": 0,
+  "orphanedChildrenCleaned": 0,
+  "captures": [
+    {
+      "id": "models",
+      "screen": "models",
+      "route": "/models",
+      "commit": "6a7dedafee9bfc6a1b8d2eec8823a5607a735615",
+      "dirty": false,
+      "uiSourceHash": "1ca7c7992062236e79be2737dfcf89abffb99eb16eaaf7788cfcb1a24cb24c1f",
+      "artifact": {
+        "path": "dist/windows-ollama-app-amd64.exe",
+        "sha256": "b6fd8c66f9982a229a241a126f7c81b704220adcce7ba8a26ca7d56a1e2c73d9",
+        "bytes": 55028224
+      },
+      "captureMethod": "cheap-route screenshot(hwnd) -- Win32 PrintWindow, background capture on an off-screen desktop",
+      "resolvedUrl": "http://127.0.0.1:49250/models",
+      "window": {
+        "class": "webview",
+        "title": "Ollama",
+        "width": 816,
+        "height": 639,
+        "handle": 2625164
+      },
+      "image": {
+        "path": "docs/features/uh-completeness/captures/images/models.png",
+        "sha256": "eb4c684f3ea79f9f6d8bb65c0cf938a679d36ada905373fd4630cba067b414c6",
+        "bytes": 75535,
+        "width": 816,
+        "height": 639,
+        "distinctColors": 6613,
+        "stddevMax": 29.155
+      },
+      "capturedAt": "2026-08-19T06:34:16.832Z",
+      "capturedOn": "COMPUTER",
+      "features": [
+        "model-store",
+        "hardware-fit",
+        "batch-pull-queue",
+        "regex-builder"
+      ]
+    },
+    {
+      "id": "c-new",
+      "screen": "c-new",
+      "route": "/c/new",
+      "commit": "6a7dedafee9bfc6a1b8d2eec8823a5607a735615",
+      "dirty": false,
+      "uiSourceHash": "1ca7c7992062236e79be2737dfcf89abffb99eb16eaaf7788cfcb1a24cb24c1f",
+      "artifact": {
+        "path": "dist/windows-ollama-app-amd64.exe",
+        "sha256": "b6fd8c66f9982a229a241a126f7c81b704220adcce7ba8a26ca7d56a1e2c73d9",
+        "bytes": 55028224
+      },
+      "captureMethod": "cheap-route screenshot(hwnd) -- Win32 PrintWindow, background capture on an off-screen desktop",
+      "resolvedUrl": "http://127.0.0.1:61727/c/new",
+      "window": {
+        "class": "webview",
+        "title": "Ollama",
+        "width": 816,
+        "height": 639,
+        "handle": 2690700
+      },
+      "image": {
+        "path": "docs/features/uh-completeness/captures/images/c-new.png",
+        "sha256": "49f3f97ac1b35f2432528610e25cc52ca5fddbf50a259d06220dc76277ae108c",
+        "bytes": 25777,
+        "width": 816,
+        "height": 639,
+        "distinctColors": 2104,
+        "stddevMax": 15.388
+      },
+      "capturedAt": "2026-08-19T06:34:32.811Z",
+      "capturedOn": "COMPUTER",
+      "features": [
+        "local-chat-sessions"
+      ]
+    },
+    {
+      "id": "launch",
+      "screen": "launch",
+      "route": "/launch",
+      "commit": "6a7dedafee9bfc6a1b8d2eec8823a5607a735615",
+      "dirty": false,
+      "uiSourceHash": "1ca7c7992062236e79be2737dfcf89abffb99eb16eaaf7788cfcb1a24cb24c1f",
+      "artifact": {
+        "path": "dist/windows-ollama-app-amd64.exe",
+        "sha256": "b6fd8c66f9982a229a241a126f7c81b704220adcce7ba8a26ca7d56a1e2c73d9",
+        "bytes": 55028224
+      },
+      "captureMethod": "cheap-route screenshot(hwnd) -- Win32 PrintWindow, background capture on an off-screen desktop",
+      "resolvedUrl": "http://127.0.0.1:54154/launch",
+      "window": {
+        "class": "webview",
+        "title": "Ollama",
+        "width": 816,
+        "height": 639,
+        "handle": 3735984
+      },
+      "image": {
+        "path": "docs/features/uh-completeness/captures/images/launch.png",
+        "sha256": "2af0c2b9b06a6c4827d1e970278acac73c10892ab63c77c640200f1bea9fae25",
+        "bytes": 66950,
+        "width": 816,
+        "height": 639,
+        "distinctColors": 4826,
+        "stddevMax": 52.023
+      },
+      "capturedAt": "2026-08-19T06:34:51.710Z",
+      "capturedOn": "COMPUTER",
+      "features": [
+        "harness-profiles"
+      ]
+    },
+    {
+      "id": "codex",
+      "screen": "codex",
+      "route": "/codex",
+      "commit": "6a7dedafee9bfc6a1b8d2eec8823a5607a735615",
+      "dirty": false,
+      "uiSourceHash": "1ca7c7992062236e79be2737dfcf89abffb99eb16eaaf7788cfcb1a24cb24c1f",
+      "artifact": {
+        "path": "dist/windows-ollama-app-amd64.exe",
+        "sha256": "b6fd8c66f9982a229a241a126f7c81b704220adcce7ba8a26ca7d56a1e2c73d9",
+        "bytes": 55028224
+      },
+      "captureMethod": "cheap-route screenshot(hwnd) -- Win32 PrintWindow, background capture on an off-screen desktop",
+      "resolvedUrl": "http://127.0.0.1:63471/codex",
+      "window": {
+        "class": "webview",
+        "title": "Ollama",
+        "width": 816,
+        "height": 639,
+        "handle": 24577738
+      },
+      "image": {
+        "path": "docs/features/uh-completeness/captures/images/codex.png",
+        "sha256": "dbe092c0ca7d76ab5365acc0001d7f146b2e58cc1a9e9e8703753fcb49111a66",
+        "bytes": 47116,
+        "width": 816,
+        "height": 639,
+        "distinctColors": 4069,
+        "stddevMax": 28.062
+      },
+      "capturedAt": "2026-08-19T06:35:08.695Z",
+      "capturedOn": "COMPUTER",
+      "features": [
+        "harness-profiles"
+      ]
+    },
+    {
+      "id": "devtools",
+      "screen": "devtools",
+      "route": "/devtools",
+      "commit": "6a7dedafee9bfc6a1b8d2eec8823a5607a735615",
+      "dirty": false,
+      "uiSourceHash": "1ca7c7992062236e79be2737dfcf89abffb99eb16eaaf7788cfcb1a24cb24c1f",
+      "artifact": {
+        "path": "dist/windows-ollama-app-amd64.exe",
+        "sha256": "b6fd8c66f9982a229a241a126f7c81b704220adcce7ba8a26ca7d56a1e2c73d9",
+        "bytes": 55028224
+      },
+      "captureMethod": "cheap-route screenshot(hwnd) -- Win32 PrintWindow, background capture on an off-screen desktop",
+      "resolvedUrl": "http://127.0.0.1:65072/devtools",
+      "window": {
+        "class": "webview",
+        "title": "Ollama",
+        "width": 816,
+        "height": 639,
+        "handle": 13501996
+      },
+      "image": {
+        "path": "docs/features/uh-completeness/captures/images/devtools.png",
+        "sha256": "a51673d2912dba6017b60de778621941f78a6a2f42a81740f1b4b5e7f6406044",
+        "bytes": 66257,
+        "width": 816,
+        "height": 639,
+        "distinctColors": 4918,
+        "stddevMax": 26.63
+      },
+      "capturedAt": "2026-08-19T06:35:29.944Z",
+      "capturedOn": "COMPUTER",
+      "features": []
+    },
+    {
+      "id": "toolbox",
+      "screen": "toolbox",
+      "route": "/toolbox",
+      "commit": "6a7dedafee9bfc6a1b8d2eec8823a5607a735615",
+      "dirty": false,
+      "uiSourceHash": "1ca7c7992062236e79be2737dfcf89abffb99eb16eaaf7788cfcb1a24cb24c1f",
+      "artifact": {
+        "path": "dist/windows-ollama-app-amd64.exe",
+        "sha256": "b6fd8c66f9982a229a241a126f7c81b704220adcce7ba8a26ca7d56a1e2c73d9",
+        "bytes": 55028224
+      },
+      "captureMethod": "cheap-route screenshot(hwnd) -- Win32 PrintWindow, background capture on an off-screen desktop",
+      "resolvedUrl": "http://127.0.0.1:49947/toolbox",
+      "window": {
+        "class": "webview",
+        "title": "Ollama",
+        "width": 816,
+        "height": 639,
+        "handle": 24708810
+      },
+      "image": {
+        "path": "docs/features/uh-completeness/captures/images/toolbox.png",
+        "sha256": "51e2db56804f96f06338a13d7f4bdcafe503981cd32d517a68a403f62429a289",
+        "bytes": 62565,
+        "width": 816,
+        "height": 639,
+        "distinctColors": 4438,
+        "stddevMax": 24.743
+      },
+      "capturedAt": "2026-08-19T06:35:46.156Z",
+      "capturedOn": "COMPUTER",
+      "features": [
+        "regex-builder"
+      ]
+    },
+    {
+      "id": "docs",
+      "screen": "docs",
+      "route": "/docs",
+      "commit": "6a7dedafee9bfc6a1b8d2eec8823a5607a735615",
+      "dirty": false,
+      "uiSourceHash": "1ca7c7992062236e79be2737dfcf89abffb99eb16eaaf7788cfcb1a24cb24c1f",
+      "artifact": {
+        "path": "dist/windows-ollama-app-amd64.exe",
+        "sha256": "b6fd8c66f9982a229a241a126f7c81b704220adcce7ba8a26ca7d56a1e2c73d9",
+        "bytes": 55028224
+      },
+      "captureMethod": "cheap-route screenshot(hwnd) -- Win32 PrintWindow, background capture on an off-screen desktop",
+      "resolvedUrl": "http://127.0.0.1:56174/docs",
+      "window": {
+        "class": "webview",
+        "title": "Ollama",
+        "width": 816,
+        "height": 639,
+        "handle": 2559614
+      },
+      "image": {
+        "path": "docs/features/uh-completeness/captures/images/docs.png",
+        "sha256": "5589113059aa78ea7703fe44c97da67c376fad014b12fc82c8503b2937e6b6ff",
+        "bytes": 43929,
+        "width": 816,
+        "height": 639,
+        "distinctColors": 2921,
+        "stddevMax": 20.075
+      },
+      "capturedAt": "2026-08-19T06:36:02.246Z",
+      "capturedOn": "COMPUTER",
+      "features": [
+        "offline-documentation-browser"
+      ]
+    },
+    {
+      "id": "status",
+      "screen": "status",
+      "route": "/status",
+      "commit": "6a7dedafee9bfc6a1b8d2eec8823a5607a735615",
+      "dirty": false,
+      "uiSourceHash": "1ca7c7992062236e79be2737dfcf89abffb99eb16eaaf7788cfcb1a24cb24c1f",
+      "artifact": {
+        "path": "dist/windows-ollama-app-amd64.exe",
+        "sha256": "b6fd8c66f9982a229a241a126f7c81b704220adcce7ba8a26ca7d56a1e2c73d9",
+        "bytes": 55028224
+      },
+      "captureMethod": "cheap-route screenshot(hwnd) -- Win32 PrintWindow, background capture on an off-screen desktop",
+      "resolvedUrl": "http://127.0.0.1:59467/status",
+      "window": {
+        "class": "webview",
+        "title": "Ollama",
+        "width": 816,
+        "height": 639,
+        "handle": 6095944
+      },
+      "image": {
+        "path": "docs/features/uh-completeness/captures/images/status.png",
+        "sha256": "1f4f49ba3a4c365c6450d14c8303016dadbe520036fd0db0033cccdbf8d7d622",
+        "bytes": 36687,
+        "width": 816,
+        "height": 639,
+        "distinctColors": 2912,
+        "stddevMax": 19.154
+      },
+      "capturedAt": "2026-08-19T06:36:19.868Z",
+      "capturedOn": "COMPUTER",
+      "features": []
+    },
+    {
+      "id": "settings",
+      "screen": "settings",
+      "route": "/settings",
+      "commit": "6a7dedafee9bfc6a1b8d2eec8823a5607a735615",
+      "dirty": false,
+      "uiSourceHash": "1ca7c7992062236e79be2737dfcf89abffb99eb16eaaf7788cfcb1a24cb24c1f",
+      "artifact": {
+        "path": "dist/windows-ollama-app-amd64.exe",
+        "sha256": "b6fd8c66f9982a229a241a126f7c81b704220adcce7ba8a26ca7d56a1e2c73d9",
+        "bytes": 55028224
+      },
+      "captureMethod": "cheap-route screenshot(hwnd) -- Win32 PrintWindow, background capture on an off-screen desktop",
+      "resolvedUrl": "http://127.0.0.1:57401/settings",
+      "window": {
+        "class": "webview",
+        "title": "Ollama",
+        "width": 816,
+        "height": 639,
+        "handle": 6096390
+      },
+      "image": {
+        "path": "docs/features/uh-completeness/captures/images/settings.png",
+        "sha256": "3dc388a300c49c4db8ccd254867586074010526da58c0471e449688e332f96cc",
+        "bytes": 55225,
+        "width": 816,
+        "height": 639,
+        "distinctColors": 3195,
+        "stddevMax": 24.936
+      },
+      "capturedAt": "2026-08-19T06:36:35.925Z",
+      "capturedOn": "COMPUTER",
+      "features": [
+        "app-display-name"
+      ]
+    }
+  ],
+  "errors": []
+}

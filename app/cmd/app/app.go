@@ -45,6 +45,15 @@ var (
 	devMode     = false
 )
 
+// initialRoute is the path the webview navigates to on startup. It defaults
+// to "/" (the app's real home) and is only ever overridden by an explicit
+// -route flag. This is real, supported product behavior (osRun's normal
+// startup path already calls wv.Run(initialRoute) exactly the way it always
+// called wv.Run("/")) -- it exists so the capture harness in scripts/capture
+// can open any screen in a cold process instead of driving client-side
+// navigation through a hidden window, never as a test-only backdoor.
+var initialRoute = "/"
+
 type appMove int
 
 const (
@@ -61,7 +70,8 @@ func main() {
 	startHidden := false
 	var urlSchemeRequest string
 	if len(os.Args) > 1 {
-		for _, arg := range os.Args {
+		for i := 0; i < len(os.Args); i++ {
+			arg := os.Args[i]
 			// Handle URL scheme requests (Windows)
 			if strings.HasPrefix(arg, "ollama://") {
 				urlSchemeRequest = arg
@@ -97,6 +107,23 @@ func main() {
 			case "-dev", "--dev":
 				// Development mode: use local dev server and enable CORS
 				devMode = true
+			case "-route", "--route":
+				// Open a specific screen on startup instead of "/". Takes the
+				// next argument as the path (e.g. -route /models). Used by
+				// scripts/capture/drive.mjs to open each screen in its own
+				// cold process for real built-artifact captures.
+				if i+1 < len(os.Args) {
+					i++
+					if strings.HasPrefix(os.Args[i], "/") {
+						initialRoute = os.Args[i]
+					} else {
+						fmt.Fprintf(os.Stderr, "-route requires a value starting with '/', got %q\n", os.Args[i])
+						os.Exit(1)
+					}
+				} else {
+					fmt.Fprintln(os.Stderr, "-route requires a value")
+					os.Exit(1)
+				}
 			}
 		}
 	}

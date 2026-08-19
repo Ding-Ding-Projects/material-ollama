@@ -16,7 +16,7 @@ export default function ToolboxScreen() {
   const tLab = useT("toolboxLab")
 
   return (
-    <div className="flex h-full flex-col gap-6 overflow-y-auto px-6 py-6">
+    <div className="flex h-full flex-col gap-6 overflow-y-auto px-6 py-6" data-capture-id="toolbox" data-capture-ready="true">
       <header className="flex flex-col gap-1">
         <h1 className="text-xl font-semibold text-on-surface">{t("toolboxTitle")}</h1>
         <p className="text-sm text-on-surface-variant">{t("toolboxSub")}</p>
