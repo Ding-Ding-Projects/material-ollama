@@ -1,5 +1,28 @@
 #include <winver.h>
 
+// Executable icon: the multi-resolution Material Ollama mark. Source of
+// truth is the vector master at app\assets\material-ollama-mark.svg;
+// app.ico is regenerated from it by scripts\build-app-icon.mjs (which also
+// reads app.ico back from disk afterwards and verifies its own ICONDIR
+// header against the embedded PNG frames it just wrote -- see that
+// script's header comment for the full pipeline).
+//
+// This MUST stay the first resource statement in the file: windres/rc.exe
+// use the ICON resource with the lowest ID (the first one encountered when
+// no explicit numeric ID is given) as the icon Windows Explorer shows for
+// the compiled executable, so anything added below this line does not
+// change which icon ships.
+//
+// NOTE for whoever wires this into the build: as of this change nothing in
+// scripts\build_windows.ps1 compiles ollama.rc into a .syso and no .syso is
+// committed under app\cmd\app\ (Go's linker only auto-embeds a .syso that
+// sits in the same directory as the package it is linking), so this
+// resource script is not yet actually linked into ollama-app.exe. A
+// windres/llvm-rc invocation producing app\cmd\app\ollama.syso before the
+// `go build ... ./app/cmd/app/` step is the remaining wiring -- see
+// docs/features/uh-completeness/articles/app-logo-customization.md.
+IDI_APPICON ICON "assets\\app.ico"
+
 VS_VERSION_INFO VERSIONINFO
  FILEFLAGSMASK 0x3fL
 #ifdef _DEBUG
