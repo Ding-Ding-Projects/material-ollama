@@ -1,0 +1,90 @@
+{
+  "schemaVersion": 1,
+  "status": "verified",
+  "repo": "Ding-Ding-Projects/material-ollama",
+  "release": {
+    "tag": "v0.0.0-build.18",
+    "name": "Material Ollama v0.0.0-build.18",
+    "url": "https://github.com/Ding-Ding-Projects/material-ollama/releases/tag/v0.0.0-build.18",
+    "commit": "3b33fc66c42c82b3d9fe0bfb012f85e68fc6ea6f",
+    "publishedAt": "2026-08-19T10:48:16Z",
+    "isDraft": false,
+    "isPrerelease": false
+  },
+  "workflow": {
+    "startedAt": "2026-08-19T10:25:33.000Z",
+    "completedAt": "2026-08-19T10:49:24.453Z",
+    "duration": "00:23:51",
+    "runUrl": "https://github.com/Ding-Ding-Projects/material-ollama/actions/runs/32242612233",
+    "platform": "Windows x64, with ARM64 output when the cross-compiler produced it.",
+    "conclusion": "success"
+  },
+  "installer": {
+    "name": "OllamaSetup.exe",
+    "url": "https://github.com/Ding-Ding-Projects/material-ollama/releases/download/v0.0.0-build.18/OllamaSetup.exe",
+    "sizeBytes": 41883579,
+    "sha256": "fe807823c152c0ca5f67145ada389a583bd1538e4dbe01bb8e70b668f11a09fc",
+    "platform": "Windows x64, with ARM64 output when the cross-compiler produced it.",
+    "signed": false,
+    "signatureNote": "This installer is unsigned by permanent project policy. Windows may show an unknown-publisher or SmartScreen warning; this does not mean the file was tampered with."
+  },
+  "assetCount": 55,
+  "extraAssets": [
+    {
+      "name": "ollama-windows-amd64.zip",
+      "url": "https://github.com/Ding-Ding-Projects/material-ollama/releases/download/v0.0.0-build.18/ollama-windows-amd64.zip",
+      "sizeBytes": 26396542,
+      "sha256": "ff779300efcddc7a3d98dcd2ee02b2b792f0a37fd968698e75590aebf96b8b91"
+    },
+    {
+      "name": "ollama-windows-arm64.zip",
+      "url": "https://github.com/Ding-Ding-Projects/material-ollama/releases/download/v0.0.0-build.18/ollama-windows-arm64.zip",
+      "sizeBytes": 16700625,
+      "sha256": "c6c21ccaa6667526e83254a42e8b6eb52ddc474ff447dcbfb0882676826ee487"
+    },
+    {
+      "name": "windows-ollama-app-amd64.exe",
+      "url": "https://github.com/Ding-Ding-Projects/material-ollama/releases/download/v0.0.0-build.18/windows-ollama-app-amd64.exe",
+      "sizeBytes": 55915008,
+      "sha256": "bb58fc6a18e66cb4e074b63ac9ae24b5a51aa20fd109d4c4c89308cf87e9a68d"
+    },
+    {
+      "name": "windows-ollama-app-arm64.exe",
+      "url": "https://github.com/Ding-Ding-Projects/material-ollama/releases/download/v0.0.0-build.18/windows-ollama-app-arm64.exe",
+      "sizeBytes": 51815424,
+      "sha256": "53831777951ed666b6eac3dc242d6bbf26b3a2580b65d5cd7ac0642dfcaf187b"
+    },
+    {
+      "name": "SHA256SUMS.txt",
+      "url": "https://github.com/Ding-Ding-Projects/material-ollama/releases/download/v0.0.0-build.18/SHA256SUMS.txt",
+      "sizeBytes": 5510,
+      "sha256": "277c672c7033cdc79846a58765628316da47f999bea3c0634da80078f9b64c77"
+    },
+    {
+      "name": "install.ps1",
+      "url": "https://github.com/Ding-Ding-Projects/material-ollama/releases/download/v0.0.0-build.18/install.ps1",
+      "sizeBytes": 11101,
+      "sha256": "acecf0e92ca6b48b23643612003b87c6850e9f524b1ed8426502f9a9dc0905b3"
+    },
+    {
+      "name": "line-count.md",
+      "url": "https://github.com/Ding-Ding-Projects/material-ollama/releases/download/v0.0.0-build.18/line-count.md",
+      "sizeBytes": 535,
+      "sha256": "63f788bd6f8640fc1c2ae0d33f5d56d89334562c8158b96bc1ccc03174fac3ab"
+    },
+    {
+      "name": "release-metadata.json",
+      "url": "https://github.com/Ding-Ding-Projects/material-ollama/releases/download/v0.0.0-build.18/release-metadata.json",
+      "sizeBytes": 770,
+      "sha256": "0995b8bf95d8f8ba2c5e672a63544f79804893797308fa3f41a003037f44a350"
+    }
+  ],
+  "codeName": {
+    "en": "Pea Shoot Shrimp Dumpling",
+    "zhHant": "豆苗蝦餃",
+    "combined": "Pea Shoot Shrimp Dumpling · 豆苗蝦餃",
+    "dishId": "hk-dish-0007",
+    "catalogReleaseUrl": "https://github.com/Ding-Ding-Projects/dim-sum-photos/releases/tag/catalog-v1",
+    "imageUrl": "https://github.com/Ding-Ding-Projects/dim-sum-photos/releases/download/catalog-v1/hk-dish-0007-pea-shoot-shrimp-dumpling.png"
+  }
+}
