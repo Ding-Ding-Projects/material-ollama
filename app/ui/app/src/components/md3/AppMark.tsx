@@ -46,10 +46,8 @@ export interface AppMarkProps {
  * custom Material title bar in particular -- see AppShell.tsx) shows the
  * real project identity instead of a borrowed Material Symbols glyph.
  *
- * Not yet wired into AppShell.tsx itself: that file is outside this
- * change's scope. Swapping it in is a one-line change once it lands --
- * replace `<Icon name={APP_GLYPH} size={20} className="shrink-0 text-primary" />`
- * with `<AppMark size={20} className="shrink-0" />`.
+ * Rendered by AppShell.tsx in the title bar, replacing the borrowed
+ * Material Symbols glyph that stood in before this component existed.
  */
 export function AppMark({ size = 20, variant = "brand", className, title = "Material Ollama", decorative = true }: AppMarkProps) {
   const gradientId = useId()

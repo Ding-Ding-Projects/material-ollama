@@ -3729,7 +3729,7 @@
       "surfaces": {
         "desktop-app": {
           "status": "verified",
-          "implementation": "app/ollama.rc#L1-L26,scripts/build_windows.ps1#L1219-L1248,scripts/build-app-icon.mjs#L1-L598,app/ui/app/src/components/md3/AppMark.tsx#L1-L103,app/ui/app/src/components/shell/AppShell.tsx#L283-L290",
+          "implementation": "app/ollama.rc#L1-L26,scripts/build_windows.ps1#L1219-L1248,scripts/build-app-icon.mjs#L1-L598,app/ui/app/src/components/md3/AppMark.tsx#L1-L101,app/ui/app/src/components/shell/AppShell.tsx#L283-L290",
           "documentation": "docs/features/uh-completeness/articles/packaged-app-icon.md#behaviour",
           "localizedCopy": "no-copy: the packaged icon and its in-app AppMark echo are a static brand glyph rendered aria-hidden (adjacent visible \"Material Ollama\" text already names the app), so there is no localizable string of its own for the icon.",
           "persistence": "not-persisted: the icon is baked into the executable at build time via a compiled .syso resource; there is no runtime or per-user state.",

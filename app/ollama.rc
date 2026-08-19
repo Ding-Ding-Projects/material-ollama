@@ -14,13 +14,18 @@
 // change which icon ships.
 //
 // NOTE for whoever wires this into the build: as of this change nothing in
-// scripts\build_windows.ps1 compiles ollama.rc into a .syso and no .syso is
-// committed under app\cmd\app\ (Go's linker only auto-embeds a .syso that
-// sits in the same directory as the package it is linking), so this
-// resource script is not yet actually linked into ollama-app.exe. A
-// windres/llvm-rc invocation producing app\cmd\app\ollama.syso before the
-// `go build ... ./app/cmd/app/` step is the remaining wiring -- see
-// docs/features/uh-completeness/articles/app-logo-customization.md.
+// scripts\build_windows.ps1's buildApp step compiles this script with the
+// architecture-matched windres into app\cmd\app\ollama_windows_<arch>.syso
+// immediately before the `go build ... ./app/cmd/app/` line, and Go's linker
+// auto-embeds a .syso sitting beside the package it links.
+//
+// The _windows_<arch> suffix is load-bearing. An unsuffixed ollama.syso is
+// picked up by EVERY architecture's link, which broke the arm64 build with
+// "machine type x64 conflicts with arm64" while amd64 stayed green -- half a
+// matrix passing is what made it read as a toolchain problem rather than as a
+// file the build had just created.
+//
+// No .syso is committed: it is build output generated from this file.
 IDI_APPICON ICON "assets\\app.ico"
 
 VS_VERSION_INFO VERSIONINFO
