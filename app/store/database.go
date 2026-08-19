@@ -6,6 +6,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"log/slog"
 	"strings"
 	"time"
 
@@ -14,7 +15,7 @@ import (
 
 // currentSchemaVersion defines the current database schema version.
 // Increment this when making schema changes that require migrations.
-const currentSchemaVersion = 16
+const currentSchemaVersion = 17
 
 // database wraps the SQLite connection.
 // SQLite handles its own locking for concurrent access:
@@ -88,6 +89,7 @@ func (db *database) init() error {
 		cloud_setting_migrated BOOLEAN NOT NULL DEFAULT 0,
 		remote TEXT NOT NULL DEFAULT '', -- deprecated
 		auto_update_enabled BOOLEAN NOT NULL DEFAULT 1,
+		ui_preferences TEXT NOT NULL DEFAULT '',
 		schema_version INTEGER NOT NULL DEFAULT %d
 	);
 
@@ -271,6 +273,12 @@ func (db *database) migrate() error {
 				return fmt.Errorf("migrate v15 to v16: %w", err)
 			}
 			version = 16
+		case 16:
+			// add ui_preferences column to settings table
+			if err := db.migrateV16ToV17(); err != nil {
+				return fmt.Errorf("migrate v16 to v17: %w", err)
+			}
+			version = 17
 		default:
 			// If we have a version we don't recognize, just set it to current
 			// This might happen during development
@@ -533,6 +541,24 @@ func (db *database) migrateV15ToV16() error {
 	}
 
 	_, err = db.conn.Exec(`UPDATE settings SET schema_version = 16`)
+	if err != nil {
+		return fmt.Errorf("update schema version: %w", err)
+	}
+
+	return nil
+}
+
+// migrateV16ToV17 adds the ui_preferences column to the settings table. An
+// empty string decodes to DefaultUIPreferences() via decodeUIPreferences, so
+// existing rows are left with a perfectly valid "no preferences saved yet"
+// state rather than needing a backfill.
+func (db *database) migrateV16ToV17() error {
+	_, err := db.conn.Exec(`ALTER TABLE settings ADD COLUMN ui_preferences TEXT NOT NULL DEFAULT ''`)
+	if err != nil && !duplicateColumnError(err) {
+		return fmt.Errorf("add ui_preferences column: %w", err)
+	}
+
+	_, err = db.conn.Exec(`UPDATE settings SET schema_version = 17`)
 	if err != nil {
 		return fmt.Errorf("update schema version: %w", err)
 	}
@@ -1186,16 +1212,64 @@ func (db *database) setHasCompletedFirstRun(hasCompletedFirstRun bool) error {
 
 func (db *database) getSettings() (Settings, error) {
 	var s Settings
+	var uiPreferencesBlob string
 
 	err := db.conn.QueryRow(`
-		SELECT expose, survey, browser, models, agent, tools, working_dir, context_length, turbo_enabled, websearch_enabled, selected_model, sidebar_open, last_home_view, think_enabled, think_level, auto_update_enabled
+		SELECT expose, survey, browser, models, agent, tools, working_dir, context_length, turbo_enabled, websearch_enabled, selected_model, sidebar_open, last_home_view, think_enabled, think_level, auto_update_enabled, ui_preferences
 		FROM settings
-	`).Scan(&s.Expose, &s.Survey, &s.Browser, &s.Models, &s.Agent, &s.Tools, &s.WorkingDir, &s.ContextLength, &s.TurboEnabled, &s.WebSearchEnabled, &s.SelectedModel, &s.SidebarOpen, &s.LastHomeView, &s.ThinkEnabled, &s.ThinkLevel, &s.AutoUpdateEnabled)
+	`).Scan(&s.Expose, &s.Survey, &s.Browser, &s.Models, &s.Agent, &s.Tools, &s.WorkingDir, &s.ContextLength, &s.TurboEnabled, &s.WebSearchEnabled, &s.SelectedModel, &s.SidebarOpen, &s.LastHomeView, &s.ThinkEnabled, &s.ThinkLevel, &s.AutoUpdateEnabled, &uiPreferencesBlob)
 	if err != nil {
 		return Settings{}, fmt.Errorf("get settings: %w", err)
 	}
 
+	s.UIPreferences = decodeUIPreferences(uiPreferencesBlob)
+
 	return s, nil
+}
+
+// decodeUIPreferences parses the stored ui_preferences JSON blob into a
+// UIPreferences value. Settings is loaded on every app startup, so this MUST
+// NEVER return an error to its caller: an empty column (a brand new row, or
+// one that only just migrated), a malformed blob, or one written by a future,
+// unrecognized schema version all fall back to DefaultUIPreferences() -- with
+// a slog.Warn so the fallback is visible in logs -- rather than failing
+// getSettings and bricking the app on launch.
+func decodeUIPreferences(blob string) UIPreferences {
+	if strings.TrimSpace(blob) == "" {
+		return DefaultUIPreferences()
+	}
+
+	var prefs UIPreferences
+	if err := json.Unmarshal([]byte(blob), &prefs); err != nil {
+		slog.Warn("failed to decode ui_preferences, falling back to defaults", "error", err)
+		return DefaultUIPreferences()
+	}
+
+	if prefs.Version <= 0 || prefs.Version > uiPreferencesVersion {
+		slog.Warn("ui_preferences has an unsupported version, falling back to defaults",
+			"stored_version", prefs.Version, "supported_version", uiPreferencesVersion)
+		return DefaultUIPreferences()
+	}
+
+	if prefs.Hardware == nil {
+		prefs.Hardware = map[string]HardwareOverrides{}
+	}
+
+	return prefs
+}
+
+// encodeUIPreferences marshals UIPreferences for storage. A well-typed
+// struct containing only strings, ints, bools, slices, and maps cannot fail
+// to marshal in practice, but we fail safe to an empty blob (which
+// decodeUIPreferences reads back as DefaultUIPreferences()) rather than
+// letting a marshal error propagate out of every settings save.
+func encodeUIPreferences(p UIPreferences) string {
+	b, err := json.Marshal(p)
+	if err != nil {
+		slog.Warn("failed to encode ui_preferences", "error", err)
+		return ""
+	}
+	return string(b)
 }
 
 func (db *database) setSettings(s Settings) error {
@@ -1220,8 +1294,8 @@ func (db *database) setSettings(s Settings) error {
 
 	_, err := db.conn.Exec(`
 		UPDATE settings
-		SET expose = ?, survey = ?, browser = ?, models = ?, agent = ?, tools = ?, working_dir = ?, context_length = ?, turbo_enabled = ?, websearch_enabled = ?, selected_model = ?, sidebar_open = ?, last_home_view = ?, think_enabled = ?, think_level = ?, auto_update_enabled = ?
-	`, s.Expose, s.Survey, s.Browser, s.Models, s.Agent, s.Tools, s.WorkingDir, s.ContextLength, s.TurboEnabled, s.WebSearchEnabled, s.SelectedModel, s.SidebarOpen, lastHomeView, s.ThinkEnabled, s.ThinkLevel, s.AutoUpdateEnabled)
+		SET expose = ?, survey = ?, browser = ?, models = ?, agent = ?, tools = ?, working_dir = ?, context_length = ?, turbo_enabled = ?, websearch_enabled = ?, selected_model = ?, sidebar_open = ?, last_home_view = ?, think_enabled = ?, think_level = ?, auto_update_enabled = ?, ui_preferences = ?
+	`, s.Expose, s.Survey, s.Browser, s.Models, s.Agent, s.Tools, s.WorkingDir, s.ContextLength, s.TurboEnabled, s.WebSearchEnabled, s.SelectedModel, s.SidebarOpen, lastHomeView, s.ThinkEnabled, s.ThinkLevel, s.AutoUpdateEnabled, encodeUIPreferences(s.UIPreferences))
 	if err != nil {
 		return fmt.Errorf("set settings: %w", err)
 	}

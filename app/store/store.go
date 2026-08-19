@@ -172,6 +172,165 @@ type Settings struct {
 
 	// AutoUpdateEnabled indicates if automatic updates should be downloaded
 	AutoUpdateEnabled bool
+
+	// UIPreferences holds the desktop UI's own preferences (language mode,
+	// funny-level sliders, appearance, narration, and the rest). It is
+	// persisted as a single JSON blob (see database.go's ui_preferences
+	// column) rather than flattened into individual columns, because its
+	// shape changes far more often than the rest of Settings and a JSON
+	// blob can grow without a schema migration for every new toggle.
+	UIPreferences UIPreferences
+}
+
+// UIPreferences is deliberately inconsistent with the rest of Settings, and
+// that inconsistency is intentional rather than an oversight: Settings itself
+// carries NO json tags (its JSON keys are the PascalCase Go field names,
+// because the frontend has read it that way since day one and retagging it
+// would break every existing caller). UIPreferences is a new, independently
+// versioned JSON blob nested inside that same untagged struct, so its OWN
+// outer field ("UIPreferences") still serializes as PascalCase to match the
+// surrounding convention -- but everything INSIDE it carries explicit
+// camelCase `json` tags, because this is new surface with no legacy readers
+// to break and camelCase is what the rest of the frontend's own API types use.
+type UIPreferences struct {
+	// Version is the schema version of THIS JSON blob's shape, independent of
+	// currentSchemaVersion (the SQLite migration version in database.go). It
+	// lets decodeUIPreferences recognize and safely discard a blob written by
+	// a future app version instead of misinterpreting it.
+	Version int `json:"version"`
+
+	// LangMode is one of "en" (English), "yue" (Cantonese), or "both" (bilingual).
+	LangMode string `json:"langMode"`
+
+	// FunnyEn and FunnyYue are the per-language funny-level sliders, each
+	// clamped to 0 (fully serious) through 4 (maximum playfulness).
+	FunnyEn  int `json:"funnyEn"`
+	FunnyYue int `json:"funnyYue"`
+
+	// Emoji controls whether dialogs and message boxes show a decorative emoji.
+	Emoji bool `json:"emoji"`
+
+	School     SchoolPrefs     `json:"school"`
+	Narration  NarrationPrefs  `json:"narration"`
+	Appearance AppearancePrefs `json:"appearance"`
+	Vocab      []VocabRule     `json:"vocab"`
+	Schedules  []ScheduleRule  `json:"schedules"`
+
+	// Hardware is keyed by endpoint id rather than being a single flat
+	// struct, because hardware capability is a property of the MACHINE an
+	// endpoint talks to, not of this desktop app: a remote endpoint's RAM
+	// is not this machine's RAM. Retrofitting a per-endpoint shape after
+	// real user data exists under a single flat key would be a migration
+	// nobody wants to write, so the map shape is deliberate from the start.
+	Hardware map[string]HardwareOverrides `json:"hardware"`
+
+	Endpoints EndpointPrefs `json:"endpoints"`
+}
+
+// SchoolPrefs mirrors the shared School-mode contract. There is deliberately
+// never a Pin field here: the PIN itself never touches SQLite (see
+// SecretStore in secrets.go); only whether one has been set is persisted.
+type SchoolPrefs struct {
+	On     bool   `json:"on"`
+	Name   string `json:"name"`
+	PinSet bool   `json:"pinSet"`
+}
+
+// NarrationPrefs configures the spoken TTS narrator. Rate is a multiplier on
+// the voice's own normal delivery speed (1.0 = normal).
+type NarrationPrefs struct {
+	On    bool    `json:"on"`
+	Lang  string  `json:"lang"`
+	Voice string  `json:"voice"`
+	Rate  float64 `json:"rate"`
+}
+
+// AppearancePrefs holds the Material appearance customization state.
+// Overrides is a map of CSS custom-property token name -> value, validated
+// against a known allowlist server-side (see app/ui/uh.go) before it is ever
+// persisted, since it round-trips into rendered CSS.
+type AppearancePrefs struct {
+	Seed      string            `json:"seed"`
+	Theme     string            `json:"theme"`
+	Density   string            `json:"density"`
+	Radius    int               `json:"radius"`
+	AppName   string            `json:"appName"`
+	Glyph     string            `json:"glyph"`
+	Overrides map[string]string `json:"overrides"`
+}
+
+// VocabRule is one entry of the local personal-vocabulary find/replace list.
+type VocabRule struct {
+	Find string `json:"find"`
+	Repl string `json:"repl"`
+}
+
+// ScheduleRule is one entry of the scheduled-settings surface.
+type ScheduleRule struct {
+	Time string `json:"time"`
+	Kind string `json:"kind"`
+}
+
+// HardwareOverrides records a user-supplied hardware fact for one endpoint.
+// RAMBytes and VRAMBytes are nullable pointers rather than plain uint64 so
+// that "the user never told us" (nil) can never be coerced into or confused
+// with "the user told us it's zero" (a pointer to 0).
+type HardwareOverrides struct {
+	RAMBytes  *uint64 `json:"ramBytes"`
+	VRAMBytes *uint64 `json:"vramBytes"`
+	Note      string  `json:"note"`
+}
+
+// EndpointPrefs tracks the configured Ollama-compatible endpoints and which
+// one is active. Endpoint deliberately carries no credential field -- only
+// TokenSet, exactly like SchoolPrefs.PinSet -- because the actual token lives
+// in SecretStore (see secrets.go), never in this JSON blob.
+type EndpointPrefs struct {
+	ActiveID  string     `json:"activeId"`
+	Endpoints []Endpoint `json:"endpoints"`
+}
+
+// Endpoint describes one configured Ollama-compatible server. TokenSet
+// reports whether a credential has been stored for this endpoint in
+// SecretStore; the credential value itself never appears here.
+type Endpoint struct {
+	ID       string `json:"id"`
+	Kind     string `json:"kind"`
+	Label    string `json:"label"`
+	BaseURL  string `json:"baseUrl"`
+	TokenSet bool   `json:"tokenSet"`
+}
+
+// uiPreferencesVersion is the current schema version for the UIPreferences
+// JSON blob (UIPreferences.Version), independent of currentSchemaVersion in
+// database.go, which versions the SQLite table shape instead.
+const uiPreferencesVersion = 1
+
+// DefaultUIPreferences returns the safe, zero-risk default UI preferences.
+// It is used whenever no preferences have ever been saved, and whenever a
+// stored blob cannot be trusted (see decodeUIPreferences in database.go).
+func DefaultUIPreferences() UIPreferences {
+	return UIPreferences{
+		Version:  uiPreferencesVersion,
+		LangMode: "en",
+		FunnyEn:  2,
+		FunnyYue: 2,
+		Emoji:    false,
+		School:   SchoolPrefs{},
+		Narration: NarrationPrefs{
+			Lang: "en",
+			Rate: 1.0,
+		},
+		Appearance: AppearancePrefs{
+			Theme:   "system",
+			Density: "comfortable",
+			Radius:  12,
+		},
+		Vocab:     nil,
+		Schedules: nil,
+		Hardware:  map[string]HardwareOverrides{},
+		Endpoints: EndpointPrefs{},
+	}
 }
 
 type Store struct {
