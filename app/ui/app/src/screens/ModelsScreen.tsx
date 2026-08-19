@@ -1,5 +1,12 @@
 import { useMemo, useState } from "react"
 import { SearchField } from "@/components/md3"
+import {
+  CatalogRecoveryNotice,
+  NoGpuNotice,
+  OllamaHealthNotice,
+  PullRecoveryNotice,
+  usePullRecovery,
+} from "@/components/recovery"
 import { useModelStore } from "@/hooks/useModelStore"
 import { Txt, useT } from "@/uh"
 import { CatalogSection } from "./models/CatalogSection"
@@ -39,6 +46,7 @@ export default function ModelsScreen() {
   const t = useT("models")
   const tUi = useT("modelsUi")
   const store = useModelStore()
+  const pullRecovery = usePullRecovery()
 
   const [query, setQuery] = useState("")
   const [regex, setRegex] = useState(false)
@@ -76,7 +84,10 @@ export default function ModelsScreen() {
         />
       </div>
 
+      <OllamaHealthNotice />
+
       <HardwareFitBar hardware={store.hardware} isLoading={store.hardwareLoading} />
+      <NoGpuNotice hardware={store.hardware} />
 
       <PullQueueCard
         items={store.queue}
@@ -115,7 +126,14 @@ export default function ModelsScreen() {
         )}
       </div>
 
-      <CatalogSection onPull={store.pull} pulling={store.pullingNew} />
+      <CatalogRecoveryNotice />
+      <CatalogSection onPull={pullRecovery.pull} pulling={pullRecovery.pulling} />
+      <PullRecoveryNotice
+        error={pullRecovery.error}
+        diskLow={pullRecovery.diskLow}
+        retrying={pullRecovery.pulling}
+        onRetry={pullRecovery.retry}
+      />
     </div>
   )
 }

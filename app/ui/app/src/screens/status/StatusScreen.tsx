@@ -1,4 +1,5 @@
 import { Icon } from "@/components/md3/Icon"
+import { DockerGpuNotice } from "@/components/recovery"
 import { Txt, useT } from "@/uh"
 import { AutomaticUpdatesCard } from "./AutomaticUpdatesCard"
 import { ChangelogCard } from "./ChangelogCard"
@@ -41,6 +42,7 @@ export function StatusScreen() {
 
       <DimSumSurpriseCard />
       <ReleaseCard />
+      <DockerGpuNotice />
       <AutomaticUpdatesCard />
       <DimSumCatalogCard />
       <ChangelogCard />
