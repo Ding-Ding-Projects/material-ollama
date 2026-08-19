@@ -649,8 +649,8 @@ type dockerInspectState struct {
 		RestartPolicy struct {
 			Name string `json:"Name"`
 		} `json:"RestartPolicy"`
-		Memory         int64           `json:"Memory"`
-		NanoCpus       int64           `json:"NanoCpus"`
+		Memory         int64            `json:"Memory"`
+		NanoCpus       int64            `json:"NanoCpus"`
 		DeviceRequests []map[string]any `json:"DeviceRequests"`
 	} `json:"HostConfig"`
 	NetworkSettings struct {
