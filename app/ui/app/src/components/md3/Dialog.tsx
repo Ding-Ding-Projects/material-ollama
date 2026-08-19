@@ -1,14 +1,14 @@
 import * as Headless from "@headlessui/react"
 import clsx from "clsx"
 import type { ReactNode } from "react"
-import { Icon } from "./Icon"
+import { Icon, type SymbolName } from "./Icon"
 import { FOCUS_RING, OVERLAY_BACKDROP, OVERLAY_RADIUS, OVERLAY_SURFACE } from "./tokens"
 
 export interface DialogProps {
   open: boolean
   onClose: () => void
   size?: "sm" | "md" | "lg"
-  icon?: string
+  icon?: SymbolName
   title: ReactNode
   children: ReactNode
   /** Right-aligned footer button row — pass e.g. two <Button>s. */

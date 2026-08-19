@@ -1,12 +1,12 @@
 import * as Headless from "@headlessui/react"
 import clsx from "clsx"
 import type { ReactNode } from "react"
-import { Icon } from "./Icon"
+import { Icon, type SymbolName } from "./Icon"
 import { FOCUS_RING, OVERLAY_RADIUS, OVERLAY_SURFACE, type AnchorPosition } from "./tokens"
 
 export interface MenuItemDef {
   label: string
-  icon?: string
+  icon?: SymbolName
   danger?: boolean
   disabled?: boolean
   onClick: () => void

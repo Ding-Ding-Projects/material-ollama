@@ -1,6 +1,6 @@
 import clsx from "clsx"
 import type { AnchorHTMLAttributes, ButtonHTMLAttributes, ReactNode } from "react"
-import { Icon } from "./Icon"
+import { Icon, type SymbolName } from "./Icon"
 import {
   BUTTON_SHAPE_CLASSES,
   BUTTON_SIZE_CLASSES,
@@ -17,8 +17,8 @@ type CommonProps = {
   /** `token` follows the user's customizable corner radius (--r); `pill` is
    * fully rounded. Matches the design's tonal/token "New chat" affordance. */
   shape?: ButtonShape
-  icon?: string
-  trailingIcon?: string
+  icon?: SymbolName
+  trailingIcon?: SymbolName
   loading?: boolean
   className?: string
   children: ReactNode
@@ -44,8 +44,8 @@ function ButtonContent({
   children,
 }: {
   loading: boolean
-  icon?: string
-  trailingIcon?: string
+  icon?: SymbolName
+  trailingIcon?: SymbolName
   iconSize: number
   children: ReactNode
 }) {

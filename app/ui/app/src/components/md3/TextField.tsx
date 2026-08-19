@@ -1,6 +1,6 @@
 import clsx from "clsx"
 import { useId } from "react"
-import { Icon } from "./Icon"
+import { Icon, type SymbolName } from "./Icon"
 import { FOCUS_RING_WITHIN } from "./tokens"
 
 export interface TextFieldProps {
@@ -13,8 +13,8 @@ export interface TextFieldProps {
   label?: string
   helper?: string
   error?: string
-  leading?: string
-  trailing?: string
+  leading?: SymbolName
+  trailing?: SymbolName
   type?: string
   placeholder?: string
   disabled?: boolean

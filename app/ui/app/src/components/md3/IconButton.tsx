@@ -1,6 +1,6 @@
 import clsx from "clsx"
 import type { ButtonHTMLAttributes } from "react"
-import { Icon } from "./Icon"
+import { Icon, type SymbolName } from "./Icon"
 import {
   FOCUS_RING,
   ICON_BUTTON_DANGER_CLASSES,
@@ -16,7 +16,7 @@ export interface IconButtonProps
   /** Required — an icon button carries no visible text, so this is its only
    * accessible name. It must describe the action, never repeat "icon". */
   label: string
-  icon: string
+  icon: SymbolName
   variant?: IconButtonVariant
   size?: IconButtonSize
   /** Toggle-pressed state (e.g. a pinned tab, an active filter). Forces the

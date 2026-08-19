@@ -1,6 +1,6 @@
 import clsx from "clsx"
 import type { ButtonHTMLAttributes, HTMLAttributes, ReactNode } from "react"
-import { Icon } from "./Icon"
+import { Icon, type SymbolName } from "./Icon"
 import { FOCUS_RING, TONE_CLASSES, type Tone } from "./tokens"
 
 type ChipBaseProps = {
@@ -11,8 +11,8 @@ type ChipBaseProps = {
    * selected chip in the design (context length, language, theme, codex
    * profile, regex flags all use --sec-c / --on-sec-c). */
   tone?: Tone
-  icon?: string
-  trailingIcon?: string
+  icon?: SymbolName
+  trailingIcon?: SymbolName
   /** Roboto Mono label — used for model names, context sizes, regex
    * tokens. */
   mono?: boolean

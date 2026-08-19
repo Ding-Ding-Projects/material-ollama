@@ -103,7 +103,10 @@ export type SymbolName = (typeof ICON_NAMES)[number]
  * `className` escape hatch rather than growing this union without a design
  * reason.
  */
-export type IconSize = 14 | 16 | 17 | 18 | 19 | 20 | 22
+// Pixel size. Deliberately a plain number: the design uses 14-22px, but a
+// fixed union forces every consumer needing 26px for a dialog glyph to either
+// lie about its size or patch this file, and a px measurement is not an enum.
+export type IconSize = number
 
 export interface IconProps {
   /** Glyph name, matching a symbol id generated into src/assets/icons.svg. */

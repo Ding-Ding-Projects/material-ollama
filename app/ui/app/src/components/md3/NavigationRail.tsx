@@ -1,10 +1,10 @@
 import clsx from "clsx"
-import { Icon } from "./Icon"
+import { Icon, type SymbolName } from "./Icon"
 import { FOCUS_RING_INSET } from "./tokens"
 
 export interface NavigationRailItem {
   id: string
-  icon: string
+  icon: SymbolName
   label: string
   to: string
 }

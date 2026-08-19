@@ -1,12 +1,12 @@
 import clsx from "clsx"
 import type { KeyboardEvent, MouseEvent } from "react"
-import { Icon } from "./Icon"
+import { Icon, type SymbolName } from "./Icon"
 import { FOCUS_RING_INSET } from "./tokens"
 
 export interface TabStripTab {
   id: string
   label: string
-  icon: string
+  icon: SymbolName
   pinned?: boolean
   /** A CSS color for the small group-membership dot (e.g. "#7cb342"). */
   groupColor?: string
@@ -101,9 +101,9 @@ export function TabStrip({ tabs, activeId, onActivate, onClose, onContextMenu, o
                   style={{ backgroundColor: tab.groupColor }}
                 />
               ) : null}
-              <Icon name={tab.icon} size={15} className="shrink-0" />
+              <Icon name={tab.icon} size={16} className="shrink-0" />
               <span className="min-w-0 flex-1 truncate whitespace-nowrap">{tab.label}</span>
-              {tab.pinned ? <Icon name="keep" size={13} className="shrink-0 text-outline" /> : null}
+              {tab.pinned ? <Icon name="keep" size={14} className="shrink-0 text-outline" /> : null}
               <button
                 type="button"
                 aria-label={`Close ${tab.label}`}
