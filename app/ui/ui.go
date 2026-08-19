@@ -371,6 +371,14 @@ func (s *Server) Handler() http.Handler {
 	mux.Handle("GET /api/v1/docker/container/logs", handle(s.dockerContainerLogs))
 	mux.Handle("GET /api/v1/docker/container/health", handle(s.dockerContainerHealth))
 
+	// Offline documentation browser. Articles are staged from
+	// docs/features/uh-completeness/articles/ (hand-authored source) into
+	// app/ui/articles/ (a flat copy go:embed can actually reach) --
+	// scripts/check-docs-bundle.mjs guards that staging step. See
+	// app/ui/docs.go.
+	mux.Handle("GET /api/v1/docs/inventory", handle(s.docsInventory))
+	mux.Handle("GET /api/v1/docs/article/{id}", handle(s.docsArticleByID))
+
 	// Ollama proxy endpoints
 	ollamaProxy := s.ollamaProxy()
 	mux.Handle("GET /api/tags", ollamaProxy)
