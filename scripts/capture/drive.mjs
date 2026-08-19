@@ -669,17 +669,20 @@ async function runNetworkAudit({ cliPath, git, uiSourceHash }) {
   const offenders = uniqueRequests.filter((r) => !r.loopback)
   const totalRequests = perScreen.reduce((sum, s) => sum + s.requestCount, 0)
 
-  // assertLoopbackOnly() throws when it finds a non-loopback URL -- reuse
-  // it (over the byUrl bookkeeping above) as the actual pass/fail
-  // assertion the task asked for, rather than only computing `offenders`
-  // and eyeballing whether it is empty.
-  let assertion
-  try {
-    assertLoopbackOnly(uniqueRequests.map((r) => ({ url: r.url })))
-    assertion = { ok: true, error: null }
-  } catch (err) {
-    assertion = { ok: false, error: err.message }
-  }
+  // assertLoopbackOnly() returns a verdict rather than throwing, so that
+  // audit-network.mjs and the focused tests can enumerate every offender.
+  // This caller wants a hard pass/fail, so it turns the verdict into one
+  // here -- and reports the offending URLs rather than just a boolean,
+  // because "something left the machine" is useless without naming what.
+  const verdict = assertLoopbackOnly(uniqueRequests.map((r) => ({ url: r.url })))
+  const assertion = verdict.ok
+    ? { ok: true, error: null }
+    : {
+        ok: false,
+        error: `${verdict.offenders.length} non-loopback network request(s) detected: ${JSON.stringify(
+          verdict.offenders.map((o) => ({ url: o.url, classification: o.classification })),
+        )}`,
+      }
 
   return {
     method:

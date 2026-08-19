@@ -888,14 +888,14 @@ export function classifyRequestUrl(urlString) {
   try {
     parsed = new URL(urlString)
   } catch {
-    return { url: urlString, scheme: null, hostname: null, loopback: false, classification: 'unparseable' }
+    return { url: urlString, scheme: null, hostname: null, loopback: false, ok: false, classification: 'unparseable', reason: `${urlString} is not a parseable URL` }
   }
   const scheme = parsed.protocol.replace(/:$/, '')
   if (NON_NETWORK_SCHEMES.has(scheme)) {
-    return { url: urlString, scheme, hostname: parsed.hostname || null, loopback: true, classification: 'non-network-scheme' }
+    return { url: urlString, scheme, hostname: parsed.hostname || null, loopback: true, ok: true, classification: 'non-network-scheme', reason: `${scheme}: is not a network request` }
   }
   const loopback = isLoopbackHostname(parsed.hostname)
-  return { url: urlString, scheme, hostname: parsed.hostname || null, loopback, classification: loopback ? 'loopback' : 'external' }
+  return { url: urlString, scheme, hostname: parsed.hostname || null, loopback, ok: loopback, classification: loopback ? 'loopback' : 'external', reason: loopback ? `${parsed.hostname} is a loopback address` : `non-loopback host ${parsed.hostname}` }
 }
 
 /**
@@ -906,12 +906,24 @@ export function classifyRequestUrl(urlString) {
  * input.
  */
 export function assertLoopbackOnly(requests) {
-  const classified = requests.map((r) => ({ ...r, ...classifyRequestUrl(r.url) }))
+  // Accepts either bare URL strings or the request records
+  // cdpRecordNetworkRequests produces, because both callers exist and a
+  // helper that silently classified `undefined` would report a clean audit
+  // over nothing -- the exact false negative this function exists to prevent.
+  const classified = requests.map((r) => {
+    const record = typeof r === 'string' ? { url: r } : r
+    return { ...record, ...classifyRequestUrl(record.url) }
+  })
   const offenders = classified.filter((r) => !r.loopback)
-  if (offenders.length > 0) {
-    throw new Error(
-      `${offenders.length} non-loopback network request(s) detected: ${JSON.stringify(offenders.map((o) => ({ url: o.url, classification: o.classification })))}`,
-    )
+  // Returns rather than throws. drive.mjs wants a hard failure and does its
+  // own throwing; audit-network.mjs and the focused tests want to inspect
+  // every offender and report them. A thrown error carries only a message,
+  // so returning is the shape that serves all three without losing detail.
+  return {
+    ok: offenders.length === 0,
+    total: classified.length,
+    count: classified.length,
+    offenders,
+    classified,
   }
-  return { ok: true, count: classified.length, classified }
 }

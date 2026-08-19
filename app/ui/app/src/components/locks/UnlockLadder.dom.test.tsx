@@ -40,14 +40,19 @@ describe("UnlockLadder (component-level)", () => {
     const onCleared = vi.fn()
     render(<UnlockLadder lockId={lockId} schoolOn={false} lockedUntilMs={Date.now() + 60_000} onCleared={onCleared} />)
 
-    // Click choices one at a time until the ladder reports a win --
-    // exercising the REAL grading path through the rendered buttons,
-    // rather than calling gradeDimsum directly.
-    for (let attempt = 0; attempt < 20 && onCleared.mock.calls.length === 0; attempt += 1) {
-      const buttons = screen.queryAllByRole("button")
-      if (buttons.length !== 4) break // rung advanced past dim sum -- stop
-      await user.click(buttons[0])
-    }
+    // Grade the first choice as correct for this test only. Clicking a
+    // random button and hoping is not a test: the rung advances after five
+    // wrong answers, so guessing index 0 out of four choices only reached a
+    // win about three runs in four, and this suite failed on the fourth.
+    // Stubbing the grader keeps the entire real component path -- render,
+    // click, onCorrect, clearLockoutByLadder, onCleared -- and removes only
+    // the coin flip. gradeDimsum's own correctness is covered separately.
+    const ladder = await import("@/uh/locksLadder")
+    const grade = vi.spyOn(ladder, "gradeDimsum").mockImplementation((_nonce, index) => index === 0)
+
+    const buttons = screen.queryAllByRole("button")
+    expect(buttons).toHaveLength(4)
+    await user.click(buttons[0])
 
     expect(onCleared).toHaveBeenCalledTimes(1)
     expect(isWaiting(lockId)).toBe(false)

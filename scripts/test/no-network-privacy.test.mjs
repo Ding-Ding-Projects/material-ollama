@@ -117,15 +117,21 @@ test('the recorded network audit in the capture manifest found zero non-loopback
     return
   }
   const audit = manifest.networkAudit
-  assert.equal(audit.ok, true, `network audit recorded offenders: ${JSON.stringify(audit.offenders)}`)
-  assert.ok(audit.requestCount > 0, 'expected the audit to have recorded at least one real request')
-  assert.deepEqual(audit.offenders, [])
+  // Two capture lanes wrote different field names for the same record; the
+  // one that survived the merge reports allLoopback/offenderCount/
+  // uniqueRequestCount. Read the shape that is actually on disk rather than
+  // editing the evidence to match the test.
+  assert.equal(audit.allLoopback, true, `network audit recorded offenders: ${JSON.stringify(audit.offenderCount)}`)
+  assert.ok(audit.uniqueRequestCount > 0, 'expected the audit to have recorded at least one real request')
+  assert.equal(audit.offenderCount, 0)
   // Re-classify every recorded URL independently, rather than trusting
   // the `ok` field alone -- this is the same assertLoopbackOnly() the
   // audit script itself used, run again here against the exact recorded
   // list, so a manifest hand-edited to say ok:true without the URLs
   // actually being loopback would still be caught.
-  const reclassified = assertLoopbackOnly(audit.requestUrls)
+  // The surviving record stores full request objects under uniqueRequests,
+  // not a bare requestUrls list. assertLoopbackOnly accepts either shape.
+  const reclassified = assertLoopbackOnly(audit.uniqueRequests)
   assert.equal(reclassified.ok, true)
   assert.deepEqual(reclassified.offenders, [])
 })
