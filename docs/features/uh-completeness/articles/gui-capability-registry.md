@@ -2,7 +2,9 @@
 
 ## Behaviour
 
-TODO(gui-capability-registry): describe what this feature actually does, on every surface the shared contract lists, in plain factual prose.
+`app/ui/capabilities.go` (284 lines) is the registry itself: `CommandFlag`/`CommandInfo`-shaped structs built by walking the live `cobra.Command` tree and its `pflag.Flag`s (name, shorthand, type, default value, whether it is persistent or hidden), versioned by a `CapabilityRegistryVersion` constant that is incremented whenever the JSON shape changes. `GET /api/v1/capabilities` serves it, and the Developer Tools screen's header (`app/ui/app/src/screens/DevToolsScreen.tsx`) renders the resulting counts as real badges -- "19 commands", "4 hidden", "36 configuration options" in the `devtools.png` capture used elsewhere in this inventory -- computed from the actual registry response (`registry.commands.length`, etc.), not hardcoded numbers.
+
+The configuration half (`ConfigurationPanel.tsx`, stacked below the parity table on the same screen) lists every effective configuration value with its provenance, and `ConfigProfilesPanel.tsx` (see `config-profiles.md`) is built directly on this same registry response. Nothing about the registry is cached to disk; it is recomputed from the live command tree on every request. No dedicated test covers `capabilities.go` yet.
 
 ## Configuration
 

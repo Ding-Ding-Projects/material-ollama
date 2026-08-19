@@ -2,7 +2,7 @@
 
 ## Behaviour
 
-TODO(release-metadata): describe what this feature actually does, on every surface the shared contract lists, in plain factual prose.
+Resolving a release's version, commit, and dim-sum code name is a build-pipeline step, not an in-app feature. `scripts/release-metadata.mjs` is the real implementation, invoked at `release.yaml` line 127 to write `release-metadata.json`, which a later step also copies into the packaged app's own resources specifically so the app's (currently unbuilt) Status screen could report a real version and commit offline once that screen exists -- see `project-status.md` for why that screen itself is out of scope for this row.
 
 ## Configuration
 

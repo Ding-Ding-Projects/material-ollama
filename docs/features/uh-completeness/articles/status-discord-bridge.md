@@ -2,7 +2,7 @@
 
 ## Behaviour
 
-TODO(status-discord-bridge): describe what this feature actually does, on every surface the shared contract lists, in plain factual prose.
+The Discord status bridge is a sub-feature of the cross-project Status Hub (see `project-status.md`), reached only through the `agent-global-memory` repository's own registered credentials and Discord bot. material-ollama has no Status Hub registration at all yet, so there is nothing in this repository for a Discord bridge to attach to, and no in-app surface could meaningfully represent an external chat platform's bot messages.
 
 ## Configuration
 

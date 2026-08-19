@@ -2,7 +2,7 @@
 
 ## Behaviour
 
-TODO(dependency-bootstrap): describe what this feature actually does, on every surface the shared contract lists, in plain factual prose.
+This is a repository/CI concern -- fetching the compiler toolchain a Windows build needs -- not something the running desktop app exposes to a user. The real implementation is `scripts/bootstrap_windows_tools.ps1` (358 lines), which reads `scripts/release-dependencies.json`'s pinned versions and digests, checks for an already-installed CMake/Ninja before downloading anything, and installs into a per-user toolchain root rather than requiring elevation. `.github/workflows/release.yaml` invokes it directly (line 122) on every release build.
 
 ## Configuration
 
