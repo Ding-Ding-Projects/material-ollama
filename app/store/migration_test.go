@@ -454,6 +454,147 @@ func TestMigrationV16ToV17(t *testing.T) {
 	}
 }
 
+const v17Schema = `
+	CREATE TABLE IF NOT EXISTS settings (
+		id INTEGER PRIMARY KEY CHECK (id = 1),
+		device_id TEXT NOT NULL DEFAULT '',
+		has_completed_first_run BOOLEAN NOT NULL DEFAULT 0,
+		expose BOOLEAN NOT NULL DEFAULT 0,
+		survey BOOLEAN NOT NULL DEFAULT TRUE,
+		browser BOOLEAN NOT NULL DEFAULT 0,
+		models TEXT NOT NULL DEFAULT '',
+		agent BOOLEAN NOT NULL DEFAULT 0,
+		tools BOOLEAN NOT NULL DEFAULT 0,
+		working_dir TEXT NOT NULL DEFAULT '',
+		context_length INTEGER NOT NULL DEFAULT 0,
+		window_width INTEGER NOT NULL DEFAULT 0,
+		window_height INTEGER NOT NULL DEFAULT 0,
+		config_migrated BOOLEAN NOT NULL DEFAULT 0,
+		airplane_mode BOOLEAN NOT NULL DEFAULT 0,
+		turbo_enabled BOOLEAN NOT NULL DEFAULT 0,
+		websearch_enabled BOOLEAN NOT NULL DEFAULT 0,
+		selected_model TEXT NOT NULL DEFAULT '',
+		sidebar_open BOOLEAN NOT NULL DEFAULT 0,
+		last_home_view TEXT NOT NULL DEFAULT 'launch',
+		think_enabled BOOLEAN NOT NULL DEFAULT 0,
+		think_level TEXT NOT NULL DEFAULT '',
+		cloud_setting_migrated BOOLEAN NOT NULL DEFAULT 0,
+		remote TEXT NOT NULL DEFAULT '', -- deprecated
+		auto_update_enabled BOOLEAN NOT NULL DEFAULT 1,
+		ui_preferences TEXT NOT NULL DEFAULT '',
+		schema_version INTEGER NOT NULL DEFAULT 17
+	);
+
+	-- Insert default settings row if it doesn't exist
+	INSERT OR IGNORE INTO settings (id) VALUES (1);
+	`
+
+// TestMigrationV17ToV18 proves migrateV17ToV18 creates the app_events table
+// (the Status screen's append-only local version history) on a database
+// that predates it, that a pre-existing scalar setting is left completely
+// untouched by a migration that has no business touching it, and that the
+// full Store-level AppendAppEvent/AppEvents round trip works against the
+// freshly-migrated table -- not just that the raw CREATE TABLE succeeded.
+func TestMigrationV17ToV18(t *testing.T) {
+	tmpDir := t.TempDir()
+	s := Store{DBPath: filepath.Join(tmpDir, "db.sqlite")}
+	defer s.Close()
+
+	conn, err := sql.Open("sqlite3", s.DBPath+"?_foreign_keys=on&_journal_mode=WAL")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := conn.Ping(); err != nil {
+		conn.Close()
+		t.Fatal(err)
+	}
+	s.db = &database{conn: conn}
+
+	if _, err := s.db.conn.Exec(v17Schema); err != nil {
+		t.Fatalf("failed to create v17 schema: %v", err)
+	}
+
+	version, err := s.db.getSchemaVersion()
+	if err != nil {
+		t.Fatalf("failed to get schema version: %v", err)
+	}
+	if version != 17 {
+		t.Fatalf("expected schema version 17 before migration, got %d", version)
+	}
+
+	// Seed a scalar value that migrateV17ToV18 has no business touching, so
+	// we can prove afterward that it survived.
+	const wantSelectedModel = "llama3.2"
+	if _, err := s.db.conn.Exec(`UPDATE settings SET selected_model = ?`, wantSelectedModel); err != nil {
+		t.Fatalf("failed to seed pre-migration scalar value: %v", err)
+	}
+
+	// app_events must not exist yet -- querying it before migration should fail.
+	if _, err := s.db.conn.Query(`SELECT id FROM app_events`); err == nil {
+		t.Fatal("expected app_events to not exist before migration")
+	}
+
+	if err := s.db.migrate(); err != nil {
+		t.Fatalf("migrate() failed: %v", err)
+	}
+
+	version, err = s.db.getSchemaVersion()
+	if err != nil {
+		t.Fatalf("failed to get schema version after migration: %v", err)
+	}
+	if version != currentSchemaVersion {
+		t.Fatalf("expected schema version %d after migration, got %d", currentSchemaVersion, version)
+	}
+
+	// app_events must exist and be empty for a freshly-migrated database --
+	// there is nothing to backfill.
+	events, err := s.db.getAppEvents(appEventsListLimit)
+	if err != nil {
+		t.Fatalf("app_events table missing or unreadable after migration: %v", err)
+	}
+	if len(events) != 0 {
+		t.Fatalf("expected 0 app_events immediately after migration, got %d", len(events))
+	}
+
+	// The scalar seeded before migration must survive completely untouched.
+	settings, err := s.db.getSettings()
+	if err != nil {
+		t.Fatalf("getSettings() failed after migration: %v", err)
+	}
+	if settings.SelectedModel != wantSelectedModel {
+		t.Fatalf("expected selected_model %q to survive migration, got %q", wantSelectedModel, settings.SelectedModel)
+	}
+
+	// Full round trip through the Store-level API (not just the raw table),
+	// exercising exactly the path GET/POST /api/v1/history use.
+	appended, err := s.AppendAppEvent("release_viewed", "Status screen opened")
+	if err != nil {
+		t.Fatalf("AppendAppEvent() failed: %v", err)
+	}
+	if appended.ID == 0 {
+		t.Fatal("expected AppendAppEvent to assign a non-zero ID")
+	}
+	if appended.Kind != "release_viewed" || appended.Summary != "Status screen opened" {
+		t.Fatalf("AppendAppEvent() returned %+v, want kind=release_viewed summary=%q", appended, "Status screen opened")
+	}
+
+	listed, err := s.AppEvents()
+	if err != nil {
+		t.Fatalf("AppEvents() failed: %v", err)
+	}
+	if len(listed) != 1 {
+		t.Fatalf("expected 1 app event after one AppendAppEvent call, got %d", len(listed))
+	}
+	if listed[0].ID != appended.ID || listed[0].Kind != appended.Kind || listed[0].Summary != appended.Summary {
+		t.Fatalf("AppEvents()[0] = %+v, want %+v", listed[0], appended)
+	}
+
+	// A blank kind must be rejected, never silently recorded.
+	if _, err := s.AppendAppEvent("", "no kind"); err == nil {
+		t.Fatal("expected AppendAppEvent to reject a blank kind")
+	}
+}
+
 func uint64Ptr(v uint64) *uint64 { return &v }
 
 // TestExportContainsNoSecrets proves that marshaling a fully-populated

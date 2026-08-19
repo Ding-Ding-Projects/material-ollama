@@ -328,6 +328,16 @@ func (s *Server) Handler() http.Handler {
 	mux.Handle("GET /api/v1/settings", handle(s.getSettings))
 	mux.Handle("POST /api/v1/settings", handle(s.settings))
 	mux.Handle("GET /api/v1/capabilities", handle(s.capabilities))
+
+	// Build-time release metadata (version, commit, dim-sum code name,
+	// workflow run, offline catalog snapshot) embedded via app/ui/buildinfo
+	// -- see app/ui/release.go.
+	mux.Handle("GET /api/v1/release", handle(s.releaseInfo))
+
+	// Append-only local version-history events (app_events table, schema
+	// v18) -- see app/ui/release.go.
+	mux.Handle("GET /api/v1/history", handle(s.listHistory))
+	mux.Handle("POST /api/v1/history", handle(s.appendHistory))
 	mux.Handle("GET /api/v1/config/profiles", handle(s.getConfigProfiles))
 	mux.Handle("POST /api/v1/config/profiles", handle(s.createConfigProfile))
 	mux.Handle("PUT /api/v1/config/profiles/{id}", handle(s.updateConfigProfile))

@@ -15,7 +15,7 @@ import (
 
 // currentSchemaVersion defines the current database schema version.
 // Increment this when making schema changes that require migrations.
-const currentSchemaVersion = 17
+const currentSchemaVersion = 18
 
 // database wraps the SQLite connection.
 // SQLite handles its own locking for concurrent access:
@@ -151,6 +151,20 @@ func (db *database) init() error {
 		plan TEXT NOT NULL DEFAULT '',
 		cached_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 	);
+
+	-- app_events is the Status screen's append-only local version history.
+	-- It is deliberately unbounded and append-only (rows are never updated
+	-- or deleted by the app itself), so it does not belong in the
+	-- single-row settings blob alongside everything else -- see
+	-- app/ui/release.go's GET/POST /api/v1/history handlers.
+	CREATE TABLE IF NOT EXISTS app_events (
+		id INTEGER PRIMARY KEY,
+		at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+		kind TEXT NOT NULL,
+		summary TEXT NOT NULL DEFAULT ''
+	);
+
+	CREATE INDEX IF NOT EXISTS idx_app_events_at ON app_events(at);
 	`, currentSchemaVersion)
 
 	_, err := db.conn.Exec(schema)
@@ -279,6 +293,12 @@ func (db *database) migrate() error {
 				return fmt.Errorf("migrate v16 to v17: %w", err)
 			}
 			version = 17
+		case 17:
+			// create app_events table for local version history
+			if err := db.migrateV17ToV18(); err != nil {
+				return fmt.Errorf("migrate v17 to v18: %w", err)
+			}
+			version = 18
 		default:
 			// If we have a version we don't recognize, just set it to current
 			// This might happen during development
@@ -559,6 +579,36 @@ func (db *database) migrateV16ToV17() error {
 	}
 
 	_, err = db.conn.Exec(`UPDATE settings SET schema_version = 17`)
+	if err != nil {
+		return fmt.Errorf("update schema version: %w", err)
+	}
+
+	return nil
+}
+
+// migrateV17ToV18 creates the app_events table: the Status screen's
+// append-only local version history. There is no data to backfill -- a
+// freshly-migrated database simply starts with zero recorded events, which
+// is the honest state for a table nothing has written to yet.
+func (db *database) migrateV17ToV18() error {
+	_, err := db.conn.Exec(`
+		CREATE TABLE IF NOT EXISTS app_events (
+			id INTEGER PRIMARY KEY,
+			at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+			kind TEXT NOT NULL,
+			summary TEXT NOT NULL DEFAULT ''
+		)
+	`)
+	if err != nil {
+		return fmt.Errorf("create app_events table: %w", err)
+	}
+
+	_, err = db.conn.Exec(`CREATE INDEX IF NOT EXISTS idx_app_events_at ON app_events(at)`)
+	if err != nil {
+		return fmt.Errorf("create app_events index: %w", err)
+	}
+
+	_, err = db.conn.Exec(`UPDATE settings SET schema_version = 18`)
 	if err != nil {
 		return fmt.Errorf("update schema version: %w", err)
 	}
@@ -1343,6 +1393,51 @@ func (db *database) setWindowSize(width, height int) error {
 		return fmt.Errorf("set window size: %w", err)
 	}
 	return nil
+}
+
+// getAppEvents returns the most recent app_events rows, newest first,
+// bounded by limit. The table itself is unbounded and append-only.
+func (db *database) getAppEvents(limit int) ([]AppEvent, error) {
+	rows, err := db.conn.Query(`SELECT id, at, kind, summary FROM app_events ORDER BY id DESC LIMIT ?`, limit)
+	if err != nil {
+		return nil, fmt.Errorf("query app_events: %w", err)
+	}
+	defer rows.Close()
+
+	events := []AppEvent{}
+	for rows.Next() {
+		var e AppEvent
+		if err := rows.Scan(&e.ID, &e.At, &e.Kind, &e.Summary); err != nil {
+			return nil, fmt.Errorf("scan app_event: %w", err)
+		}
+		events = append(events, e)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("iterate app_events: %w", err)
+	}
+
+	return events, nil
+}
+
+// appendAppEvent inserts one new app_events row and returns it with its
+// assigned ID and server-assigned timestamp. Rows are never updated or
+// deleted afterward -- this table is deliberately append-only.
+func (db *database) appendAppEvent(kind, summary string) (AppEvent, error) {
+	now := time.Now()
+	result, err := db.conn.Exec(
+		`INSERT INTO app_events (at, kind, summary) VALUES (?, ?, ?)`,
+		now, kind, summary,
+	)
+	if err != nil {
+		return AppEvent{}, fmt.Errorf("insert app_event: %w", err)
+	}
+
+	id, err := result.LastInsertId()
+	if err != nil {
+		return AppEvent{}, fmt.Errorf("get app_event id: %w", err)
+	}
+
+	return AppEvent{ID: id, At: now, Kind: kind, Summary: summary}, nil
 }
 
 func (db *database) isConfigMigrated() (bool, error) {
