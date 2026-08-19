@@ -1,0 +1,59 @@
+/*
+ * Raw MD3 token declaration site — and the ONLY one.
+ *
+ * Every custom property below is declared once, here, in an unlayered
+ * :root, purely as fallback/default values (the prototype's light-mode
+ * seed-#8a5a00 palette). At runtime `applyScheme()` overwrites every one
+ * of them on `document.documentElement` via `style.setProperty`, so what
+ * ships here is what renders before JS runs, and only until it does.
+ *
+ * Do NOT declare any of these names again in `@theme` (or `@theme
+ * inline`) in index.css or anywhere else. Two declaration sites for the
+ * same custom property are resolved by CSS cascade specificity and source
+ * order, never by "whichever file you happened to open" — see the
+ * `@theme inline` block in index.css, which maps Tailwind color tokens
+ * onto these raw names with `var()` instead of re-declaring them.
+ */
+:root {
+  --p: oklch(0.48 0.11 85);
+  --on-p: oklch(0.995 0.005 85);
+  --pc: oklch(0.9 0.05 85);
+  --on-pc: oklch(0.25 0.07 85);
+
+  --sec: oklch(0.5 0.04 85);
+  --sec-c: oklch(0.9 0.02 85);
+  --on-sec-c: oklch(0.25 0.033 85);
+
+  --ter: oklch(0.55 0.09 145);
+  --ter-c: oklch(0.9 0.04 145);
+  --on-ter-c: oklch(0.25 0.055 145);
+
+  --err: oklch(0.5 0.19 27);
+  --err-c: oklch(0.9 0.06 27);
+  --on-err-c: oklch(0.28 0.12 27);
+
+  --bg: oklch(0.985 0.007 85);
+
+  --c-lowest: oklch(0.997 0.003 85);
+  --c-low: oklch(0.97 0.008 85);
+  --c: oklch(0.955 0.009 85);
+  --c-high: oklch(0.94 0.01 85);
+  --c-highest: oklch(0.92 0.012 85);
+
+  --on-s: oklch(0.22 0.015 85);
+  --on-sv: oklch(0.42 0.02 85);
+  --outline: oklch(0.55 0.02 85);
+  --outline-v: oklch(0.82 0.015 85);
+
+  --inv: oklch(0.27 0.015 85);
+  --on-inv: oklch(0.95 0.008 85);
+
+  --e1:
+    0 1px 2px rgba(0, 0, 0, 0.25),
+    0 1px 3px 1px rgba(0, 0, 0, 0.12);
+  --e2:
+    0 2px 6px 2px rgba(0, 0, 0, 0.14),
+    0 1px 2px rgba(0, 0, 0, 0.25);
+
+  --r: 16px;
+}

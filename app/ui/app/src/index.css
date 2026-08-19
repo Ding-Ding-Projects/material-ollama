@@ -1,19 +1,116 @@
 @import "tailwindcss";
 @plugin "@tailwindcss/typography";
 @import "katex/dist/katex.min.css";
+@import "./styles/tokens.css";
+@import "./styles/fonts.css";
 
 @theme {
-  --font-sans: ui-sans-serif, system-ui, "Segoe UI", sans-serif;
   --font-rounded:
     "SF Pro Rounded", ui-sans-serif, system-ui, "Segoe UI", sans-serif;
 }
 
-@media (prefers-color-scheme: dark) {
-  /* Dark mode styles go here */
-  :root {
-    /* Example dark mode variables */
-    --bg-color: #1a1a1a;
-    --text-color: #ffffff;
+/*
+ * Re-points every `dark:` utility at the app's own resolved appearance
+ * mode (see src/theme/ThemeProvider.tsx and src/theme/boot.ts), which set
+ * `data-theme="light"|"dark"` on <html>, instead of the OS-level
+ * `prefers-color-scheme` media query Tailwind uses by default. This is
+ * what makes the in-app theme setting -- as opposed to the OS setting --
+ * actually control every existing `dark:` class in the codebase.
+ */
+@custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
+
+/*
+ * Maps Tailwind's color/radius/font namespaces onto the raw tokens
+ * declared in tokens.css. `inline` is load-bearing here: a plain `@theme`
+ * block only substitutes each var() once, at build time, into a single
+ * `:root` rule (`:root{--color-primary:var(--p)}`), so a scoped override
+ * -- an appearance-editor preview swatch, a nested `data-theme` region --
+ * would silently do nothing. `@theme inline` instead compiles `bg-primary`
+ * straight to `background-color:var(--p)`, which resolves at the point of
+ * use, every time.
+ *
+ * Do not declare any of tokens.css's raw token names in here -- see the
+ * header comment in tokens.css for why two declaration sites for the same
+ * custom property is a trap, not a convenience.
+ */
+@theme inline {
+  --color-primary: var(--p);
+  --color-on-primary: var(--on-p);
+  --color-primary-container: var(--pc);
+  --color-on-primary-container: var(--on-pc);
+
+  --color-secondary: var(--sec);
+  --color-secondary-container: var(--sec-c);
+  --color-on-secondary-container: var(--on-sec-c);
+
+  --color-tertiary: var(--ter);
+  --color-tertiary-container: var(--ter-c);
+  --color-on-tertiary-container: var(--on-ter-c);
+
+  --color-error: var(--err);
+  --color-error-container: var(--err-c);
+  --color-on-error-container: var(--on-err-c);
+
+  --color-background: var(--bg);
+
+  --color-surface-lowest: var(--c-lowest);
+  --color-surface-low: var(--c-low);
+  --color-surface: var(--c);
+  --color-surface-high: var(--c-high);
+  --color-surface-highest: var(--c-highest);
+
+  --color-on-surface: var(--on-s);
+  --color-on-surface-variant: var(--on-sv);
+  --color-outline: var(--outline);
+  --color-outline-variant: var(--outline-v);
+
+  --color-inverse-surface: var(--inv);
+  --color-on-inverse-surface: var(--on-inv);
+
+  --radius-token: var(--r);
+
+  --font-sans:
+    "Roboto Flex", "Noto Sans HK", ui-sans-serif, system-ui, "Segoe UI",
+    sans-serif;
+  --font-mono:
+    "Roboto Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
+    "Liberation Mono", "Courier New", monospace;
+}
+
+/*
+ * Elevation shadows stay out of @theme on purpose: Tailwind composes any
+ * `--shadow-*` theme key through its own `--tw-shadow` variable (for ring
+ * interplay etc.) rather than substituting a var() verbatim, so a
+ * `shadow-e1/50` utility would silently apply only half of --e1. @utility
+ * gives each one a real, opaque box-shadow declaration instead.
+ */
+@utility elev-1 {
+  box-shadow: var(--e1);
+}
+
+@utility elev-2 {
+  box-shadow: var(--e2);
+}
+
+@keyframes mo-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes mo-pulse {
+  0%,
+  60%,
+  100% {
+    opacity: 0.2;
+  }
+  30% {
+    opacity: 1;
   }
 }
 

@@ -1,10 +1,60 @@
-import { defineConfig } from "vite";
+import { defineConfig, type Plugin } from "vite";
 import react from "@vitejs/plugin-react";
 import { TanStackRouterVite } from "@tanstack/router-plugin/vite";
 import tailwindcss from "@tailwindcss/vite";
 import tsconfigPaths from "vite-tsconfig-paths";
+import { buildSync } from "esbuild";
 
 import { resolve } from "path";
+
+/**
+ * Bundles src/theme/boot.ts standalone (via esbuild, NOT Vite's own module
+ * graph -- see the comment at the top of boot.ts for why that separation
+ * matters) into a minified IIFE, then injects it as a classic,
+ * non-deferred <script> at head-prepend.
+ *
+ * Injected at head-prepend rather than left as a <script type="module">
+ * because module scripts are always deferred and run after the browser
+ * has already scheduled first paint; a classic script injected ahead of
+ * everything else in <head> runs synchronously before that paint, which
+ * is the whole point -- it is what keeps the resolved seed/theme from
+ * flashing the tokens.css light-mode defaults before React mounts.
+ *
+ * This is the one and only place boot.ts's source is read. Do not
+ * hand-copy the OKLCH tables it pulls in from scheme.ts/oklch.ts into
+ * index.html "for speed" -- that creates a second copy of the maths that
+ * WILL drift from the real one.
+ */
+function themeBoot(): Plugin {
+  return {
+    name: "mo-theme-boot",
+    transformIndexHtml: {
+      order: "pre",
+      handler(html) {
+        const result = buildSync({
+          entryPoints: [resolve(__dirname, "src/theme/boot.ts")],
+          bundle: true,
+          minify: true,
+          write: false,
+          format: "iife",
+          target: "es2017",
+          platform: "browser",
+        });
+        const code = result.outputFiles[0].text;
+        return {
+          html,
+          tags: [
+            {
+              tag: "script",
+              injectTo: "head-prepend",
+              children: code,
+            },
+          ],
+        };
+      },
+    },
+  };
+}
 
 export default defineConfig(() => ({
   base: "/",
@@ -14,6 +64,7 @@ export default defineConfig(() => ({
     react(),
     tailwindcss(),
     tsconfigPaths(),
+    themeBoot(),
   ],
 
   resolve: {
