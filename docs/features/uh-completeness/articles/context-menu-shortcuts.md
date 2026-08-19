@@ -8,6 +8,10 @@ The one real, wired keyboard shortcut behind that column is Ctrl+W (⌘W on macO
 
 The rest of the tab context menu's items (pin/unpin, move into group, remove from group, reorder within group, close others, close to the right) carry no `shortcut` value and so render with no shortcut column at all, honestly, rather than a placeholder dash.
 
+## Test coverage
+
+`useShellKeyboardShortcuts.dom.test.tsx` dispatches real `KeyboardEvent`s at `window` (not a synthetic call into the handler) and asserts: a genuine Ctrl+W keydown calls the callback exactly once; a lookalike Ctrl+Shift+W and a bare W (no modifier) both call it zero times, proving the guard checks the exact combination rather than just the `w` key; the listener is removed on unmount, so a Ctrl+W after unmounting no longer fires; and `useCloseActiveTabShortcutLabel()` returns the non-Mac "Ctrl+W" label under jsdom's default (non-Mac) `navigator.platform`.
+
 ## Configuration
 
 TODO(context-menu-shortcuts): describe how a user or operator configures this feature -- the settings surface, its defaults, and where the choice persists.
@@ -22,7 +26,9 @@ TODO(context-menu-shortcuts): describe what this feature must never expose or al
 
 ## Verification
 
-TODO(context-menu-shortcuts): name the focused test(s), the built-artifact interaction proof, and the real capture evidence that back this feature.
+- Focused test: `app/ui/app/src/components/shell/useShellKeyboardShortcuts.dom.test.tsx::calls the handler for Ctrl+W and prevents the browser's own default` (plus its three sibling cases in the same file).
+- Built-artifact proof: not yet attached -- the tab context menu is only on screen for the moment after a right-click, and none of the 12 real captures in this inventory's manifest happened to be taken with it open.
+- Capture evidence: not yet attached, for the same reason. A dedicated capture of the open `TabContextMenu` on the active tab (showing the "Close tab" row's Ctrl+W column) would close this gap honestly.
 
 ## Suggested articles
 

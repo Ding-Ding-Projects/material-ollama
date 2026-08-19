@@ -8,6 +8,10 @@ Like every other dim-sum-family surface, it is hidden entirely rather than merel
 
 The release code name itself (shown on `ReleaseCard.tsx` when a real, non-development release is running and School mode is off) is built as "English · 中文" from the resolved dish, matching the format this catalog card also uses. This card's own release-code-name pairing with `ReleaseCard.tsx` was not directly exercised by a dedicated test in this pass -- `DimSum.dom.test.tsx` covers the surprise roll card, not this catalog listing card, by name.
 
+## Test coverage
+
+`DimSumCatalogCard.dom.test.tsx` now covers this catalog card directly, through the real `useReleaseInfo()` query (a stubbed `fetch`, not an injected prop): with a real two-dish catalog, both dishes' English and Cantonese names render; with `school.on: true` written into the real preferences storage before render, the card renders nothing at all -- not a disabled or blank card, the whole thing is absent from the DOM -- even once the release data has resolved, proving the School gate is checked ahead of the data-driven branches rather than merely styled away; and before the release query resolves, the card is likewise absent rather than showing a loading placeholder.
+
 ## Configuration
 
 TODO(dim-sum-release-catalog): describe how a user or operator configures this feature -- the settings surface, its defaults, and where the choice persists.
@@ -22,7 +26,9 @@ TODO(dim-sum-release-catalog): describe what this feature must never expose or a
 
 ## Verification
 
-TODO(dim-sum-release-catalog): name the focused test(s), the built-artifact interaction proof, and the real capture evidence that back this feature.
+- Focused test: `app/ui/app/src/screens/status/DimSumCatalogCard.dom.test.tsx::renders nothing at all while School mode is on, rather than disabling the card` (plus its two sibling cases in the same file).
+- Built-artifact proof: not yet attached -- `status.png` (this inventory's Status capture) shows only the Release card above the fold; the Dim Sum Catalog card sits further down the same scrolling page.
+- Capture evidence: not yet attached, for the same reason. Recapturing `/status` scrolled to this card would close this gap honestly.
 
 ## Suggested articles
 

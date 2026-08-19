@@ -6,7 +6,11 @@ The Settings screen's Language & Voice card (`app/ui/app/src/screens/Settings/La
 
 The stored voice identity is the platform's own stable `voiceURI`, never its display name -- `decodeVoicePrefs`/`encodeVoicePrefs` persist `{en, yue}` as one JSON-encoded string inside `NarrationPrefs.Voice` (`app/store/store.go`), because that Go field is a single string and extending the struct with a second field was outside this lane's allowed paths; the encoding is a deliberate bridge, not a design regression. `isVoiceInstalled()` compares the stored URI against the live voice list so a picker can say plainly when a previously-chosen voice is not installed on this machine (`narratorNotInstalled`) while keeping the choice rather than silently resetting it. A dedicated "Preview" button per language calls `previewVoice()`, which speaks a real, language-appropriate sample phrase directly through `speechSynthesis.speak()` using the exact selected voice -- deliberately bypassing the app-wide `NarrationQueue` (which always auto-picks by language and has no per-voice override), so a preview genuinely demonstrates the voice that will be used rather than merely persisting a preference nothing yet consults. A rate slider (0.5x-2x) is shared across both languages via `preferences.narration.rate`.
 
-No dedicated unit test exists yet for `narratorVoices.ts`'s encode/decode/install-check functions in isolation; the card's rendering is exercised only indirectly by `SettingsScreen.dom.test.tsx`'s broader mount, which does not assert on voice-picker-specific behavior. As with `language-modes.md`, the real `/settings` route currently crashes before a user can reach this card in the packaged build.
+As with `language-modes.md`, the real `/settings` route currently crashes before a user can reach this card in the packaged build.
+
+## Test coverage
+
+`narratorVoices.test.ts` now covers the encode/decode bridge directly: a `{en, yue}` pair round-trips through `encodeVoicePrefs`/`decodeVoicePrefs` exactly; an empty stored string (never set) decodes to "automatic for both"; malformed JSON decodes to the same safe default rather than throwing; a partial or wrongly-typed field (a stored `en` with no `yue`, or a `yue` that is not a string) defaults only the affected language rather than discarding the other language's real, already-stored choice; and a JSON value that parses but is not a plain object (a bare array or number) also fails closed to the same default. `isVoiceInstalled()`'s live-list comparison and the card's own `Select`/Preview-button rendering remain uncovered by a dedicated test in this pass.
 
 ## Configuration
 
@@ -22,7 +26,9 @@ TODO(narrator-voice-selection): describe what this feature must never expose or 
 
 ## Verification
 
-TODO(narrator-voice-selection): name the focused test(s), the built-artifact interaction proof, and the real capture evidence that back this feature.
+- Focused test: `app/ui/app/src/screens/Settings/narratorVoices.test.ts::round-trips two distinct per-language voice URIs exactly` (plus its four sibling cases in the same file).
+- Built-artifact proof: not yet attached -- the voice pickers sit below the fold on `/settings`, and no capture in this inventory's manifest shows them.
+- Capture evidence: not yet attached, for the same reason. Recapturing `/settings` scrolled to the narrator voice rows would close this gap honestly.
 
 ## Suggested articles
 

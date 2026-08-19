@@ -6,6 +6,10 @@
 
 This is visibility only, not the external-source contract the canonical feature describes. There is no UI anywhere in the codebase to add, edit, or remove an endpoint, no per-schedule-rule choice of "local data / validated HTTPS API / Home Assistant boolean entity" as a settings source, and no Home Assistant entity linking, token storage, or bounded-refresh/fallback machinery. `scheduled-settings.md`'s schedule rules are all fixed local actions and carry no source selection at all. `EndpointPrefs`/`Endpoint` are real, already-shipped Go types (`app/ui/app/src/screens/Settings/types.ts` mirrors them) that something else in the codebase evidently populates, but this card is a reader of that state, not an editor of it, and nothing here drives a scheduled setting from an external source.
 
+## Test coverage
+
+`AdvancedCard.dom.test.tsx` covers the read-only view directly: with no endpoints configured, the real "Only the default local Ollama server is configured." empty copy renders; with two fixture endpoints (one matching `activeId`, one not), both endpoints' real label and base URL render, and exactly one "active" badge appears in the whole card -- proving the badge is genuinely conditioned on matching `activeId` rather than, say, always showing on the first endpoint.
+
 ## Configuration
 
 TODO(external-settings-sources): describe how a user or operator configures this feature -- the settings surface, its defaults, and where the choice persists.
@@ -20,7 +24,9 @@ TODO(external-settings-sources): describe what this feature must never expose or
 
 ## Verification
 
-TODO(external-settings-sources): name the focused test(s), the built-artifact interaction proof, and the real capture evidence that back this feature.
+- Focused test: `app/ui/app/src/screens/Settings/AdvancedCard.dom.test.tsx::lists a real configured endpoint and badges only the active one` (plus its sibling empty-state case in the same file).
+- Built-artifact proof: not yet attached -- `settings.png` shows only the General card; the Advanced card holding this endpoints list sits further down the same scrolling page.
+- Capture evidence: not yet attached, for the same reason. Recapturing `/settings` scrolled to the Advanced card's "Configured endpoints" row would close this gap honestly.
 
 ## Suggested articles
 

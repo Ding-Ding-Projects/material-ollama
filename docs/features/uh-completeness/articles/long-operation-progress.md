@@ -8,6 +8,10 @@ The bulk job queue (`ConvertJobQueue.tsx`) reviews what a bulk cancel/remove/cle
 
 Not verified in this pass: whether every long operation in the app offers a genuine cancel path mid-flight (the converter queue does, via `onCancel`; other surfaces were not audited for this specifically).
 
+## Test coverage
+
+`ConvertJobRow.dom.test.tsx` asserts the state-gated action set and the state-driven progress bar directly: a `running` job shows Cancel but never Retry or Remove, and its progress bar carries no `aria-valuenow` at all (the real indeterminate mode, not a fabricated percentage); a `failed` job shows Retry and Remove but never Cancel, its error text renders, and clicking Retry calls `onRetry` with the complete job object (not just its id, so a retry can resubmit the full source/target format pair); and a `completed` job with a real `outputPath` shows the "Saved to: <path>" line. No dedicated test yet covers `ConvertJobQueue.tsx`'s bulk-action preview or `useConvertQueue.ts`'s SSE-driven updates.
+
 ## Configuration
 
 TODO(long-operation-progress): describe how a user or operator configures this feature -- the settings surface, its defaults, and where the choice persists.
@@ -22,7 +26,9 @@ TODO(long-operation-progress): describe what this feature must never expose or a
 
 ## Verification
 
-TODO(long-operation-progress): name the focused test(s), the built-artifact interaction proof, and the real capture evidence that back this feature.
+- Focused test: `app/ui/app/src/screens/toolbox/ConvertJobRow.dom.test.tsx::shows Cancel but not Retry or Remove for a running job, and never a completed-percentage readout` (plus its two sibling cases in the same file).
+- Built-artifact proof: not yet attached -- `toolbox.png` (this inventory's Toolbox capture) shows only the Regex lab card above the fold; the Converter section holding this queue is further down the same scrolling page.
+- Capture evidence: not yet attached, for the same reason. Recapturing `/toolbox` scrolled to an active conversion job would close this gap honestly.
 
 ## Suggested articles
 
