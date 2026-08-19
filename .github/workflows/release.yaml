@@ -126,6 +126,82 @@ jobs:
         shell: pwsh
         run: node scripts/release-metadata.mjs --output release-metadata.json --target-repo "$env:GITHUB_REPOSITORY"
 
+      - name: Write embedded build metadata
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          # app/ui/buildinfo embeds this file (go:embed buildinfo.json) so the
+          # Status screen can report a real version, commit, dim-sum release
+          # code name, workflow run, and offline catalog snapshot -- entirely
+          # offline. This step must run AFTER "Resolve release metadata"
+          # (release-metadata.json must already exist) and BEFORE the Windows
+          # binaries are built, so the embed captures real data rather than
+          # the checked-in buildinfo.default.json placeholder.
+          $match = Select-String -Path version/version.go -Pattern 'Version\s+string\s*=\s*"([^"]+)"' | Select-Object -First 1
+          $baseVersion = if ($match) { $match.Matches[0].Groups[1].Value } else { '0.0.0' }
+          $version = "$baseVersion-build.${{ github.run_number }}"
+          $commit = "$env:GITHUB_SHA"
+          $shortCommit = if ($commit.Length -ge 12) { $commit.Substring(0, 12) } else { $commit }
+          $builtAt = [DateTimeOffset]::UtcNow.ToString("yyyy-MM-ddTHH:mm:ss.fff'Z'")
+
+          $metadata = Get-Content -Raw 'release-metadata.json' | ConvertFrom-Json
+          $codeName = $null
+          $dishId = $null
+          $dishNameEn = $null
+          $dishNameZhHant = $null
+          if ($metadata.status -eq 'selected') {
+            $codeName = $metadata.codeName
+            $dishId = $metadata.dishId
+            $dishNameEn = $metadata.name.en
+            $dishNameZhHant = $metadata.name.zhHant
+          }
+
+          # A build-time snapshot of the public dim-sum catalog's dish list,
+          # so the Status screen's release catalog is real and works offline.
+          # This project links to the public catalog's own image asset and
+          # never vendors or mirrors dim-sum photos -- see AGENTS.md's
+          # "Public dim-sum photo source" section -- so only id/slug/name are
+          # snapshotted here, never an image.
+          $catalogDishes = @()
+          try {
+            $catalog = Invoke-RestMethod -Uri 'https://raw.githubusercontent.com/Ding-Ding-Projects/dim-sum-photos/main/catalog/index.json' -Headers @{ 'user-agent' = 'material-ollama-buildinfo' }
+            foreach ($dish in $catalog.dishes) {
+              if ($dish.id -and $dish.name.en -and $dish.name.zhHant) {
+                $catalogDishes += [ordered]@{
+                  id = $dish.id
+                  slug = $dish.slug
+                  nameEn = $dish.name.en
+                  nameZhHant = $dish.name.zhHant
+                }
+              }
+            }
+          } catch {
+            # The offline catalog snapshot is best-effort: a transient
+            # network failure here must not fail the whole release build.
+            # A binary built with an empty catalog is still honest -- it
+            # just has nothing to show in that one list.
+            Write-Warning "buildinfo: dim-sum catalog snapshot unavailable: $($_.Exception.Message)"
+          }
+
+          $buildInfo = [ordered]@{
+            schemaVersion = 1
+            version = $version
+            commit = $commit
+            shortCommit = $shortCommit
+            codeName = $codeName
+            dishId = $dishId
+            dishNameEn = $dishNameEn
+            dishNameZhHant = $dishNameZhHant
+            workflowRunNumber = ${{ github.run_number }}
+            workflowRunId = ${{ github.run_id }}
+            builtAt = $builtAt
+            catalog = @($catalogDishes)
+          }
+          $buildInfoJson = $buildInfo | ConvertTo-Json -Depth 6
+          Set-Content -LiteralPath 'app/ui/buildinfo/buildinfo.json' -Value $buildInfoJson -Encoding utf8 -NoNewline
+          Write-Host "Wrote app/ui/buildinfo/buildinfo.json for $version ($shortCommit)"
+          Write-Host $buildInfoJson
+
       - name: Build Windows binaries and installer
         shell: pwsh
         env:

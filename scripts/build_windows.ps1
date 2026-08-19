@@ -1210,7 +1210,12 @@ function buildApp {
     param (
         [string]$arch
     )
-	& go build -trimpath -ldflags "-s -w -H windowsgui -X=github.com/ollama/ollama/app/version.Version=$script:VERSION" -o .\dist\windows-ollama-app-${arch}.exe ./app/cmd/app/
+	# The commit is embedded via ldflags rather than relied upon from
+	# debug.ReadBuildInfo's VCS stamping, which is not guaranteed to survive
+	# the -trimpath build below. $env:GITHUB_SHA is only set in CI; a local
+	# dev build embeds an empty commit, matching app/ui/buildinfo's default.
+	$appCommit = if ($env:GITHUB_SHA) { $env:GITHUB_SHA } else { '' }
+	& go build -trimpath -ldflags "-s -w -H windowsgui -X=github.com/ollama/ollama/app/version.Version=$script:VERSION -X=github.com/ollama/ollama/app/version.Commit=$appCommit" -o .\dist\windows-ollama-app-${arch}.exe ./app/cmd/app/
     if ($LASTEXITCODE -ne 0) { exit($LASTEXITCODE)}
 }
 

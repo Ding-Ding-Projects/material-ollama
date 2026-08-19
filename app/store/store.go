@@ -111,6 +111,23 @@ type Chat struct {
 	BrowserState json.RawMessage `json:"browser_state,omitempty" ts_type:"BrowserStateData"`
 }
 
+// AppEvent is one row of the Status screen's append-only local version
+// history (the app_events table, schema v18). Rows are never updated or
+// deleted by the app itself -- see app/ui/release.go's GET/POST
+// /api/v1/history handlers.
+type AppEvent struct {
+	ID      int64     `json:"id"`
+	At      time.Time `json:"at"`
+	Kind    string    `json:"kind"`
+	Summary string    `json:"summary"`
+}
+
+// appEventsListLimit bounds how many app_events rows a single GET
+// /api/v1/history response returns. The table itself is unbounded and
+// append-only; this only bounds one response payload, mirroring
+// codexHistoryLimit's role for the Codex harness history in app/ui/codex.go.
+const appEventsListLimit = 500
+
 // NewChat creates a new Chat with the ID, with CreatedAt timestamp initialized
 func NewChat(id string) *Chat {
 	return &Chat{
@@ -633,6 +650,32 @@ func (s *Store) SetWindowSize(width, height int) error {
 	}
 
 	return s.db.setWindowSize(width, height)
+}
+
+// AppEvents returns the most recent app_events rows, newest first, bounded
+// by appEventsListLimit. The underlying table is unbounded and append-only;
+// this only bounds how many rows one response returns.
+func (s *Store) AppEvents() ([]AppEvent, error) {
+	if err := s.ensureDB(); err != nil {
+		return nil, err
+	}
+
+	return s.db.getAppEvents(appEventsListLimit)
+}
+
+// AppendAppEvent records one new local version-history event and returns it
+// with its assigned ID and server-assigned timestamp. kind and summary are
+// both required; a blank kind is rejected rather than silently recorded as
+// an empty string, since an unlabeled history entry is useless to a reader.
+func (s *Store) AppendAppEvent(kind, summary string) (AppEvent, error) {
+	if err := s.ensureDB(); err != nil {
+		return AppEvent{}, err
+	}
+	if kind == "" {
+		return AppEvent{}, fmt.Errorf("app event kind is required")
+	}
+
+	return s.db.appendAppEvent(kind, summary)
 }
 
 func (s *Store) UpdateLastMessage(chatID string, message Message) error {

@@ -1,0 +1,14 @@
+{
+  "schemaVersion": 1,
+  "version": "0.0.0",
+  "commit": "",
+  "shortCommit": "",
+  "codeName": null,
+  "dishId": null,
+  "dishNameEn": null,
+  "dishNameZhHant": null,
+  "workflowRunNumber": null,
+  "workflowRunId": null,
+  "builtAt": null,
+  "catalog": []
+}
