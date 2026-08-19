@@ -348,6 +348,13 @@ func (s *Server) Handler() http.Handler {
 	mux.Handle("POST /api/v1/codex/sessions/{id}/rollback", handle(s.codexSessionRollback))
 	mux.Handle("POST /api/v1/codex/editor", handle(s.codexEditor))
 
+	// Launch screen: the reconciled intersection of cmd/launch's
+	// integration registry and app/store/database.go's validLaunchView
+	// allow-list. See app/ui/launch.go's header comment for why those two
+	// disagree and which one wins.
+	mux.Handle("GET /api/v1/launch/integrations", handle(s.launchIntegrations))
+	mux.Handle("POST /api/v1/launch/run", handle(s.launchRun))
+
 	// Local Docker container manager for the bundled Ollama server image.
 	// Talks to the docker CLI through a strict argv allow-list (never a
 	// shell string); GPU capability is established by actually probing a
