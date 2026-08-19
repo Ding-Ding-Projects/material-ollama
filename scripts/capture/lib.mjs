@@ -575,3 +575,164 @@ export function sweepOrphanedChildren(launchedPids, { cliPath } = {}) {
   }
   return killed
 }
+
+// -----------------------------------------------------------------------
+// CDP: driving the same rendered page the PrintWindow captures come from,
+// for the interactions no window-message click/keystroke could reach
+// reliably from outside the process (a client-side theme flip that needs
+// localStorage + a reload; a global window keydown listener for the
+// command palette). This is used ONLY to change state before a capture --
+// every "normal" screenshot in this harness is still the cheap-route
+// screenshot(hwnd) Win32 PrintWindow call; CDP's own Page.captureScreenshot
+// is used in exactly one place (the narrow-layout capture), because that
+// is the only way to render at a viewport size smaller than the real OS
+// window's hard-enforced minimum -- see buildIsolatedEnv()'s
+// WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS comment for how the debugging port
+// gets opened in the first place, and app/cmd/app/webview.go's
+// `wv.SetSize(800, 600, webview.HintMin)` for that floor.
+//
+// Verified live against this exact built app (2026-08-19): WebView2 exposes
+// the ordinary Chromium /json/list HTTP endpoint and a real per-page
+// devtools websocket on the port passed via
+// WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS, with exactly one page target (this
+// app never opens a second tab/window), and Runtime.evaluate,
+// Page.reload, Emulation.setDeviceMetricsOverride, and
+// Page.captureScreenshot all behave exactly as documented. Node 24's
+// built-in global WebSocket is used directly -- no extra dependency.
+//
+// Runtime.evaluate is called WITHOUT `awaitPromise: true` throughout (see
+// this repo's own captured lesson under "On Node 26.5, Edge CDP
+// `Runtime.evaluate` can hang indefinitely..." -- every expression used
+// here is synchronous on purpose, specifically to avoid that hang).
+
+/** GET /json/list on the app's own CDP port and return the sole page
+ * target. Throws unless there is EXACTLY one -- matching resolveAppWindow's
+ * own "never trust the first/any match" discipline; a second target here
+ * would mean a capture could silently act on the wrong page. */
+export async function cdpDiscoverPageTarget(cdpPort, { timeoutMs = 15_000, intervalMs = 300 } = {}) {
+  const deadline = Date.now() + timeoutMs
+  let lastErr
+  while (Date.now() < deadline) {
+    try {
+      const res = await fetch(`http://127.0.0.1:${cdpPort}/json/list`)
+      if (res.ok) {
+        const targets = await res.json()
+        const pages = targets.filter((t) => t.type === 'page')
+        if (pages.length === 1) return pages[0]
+        if (pages.length > 1) {
+          throw new Error(`Ambiguous CDP target: ${pages.length} page targets on port ${cdpPort}: ${JSON.stringify(pages)}`)
+        }
+        // 0 pages: WebView2 may not have registered its devtools target yet -- retry.
+      }
+    } catch (err) {
+      lastErr = err
+    }
+    sleepMs(intervalMs)
+  }
+  throw new Error(`Timed out after ${timeoutMs}ms discovering a CDP page target on port ${cdpPort}: ${lastErr?.message ?? '(no page target ever appeared)'}`)
+}
+
+/**
+ * Open the devtools websocket for `target` and return a small client:
+ * `.send(method, params)` (promise, resolves with `result`, rejects on a
+ * CDP-level error or a thrown exception inside Runtime.evaluate) and
+ * `.close()`. One connection per capture, closed in the caller's finally
+ * block -- never reused across screens, so a hung evaluate on one capture
+ * can never bleed into the next.
+ */
+export function cdpConnect(target, { timeoutMs = 15_000 } = {}) {
+  const ws = new WebSocket(target.webSocketDebuggerUrl)
+  let nextId = 1
+  const pending = new Map()
+
+  const opened = new Promise((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error(`CDP websocket to ${target.webSocketDebuggerUrl} did not open within ${timeoutMs}ms`)), timeoutMs)
+    ws.addEventListener('open', () => { clearTimeout(timer); resolve() }, { once: true })
+    ws.addEventListener('error', (event) => { clearTimeout(timer); reject(new Error(`CDP websocket error: ${event.message || event}`)) }, { once: true })
+  })
+
+  ws.addEventListener('message', (event) => {
+    let msg
+    try {
+      msg = JSON.parse(event.data)
+    } catch {
+      return
+    }
+    const waiter = pending.get(msg.id)
+    if (!waiter) return
+    pending.delete(msg.id)
+    if (msg.error) {
+      waiter.reject(new Error(`CDP error: ${JSON.stringify(msg.error)}`))
+      return
+    }
+    // Runtime.evaluate's own JS-level exceptions land in result.exceptionDetails
+    // rather than the CDP-protocol `error` field -- surface those too, so a
+    // typo'd expression fails loud instead of silently returning `undefined`.
+    if (msg.result?.exceptionDetails) {
+      waiter.reject(new Error(`Runtime.evaluate threw: ${JSON.stringify(msg.result.exceptionDetails)}`))
+      return
+    }
+    waiter.resolve(msg.result)
+  })
+
+  return {
+    ready: opened,
+    send(method, params = {}, { timeoutMs: callTimeoutMs = 15_000 } = {}) {
+      const id = nextId++
+      return new Promise((resolve, reject) => {
+        const timer = setTimeout(() => {
+          pending.delete(id)
+          reject(new Error(`CDP ${method} timed out after ${callTimeoutMs}ms`))
+        }, callTimeoutMs)
+        pending.set(id, {
+          resolve: (result) => { clearTimeout(timer); resolve(result) },
+          reject: (err) => { clearTimeout(timer); reject(err) },
+        })
+        ws.send(JSON.stringify({ id, method, params }))
+      })
+    },
+    close() {
+      try { ws.close() } catch { /* already closed */ }
+    },
+  }
+}
+
+/** Runtime.evaluate one synchronous expression and return its value
+ * (unwrapped from CDP's `{type, value}` result envelope). Never passes
+ * `awaitPromise` -- see the header comment above this section. */
+export async function cdpEvaluate(client, expression) {
+  const result = await client.send('Runtime.evaluate', { expression, returnByValue: true })
+  return result.result?.value
+}
+
+/** Poll (via repeated Runtime.evaluate calls) until a
+ * `[data-capture-id="<captureId>"][data-capture-ready="true"]` element
+ * exists in the page -- the same readiness contract the rest of this
+ * harness's screens already carry (see app/ui/app/src's data-capture-ready
+ * markers). Used after an in-page state change (theme reload, dialog open)
+ * that a fixed sleep alone cannot safely be timed against.
+ *
+ * Tolerates -- rather than throws on -- an evaluate that errors mid-poll:
+ * right after Page.reload() specifically, the page's JS execution context
+ * is briefly torn down and recreated, and a Runtime.evaluate landing in
+ * that gap fails with a transient "Cannot find context with specified id"
+ * (or similar) CDP error that has nothing to do with whether the marker
+ * will actually show up. Only a full timeout is a real failure here. */
+export async function cdpWaitForCaptureMarker(client, captureId, { timeoutMs = 15_000, intervalMs = 200 } = {}) {
+  const deadline = Date.now() + timeoutMs
+  const expr = `!!document.querySelector('[data-capture-id="${captureId}"][data-capture-ready="true"]')`
+  let lastErr
+  while (Date.now() < deadline) {
+    try {
+      const present = await cdpEvaluate(client, expr)
+      if (present === true) return
+    } catch (err) {
+      lastErr = err
+    }
+    sleepMs(intervalMs)
+  }
+  throw new Error(
+    `Timed out after ${timeoutMs}ms waiting for data-capture-id="${captureId}"[data-capture-ready="true"] to appear` +
+      (lastErr ? ` (last evaluate error: ${lastErr.message})` : ''),
+  )
+}
