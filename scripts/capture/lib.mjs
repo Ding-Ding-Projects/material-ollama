@@ -215,7 +215,6 @@ export function findChildPids(parentPid) {
   return rows.map((r) => ({ pid: r.ProcessId, name: r.Name }))
 }
 
-/** Kill `pid` and every live child of it (one level -- matches this app's own process tree shape). */
 /**
  * Kill `pid` and every child it has spawned, including one that has not
  * appeared yet: app/server/server.go starts the `ollama serve` backend
@@ -227,8 +226,17 @@ export function findChildPids(parentPid) {
  * a child to appear, kill whatever is found (before or after), then kill
  * the parent last so a child spawned in the gap is still attributable to
  * a still-listed ParentProcessId.
+ *
+ * Even this is not airtight against Windows process-creation not being
+ * atomic: a child whose CreateProcess call was in flight at the exact
+ * moment the parent got force-killed can still finish becoming a real
+ * orphaned process after this function returns -- observed once, live,
+ * across a real 9-screen run. sweepOrphanedChildren() below is the
+ * end-of-run second pass that catches that; a fully airtight fix would
+ * assign each launched process to a Windows Job Object with
+ * JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE, which is out of scope here.
  */
-export function killPidTree(pid, { cliPath, settleMs = 800, intervalMs = 200 } = {}) {
+export function killPidTree(pid, { cliPath, settleMs = 1_500, intervalMs = 200 } = {}) {
   const deadline = Date.now() + settleMs
   const seen = new Map()
   while (Date.now() < deadline) {
@@ -268,6 +276,11 @@ export function discoverListeningPort(pid, { timeoutMs = 15_000, intervalMs = 25
   throw new Error(`Timed out after ${timeoutMs}ms waiting for pid ${pid} to open a 127.0.0.1 listening port`)
 }
 
+/** Block for `ms` milliseconds. Shared by every poll loop below. */
+export function sleepMs(ms) {
+  spawnSync('powershell.exe', ['-NoProfile', '-Command', `Start-Sleep -Milliseconds ${ms}`], { timeout: ms + 5_000 })
+}
+
 /**
  * The app's tray icon setup (app/wintray/tray.go's initInstance) ends with
  * `return t.nid.add()`, which calls Shell_NotifyIconW(NIM_ADD). That shell
@@ -287,8 +300,7 @@ export function discoverListeningPort(pid, { timeoutMs = 15_000, intervalMs = 25
  * wintray.NewTray() succeeds. This is not a workaround bolted onto the
  * app: it is providing the same kind of shell environment the app already
  * expects to find on a real interactive desktop, on the off-screen one
- * instead. See docs/features/uh-completeness/captures/README.md for the
- * full writeup.
+ * instead.
  *
  * This explorer.exe instance lives ONLY on the named off-screen desktop
  * (CreateProcessW's STARTUPINFO.lpDesktop pins it there) and is tracked
@@ -296,9 +308,6 @@ export function discoverListeningPort(pid, { timeoutMs = 15_000, intervalMs = 25
  * shell on their interactive desktop, and killing it cannot affect their
  * taskbar, desktop icons, or open windows.
  */
-export function sleepMs(ms) {
-  spawnSync('powershell.exe', ['-NoProfile', '-Command', `Start-Sleep -Milliseconds ${ms}`], { timeout: ms + 5_000 })
-}
 
 // Extra settle time after Shell_TrayWnd first appears. The window itself
 // is one of explorer.exe's earliest creations, but its Shell_NotifyIconW
