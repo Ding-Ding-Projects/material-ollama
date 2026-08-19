@@ -2,7 +2,7 @@
 
 ## Behaviour
 
-TODO(capture-manifest): describe what this feature actually does, on every surface the shared contract lists, in plain factual prose.
+The capture harness that produces `docs/features/uh-completeness/captures/manifest.json` is a QA/evidence tool that drives the *built* application from the outside; it is not a surface the running app itself renders. `scripts/capture/drive.mjs`, `lib.mjs`, and `preflight.mjs` are the real implementation -- the same tooling that produced the nine real screenshots and the manifest this evidence pass cites as `builtArtifactProof`/`captureEvidence` for several other rows in this inventory.
 
 ## Configuration
 

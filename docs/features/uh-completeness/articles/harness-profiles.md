@@ -2,7 +2,9 @@
 
 ## Behaviour
 
-TODO(harness-profiles): describe what this feature actually does, on every surface the shared contract lists, in plain factual prose.
+The "Launch" screen (`app/ui/app/src/screens/LaunchScreen.tsx` + `LaunchIntegrationCard.tsx`) lists installed and not-installed coding-agent harnesses (Claude Code, ChatGPT, Hermes Agent, OpenClaw, and Codex) with a copyable launch command and an install hint when a harness's binary was not found on this machine -- exactly what the `launch.png` capture used elsewhere in this inventory shows. Selecting Codex opens the dedicated harness screen at `/codex` (`app/ui/app/src/components/CodexHarness.tsx`, 332 lines; captured in `codex.png`), which is the real allowlisted-orchestration implementation the canonical contract describes: `app/ui/codex.go`'s `validateCodexProfile` rejects any executable outside a resolved allowlist and any argument-shell-concatenation attempt (the screen's own "Arguments are passed as individual tokens. Shell concatenation and environment expansion are rejected." copy is literally true of the backend), profiles are named and saved through `saveProfile`, and every launch goes through a `preflight` step before a real process starts.
+
+Saved profiles persist to `codexHistoryPath()` (`%LOCALAPPDATA%\Ollama\codex-harness.json` on Windows) via `persistLocked`'s atomic temp-file-then-rename write. `LaunchIntegrationCard.tsx` is properly localized through the `launch` dictionary namespace (`t("launchAction")`, `t("installedBadge")`, etc.), but `CodexHarness.tsx` itself renders plain hardcoded English strings -- no `useT`/`Txt` import was found in that file -- so the harness-detail screen's own copy does not yet participate in language mode or funny-level styling. No dedicated test (Go or TypeScript) exercises the Codex harness code path yet.
 
 ## Configuration
 

@@ -2,7 +2,7 @@
 
 ## Behaviour
 
-TODO(issue-handoff): describe what this feature actually does, on every surface the shared contract lists, in plain factual prose.
+Filing a handoff comment on a GitHub issue is a repository-maintenance action taken by whoever is doing the work, not a feature the desktop app renders for its end users. `HANDOFF.md` at the repository root is the real, current artifact for this: it is kept accurate on every project-changing task and is where a next owner (human or agent) is meant to start.
 
 ## Configuration
 

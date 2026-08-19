@@ -2,39 +2,9 @@
 
 ## Behaviour
 
-The model store's server side is real and already routed independently of
-the general Ollama reverse proxy: `GET /api/v1/models/installed`,
-`GET /api/v1/models/running`, `POST /api/v1/models/pull`,
-`GET /api/v1/models/pull/queue`, `GET /api/v1/models/pull/events`,
-`POST /api/v1/models/pull/{id}/pause|resume|cancel`, and
-`POST /api/v1/models/delete` are all implemented in `app/ui/models.go` and
-registered in `app/ui/ui.go`'s `Handler()`. That file's own header comment
-records why these are deliberately their own route set rather than proxy
-allow-list additions: a proxied `DELETE /api/delete` would hand the
-renderer unmediated model deletion with no server-side confirmation gate; a
-pull has to outlive the HTTP request that started it, which a proxied
-stream cannot do once the tab navigates or reloads; and the pull queue's
-ordering, concurrency, and pause/resume/cancel state has to live on the
-server, not be reconstructed per browser tab. `app/ui/hardware.go` supplies
-the companion hardware snapshot endpoint (`GET /api/v1/hardware`) --
-system RAM, detected GPU(s), and VRAM, each reported through a `ByteValue`
-that carries an explicit confidence level (`measured`/`parsed`/`assumed`/
-`unknown`) rather than silently coercing an unknown quantity to zero, which
-is what the hardware-fit verdicts described in `hardware-fit.md` are built
-from.
+The Models screen (`app/ui/app/src/screens/ModelsScreen.tsx`, mounted at `/models`, the app's default route) is a real, built screen today -- not the `PlaceholderScreen` an earlier draft of this article described. It renders the live hardware-fit card (see `hardware-fit.md`), the installed/running model list with real digests, parameter counts, and fit badges (`ModelCard.tsx`), and a "Model store" catalog section (`CatalogSection.tsx`) that is a deliberately honest placeholder for the full canonical catalog browser: it states plainly that "there is no catalog service yet" (from the frontend's point of view) and offers the one thing that is actually true today -- typing an exact model reference (e.g. `llama3.3:70b`) and queuing a real pull for it via `POST /api/v1/models/pull`.
 
-On the frontend, `src/hooks/useModels.ts` already calls the installed-model
-endpoint through TanStack Query, merges it with featured/recommended
-models, filters cloud models when cloud is disabled, and supports a search
-query -- but `src/screens/ModelsScreen.tsx` (the screen actually mounted at
-the app's default route) is still the shared `PlaceholderScreen`, whose own
-comment says explicitly that "a real Model Store lane already has a
-backend... this screen only claims the route and the honest not-built-yet
-state; building the real UI is that lane's job." So today: hitting
-`/api/v1/models/installed` or `/api/v1/hardware` directly returns real,
-non-mocked data, and the query-layer plumbing to consume it exists, but no
-shipped screen renders the catalog, the batch-pull cart, the per-item
-progress, or the hardware-fit verdict a user would actually see.
+That "no catalog yet" framing describes the frontend only. `app/ui/catalog.go` (1268 lines) is a real, substantial backend model catalog: it tries the Docker-Distribution-v2 `_catalog`/`tags/list` routes first on every refresh, falls back to scraping `ollama.com/library`'s HTML when (as verified live) those routes are unimplemented, resolves each model's exact installed size via `GET /v2/<repo>/manifests/<tag>`, caches the result at `catalogStatePath()` (`%LOCALAPPDATA%\Ollama\model-catalog.json` on Windows), and is proven by `catalog_test.go`'s `TestRunCatalogRefresh_OneFailingTagPageYieldsPartialVerdict` to report an honest "partial" completeness verdict -- never a false "complete" -- when part of a refresh fails. Nothing in the frontend (`api.ts`, the model-store hooks) calls that backend's `/api/v1/models/catalog` route family yet, so the exhaustive catalog the canonical contract describes exists and is tested on the server, but is not reachable through the app's UI today; the quick-pull-by-exact-name flow is what a user actually sees.
 
 ## Configuration
 

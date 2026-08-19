@@ -2,7 +2,9 @@
 
 ## Behaviour
 
-TODO(funny-level-controls): describe what this feature actually does, on every surface the shared contract lists, in plain factual prose.
+`app/ui/app/src/uh/funny.ts`'s `funny()` is a small, pure text transform: given already-localized text and a `FunnyOptions` (language, a 0-4 level, and whether emoji are on), it appends the matching entry from a fixed `SUFFIX_EN`/`SUFFIX_YUE` table (levels 0 and 1 both add nothing; 2-4 add progressively more playful suffixes such as " Nice." through " Absolutely legendary!!"). `Txt.tsx`'s `copy` channel is the one place it actually runs, and it is structurally impossible to hand it a `fact()` value -- facts render as a sibling `<Txt channel="fact">` node instead -- so "voice, never facts" holds by construction rather than by convention.
+
+There is no settings UI anywhere in the codebase that lets a user set either language's funny level; `funnyEn`/`funnyYue` are read from the same unwritten `material-ollama:preferences` localStorage key `language-modes.md` describes, clamped to 0-4 by `clampFunnyLevel`, and default to 0 (fully serious) for every user today. The engine is real and exercised by every `channel="copy"` `<Txt>` call in the app; only the two sliders themselves are missing.
 
 ## Configuration
 

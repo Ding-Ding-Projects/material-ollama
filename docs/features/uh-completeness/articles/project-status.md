@@ -2,7 +2,7 @@
 
 ## Behaviour
 
-TODO(project-status): describe what this feature actually does, on every surface the shared contract lists, in plain factual prose.
+"Project status" in the canonical sense means registering this repository with the cross-project Status Hub described in the shared instructions -- a separate application that lives in the `agent-global-memory` repository, not in material-ollama. This app's own `/status` route (`StatusScreen.tsx`, captured in `status.png` elsewhere in this inventory) is a different, local concept -- "release facts, change history, and your local activity" -- and its own capture shows it is honestly labeled "Not built yet" today; it is not the Status Hub integration this row names, so there is no in-app surface for that Hub to occupy even once the local Status screen is built.
 
 ## Configuration
 

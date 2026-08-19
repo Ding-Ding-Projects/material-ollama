@@ -2,7 +2,7 @@
 
 ## Behaviour
 
-TODO(forge-publishing): describe what this feature actually does, on every surface the shared contract lists, in plain factual prose.
+Publishing a GitHub Release is a CI/release-process action that happens entirely outside the running desktop app -- a user never sees a "publish" button inside the app itself. `.github/workflows/release.yaml`'s `publish-release` job is the real implementation: it stages built assets, runs `gh release create` (or `gh release view` first, to avoid recreating an existing tag), `gh release upload` per asset, and a final `gh release edit` to record workflow timing once the release is live.
 
 ## Configuration
 
