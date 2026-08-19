@@ -313,6 +313,18 @@ func (s *Server) Handler() http.Handler {
 	mux.Handle("POST /api/v1/models/pull/{id}/cancel", handle(s.pullCancel))
 	mux.Handle("POST /api/v1/models/delete", handle(s.modelsDelete))
 
+	// Model catalog: the full pullable-model library, discovered from the
+	// registry's own API where it exists and from ollama.com's HTML pages
+	// where it doesn't (see app/ui/catalog.go's header comment for the
+	// exact, live-verified story). GET routes only ever serve the last
+	// completed refresh -- they never touch the network themselves -- so
+	// the offline behaviour required of this lane is automatic rather than
+	// a special case.
+	mux.Handle("GET /api/v1/models/catalog", handle(s.modelCatalogGet))
+	mux.Handle("GET /api/v1/models/catalog/status", handle(s.modelCatalogStatus))
+	mux.Handle("POST /api/v1/models/catalog/refresh", handle(s.modelCatalogRefresh))
+	mux.Handle("GET /api/v1/models/variant", handle(s.modelVariantGet))
+
 	mux.Handle("GET /api/v1/settings", handle(s.getSettings))
 	mux.Handle("POST /api/v1/settings", handle(s.settings))
 	mux.Handle("GET /api/v1/capabilities", handle(s.capabilities))
