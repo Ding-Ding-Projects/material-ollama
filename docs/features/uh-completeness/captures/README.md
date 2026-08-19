@@ -6,6 +6,20 @@ is a genuine `PrintWindow`-based capture of the real `dist/windows-ollama-app-am
 running on a named off-screen Windows desktop -- never a mockup, a source
 preview, or an asserted result.
 
+## Current coverage
+
+As of commit `6a7dedafee9bfc6a1b8d2eec8823a5607a735615`, `manifest.json` holds
+9 captures, one per navigation destination the current build's shell
+actually reaches: `/models`, `/c/new`, `/launch`, `/codex`, `/devtools`,
+`/toolbox`, `/docs`, `/status`, and `/settings`. All 9 are the light theme,
+all 9 are a single fixed 816x639 window, and none of them is a dialog,
+overlay, error state, or narrow/scaled layout. The rendered matrix with
+inline images, alt text, and the exact named gaps lives in the repository
+root [`README.md`](../../../../README.md#real-capture-matrix) -- this file
+stays the technical record of how the harness itself works and what the
+manifest fields mean; it is not the place that re-lists every gap, so the
+two do not drift out of step with each other.
+
 ## Running it
 
 ```
