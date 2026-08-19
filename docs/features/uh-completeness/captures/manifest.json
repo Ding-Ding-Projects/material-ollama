@@ -1,10 +1,10 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "2026-08-19T08:58:13.359Z",
+  "generatedAt": "2026-08-19T12:37:42.453Z",
   "generatedOn": "COMPUTER",
-  "commit": "507fcc4d2e6b49ca75e69885364458ba8151bcdf",
+  "commit": "040f34d322906dcb1ef9dab25d45454a520797c9",
   "dirty": false,
-  "uiSourceHash": "98ab604ab17eb11cee6c03695e5169bcc3ef43e02eec4b45ce9aa6fc4c3b5ea7",
+  "uiSourceHash": "8a07d701a2d7cac43dadfd284f213a9067eaf2785583236b710097ea0419cd0b",
   "targetWindow": {
     "class": "webview",
     "title": "Ollama"
@@ -18,33 +18,33 @@
       "id": "models",
       "screen": "models",
       "route": "/models",
-      "commit": "507fcc4d2e6b49ca75e69885364458ba8151bcdf",
+      "commit": "040f34d322906dcb1ef9dab25d45454a520797c9",
       "dirty": false,
-      "uiSourceHash": "98ab604ab17eb11cee6c03695e5169bcc3ef43e02eec4b45ce9aa6fc4c3b5ea7",
+      "uiSourceHash": "8a07d701a2d7cac43dadfd284f213a9067eaf2785583236b710097ea0419cd0b",
       "artifact": {
         "path": "dist/windows-ollama-app-amd64.exe",
-        "sha256": "91fabd7deb1beb35dea0c9b819c09cafa6e5da3e44facf884c1c9c139f514cf9",
-        "bytes": 55200256
+        "sha256": "ea46d1dab79f60aba9cd2a5533d340d9f52ac921ba78ddd49ac6a77b335b3744",
+        "bytes": 55185408
       },
       "captureMethod": "cheap-route screenshot(hwnd) -- Win32 PrintWindow, background capture on an off-screen desktop",
-      "resolvedUrl": "http://127.0.0.1:55118/models",
+      "resolvedUrl": "http://127.0.0.1:65301/models",
       "window": {
         "class": "webview",
         "title": "Ollama",
         "width": 816,
         "height": 639,
-        "handle": 9243578
+        "handle": 14026698
       },
       "image": {
         "path": "docs/features/uh-completeness/captures/images/models.png",
-        "sha256": "a1fc4bef38ed0d208a303932208826f742e6a2ddeb8f0378d4b2114b459beb7a",
-        "bytes": 70898,
+        "sha256": "591a4bfd2979ee9b0726104d09f7b6f03092a1f5ea9a3099d499e4ce8a68b312",
+        "bytes": 70946,
         "width": 816,
         "height": 639,
-        "distinctColors": 5905,
-        "stddevMax": 25.934
+        "distinctColors": 5898,
+        "stddevMax": 25.936
       },
-      "capturedAt": "2026-08-19T08:54:28.292Z",
+      "capturedAt": "2026-08-19T12:30:34.212Z",
       "capturedOn": "COMPUTER",
       "features": [
         "model-store",
@@ -57,22 +57,22 @@
       "id": "c-new",
       "screen": "c-new",
       "route": "/c/new",
-      "commit": "507fcc4d2e6b49ca75e69885364458ba8151bcdf",
+      "commit": "040f34d322906dcb1ef9dab25d45454a520797c9",
       "dirty": false,
-      "uiSourceHash": "98ab604ab17eb11cee6c03695e5169bcc3ef43e02eec4b45ce9aa6fc4c3b5ea7",
+      "uiSourceHash": "8a07d701a2d7cac43dadfd284f213a9067eaf2785583236b710097ea0419cd0b",
       "artifact": {
         "path": "dist/windows-ollama-app-amd64.exe",
-        "sha256": "91fabd7deb1beb35dea0c9b819c09cafa6e5da3e44facf884c1c9c139f514cf9",
-        "bytes": 55200256
+        "sha256": "ea46d1dab79f60aba9cd2a5533d340d9f52ac921ba78ddd49ac6a77b335b3744",
+        "bytes": 55185408
       },
       "captureMethod": "cheap-route screenshot(hwnd) -- Win32 PrintWindow, background capture on an off-screen desktop",
-      "resolvedUrl": "http://127.0.0.1:64235/c/new",
+      "resolvedUrl": "http://127.0.0.1:64970/c/new",
       "window": {
         "class": "webview",
         "title": "Ollama",
         "width": 816,
         "height": 639,
-        "handle": 9309114
+        "handle": 14420922
       },
       "image": {
         "path": "docs/features/uh-completeness/captures/images/c-new.png",
@@ -83,7 +83,7 @@
         "distinctColors": 2269,
         "stddevMax": 15.941
       },
-      "capturedAt": "2026-08-19T08:54:46.665Z",
+      "capturedAt": "2026-08-19T12:30:59.073Z",
       "capturedOn": "COMPUTER",
       "features": [
         "local-chat-sessions"
@@ -93,22 +93,22 @@
       "id": "launch",
       "screen": "launch",
       "route": "/launch",
-      "commit": "507fcc4d2e6b49ca75e69885364458ba8151bcdf",
+      "commit": "040f34d322906dcb1ef9dab25d45454a520797c9",
       "dirty": false,
-      "uiSourceHash": "98ab604ab17eb11cee6c03695e5169bcc3ef43e02eec4b45ce9aa6fc4c3b5ea7",
+      "uiSourceHash": "8a07d701a2d7cac43dadfd284f213a9067eaf2785583236b710097ea0419cd0b",
       "artifact": {
         "path": "dist/windows-ollama-app-amd64.exe",
-        "sha256": "91fabd7deb1beb35dea0c9b819c09cafa6e5da3e44facf884c1c9c139f514cf9",
-        "bytes": 55200256
+        "sha256": "ea46d1dab79f60aba9cd2a5533d340d9f52ac921ba78ddd49ac6a77b335b3744",
+        "bytes": 55185408
       },
       "captureMethod": "cheap-route screenshot(hwnd) -- Win32 PrintWindow, background capture on an off-screen desktop",
-      "resolvedUrl": "http://127.0.0.1:54235/launch",
+      "resolvedUrl": "http://127.0.0.1:63710/launch",
       "window": {
         "class": "webview",
         "title": "Ollama",
         "width": 816,
         "height": 639,
-        "handle": 38865144
+        "handle": 78119710
       },
       "image": {
         "path": "docs/features/uh-completeness/captures/images/launch.png",
@@ -119,7 +119,7 @@
         "distinctColors": 4389,
         "stddevMax": 42.73
       },
-      "capturedAt": "2026-08-19T08:55:05.316Z",
+      "capturedAt": "2026-08-19T12:31:19.589Z",
       "capturedOn": "COMPUTER",
       "features": [
         "harness-profiles"
@@ -129,22 +129,22 @@
       "id": "codex",
       "screen": "codex",
       "route": "/codex",
-      "commit": "507fcc4d2e6b49ca75e69885364458ba8151bcdf",
+      "commit": "040f34d322906dcb1ef9dab25d45454a520797c9",
       "dirty": false,
-      "uiSourceHash": "98ab604ab17eb11cee6c03695e5169bcc3ef43e02eec4b45ce9aa6fc4c3b5ea7",
+      "uiSourceHash": "8a07d701a2d7cac43dadfd284f213a9067eaf2785583236b710097ea0419cd0b",
       "artifact": {
         "path": "dist/windows-ollama-app-amd64.exe",
-        "sha256": "91fabd7deb1beb35dea0c9b819c09cafa6e5da3e44facf884c1c9c139f514cf9",
-        "bytes": 55200256
+        "sha256": "ea46d1dab79f60aba9cd2a5533d340d9f52ac921ba78ddd49ac6a77b335b3744",
+        "bytes": 55185408
       },
       "captureMethod": "cheap-route screenshot(hwnd) -- Win32 PrintWindow, background capture on an off-screen desktop",
-      "resolvedUrl": "http://127.0.0.1:55453/codex",
+      "resolvedUrl": "http://127.0.0.1:60046/codex",
       "window": {
         "class": "webview",
         "title": "Ollama",
         "width": 816,
         "height": 639,
-        "handle": 38930606
+        "handle": 20516492
       },
       "image": {
         "path": "docs/features/uh-completeness/captures/images/codex.png",
@@ -155,7 +155,7 @@
         "distinctColors": 4367,
         "stddevMax": 28.606
       },
-      "capturedAt": "2026-08-19T08:55:24.806Z",
+      "capturedAt": "2026-08-19T12:31:42.220Z",
       "capturedOn": "COMPUTER",
       "features": [
         "harness-profiles"
@@ -165,22 +165,22 @@
       "id": "devtools",
       "screen": "devtools",
       "route": "/devtools",
-      "commit": "507fcc4d2e6b49ca75e69885364458ba8151bcdf",
+      "commit": "040f34d322906dcb1ef9dab25d45454a520797c9",
       "dirty": false,
-      "uiSourceHash": "98ab604ab17eb11cee6c03695e5169bcc3ef43e02eec4b45ce9aa6fc4c3b5ea7",
+      "uiSourceHash": "8a07d701a2d7cac43dadfd284f213a9067eaf2785583236b710097ea0419cd0b",
       "artifact": {
         "path": "dist/windows-ollama-app-amd64.exe",
-        "sha256": "91fabd7deb1beb35dea0c9b819c09cafa6e5da3e44facf884c1c9c139f514cf9",
-        "bytes": 55200256
+        "sha256": "ea46d1dab79f60aba9cd2a5533d340d9f52ac921ba78ddd49ac6a77b335b3744",
+        "bytes": 55185408
       },
       "captureMethod": "cheap-route screenshot(hwnd) -- Win32 PrintWindow, background capture on an off-screen desktop",
-      "resolvedUrl": "http://127.0.0.1:60298/devtools",
+      "resolvedUrl": "http://127.0.0.1:56685/devtools",
       "window": {
         "class": "webview",
         "title": "Ollama",
         "width": 816,
         "height": 639,
-        "handle": 38996142
+        "handle": 20582028
       },
       "image": {
         "path": "docs/features/uh-completeness/captures/images/devtools.png",
@@ -191,7 +191,7 @@
         "distinctColors": 5093,
         "stddevMax": 26.689
       },
-      "capturedAt": "2026-08-19T08:55:47.642Z",
+      "capturedAt": "2026-08-19T12:32:05.816Z",
       "capturedOn": "COMPUTER",
       "features": []
     },
@@ -199,22 +199,22 @@
       "id": "toolbox",
       "screen": "toolbox",
       "route": "/toolbox",
-      "commit": "507fcc4d2e6b49ca75e69885364458ba8151bcdf",
+      "commit": "040f34d322906dcb1ef9dab25d45454a520797c9",
       "dirty": false,
-      "uiSourceHash": "98ab604ab17eb11cee6c03695e5169bcc3ef43e02eec4b45ce9aa6fc4c3b5ea7",
+      "uiSourceHash": "8a07d701a2d7cac43dadfd284f213a9067eaf2785583236b710097ea0419cd0b",
       "artifact": {
         "path": "dist/windows-ollama-app-amd64.exe",
-        "sha256": "91fabd7deb1beb35dea0c9b819c09cafa6e5da3e44facf884c1c9c139f514cf9",
-        "bytes": 55200256
+        "sha256": "ea46d1dab79f60aba9cd2a5533d340d9f52ac921ba78ddd49ac6a77b335b3744",
+        "bytes": 55185408
       },
       "captureMethod": "cheap-route screenshot(hwnd) -- Win32 PrintWindow, background capture on an off-screen desktop",
-      "resolvedUrl": "http://127.0.0.1:60541/toolbox",
+      "resolvedUrl": "http://127.0.0.1:57657/toolbox",
       "window": {
         "class": "webview",
         "title": "Ollama",
         "width": 816,
         "height": 639,
-        "handle": 57147948
+        "handle": 14683066
       },
       "image": {
         "path": "docs/features/uh-completeness/captures/images/toolbox.png",
@@ -225,7 +225,7 @@
         "distinctColors": 4653,
         "stddevMax": 24.007
       },
-      "capturedAt": "2026-08-19T08:56:04.957Z",
+      "capturedAt": "2026-08-19T12:32:24.423Z",
       "capturedOn": "COMPUTER",
       "features": [
         "regex-builder"
@@ -235,22 +235,22 @@
       "id": "docs",
       "screen": "docs",
       "route": "/docs",
-      "commit": "507fcc4d2e6b49ca75e69885364458ba8151bcdf",
+      "commit": "040f34d322906dcb1ef9dab25d45454a520797c9",
       "dirty": false,
-      "uiSourceHash": "98ab604ab17eb11cee6c03695e5169bcc3ef43e02eec4b45ce9aa6fc4c3b5ea7",
+      "uiSourceHash": "8a07d701a2d7cac43dadfd284f213a9067eaf2785583236b710097ea0419cd0b",
       "artifact": {
         "path": "dist/windows-ollama-app-amd64.exe",
-        "sha256": "91fabd7deb1beb35dea0c9b819c09cafa6e5da3e44facf884c1c9c139f514cf9",
-        "bytes": 55200256
+        "sha256": "ea46d1dab79f60aba9cd2a5533d340d9f52ac921ba78ddd49ac6a77b335b3744",
+        "bytes": 55185408
       },
       "captureMethod": "cheap-route screenshot(hwnd) -- Win32 PrintWindow, background capture on an off-screen desktop",
-      "resolvedUrl": "http://127.0.0.1:58897/docs",
+      "resolvedUrl": "http://127.0.0.1:62704/docs",
       "window": {
         "class": "webview",
         "title": "Ollama",
         "width": 816,
         "height": 639,
-        "handle": 25298690
+        "handle": 18942640
       },
       "image": {
         "path": "docs/features/uh-completeness/captures/images/docs.png",
@@ -261,7 +261,7 @@
         "distinctColors": 3052,
         "stddevMax": 20.429
       },
-      "capturedAt": "2026-08-19T08:56:22.054Z",
+      "capturedAt": "2026-08-19T12:32:45.655Z",
       "capturedOn": "COMPUTER",
       "features": [
         "offline-documentation-browser"
@@ -271,33 +271,33 @@
       "id": "status",
       "screen": "status",
       "route": "/status",
-      "commit": "507fcc4d2e6b49ca75e69885364458ba8151bcdf",
+      "commit": "040f34d322906dcb1ef9dab25d45454a520797c9",
       "dirty": false,
-      "uiSourceHash": "98ab604ab17eb11cee6c03695e5169bcc3ef43e02eec4b45ce9aa6fc4c3b5ea7",
+      "uiSourceHash": "8a07d701a2d7cac43dadfd284f213a9067eaf2785583236b710097ea0419cd0b",
       "artifact": {
         "path": "dist/windows-ollama-app-amd64.exe",
-        "sha256": "91fabd7deb1beb35dea0c9b819c09cafa6e5da3e44facf884c1c9c139f514cf9",
-        "bytes": 55200256
+        "sha256": "ea46d1dab79f60aba9cd2a5533d340d9f52ac921ba78ddd49ac6a77b335b3744",
+        "bytes": 55185408
       },
       "captureMethod": "cheap-route screenshot(hwnd) -- Win32 PrintWindow, background capture on an off-screen desktop",
-      "resolvedUrl": "http://127.0.0.1:63992/status",
+      "resolvedUrl": "http://127.0.0.1:61655/status",
       "window": {
         "class": "webview",
         "title": "Ollama",
         "width": 816,
         "height": 639,
-        "handle": 57279020
+        "handle": 52758874
       },
       "image": {
         "path": "docs/features/uh-completeness/captures/images/status.png",
-        "sha256": "1a5ed3a4840ed7d7e36d9cc26ac8faf20db4bda5082ee12ea5eb90a0fd361412",
-        "bytes": 81242,
+        "sha256": "f6a79731aaade400948f50ed6fa63fcfccfa2452892e44b574d52ea46c3ed3f1",
+        "bytes": 82716,
         "width": 816,
         "height": 639,
-        "distinctColors": 5453,
-        "stddevMax": 27.716
+        "distinctColors": 5580,
+        "stddevMax": 28.028
       },
-      "capturedAt": "2026-08-19T08:56:40.481Z",
+      "capturedAt": "2026-08-19T12:33:04.957Z",
       "capturedOn": "COMPUTER",
       "features": []
     },
@@ -305,76 +305,70 @@
       "id": "settings",
       "screen": "settings",
       "route": "/settings",
-      "commit": "507fcc4d2e6b49ca75e69885364458ba8151bcdf",
+      "commit": "040f34d322906dcb1ef9dab25d45454a520797c9",
       "dirty": false,
-      "uiSourceHash": "98ab604ab17eb11cee6c03695e5169bcc3ef43e02eec4b45ce9aa6fc4c3b5ea7",
+      "uiSourceHash": "8a07d701a2d7cac43dadfd284f213a9067eaf2785583236b710097ea0419cd0b",
       "artifact": {
         "path": "dist/windows-ollama-app-amd64.exe",
-        "sha256": "91fabd7deb1beb35dea0c9b819c09cafa6e5da3e44facf884c1c9c139f514cf9",
-        "bytes": 55200256
+        "sha256": "ea46d1dab79f60aba9cd2a5533d340d9f52ac921ba78ddd49ac6a77b335b3744",
+        "bytes": 55185408
       },
       "captureMethod": "cheap-route screenshot(hwnd) -- Win32 PrintWindow, background capture on an off-screen desktop",
-      "resolvedUrl": "http://127.0.0.1:54089/settings",
+      "resolvedUrl": "http://127.0.0.1:49577/settings",
       "window": {
         "class": "webview",
         "title": "Ollama",
         "width": 816,
         "height": 639,
-        "handle": 16122552
+        "handle": 31916454
       },
       "image": {
         "path": "docs/features/uh-completeness/captures/images/settings.png",
-        "sha256": "c4db4ee171be0cdac6d3b7d573d8380655a623060bca54e4e57665e61bdf212a",
-        "bytes": 7671,
+        "sha256": "413b1c1ca4c021b3c3482c9f50d1d0bd41e251ba68a6236123fe21b83648b402",
+        "bytes": 60839,
         "width": 816,
         "height": 639,
-        "distinctColors": 465,
-        "stddevMax": 11.255
+        "distinctColors": 4965,
+        "stddevMax": 24.606
       },
-      "capturedAt": "2026-08-19T08:56:59.269Z",
+      "capturedAt": "2026-08-19T12:33:24.354Z",
       "capturedOn": "COMPUTER",
-      "features": [],
-      "knownIssue": {
-        "summary": "The /settings route throws a real, reproducible runtime error and renders the TanStack Router default CatchBoundary (\"Something went wrong! Show Error\") instead of the Settings screen. The revealed error is: Cannot read properties of null (reading 'length').",
-        "reproducedVia": [
-          "cold direct launch with -route /settings (4/4 attempts)",
-          "live client-side navigation: clicking the Settings tab from an already-loaded /models screen (1/1 attempt)"
-        ],
-        "evidence": "This image is genuine and unmodified -- a real capture of the real crash, not a harness failure (the harness ran to completion and the blankness validator correctly passed it, since a crash screen is not blank). features[] is deliberately left empty: this capture shows none of the Settings screen real content, so it evidences nothing about app-display-name or any other Settings feature. This is a real regression introduced somewhere in the seven feature lanes merged at or before this capture run commit and needs a source-level fix outside this recapture lane scope (docs/features/uh-completeness/captures/** and scripts/capture/** only)."
-      }
+      "features": [
+        "app-display-name"
+      ]
     },
     {
       "id": "models-dark",
       "screen": "models-dark",
       "route": "/models",
       "theme": "dark",
-      "commit": "507fcc4d2e6b49ca75e69885364458ba8151bcdf",
+      "commit": "040f34d322906dcb1ef9dab25d45454a520797c9",
       "dirty": false,
-      "uiSourceHash": "98ab604ab17eb11cee6c03695e5169bcc3ef43e02eec4b45ce9aa6fc4c3b5ea7",
+      "uiSourceHash": "8a07d701a2d7cac43dadfd284f213a9067eaf2785583236b710097ea0419cd0b",
       "artifact": {
         "path": "dist/windows-ollama-app-amd64.exe",
-        "sha256": "91fabd7deb1beb35dea0c9b819c09cafa6e5da3e44facf884c1c9c139f514cf9",
-        "bytes": 55200256
+        "sha256": "ea46d1dab79f60aba9cd2a5533d340d9f52ac921ba78ddd49ac6a77b335b3744",
+        "bytes": 55185408
       },
       "captureMethod": "cheap-route screenshot(hwnd) -- Win32 PrintWindow, background capture on an off-screen desktop; theme flipped to dark beforehand via CDP Runtime.evaluate (localStorage[\"mo-appearance\"]) + Page.reload",
-      "resolvedUrl": "http://127.0.0.1:52220/models",
+      "resolvedUrl": "http://127.0.0.1:64555/models",
       "window": {
         "class": "webview",
         "title": "Ollama",
         "width": 816,
         "height": 639,
-        "handle": 16188088
+        "handle": 31981990
       },
       "image": {
         "path": "docs/features/uh-completeness/captures/images/models-dark.png",
-        "sha256": "886ee7cc727bf466abbcee6bf2b14961b433ecb8605b642507af57a8d2fc8321",
-        "bytes": 71643,
+        "sha256": "c61e72989d3625ea8fb9c4150c372b8a2fc8be0355ff0f7e816f9679d872f742",
+        "bytes": 71650,
         "width": 816,
         "height": 639,
-        "distinctColors": 5482,
-        "stddevMax": 69.336
+        "distinctColors": 5497,
+        "stddevMax": 69.345
       },
-      "capturedAt": "2026-08-19T08:57:18.181Z",
+      "capturedAt": "2026-08-19T12:33:46.311Z",
       "capturedOn": "COMPUTER",
       "features": [
         "model-store",
@@ -388,33 +382,33 @@
       "screen": "command-palette",
       "route": "/models",
       "dialog": "command-palette",
-      "commit": "507fcc4d2e6b49ca75e69885364458ba8151bcdf",
+      "commit": "040f34d322906dcb1ef9dab25d45454a520797c9",
       "dirty": false,
-      "uiSourceHash": "98ab604ab17eb11cee6c03695e5169bcc3ef43e02eec4b45ce9aa6fc4c3b5ea7",
+      "uiSourceHash": "8a07d701a2d7cac43dadfd284f213a9067eaf2785583236b710097ea0419cd0b",
       "artifact": {
         "path": "dist/windows-ollama-app-amd64.exe",
-        "sha256": "91fabd7deb1beb35dea0c9b819c09cafa6e5da3e44facf884c1c9c139f514cf9",
-        "bytes": 55200256
+        "sha256": "ea46d1dab79f60aba9cd2a5533d340d9f52ac921ba78ddd49ac6a77b335b3744",
+        "bytes": 55185408
       },
       "captureMethod": "cheap-route screenshot(hwnd) -- Win32 PrintWindow, background capture on an off-screen desktop; command palette opened beforehand via a synthetic Ctrl+Shift+F KeyboardEvent dispatched over CDP",
-      "resolvedUrl": "http://127.0.0.1:64225/models",
+      "resolvedUrl": "http://127.0.0.1:64011/models",
       "window": {
         "class": "webview",
         "title": "Ollama",
         "width": 816,
         "height": 639,
-        "handle": 25560834
+        "handle": 52955482
       },
       "image": {
         "path": "docs/features/uh-completeness/captures/images/command-palette.png",
-        "sha256": "ebed111b10d2104b298ec5bbe0d71345cf3ef8215b77c18eb91b6ff75358dfb7",
-        "bytes": 47052,
+        "sha256": "adf7a4b353f4fa30d79a43d9b145ff76a352c19e2a575a1c867acf1b0d0ff7b8",
+        "bytes": 47022,
         "width": 816,
         "height": 639,
-        "distinctColors": 4106,
+        "distinctColors": 4101,
         "stddevMax": 31.978
       },
-      "capturedAt": "2026-08-19T08:57:36.183Z",
+      "capturedAt": "2026-08-19T12:34:04.997Z",
       "capturedOn": "COMPUTER",
       "features": [
         "command-palette"
@@ -428,22 +422,22 @@
         "width": 375,
         "height": 812
       },
-      "commit": "507fcc4d2e6b49ca75e69885364458ba8151bcdf",
+      "commit": "040f34d322906dcb1ef9dab25d45454a520797c9",
       "dirty": false,
-      "uiSourceHash": "98ab604ab17eb11cee6c03695e5169bcc3ef43e02eec4b45ce9aa6fc4c3b5ea7",
+      "uiSourceHash": "8a07d701a2d7cac43dadfd284f213a9067eaf2785583236b710097ea0419cd0b",
       "artifact": {
         "path": "dist/windows-ollama-app-amd64.exe",
-        "sha256": "91fabd7deb1beb35dea0c9b819c09cafa6e5da3e44facf884c1c9c139f514cf9",
-        "bytes": 55200256
+        "sha256": "ea46d1dab79f60aba9cd2a5533d340d9f52ac921ba78ddd49ac6a77b335b3744",
+        "bytes": 55185408
       },
       "captureMethod": "CDP Page.captureScreenshot with Emulation.setDeviceMetricsOverride(375x812) -- the desktop window has a hard 800x600 minimum (app/cmd/app/webview.go webview.HintMin), so the real OS window cannot itself be resized this narrow; this is the real built app rendering its real DOM/CSS at an emulated viewport, not a PrintWindow capture of the actual (816x639) window frame",
-      "resolvedUrl": "http://127.0.0.1:57406/launch",
+      "resolvedUrl": "http://127.0.0.1:54190/launch",
       "window": {
         "class": "webview",
         "title": "Ollama",
         "width": 816,
         "height": 639,
-        "handle": 16319160
+        "handle": 23725844
       },
       "image": {
         "path": "docs/features/uh-completeness/captures/images/launch-narrow.png",
@@ -454,10 +448,2051 @@
         "distinctColors": 2207,
         "stddevMax": 28.954
       },
-      "capturedAt": "2026-08-19T08:57:54.010Z",
+      "capturedAt": "2026-08-19T12:34:24.772Z",
       "capturedOn": "COMPUTER",
       "features": []
     }
   ],
-  "errors": []
+  "errors": [],
+  "networkAudit": {
+    "method": "Real built-artifact CDP audit: for each of the 9 base screens, launch dist/windows-ollama-app-amd64.exe fresh with an isolated profile, connect CDP, enable the Network domain, then Page.reload() the same route to force one complete request cycle strictly after recording started (Network.requestWillBeSent only fires for requests issued after Network.enable takes effect, and the app has already begun navigating by the time a CDP connection can be established). Every captured Network.requestWillBeSent URL is classified as loopback (127.0.0.0/8, localhost, ::1) or external -- never trusted from anything the app claims about itself.",
+    "commit": "040f34d322906dcb1ef9dab25d45454a520797c9",
+    "dirty": false,
+    "uiSourceHash": "8a07d701a2d7cac43dadfd284f213a9067eaf2785583236b710097ea0419cd0b",
+    "auditedAt": "2026-08-19T12:37:27.154Z",
+    "screensAudited": [
+      "models",
+      "c-new",
+      "launch",
+      "codex",
+      "devtools",
+      "toolbox",
+      "docs",
+      "status",
+      "settings"
+    ],
+    "screenCount": 9,
+    "perScreen": [
+      {
+        "id": "models",
+        "route": "/models",
+        "requestCount": 38,
+        "offenderCount": 0
+      },
+      {
+        "id": "c-new",
+        "route": "/c/new",
+        "requestCount": 37,
+        "offenderCount": 0
+      },
+      {
+        "id": "launch",
+        "route": "/launch",
+        "requestCount": 32,
+        "offenderCount": 0
+      },
+      {
+        "id": "codex",
+        "route": "/codex",
+        "requestCount": 34,
+        "offenderCount": 0
+      },
+      {
+        "id": "devtools",
+        "route": "/devtools",
+        "requestCount": 1,
+        "offenderCount": 0
+      },
+      {
+        "id": "toolbox",
+        "route": "/toolbox",
+        "requestCount": 1,
+        "offenderCount": 0
+      },
+      {
+        "id": "docs",
+        "route": "/docs",
+        "requestCount": 1,
+        "offenderCount": 0
+      },
+      {
+        "id": "status",
+        "route": "/status",
+        "requestCount": 1,
+        "offenderCount": 0
+      },
+      {
+        "id": "settings",
+        "route": "/settings",
+        "requestCount": 37,
+        "offenderCount": 0
+      }
+    ],
+    "totalRequests": 182,
+    "uniqueRequestCount": 178,
+    "uniqueRequests": [
+      {
+        "url": "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTYiIGhlaWdodD0iMTYiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PHBhdGggZD0iTTggMGE4IDggMCAxMTAgMTZBOCA4IDAgMDE4IDB6bTAgMWE3IDcgMCAxMDAgMTRBNyA3IDAgMDA4IDF6bS0uNSAyYS41LjUgMCAwMS41LjQxVjhoMi41YS41LjUgMCAwMS4wOSAxSDcuNWEuNS41IDAgMDEtLjUtLjQxVjMuNWMwLS4yOC4yMi0uNS41LS41eiIgZmlsbD0iV2luZG93VGV4dCIvPjwvc3ZnPg==",
+        "scheme": "data",
+        "hostname": null,
+        "classification": "non-network-scheme",
+        "loopback": true,
+        "screens": [
+          "settings"
+        ],
+        "count": 1
+      },
+      {
+        "url": "http://127.0.0.1:49239/devtools",
+        "scheme": "http",
+        "hostname": "127.0.0.1",
+        "classification": "loopback",
+        "loopback": true,
+        "screens": [
+          "devtools"
+        ],
+        "count": 1
+      },
+      {
+        "url": "http://127.0.0.1:49860/api/me",
+        "scheme": "http",
+        "hostname": "127.0.0.1",
+        "classification": "loopback",
+        "loopback": true,
+        "screens": [
+          "models"
+        ],
+        "count": 1
+      },
+      {
+        "url": "http://127.0.0.1:49860/api/v1/cloud",
+        "scheme": "http",
+        "hostname": "127.0.0.1",
+        "classification": "loopback",
+        "loopback": true,
+        "screens": [
+          "models"
+        ],
+        "count": 1
+      },
+      {
+        "url": "http://127.0.0.1:49860/api/v1/hardware",
+        "scheme": "http",
+        "hostname": "127.0.0.1",
+        "classification": "loopback",
+        "loopback": true,
+        "screens": [
+          "models"
+        ],
+        "count": 1
+      },
+      {
+        "url": "http://127.0.0.1:49860/api/v1/models/installed",
+        "scheme": "http",
+        "hostname": "127.0.0.1",
+        "classification": "loopback",
+        "loopback": true,
+        "screens": [
+          "models"
+        ],
+        "count": 1
+      },
+      {
+        "url": "http://127.0.0.1:49860/api/v1/models/pull/events",
+        "scheme": "http",
+        "hostname": "127.0.0.1",
+        "classification": "loopback",
+        "loopback": true,
+        "screens": [
+          "models"
+        ],
+        "count": 1
+      },
+      {
+        "url": "http://127.0.0.1:49860/api/v1/models/pull/queue",
+        "scheme": "http",
+        "hostname": "127.0.0.1",
+        "classification": "loopback",
+        "loopback": true,
+        "screens": [
+          "models"
+        ],
+        "count": 1
+      },
+      {
+        "url": "http://127.0.0.1:49860/api/v1/models/running",
+        "scheme": "http",
+        "hostname": "127.0.0.1",
+        "classification": "loopback",
+        "loopback": true,
+        "screens": [
+          "models"
+        ],
+        "count": 1
+      },
+      {
+        "url": "http://127.0.0.1:49860/api/v1/settings",
+        "scheme": "http",
+        "hostname": "127.0.0.1",
+        "classification": "loopback",
+        "loopback": true,
+        "screens": [
+          "models"
+        ],
+        "count": 1
+      },
+      {
+        "url": "http://127.0.0.1:49860/assets/c-BIGW1oBm.js",
+        "scheme": "http",
+        "hostname": "127.0.0.1",
+        "classification": "loopback",
+        "loopback": true,
+        "screens": [
+          "models"
+        ],
+        "count": 1
+      },
+      {
+        "url": "http://127.0.0.1:49860/assets/cpp-CofmeUqb.js",
+        "scheme": "http",
+        "hostname": "127.0.0.1",
+        "classification": "loopback",
+        "loopback": true,
+        "screens": [
+          "models"
+        ],
+        "count": 1
+      },
+      {
+        "url": "http://127.0.0.1:49860/assets/css-DPfMkruS.js",
+        "scheme": "http",
+        "hostname": "127.0.0.1",
+        "classification": "loopback",
+        "loopback": true,
+        "screens": [
+          "models"
+        ],
+        "count": 1
+      },
+      {
+        "url": "http://127.0.0.1:49860/assets/glsl-DplSGwfg.js",
+        "scheme": "http",
+        "hostname": "127.0.0.1",
+        "classification": "loopback",
+        "loopback": true,
+        "screens": [
+          "models"
+        ],
+        "count": 1
+      },
+      {
+        "url": "http://127.0.0.1:49860/assets/go-Dn2_MT6a.js",
+        "scheme": "http",
+        "hostname": "127.0.0.1",
+        "classification": "loopback",
+        "loopback": true,
+        "screens": [
+          "models"
+        ],
+        "count": 1
+      },
+      {
+        "url": "http://127.0.0.1:49860/assets/html-GMplVEZG.js",
+        "scheme": "http",
+        "hostname": "127.0.0.1",
+        "classification": "loopback",
+        "loopback": true,
+        "screens": [
+          "models"
+        ],
+        "count": 1
+      },
+      {
+        "url": "http://127.0.0.1:49860/assets/icons-DFkf_IXB.svg",
+        "scheme": "http",
+        "hostname": "127.0.0.1",
+        "classification": "loopback",
+        "loopback": true,
+        "screens": [
+          "models"
+        ],
+        "count": 2
+      },
+      {
+        "url": "http://127.0.0.1:49860/assets/index-DlRRmRWU.css",
+        "scheme": "http",
+        "hostname": "127.0.0.1",
+        "classification": "loopback",
+        "loopback": true,
+        "screens": [
+          "models"
+        ],
+        "count": 1
+      },
+      {
+        "url": "http://127.0.0.1:49860/assets/index-YVIcQ5o8.js",
+        "scheme": "http",
+        "hostname": "127.0.0.1",
+        "classification": "loopback",
+        "loopback": true,
+        "screens": [
+          "models"
+        ],
+        "count": 1
+      },
+      {
+        "url": "http://127.0.0.1:49860/assets/java-CylS5w8V.js",
+        "scheme": "http",
+        "hostname": "127.0.0.1",
+        "classification": "loopback",
+        "loopback": true,
+        "screens": [
+          "models"
+        ],
+        "count": 1
+      },
+      {
+        "url": "http://127.0.0.1:49860/assets/javascript-wDzz0qaB.js",
+        "scheme": "http",
+        "hostname": "127.0.0.1",
+        "classification": "loopback",
+        "loopback": true,
+        "screens": [
+          "models"
+        ],
+        "count": 1
+      },
+      {
+        "url": "http://127.0.0.1:49860/assets/json-Cp-IABpG.js",
+        "scheme": "http",
+        "hostname": "127.0.0.1",
+        "classification": "loopback",
+        "loopback": true,
+        "screens": [
+          "models"
+        ],
+        "count": 1
+      },
+      {
+        "url": "http://127.0.0.1:49860/assets/jsx-g9-lgVsj.js",
+        "scheme": "http",
+        "hostname": "127.0.0.1",
+        "classification": "loopback",
+        "loopback": true,
+        "screens": [
+          "models"
+        ],
+        "count": 1
+      },
+      {
+        "url": "http://127.0.0.1:49860/assets/markdown-Cvjx9yec.js",
+        "scheme": "http",
+        "hostname": "127.0.0.1",
+        "classification": "loopback",
+        "loopback": true,
+        "screens": [
+          "models"
+        ],
+        "count": 1
+      },
+      {
+        "url": "http://127.0.0.1:49860/assets/python-B6aJPvgy.js",
+        "scheme": "http",
+        "hostname": "127.0.0.1",
+        "classification": "loopback",
+        "loopback": true,
+        "screens": [
+          "models"
+        ],
+        "count": 1
+      },
+      {
+        "url": "http://127.0.0.1:49860/assets/regexp-CDVJQ6XC.js",
+        "scheme": "http",
+        "hostname": "127.0.0.1",
+        "classification": "loopback",
+        "loopback": true,
+        "screens": [
+          "models"
+        ],
+        "count": 1
+      },
+      {
+        "url": "http://127.0.0.1:49860/assets/roboto-flex-latin-standard-DjIUbrK2.woff2",
+        "scheme": "http",
+        "hostname": "127.0.0.1",
+        "classification": "loopback",
+        "loopback": true,
+        "screens": [
+          "models"
+        ],
+        "count": 1
+      },
+      {
+        "url": "http://127.0.0.1:49860/assets/roboto-mono-latin-400-GekRknry.woff2",
+        "scheme": "http",
+        "hostname": "127.0.0.1",
+        "classification": "loopback",
+        "loopback": true,
+        "screens": [
+          "models"
+        ],
+        "count": 1
+      },
+      {
+        "url": "http://127.0.0.1:49860/assets/roboto-mono-latin-500-pxIOXZmA.woff2",
+        "scheme": "http",
+        "hostname": "127.0.0.1",
+        "classification": "loopback",
+        "loopback": true,
+        "screens": [
+          "models"
+        ],
+        "count": 1
+      },
+      {
+        "url": "http://127.0.0.1:49860/assets/rust-B1yitclQ.js",
+        "scheme": "http",
+        "hostname": "127.0.0.1",
+        "classification": "loopback",
+        "loopback": true,
+        "screens": [
+          "models"
+        ],
+        "count": 1
+      },
+      {
+        "url": "http://127.0.0.1:49860/assets/shellscript-Yzrsuije.js",
+        "scheme": "http",
+        "hostname": "127.0.0.1",
+        "classification": "loopback",
+        "loopback": true,
+        "screens": [
+          "models"
+        ],
+        "count": 1
+      },
+      {
+        "url": "http://127.0.0.1:49860/assets/sql-BLtJtn59.js",
+        "scheme": "http",
+        "hostname": "127.0.0.1",
+        "classification": "loopback",
+        "loopback": true,
+        "screens": [
+          "models"
+        ],
+        "count": 1
+      },
+      {
+        "url": "http://127.0.0.1:49860/assets/swift-Dg5xB15N.js",
+        "scheme": "http",
+        "hostname": "127.0.0.1",
+        "classification": "loopback",
+        "loopback": true,
+        "screens": [
+          "models"
+        ],
+        "count": 1
+      },
+      {
+        "url": "http://127.0.0.1:49860/assets/tsx-COt5Ahok.js",
+        "scheme": "http",
+        "hostname": "127.0.0.1",
+        "classification": "loopback",
+        "loopback": true,
+        "screens": [
+          "models"
+        ],
+        "count": 1
+      },
+      {
+        "url": "http://127.0.0.1:49860/assets/typescript-BPQ3VLAy.js",
+        "scheme": "http",
+        "hostname": "127.0.0.1",
+        "classification": "loopback",
+        "loopback": true,
+        "screens": [
+          "models"
+        ],
+        "count": 1
+      },
+      {
+        "url": "http://127.0.0.1:49860/assets/wasm-CG6Dc4jp.js",
+        "scheme": "http",
+        "hostname": "127.0.0.1",
+        "classification": "loopback",
+        "loopback": true,
+        "screens": [
+          "models"
+        ],
+        "count": 1
+      },
+      {
+        "url": "http://127.0.0.1:49860/assets/yaml-Buea-lGh.js",
+        "scheme": "http",
+        "hostname": "127.0.0.1",
+        "classification": "loopback",
+        "loopback": true,
+        "screens": [
+          "models"
+        ],
+        "count": 1
+      },
+      {
+        "url": "http://127.0.0.1:49860/models",
+        "scheme": "http",
+        "hostname": "127.0.0.1",
+        "classification": "loopback",
+        "loopback": true,
+        "screens": [
+          "models"
+        ],
+        "count": 1
+      },
+      {
+        "url": "http://127.0.0.1:49860/vite.svg",
+        "scheme": "http",
+        "hostname": "127.0.0.1",
+        "classification": "loopback",
+        "loopback": true,
+        "screens": [
+          "models"
+        ],
+        "count": 1
+      },
+      {
+        "url": "http://127.0.0.1:52022/api/me",
+        "scheme": "http",
+        "hostname": "127.0.0.1",
+        "classification": "loopback",
+        "loopback": true,
+        "screens": [
+          "settings"
+        ],
+        "count": 1
+      },
+      {
+        "url": "http://127.0.0.1:52022/api/v1/cloud",
+        "scheme": "http",
+        "hostname": "127.0.0.1",
+        "classification": "loopback",
+        "loopback": true,
+        "screens": [
+          "settings"
+        ],
+        "count": 1
+      },
+      {
+        "url": "http://127.0.0.1:52022/api/v1/inference-compute",
+        "scheme": "http",
+        "hostname": "127.0.0.1",
+        "classification": "loopback",
+        "loopback": true,
+        "screens": [
+          "settings"
+        ],
+        "count": 1
+      },
+      {
+        "url": "http://127.0.0.1:52022/api/v1/settings",
+        "scheme": "http",
+        "hostname": "127.0.0.1",
+        "classification": "loopback",
+        "loopback": true,
+        "screens": [
+          "settings"
+        ],
+        "count": 1
+      },
+      {
+        "url": "http://127.0.0.1:52022/api/v1/uh/preferences",
+        "scheme": "http",
+        "hostname": "127.0.0.1",
+        "classification": "loopback",
+        "loopback": true,
+        "screens": [
+          "settings"
+        ],
+        "count": 1
+      },
+      {
+        "url": "http://127.0.0.1:52022/assets/c-BIGW1oBm.js",
+        "scheme": "http",
+        "hostname": "127.0.0.1",
+        "classification": "loopback",
+        "loopback": true,
+        "screens": [
+          "settings"
+        ],
+        "count": 1
+      },
+      {
+        "url": "http://127.0.0.1:52022/assets/cpp-CofmeUqb.js",
+        "scheme": "http",
+        "hostname": "127.0.0.1",
+        "classification": "loopback",
+        "loopback": true,
+        "screens": [
+          "settings"
+        ],
+        "count": 1
+      },
+      {
+        "url": "http://127.0.0.1:52022/assets/css-DPfMkruS.js",
+        "scheme": "http",
+        "hostname": "127.0.0.1",
+        "classification": "loopback",
+        "loopback": true,
+        "screens": [
+          "settings"
+        ],
+        "count": 1
+      },
+      {
+        "url": "http://127.0.0.1:52022/assets/glsl-DplSGwfg.js",
+        "scheme": "http",
+        "hostname": "127.0.0.1",
+        "classification": "loopback",
+        "loopback": true,
+        "screens": [
+          "settings"
+        ],
+        "count": 1
+      },
+      {
+        "url": "http://127.0.0.1:52022/assets/go-Dn2_MT6a.js",
+        "scheme": "http",
+        "hostname": "127.0.0.1",
+        "classification": "loopback",
+        "loopback": true,
+        "screens": [
+          "settings"
+        ],
+        "count": 1
+      },
+      {
+        "url": "http://127.0.0.1:52022/assets/html-GMplVEZG.js",
+        "scheme": "http",
+        "hostname": "127.0.0.1",
+        "classification": "loopback",
+        "loopback": true,
+        "screens": [
+          "settings"
+        ],
+        "count": 1
+      },
+      {
+        "url": "http://127.0.0.1:52022/assets/icons-DFkf_IXB.svg",
+        "scheme": "http",
+        "hostname": "127.0.0.1",
+        "classification": "loopback",
+        "loopback": true,
+        "screens": [
+          "settings"
+        ],
+        "count": 3
+      },
+      {
+        "url": "http://127.0.0.1:52022/assets/index-DlRRmRWU.css",
+        "scheme": "http",
+        "hostname": "127.0.0.1",
+        "classification": "loopback",
+        "loopback": true,
+        "screens": [
+          "settings"
+        ],
+        "count": 1
+      },
+      {
+        "url": "http://127.0.0.1:52022/assets/index-YVIcQ5o8.js",
+        "scheme": "http",
+        "hostname": "127.0.0.1",
+        "classification": "loopback",
+        "loopback": true,
+        "screens": [
+          "settings"
+        ],
+        "count": 1
+      },
+      {
+        "url": "http://127.0.0.1:52022/assets/java-CylS5w8V.js",
+        "scheme": "http",
+        "hostname": "127.0.0.1",
+        "classification": "loopback",
+        "loopback": true,
+        "screens": [
+          "settings"
+        ],
+        "count": 1
+      },
+      {
+        "url": "http://127.0.0.1:52022/assets/javascript-wDzz0qaB.js",
+        "scheme": "http",
+        "hostname": "127.0.0.1",
+        "classification": "loopback",
+        "loopback": true,
+        "screens": [
+          "settings"
+        ],
+        "count": 1
+      },
+      {
+        "url": "http://127.0.0.1:52022/assets/json-Cp-IABpG.js",
+        "scheme": "http",
+        "hostname": "127.0.0.1",
+        "classification": "loopback",
+        "loopback": true,
+        "screens": [
+          "settings"
+        ],
+        "count": 1
+      },
+      {
+        "url": "http://127.0.0.1:52022/assets/jsx-g9-lgVsj.js",
+        "scheme": "http",
+        "hostname": "127.0.0.1",
+        "classification": "loopback",
+        "loopback": true,
+        "screens": [
+          "settings"
+        ],
+        "count": 1
+      },
+      {
+        "url": "http://127.0.0.1:52022/assets/markdown-Cvjx9yec.js",
+        "scheme": "http",
+        "hostname": "127.0.0.1",
+        "classification": "loopback",
+        "loopback": true,
+        "screens": [
+          "settings"
+        ],
+        "count": 1
+      },
+      {
+        "url": "http://127.0.0.1:52022/assets/python-B6aJPvgy.js",
+        "scheme": "http",
+        "hostname": "127.0.0.1",
+        "classification": "loopback",
+        "loopback": true,
+        "screens": [
+          "settings"
+        ],
+        "count": 1
+      },
+      {
+        "url": "http://127.0.0.1:52022/assets/regexp-CDVJQ6XC.js",
+        "scheme": "http",
+        "hostname": "127.0.0.1",
+        "classification": "loopback",
+        "loopback": true,
+        "screens": [
+          "settings"
+        ],
+        "count": 1
+      },
+      {
+        "url": "http://127.0.0.1:52022/assets/roboto-flex-latin-standard-DjIUbrK2.woff2",
+        "scheme": "http",
+        "hostname": "127.0.0.1",
+        "classification": "loopback",
+        "loopback": true,
+        "screens": [
+          "settings"
+        ],
+        "count": 1
+      },
+      {
+        "url": "http://127.0.0.1:52022/assets/roboto-mono-latin-400-GekRknry.woff2",
+        "scheme": "http",
+        "hostname": "127.0.0.1",
+        "classification": "loopback",
+        "loopback": true,
+        "screens": [
+          "settings"
+        ],
+        "count": 1
+      },
+      {
+        "url": "http://127.0.0.1:52022/assets/roboto-mono-latin-500-pxIOXZmA.woff2",
+        "scheme": "http",
+        "hostname": "127.0.0.1",
+        "classification": "loopback",
+        "loopback": true,
+        "screens": [
+          "settings"
+        ],
+        "count": 1
+      },
+      {
+        "url": "http://127.0.0.1:52022/assets/rust-B1yitclQ.js",
+        "scheme": "http",
+        "hostname": "127.0.0.1",
+        "classification": "loopback",
+        "loopback": true,
+        "screens": [
+          "settings"
+        ],
+        "count": 1
+      },
+      {
+        "url": "http://127.0.0.1:52022/assets/shellscript-Yzrsuije.js",
+        "scheme": "http",
+        "hostname": "127.0.0.1",
+        "classification": "loopback",
+        "loopback": true,
+        "screens": [
+          "settings"
+        ],
+        "count": 1
+      },
+      {
+        "url": "http://127.0.0.1:52022/assets/sql-BLtJtn59.js",
+        "scheme": "http",
+        "hostname": "127.0.0.1",
+        "classification": "loopback",
+        "loopback": true,
+        "screens": [
+          "settings"
+        ],
+        "count": 1
+      },
+      {
+        "url": "http://127.0.0.1:52022/assets/swift-Dg5xB15N.js",
+        "scheme": "http",
+        "hostname": "127.0.0.1",
+        "classification": "loopback",
+        "loopback": true,
+        "screens": [
+          "settings"
+        ],
+        "count": 1
+      },
+      {
+        "url": "http://127.0.0.1:52022/assets/tsx-COt5Ahok.js",
+        "scheme": "http",
+        "hostname": "127.0.0.1",
+        "classification": "loopback",
+        "loopback": true,
+        "screens": [
+          "settings"
+        ],
+        "count": 1
+      },
+      {
+        "url": "http://127.0.0.1:52022/assets/typescript-BPQ3VLAy.js",
+        "scheme": "http",
+        "hostname": "127.0.0.1",
+        "classification": "loopback",
+        "loopback": true,
+        "screens": [
+          "settings"
+        ],
+        "count": 1
+      },
+      {
+        "url": "http://127.0.0.1:52022/assets/wasm-CG6Dc4jp.js",
+        "scheme": "http",
+        "hostname": "127.0.0.1",
+        "classification": "loopback",
+        "loopback": true,
+        "screens": [
+          "settings"
+        ],
+        "count": 1
+      },
+      {
+        "url": "http://127.0.0.1:52022/assets/yaml-Buea-lGh.js",
+        "scheme": "http",
+        "hostname": "127.0.0.1",
+        "classification": "loopback",
+        "loopback": true,
+        "screens": [
+          "settings"
+        ],
+        "count": 1
+      },
+      {
+        "url": "http://127.0.0.1:52022/settings",
+        "scheme": "http",
+        "hostname": "127.0.0.1",
+        "classification": "loopback",
+        "loopback": true,
+        "screens": [
+          "settings"
+        ],
+        "count": 1
+      },
+      {
+        "url": "http://127.0.0.1:52022/vite.svg",
+        "scheme": "http",
+        "hostname": "127.0.0.1",
+        "classification": "loopback",
+        "loopback": true,
+        "screens": [
+          "settings"
+        ],
+        "count": 1
+      },
+      {
+        "url": "http://127.0.0.1:52877/api/experimental/model-recommendations",
+        "scheme": "http",
+        "hostname": "127.0.0.1",
+        "classification": "loopback",
+        "loopback": true,
+        "screens": [
+          "c-new"
+        ],
+        "count": 1
+      },
+      {
+        "url": "http://127.0.0.1:52877/api/me",
+        "scheme": "http",
+        "hostname": "127.0.0.1",
+        "classification": "loopback",
+        "loopback": true,
+        "screens": [
+          "c-new"
+        ],
+        "count": 2
+      },
+      {
+        "url": "http://127.0.0.1:52877/api/tags",
+        "scheme": "http",
+        "hostname": "127.0.0.1",
+        "classification": "loopback",
+        "loopback": true,
+        "screens": [
+          "c-new"
+        ],
+        "count": 1
+      },
+      {
+        "url": "http://127.0.0.1:52877/api/v1/chats",
+        "scheme": "http",
+        "hostname": "127.0.0.1",
+        "classification": "loopback",
+        "loopback": true,
+        "screens": [
+          "c-new"
+        ],
+        "count": 1
+      },
+      {
+        "url": "http://127.0.0.1:52877/api/v1/cloud",
+        "scheme": "http",
+        "hostname": "127.0.0.1",
+        "classification": "loopback",
+        "loopback": true,
+        "screens": [
+          "c-new"
+        ],
+        "count": 1
+      },
+      {
+        "url": "http://127.0.0.1:52877/api/v1/inference-compute",
+        "scheme": "http",
+        "hostname": "127.0.0.1",
+        "classification": "loopback",
+        "loopback": true,
+        "screens": [
+          "c-new"
+        ],
+        "count": 1
+      },
+      {
+        "url": "http://127.0.0.1:52877/api/v1/settings",
+        "scheme": "http",
+        "hostname": "127.0.0.1",
+        "classification": "loopback",
+        "loopback": true,
+        "screens": [
+          "c-new"
+        ],
+        "count": 1
+      },
+      {
+        "url": "http://127.0.0.1:52877/api/version",
+        "scheme": "http",
+        "hostname": "127.0.0.1",
+        "classification": "loopback",
+        "loopback": true,
+        "screens": [
+          "c-new"
+        ],
+        "count": 1
+      },
+      {
+        "url": "http://127.0.0.1:52877/assets/c-BIGW1oBm.js",
+        "scheme": "http",
+        "hostname": "127.0.0.1",
+        "classification": "loopback",
+        "loopback": true,
+        "screens": [
+          "c-new"
+        ],
+        "count": 1
+      },
+      {
+        "url": "http://127.0.0.1:52877/assets/cpp-CofmeUqb.js",
+        "scheme": "http",
+        "hostname": "127.0.0.1",
+        "classification": "loopback",
+        "loopback": true,
+        "screens": [
+          "c-new"
+        ],
+        "count": 1
+      },
+      {
+        "url": "http://127.0.0.1:52877/assets/css-DPfMkruS.js",
+        "scheme": "http",
+        "hostname": "127.0.0.1",
+        "classification": "loopback",
+        "loopback": true,
+        "screens": [
+          "c-new"
+        ],
+        "count": 1
+      },
+      {
+        "url": "http://127.0.0.1:52877/assets/glsl-DplSGwfg.js",
+        "scheme": "http",
+        "hostname": "127.0.0.1",
+        "classification": "loopback",
+        "loopback": true,
+        "screens": [
+          "c-new"
+        ],
+        "count": 1
+      },
+      {
+        "url": "http://127.0.0.1:52877/assets/go-Dn2_MT6a.js",
+        "scheme": "http",
+        "hostname": "127.0.0.1",
+        "classification": "loopback",
+        "loopback": true,
+        "screens": [
+          "c-new"
+        ],
+        "count": 1
+      },
+      {
+        "url": "http://127.0.0.1:52877/assets/html-GMplVEZG.js",
+        "scheme": "http",
+        "hostname": "127.0.0.1",
+        "classification": "loopback",
+        "loopback": true,
+        "screens": [
+          "c-new"
+        ],
+        "count": 1
+      },
+      {
+        "url": "http://127.0.0.1:52877/assets/icons-DFkf_IXB.svg",
+        "scheme": "http",
+        "hostname": "127.0.0.1",
+        "classification": "loopback",
+        "loopback": true,
+        "screens": [
+          "c-new"
+        ],
+        "count": 1
+      },
+      {
+        "url": "http://127.0.0.1:52877/assets/index-DlRRmRWU.css",
+        "scheme": "http",
+        "hostname": "127.0.0.1",
+        "classification": "loopback",
+        "loopback": true,
+        "screens": [
+          "c-new"
+        ],
+        "count": 1
+      },
+      {
+        "url": "http://127.0.0.1:52877/assets/index-YVIcQ5o8.js",
+        "scheme": "http",
+        "hostname": "127.0.0.1",
+        "classification": "loopback",
+        "loopback": true,
+        "screens": [
+          "c-new"
+        ],
+        "count": 1
+      },
+      {
+        "url": "http://127.0.0.1:52877/assets/java-CylS5w8V.js",
+        "scheme": "http",
+        "hostname": "127.0.0.1",
+        "classification": "loopback",
+        "loopback": true,
+        "screens": [
+          "c-new"
+        ],
+        "count": 1
+      },
+      {
+        "url": "http://127.0.0.1:52877/assets/javascript-wDzz0qaB.js",
+        "scheme": "http",
+        "hostname": "127.0.0.1",
+        "classification": "loopback",
+        "loopback": true,
+        "screens": [
+          "c-new"
+        ],
+        "count": 1
+      },
+      {
+        "url": "http://127.0.0.1:52877/assets/json-Cp-IABpG.js",
+        "scheme": "http",
+        "hostname": "127.0.0.1",
+        "classification": "loopback",
+        "loopback": true,
+        "screens": [
+          "c-new"
+        ],
+        "count": 1
+      },
+      {
+        "url": "http://127.0.0.1:52877/assets/jsx-g9-lgVsj.js",
+        "scheme": "http",
+        "hostname": "127.0.0.1",
+        "classification": "loopback",
+        "loopback": true,
+        "screens": [
+          "c-new"
+        ],
+        "count": 1
+      },
+      {
+        "url": "http://127.0.0.1:52877/assets/markdown-Cvjx9yec.js",
+        "scheme": "http",
+        "hostname": "127.0.0.1",
+        "classification": "loopback",
+        "loopback": true,
+        "screens": [
+          "c-new"
+        ],
+        "count": 1
+      },
+      {
+        "url": "http://127.0.0.1:52877/assets/python-B6aJPvgy.js",
+        "scheme": "http",
+        "hostname": "127.0.0.1",
+        "classification": "loopback",
+        "loopback": true,
+        "screens": [
+          "c-new"
+        ],
+        "count": 1
+      },
+      {
+        "url": "http://127.0.0.1:52877/assets/regexp-CDVJQ6XC.js",
+        "scheme": "http",
+        "hostname": "127.0.0.1",
+        "classification": "loopback",
+        "loopback": true,
+        "screens": [
+          "c-new"
+        ],
+        "count": 1
+      },
+      {
+        "url": "http://127.0.0.1:52877/assets/roboto-flex-latin-standard-DjIUbrK2.woff2",
+        "scheme": "http",
+        "hostname": "127.0.0.1",
+        "classification": "loopback",
+        "loopback": true,
+        "screens": [
+          "c-new"
+        ],
+        "count": 1
+      },
+      {
+        "url": "http://127.0.0.1:52877/assets/roboto-mono-latin-400-GekRknry.woff2",
+        "scheme": "http",
+        "hostname": "127.0.0.1",
+        "classification": "loopback",
+        "loopback": true,
+        "screens": [
+          "c-new"
+        ],
+        "count": 1
+      },
+      {
+        "url": "http://127.0.0.1:52877/assets/rust-B1yitclQ.js",
+        "scheme": "http",
+        "hostname": "127.0.0.1",
+        "classification": "loopback",
+        "loopback": true,
+        "screens": [
+          "c-new"
+        ],
+        "count": 1
+      },
+      {
+        "url": "http://127.0.0.1:52877/assets/shellscript-Yzrsuije.js",
+        "scheme": "http",
+        "hostname": "127.0.0.1",
+        "classification": "loopback",
+        "loopback": true,
+        "screens": [
+          "c-new"
+        ],
+        "count": 1
+      },
+      {
+        "url": "http://127.0.0.1:52877/assets/sql-BLtJtn59.js",
+        "scheme": "http",
+        "hostname": "127.0.0.1",
+        "classification": "loopback",
+        "loopback": true,
+        "screens": [
+          "c-new"
+        ],
+        "count": 1
+      },
+      {
+        "url": "http://127.0.0.1:52877/assets/swift-Dg5xB15N.js",
+        "scheme": "http",
+        "hostname": "127.0.0.1",
+        "classification": "loopback",
+        "loopback": true,
+        "screens": [
+          "c-new"
+        ],
+        "count": 1
+      },
+      {
+        "url": "http://127.0.0.1:52877/assets/tsx-COt5Ahok.js",
+        "scheme": "http",
+        "hostname": "127.0.0.1",
+        "classification": "loopback",
+        "loopback": true,
+        "screens": [
+          "c-new"
+        ],
+        "count": 1
+      },
+      {
+        "url": "http://127.0.0.1:52877/assets/typescript-BPQ3VLAy.js",
+        "scheme": "http",
+        "hostname": "127.0.0.1",
+        "classification": "loopback",
+        "loopback": true,
+        "screens": [
+          "c-new"
+        ],
+        "count": 1
+      },
+      {
+        "url": "http://127.0.0.1:52877/assets/wasm-CG6Dc4jp.js",
+        "scheme": "http",
+        "hostname": "127.0.0.1",
+        "classification": "loopback",
+        "loopback": true,
+        "screens": [
+          "c-new"
+        ],
+        "count": 1
+      },
+      {
+        "url": "http://127.0.0.1:52877/assets/yaml-Buea-lGh.js",
+        "scheme": "http",
+        "hostname": "127.0.0.1",
+        "classification": "loopback",
+        "loopback": true,
+        "screens": [
+          "c-new"
+        ],
+        "count": 1
+      },
+      {
+        "url": "http://127.0.0.1:52877/c/new",
+        "scheme": "http",
+        "hostname": "127.0.0.1",
+        "classification": "loopback",
+        "loopback": true,
+        "screens": [
+          "c-new"
+        ],
+        "count": 1
+      },
+      {
+        "url": "http://127.0.0.1:52877/vite.svg",
+        "scheme": "http",
+        "hostname": "127.0.0.1",
+        "classification": "loopback",
+        "loopback": true,
+        "screens": [
+          "c-new"
+        ],
+        "count": 1
+      },
+      {
+        "url": "http://127.0.0.1:53511/status",
+        "scheme": "http",
+        "hostname": "127.0.0.1",
+        "classification": "loopback",
+        "loopback": true,
+        "screens": [
+          "status"
+        ],
+        "count": 1
+      },
+      {
+        "url": "http://127.0.0.1:57139/toolbox",
+        "scheme": "http",
+        "hostname": "127.0.0.1",
+        "classification": "loopback",
+        "loopback": true,
+        "screens": [
+          "toolbox"
+        ],
+        "count": 1
+      },
+      {
+        "url": "http://127.0.0.1:63042/docs",
+        "scheme": "http",
+        "hostname": "127.0.0.1",
+        "classification": "loopback",
+        "loopback": true,
+        "screens": [
+          "docs"
+        ],
+        "count": 1
+      },
+      {
+        "url": "http://127.0.0.1:64481/api/me",
+        "scheme": "http",
+        "hostname": "127.0.0.1",
+        "classification": "loopback",
+        "loopback": true,
+        "screens": [
+          "launch"
+        ],
+        "count": 1
+      },
+      {
+        "url": "http://127.0.0.1:64481/api/v1/cloud",
+        "scheme": "http",
+        "hostname": "127.0.0.1",
+        "classification": "loopback",
+        "loopback": true,
+        "screens": [
+          "launch"
+        ],
+        "count": 1
+      },
+      {
+        "url": "http://127.0.0.1:64481/api/v1/launch/integrations",
+        "scheme": "http",
+        "hostname": "127.0.0.1",
+        "classification": "loopback",
+        "loopback": true,
+        "screens": [
+          "launch"
+        ],
+        "count": 1
+      },
+      {
+        "url": "http://127.0.0.1:64481/api/v1/settings",
+        "scheme": "http",
+        "hostname": "127.0.0.1",
+        "classification": "loopback",
+        "loopback": true,
+        "screens": [
+          "launch"
+        ],
+        "count": 1
+      },
+      {
+        "url": "http://127.0.0.1:64481/assets/c-BIGW1oBm.js",
+        "scheme": "http",
+        "hostname": "127.0.0.1",
+        "classification": "loopback",
+        "loopback": true,
+        "screens": [
+          "launch"
+        ],
+        "count": 1
+      },
+      {
+        "url": "http://127.0.0.1:64481/assets/cpp-CofmeUqb.js",
+        "scheme": "http",
+        "hostname": "127.0.0.1",
+        "classification": "loopback",
+        "loopback": true,
+        "screens": [
+          "launch"
+        ],
+        "count": 1
+      },
+      {
+        "url": "http://127.0.0.1:64481/assets/css-DPfMkruS.js",
+        "scheme": "http",
+        "hostname": "127.0.0.1",
+        "classification": "loopback",
+        "loopback": true,
+        "screens": [
+          "launch"
+        ],
+        "count": 1
+      },
+      {
+        "url": "http://127.0.0.1:64481/assets/glsl-DplSGwfg.js",
+        "scheme": "http",
+        "hostname": "127.0.0.1",
+        "classification": "loopback",
+        "loopback": true,
+        "screens": [
+          "launch"
+        ],
+        "count": 1
+      },
+      {
+        "url": "http://127.0.0.1:64481/assets/go-Dn2_MT6a.js",
+        "scheme": "http",
+        "hostname": "127.0.0.1",
+        "classification": "loopback",
+        "loopback": true,
+        "screens": [
+          "launch"
+        ],
+        "count": 1
+      },
+      {
+        "url": "http://127.0.0.1:64481/assets/html-GMplVEZG.js",
+        "scheme": "http",
+        "hostname": "127.0.0.1",
+        "classification": "loopback",
+        "loopback": true,
+        "screens": [
+          "launch"
+        ],
+        "count": 1
+      },
+      {
+        "url": "http://127.0.0.1:64481/assets/icons-DFkf_IXB.svg",
+        "scheme": "http",
+        "hostname": "127.0.0.1",
+        "classification": "loopback",
+        "loopback": true,
+        "screens": [
+          "launch"
+        ],
+        "count": 1
+      },
+      {
+        "url": "http://127.0.0.1:64481/assets/index-DlRRmRWU.css",
+        "scheme": "http",
+        "hostname": "127.0.0.1",
+        "classification": "loopback",
+        "loopback": true,
+        "screens": [
+          "launch"
+        ],
+        "count": 1
+      },
+      {
+        "url": "http://127.0.0.1:64481/assets/index-YVIcQ5o8.js",
+        "scheme": "http",
+        "hostname": "127.0.0.1",
+        "classification": "loopback",
+        "loopback": true,
+        "screens": [
+          "launch"
+        ],
+        "count": 1
+      },
+      {
+        "url": "http://127.0.0.1:64481/assets/java-CylS5w8V.js",
+        "scheme": "http",
+        "hostname": "127.0.0.1",
+        "classification": "loopback",
+        "loopback": true,
+        "screens": [
+          "launch"
+        ],
+        "count": 1
+      },
+      {
+        "url": "http://127.0.0.1:64481/assets/javascript-wDzz0qaB.js",
+        "scheme": "http",
+        "hostname": "127.0.0.1",
+        "classification": "loopback",
+        "loopback": true,
+        "screens": [
+          "launch"
+        ],
+        "count": 1
+      },
+      {
+        "url": "http://127.0.0.1:64481/assets/json-Cp-IABpG.js",
+        "scheme": "http",
+        "hostname": "127.0.0.1",
+        "classification": "loopback",
+        "loopback": true,
+        "screens": [
+          "launch"
+        ],
+        "count": 1
+      },
+      {
+        "url": "http://127.0.0.1:64481/assets/jsx-g9-lgVsj.js",
+        "scheme": "http",
+        "hostname": "127.0.0.1",
+        "classification": "loopback",
+        "loopback": true,
+        "screens": [
+          "launch"
+        ],
+        "count": 1
+      },
+      {
+        "url": "http://127.0.0.1:64481/assets/markdown-Cvjx9yec.js",
+        "scheme": "http",
+        "hostname": "127.0.0.1",
+        "classification": "loopback",
+        "loopback": true,
+        "screens": [
+          "launch"
+        ],
+        "count": 1
+      },
+      {
+        "url": "http://127.0.0.1:64481/assets/python-B6aJPvgy.js",
+        "scheme": "http",
+        "hostname": "127.0.0.1",
+        "classification": "loopback",
+        "loopback": true,
+        "screens": [
+          "launch"
+        ],
+        "count": 1
+      },
+      {
+        "url": "http://127.0.0.1:64481/assets/regexp-CDVJQ6XC.js",
+        "scheme": "http",
+        "hostname": "127.0.0.1",
+        "classification": "loopback",
+        "loopback": true,
+        "screens": [
+          "launch"
+        ],
+        "count": 1
+      },
+      {
+        "url": "http://127.0.0.1:64481/assets/roboto-flex-latin-standard-DjIUbrK2.woff2",
+        "scheme": "http",
+        "hostname": "127.0.0.1",
+        "classification": "loopback",
+        "loopback": true,
+        "screens": [
+          "launch"
+        ],
+        "count": 1
+      },
+      {
+        "url": "http://127.0.0.1:64481/assets/roboto-mono-latin-400-GekRknry.woff2",
+        "scheme": "http",
+        "hostname": "127.0.0.1",
+        "classification": "loopback",
+        "loopback": true,
+        "screens": [
+          "launch"
+        ],
+        "count": 1
+      },
+      {
+        "url": "http://127.0.0.1:64481/assets/rust-B1yitclQ.js",
+        "scheme": "http",
+        "hostname": "127.0.0.1",
+        "classification": "loopback",
+        "loopback": true,
+        "screens": [
+          "launch"
+        ],
+        "count": 1
+      },
+      {
+        "url": "http://127.0.0.1:64481/assets/shellscript-Yzrsuije.js",
+        "scheme": "http",
+        "hostname": "127.0.0.1",
+        "classification": "loopback",
+        "loopback": true,
+        "screens": [
+          "launch"
+        ],
+        "count": 1
+      },
+      {
+        "url": "http://127.0.0.1:64481/assets/sql-BLtJtn59.js",
+        "scheme": "http",
+        "hostname": "127.0.0.1",
+        "classification": "loopback",
+        "loopback": true,
+        "screens": [
+          "launch"
+        ],
+        "count": 1
+      },
+      {
+        "url": "http://127.0.0.1:64481/assets/swift-Dg5xB15N.js",
+        "scheme": "http",
+        "hostname": "127.0.0.1",
+        "classification": "loopback",
+        "loopback": true,
+        "screens": [
+          "launch"
+        ],
+        "count": 1
+      },
+      {
+        "url": "http://127.0.0.1:64481/assets/tsx-COt5Ahok.js",
+        "scheme": "http",
+        "hostname": "127.0.0.1",
+        "classification": "loopback",
+        "loopback": true,
+        "screens": [
+          "launch"
+        ],
+        "count": 1
+      },
+      {
+        "url": "http://127.0.0.1:64481/assets/typescript-BPQ3VLAy.js",
+        "scheme": "http",
+        "hostname": "127.0.0.1",
+        "classification": "loopback",
+        "loopback": true,
+        "screens": [
+          "launch"
+        ],
+        "count": 1
+      },
+      {
+        "url": "http://127.0.0.1:64481/assets/wasm-CG6Dc4jp.js",
+        "scheme": "http",
+        "hostname": "127.0.0.1",
+        "classification": "loopback",
+        "loopback": true,
+        "screens": [
+          "launch"
+        ],
+        "count": 1
+      },
+      {
+        "url": "http://127.0.0.1:64481/assets/yaml-Buea-lGh.js",
+        "scheme": "http",
+        "hostname": "127.0.0.1",
+        "classification": "loopback",
+        "loopback": true,
+        "screens": [
+          "launch"
+        ],
+        "count": 1
+      },
+      {
+        "url": "http://127.0.0.1:64481/launch",
+        "scheme": "http",
+        "hostname": "127.0.0.1",
+        "classification": "loopback",
+        "loopback": true,
+        "screens": [
+          "launch"
+        ],
+        "count": 1
+      },
+      {
+        "url": "http://127.0.0.1:64481/vite.svg",
+        "scheme": "http",
+        "hostname": "127.0.0.1",
+        "classification": "loopback",
+        "loopback": true,
+        "screens": [
+          "launch"
+        ],
+        "count": 1
+      },
+      {
+        "url": "http://127.0.0.1:65441/api/me",
+        "scheme": "http",
+        "hostname": "127.0.0.1",
+        "classification": "loopback",
+        "loopback": true,
+        "screens": [
+          "codex"
+        ],
+        "count": 1
+      },
+      {
+        "url": "http://127.0.0.1:65441/api/v1/cloud",
+        "scheme": "http",
+        "hostname": "127.0.0.1",
+        "classification": "loopback",
+        "loopback": true,
+        "screens": [
+          "codex"
+        ],
+        "count": 1
+      },
+      {
+        "url": "http://127.0.0.1:65441/api/v1/codex/discovery",
+        "scheme": "http",
+        "hostname": "127.0.0.1",
+        "classification": "loopback",
+        "loopback": true,
+        "screens": [
+          "codex"
+        ],
+        "count": 1
+      },
+      {
+        "url": "http://127.0.0.1:65441/api/v1/codex/profiles",
+        "scheme": "http",
+        "hostname": "127.0.0.1",
+        "classification": "loopback",
+        "loopback": true,
+        "screens": [
+          "codex"
+        ],
+        "count": 1
+      },
+      {
+        "url": "http://127.0.0.1:65441/api/v1/codex/sessions",
+        "scheme": "http",
+        "hostname": "127.0.0.1",
+        "classification": "loopback",
+        "loopback": true,
+        "screens": [
+          "codex"
+        ],
+        "count": 1
+      },
+      {
+        "url": "http://127.0.0.1:65441/api/v1/settings",
+        "scheme": "http",
+        "hostname": "127.0.0.1",
+        "classification": "loopback",
+        "loopback": true,
+        "screens": [
+          "codex"
+        ],
+        "count": 1
+      },
+      {
+        "url": "http://127.0.0.1:65441/assets/c-BIGW1oBm.js",
+        "scheme": "http",
+        "hostname": "127.0.0.1",
+        "classification": "loopback",
+        "loopback": true,
+        "screens": [
+          "codex"
+        ],
+        "count": 1
+      },
+      {
+        "url": "http://127.0.0.1:65441/assets/cpp-CofmeUqb.js",
+        "scheme": "http",
+        "hostname": "127.0.0.1",
+        "classification": "loopback",
+        "loopback": true,
+        "screens": [
+          "codex"
+        ],
+        "count": 1
+      },
+      {
+        "url": "http://127.0.0.1:65441/assets/css-DPfMkruS.js",
+        "scheme": "http",
+        "hostname": "127.0.0.1",
+        "classification": "loopback",
+        "loopback": true,
+        "screens": [
+          "codex"
+        ],
+        "count": 1
+      },
+      {
+        "url": "http://127.0.0.1:65441/assets/glsl-DplSGwfg.js",
+        "scheme": "http",
+        "hostname": "127.0.0.1",
+        "classification": "loopback",
+        "loopback": true,
+        "screens": [
+          "codex"
+        ],
+        "count": 1
+      },
+      {
+        "url": "http://127.0.0.1:65441/assets/go-Dn2_MT6a.js",
+        "scheme": "http",
+        "hostname": "127.0.0.1",
+        "classification": "loopback",
+        "loopback": true,
+        "screens": [
+          "codex"
+        ],
+        "count": 1
+      },
+      {
+        "url": "http://127.0.0.1:65441/assets/html-GMplVEZG.js",
+        "scheme": "http",
+        "hostname": "127.0.0.1",
+        "classification": "loopback",
+        "loopback": true,
+        "screens": [
+          "codex"
+        ],
+        "count": 1
+      },
+      {
+        "url": "http://127.0.0.1:65441/assets/icons-DFkf_IXB.svg",
+        "scheme": "http",
+        "hostname": "127.0.0.1",
+        "classification": "loopback",
+        "loopback": true,
+        "screens": [
+          "codex"
+        ],
+        "count": 1
+      },
+      {
+        "url": "http://127.0.0.1:65441/assets/index-DlRRmRWU.css",
+        "scheme": "http",
+        "hostname": "127.0.0.1",
+        "classification": "loopback",
+        "loopback": true,
+        "screens": [
+          "codex"
+        ],
+        "count": 1
+      },
+      {
+        "url": "http://127.0.0.1:65441/assets/index-YVIcQ5o8.js",
+        "scheme": "http",
+        "hostname": "127.0.0.1",
+        "classification": "loopback",
+        "loopback": true,
+        "screens": [
+          "codex"
+        ],
+        "count": 1
+      },
+      {
+        "url": "http://127.0.0.1:65441/assets/java-CylS5w8V.js",
+        "scheme": "http",
+        "hostname": "127.0.0.1",
+        "classification": "loopback",
+        "loopback": true,
+        "screens": [
+          "codex"
+        ],
+        "count": 1
+      },
+      {
+        "url": "http://127.0.0.1:65441/assets/javascript-wDzz0qaB.js",
+        "scheme": "http",
+        "hostname": "127.0.0.1",
+        "classification": "loopback",
+        "loopback": true,
+        "screens": [
+          "codex"
+        ],
+        "count": 1
+      },
+      {
+        "url": "http://127.0.0.1:65441/assets/json-Cp-IABpG.js",
+        "scheme": "http",
+        "hostname": "127.0.0.1",
+        "classification": "loopback",
+        "loopback": true,
+        "screens": [
+          "codex"
+        ],
+        "count": 1
+      },
+      {
+        "url": "http://127.0.0.1:65441/assets/jsx-g9-lgVsj.js",
+        "scheme": "http",
+        "hostname": "127.0.0.1",
+        "classification": "loopback",
+        "loopback": true,
+        "screens": [
+          "codex"
+        ],
+        "count": 1
+      },
+      {
+        "url": "http://127.0.0.1:65441/assets/markdown-Cvjx9yec.js",
+        "scheme": "http",
+        "hostname": "127.0.0.1",
+        "classification": "loopback",
+        "loopback": true,
+        "screens": [
+          "codex"
+        ],
+        "count": 1
+      },
+      {
+        "url": "http://127.0.0.1:65441/assets/python-B6aJPvgy.js",
+        "scheme": "http",
+        "hostname": "127.0.0.1",
+        "classification": "loopback",
+        "loopback": true,
+        "screens": [
+          "codex"
+        ],
+        "count": 1
+      },
+      {
+        "url": "http://127.0.0.1:65441/assets/regexp-CDVJQ6XC.js",
+        "scheme": "http",
+        "hostname": "127.0.0.1",
+        "classification": "loopback",
+        "loopback": true,
+        "screens": [
+          "codex"
+        ],
+        "count": 1
+      },
+      {
+        "url": "http://127.0.0.1:65441/assets/roboto-flex-latin-standard-DjIUbrK2.woff2",
+        "scheme": "http",
+        "hostname": "127.0.0.1",
+        "classification": "loopback",
+        "loopback": true,
+        "screens": [
+          "codex"
+        ],
+        "count": 1
+      },
+      {
+        "url": "http://127.0.0.1:65441/assets/roboto-mono-latin-400-GekRknry.woff2",
+        "scheme": "http",
+        "hostname": "127.0.0.1",
+        "classification": "loopback",
+        "loopback": true,
+        "screens": [
+          "codex"
+        ],
+        "count": 1
+      },
+      {
+        "url": "http://127.0.0.1:65441/assets/rust-B1yitclQ.js",
+        "scheme": "http",
+        "hostname": "127.0.0.1",
+        "classification": "loopback",
+        "loopback": true,
+        "screens": [
+          "codex"
+        ],
+        "count": 1
+      },
+      {
+        "url": "http://127.0.0.1:65441/assets/shellscript-Yzrsuije.js",
+        "scheme": "http",
+        "hostname": "127.0.0.1",
+        "classification": "loopback",
+        "loopback": true,
+        "screens": [
+          "codex"
+        ],
+        "count": 1
+      },
+      {
+        "url": "http://127.0.0.1:65441/assets/sql-BLtJtn59.js",
+        "scheme": "http",
+        "hostname": "127.0.0.1",
+        "classification": "loopback",
+        "loopback": true,
+        "screens": [
+          "codex"
+        ],
+        "count": 1
+      },
+      {
+        "url": "http://127.0.0.1:65441/assets/swift-Dg5xB15N.js",
+        "scheme": "http",
+        "hostname": "127.0.0.1",
+        "classification": "loopback",
+        "loopback": true,
+        "screens": [
+          "codex"
+        ],
+        "count": 1
+      },
+      {
+        "url": "http://127.0.0.1:65441/assets/tsx-COt5Ahok.js",
+        "scheme": "http",
+        "hostname": "127.0.0.1",
+        "classification": "loopback",
+        "loopback": true,
+        "screens": [
+          "codex"
+        ],
+        "count": 1
+      },
+      {
+        "url": "http://127.0.0.1:65441/assets/typescript-BPQ3VLAy.js",
+        "scheme": "http",
+        "hostname": "127.0.0.1",
+        "classification": "loopback",
+        "loopback": true,
+        "screens": [
+          "codex"
+        ],
+        "count": 1
+      },
+      {
+        "url": "http://127.0.0.1:65441/assets/wasm-CG6Dc4jp.js",
+        "scheme": "http",
+        "hostname": "127.0.0.1",
+        "classification": "loopback",
+        "loopback": true,
+        "screens": [
+          "codex"
+        ],
+        "count": 1
+      },
+      {
+        "url": "http://127.0.0.1:65441/assets/yaml-Buea-lGh.js",
+        "scheme": "http",
+        "hostname": "127.0.0.1",
+        "classification": "loopback",
+        "loopback": true,
+        "screens": [
+          "codex"
+        ],
+        "count": 1
+      },
+      {
+        "url": "http://127.0.0.1:65441/codex",
+        "scheme": "http",
+        "hostname": "127.0.0.1",
+        "classification": "loopback",
+        "loopback": true,
+        "screens": [
+          "codex"
+        ],
+        "count": 1
+      },
+      {
+        "url": "http://127.0.0.1:65441/vite.svg",
+        "scheme": "http",
+        "hostname": "127.0.0.1",
+        "classification": "loopback",
+        "loopback": true,
+        "screens": [
+          "codex"
+        ],
+        "count": 1
+      }
+    ],
+    "offenderCount": 0,
+    "allLoopback": true,
+    "assertionError": null,
+    "errors": []
+  }
 }

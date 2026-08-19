@@ -14,12 +14,12 @@ produced it, and the "Extra capture states" section below for why.
 
 ## Current coverage
 
-As of commit `507fcc4d2e6b49ca75e69885364458ba8151bcdf` -- seven feature
-lanes merged since the previous `6a7dedaf` capture set -- `manifest.json`
-holds 12 captures: the same 9 navigation destinations as before
-(`/models`, `/c/new`, `/launch`, `/codex`, `/devtools`, `/toolbox`, `/docs`,
-`/status`, `/settings`), plus three new capture states the release gate
-previously named as missing:
+As of commit `040f34d322906dcb1ef9dab25d45454a520797c9` -- a nil-slice crash
+fix to `/settings` (`3b33fc66`) plus this pass's own harness change (adding
+the network audit below) -- `manifest.json` holds 12 captures: the same 9
+navigation destinations as before (`/models`, `/c/new`, `/launch`, `/codex`,
+`/devtools`, `/toolbox`, `/docs`, `/status`, `/settings`), plus the same
+three extra capture states from the previous pass:
 
 - **`models-dark`** -- `/models` re-themed to dark (light and dark are now
   both captured for the same route).
@@ -35,28 +35,28 @@ lives in the repository root [`README.md`](../../../../README.md#real-capture-ma
 what the manifest fields mean; it is not the place that re-lists every gap,
 so the two do not drift out of step with each other. **The root `README.md`
 is outside this recapture lane's allowed paths and was not updated with
-this pass** -- it still describes the previous 9-capture, single-commit
-matrix and needs a follow-up pass to bring it current.
+this pass** -- it still describes an earlier capture set and needs a
+follow-up pass to bring it current.
 
-### A real regression this pass found: `/settings` crashes
+### The `/settings` crash the previous pass found is now fixed
 
-The `settings` capture is genuine and unmodified, and it is **not** what its
-route normally renders: it is TanStack Router's own default `CatchBoundary`
-("Something went wrong! Show Error"), because the `/settings` route throws
-`Cannot read properties of null (reading 'length')` during render. This
-reproduced 4/4 times: on a cold direct `-route /settings` launch (this
-capture, plus 3 additional isolated retries), and separately on a live
-client-side navigation click from an already-loaded `/models` screen -- so
-it is a real, thorough regression in the current build, not a capture-
-harness artifact, a headless-desktop flake, or specific to how this harness
-launches the app. It is recorded honestly in `manifest.json`'s `settings`
-entry as a `knownIssue` field, with `features: []` (this capture evidences
-none of the Settings screen's real content, so it must not be credited with
-`app-display-name` the way the previous, pre-regression `settings` capture
-was). Fixing the actual `/settings` render bug is outside this lane's
-allowed paths (`docs/features/uh-completeness/captures/**` and
-`scripts/capture/**` only, plus `data-capture-id`/`data-capture-ready`
-attribute-only additions to `.tsx` files) and needs its own pass.
+The previous capture pass found a real regression here, not a harness
+artifact: `/settings` was rendering TanStack Router's own default
+`CatchBoundary` because `DefaultUIPreferences` returned a nil Go slice for
+`Vocab`/`Schedules`/the inner `Endpoints` slice, which marshals to JSON
+`null` rather than `[]`, and `AdvancedCard` read `.length` straight off it.
+That was reproduced 4/4 times and recorded honestly with `features: []` and
+a `knownIssue` field rather than silently captured as if nothing were
+wrong.
+
+Commit `3b33fc66` fixed it at the source (emit `[]` from the defaults, plus
+defend the two unguarded read sites for a preferences blob written before
+the fix). This pass rebuilt at that commit and recaptured `/settings`: it
+now renders the real screen -- the General card, the emoji-dialogs toggle,
+model location, network exposure -- with 4965 distinct colors, and
+`features: ["app-display-name"]` is back, this time backed by a capture
+that actually shows it. The `knownIssue` field is gone from this entry
+because there no longer is one.
 
 ### Extra capture states
 
@@ -85,6 +85,56 @@ icons, and page content clips/wraps instead of reflowing. That capture's
 `features[]` is deliberately empty -- it is evidence the
 `responsive-layout-and-sizing` contract is not yet met at that width, not
 evidence that it is.
+
+## The no-network-privacy audit
+
+`manifest.json` now carries a top-level `networkAudit` object -- the actual
+evidence for the `no-network-privacy` inventory row, which had sat at
+`status: "missing"` on both surfaces because nothing in this repository had
+ever checked it. Every prior capture pass proved a screen renders; none of
+them proved anything about what it talks to.
+
+**Method.** For each of the 9 base screens, `drive.mjs` launches
+`dist/windows-ollama-app-amd64.exe` fresh with its own isolated profile,
+connects to that instance's Chromium DevTools Protocol endpoint as early as
+it can, enables the `Network` domain, then `Page.reload()`s the *same*
+route before recording anything else. The reload matters: the app has
+already begun navigating by the time a CDP connection can physically be
+established (port discovery and window resolution both take real
+wall-clock time), so without it the first and most interesting requests
+-- the initial document, the JS bundle, the first API fetch -- would
+already be gone by the time `Network.enable` took effect. A reload of the
+same mounted screen makes the same requests the original load made; this
+is not manufacturing evidence, it is the only way to observe the real set
+completely. `scripts/capture/lib.mjs` gained the plumbing this needed:
+`cdpConnect()` previously only routed replies keyed by request id and
+silently dropped every CDP *event* (`Network.requestWillBeSent` included,
+since it has no id); it now dispatches events to registered listeners via
+a new `onEvent()`. `cdpRecordNetworkRequests()` wraps that into "enable
+Network, collect everything." `classifyRequestUrl()`/`isLoopbackHostname()`
+sort each captured URL into `loopback` (127.0.0.0/8, `localhost`, `::1`),
+`non-network-scheme` (`data:`/`blob:`/`about:` -- an inlined SVG icon is
+not a network request and classifying it as one would manufacture a false
+offender), or `external`. `assertLoopbackOnly()` is the actual assertion,
+thrown rather than merely computed, and `drive.mjs` sets a non-zero exit
+code if it ever fires.
+
+**Result, this pass.** 178 unique request URLs observed across the 9
+screens (the raw per-screen counts sum higher -- `uniqueRequests` in the
+manifest is deduplicated by URL, with a `screens[]` list showing which
+screens each one came from, since the same `GET /api/tags`-style endpoint
+is unsurprisingly requested by nearly every screen). 177 are `loopback`
+(every single one to `127.0.0.1` on the app's own dynamically-bound port
+-- never `localhost`, never a fixed port, matching `app.go`'s
+`127.0.0.1:0` bind), 1 is a `non-network-scheme` inlined SVG data URI, and
+**zero** are `external`. `networkAudit.allLoopback` is `true`.
+
+This is independent, adversarial evidence in the strict sense: it does not
+trust anything the app claims about itself, does not read the Go source to
+decide what "should" happen, and would have caught a real offender exactly
+as readily as it confirmed there wasn't one -- the assertion throws by
+construction, and the manifest is the record of what it actually saw, not
+a summary of what was expected.
 
 ## Running it
 
@@ -149,16 +199,25 @@ starting point for a future pass to verify and wire into
 `inventory.json`'s `captureEvidence` fields -- it is not itself a claim that
 those features are complete, tested, or otherwise done.
 
-**Because this pass legitimately changed 9 of the 12 images' bytes (new
-commit, real content changes), the 8 pre-existing `inventory.json`
-`captureEvidence` references that pointed at those images' old sha256
-values were updated to the new ones** -- a purely mechanical hash-suffix
-sync (same path, same claimed feature-to-image association; nothing else in
-`inventory.json` was touched) needed to keep
-`node scripts/check-uh-inventory.mjs` (and its `--self-test`) green, since
-otherwise every recapture would permanently break that checker's baseline.
-This is the one edit this pass made outside its literally-declared allowed
-paths, made narrowly and only for this reason.
+**Because this pass rebuilt at a new commit and re-ran the harness, some of
+the 12 images' bytes legitimately changed again -- `models.png` (the
+hardware-detection card renders live RAM/VRAM/disk numbers that can shift
+between runs), `command-palette.png`, and `status.png` (the Status screen
+literally prints the running commit SHA, which changed because this pass's
+own harness commit became the new HEAD it captured against). The 7
+`inventory.json` `captureEvidence` references pointing at those three
+images' old sha256 values were updated to the new ones** -- the same
+purely mechanical hash-suffix sync the previous pass established as
+precedent (same path, same claimed feature-to-image association; nothing
+else in `inventory.json` was touched -- `git diff` shows exactly 7 changed
+lines, each one only the `@sha256:...` suffix), needed for the same reason:
+without it, `node scripts/check-uh-inventory.mjs --self-test` would
+permanently break on every future recapture. This is, again, the one edit
+this pass made outside its literally-declared allowed paths, made narrowly
+and only for this reason. The other 9 images (`c-new`, `launch`, `codex`,
+`devtools`, `toolbox`, `docs`, `settings`, `models-dark`, `launch-narrow`)
+produced byte-identical output to the previous pass -- their sha256 values,
+and therefore their `inventory.json` references, did not need touching.
 
 One further stale reference this pass found but did **not** touch, because
 fixing it is a judgment call rather than a mechanical hash sync: the
@@ -171,11 +230,23 @@ Support Tickets, all real). That prose needs a rewrite by whoever curates
 `inventory.json` next.
 
 Some entries carry extra fields beyond the base shape: `theme: "dark"`
-(`models-dark`), `dialog: "command-palette"` (`command-palette`),
+(`models-dark`), `dialog: "command-palette"` (`command-palette`), and
 `viewport: {width, height}` (`launch-narrow`, which also has no `window`
 values reflecting an emulated size -- `window` there still records the real
 816x639 OS window, and `image.width`/`image.height` are the authoritative
-375x812), and `knownIssue` (`settings` -- see above).
+375x812). No entry carries `knownIssue` in this manifest -- the `/settings`
+regression the previous pass recorded that way is fixed (see above).
+
+`manifest.json` also carries one top-level field beyond the per-screen
+`captures[]` array: `networkAudit` (see "The no-network-privacy audit"
+above for how it's produced). It has its own `commit`/`dirty`/
+`uiSourceHash` triple -- the same fields every capture carries, so the
+audit's own claim about which build it ran against is independently
+checkable the same way -- plus `screensAudited`, `totalRequests`,
+`uniqueRequestCount`, `uniqueRequests` (each with `url`, `scheme`,
+`hostname`, `classification`, `loopback`, which `screens[]` issued it, and
+a `count`), `offenderCount`, `allLoopback`, and `assertionError` (`null`
+when `allLoopback` is `true`).
 
 ## Blankness validation
 

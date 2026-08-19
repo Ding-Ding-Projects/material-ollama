@@ -644,6 +644,12 @@ export function cdpConnect(target, { timeoutMs = 15_000 } = {}) {
   const ws = new WebSocket(target.webSocketDebuggerUrl)
   let nextId = 1
   const pending = new Map()
+  // CDP *events* (Network.requestWillBeSent and friends) arrive as
+  // messages with a `method` and no `id` -- they are not responses to any
+  // `send()` call, so the id-keyed `pending` map above never sees them.
+  // Listeners registered via `onEvent()` below are the only way a caller
+  // gets at them; nothing in this module read them before this addition.
+  const eventListeners = new Set()
 
   const opened = new Promise((resolve, reject) => {
     const timer = setTimeout(() => reject(new Error(`CDP websocket to ${target.webSocketDebuggerUrl} did not open within ${timeoutMs}ms`)), timeoutMs)
@@ -656,6 +662,22 @@ export function cdpConnect(target, { timeoutMs = 15_000 } = {}) {
     try {
       msg = JSON.parse(event.data)
     } catch {
+      return
+    }
+    if (msg.id === undefined) {
+      // A CDP protocol event, not a reply to any send() -- fan it out to
+      // every registered listener. A listener that throws must not take
+      // the websocket's own message handler down with it (that would
+      // silently stop every future response/event on this connection).
+      if (msg.method) {
+        for (const fn of eventListeners) {
+          try {
+            fn(msg.method, msg.params ?? {})
+          } catch {
+            // deliberately swallowed -- see comment above
+          }
+        }
+      }
       return
     }
     const waiter = pending.get(msg.id)
@@ -690,6 +712,13 @@ export function cdpConnect(target, { timeoutMs = 15_000 } = {}) {
         })
         ws.send(JSON.stringify({ id, method, params }))
       })
+    },
+    /** Register `fn(method, params)` for every CDP event this connection
+     * receives (regardless of domain -- callers filter by `method`
+     * themselves). Returns an unsubscribe function. */
+    onEvent(fn) {
+      eventListeners.add(fn)
+      return () => eventListeners.delete(fn)
     },
     close() {
       try { ws.close() } catch { /* already closed */ }
@@ -735,4 +764,119 @@ export async function cdpWaitForCaptureMarker(client, captureId, { timeoutMs = 1
     `Timed out after ${timeoutMs}ms waiting for data-capture-id="${captureId}"[data-capture-ready="true"] to appear` +
       (lastErr ? ` (last evaluate error: ${lastErr.message})` : ''),
   )
+}
+
+// ---------------------------------------------------------------------------
+// Network audit: the no-network-privacy evidence.
+//
+// Records every request the real running app's own WebView2/Chromium
+// instance issues via CDP's Network domain, then classifies each one as
+// loopback (127.0.0.0/8, localhost, ::1) or not. This is deliberately NOT
+// derived from anything the app claims about itself -- it watches the
+// actual outbound requests the browser engine makes, the same way a
+// packet capture would, just via CDP instead of a socket tap.
+// ---------------------------------------------------------------------------
+
+/**
+ * Subscribe to `Network.requestWillBeSent` on an already-connected CDP
+ * client and enable the Network domain. Returns `{ requests, stop() }`:
+ * `requests` is the SAME array mutated in place as events arrive (so a
+ * caller can read it either during recording or after `stop()`), and
+ * `stop()` unsubscribes the listener (recording is otherwise unbounded --
+ * nothing here calls Network.disable, since the underlying CDP connection
+ * is always closed shortly after by the caller anyway).
+ *
+ * Must be called (and its returned promise awaited, so Network.enable has
+ * actually landed) BEFORE whatever navigation/reload the caller wants
+ * audited -- a request that fires before Network.enable takes effect is
+ * invisible to this recorder, exactly as it would be to any other CDP
+ * Network-domain consumer.
+ */
+export async function cdpRecordNetworkRequests(client) {
+  const requests = []
+  const unsubscribe = client.onEvent((method, params) => {
+    if (method !== 'Network.requestWillBeSent') return
+    requests.push({
+      requestId: params.requestId,
+      url: params.request?.url ?? null,
+      method: params.request?.method ?? null,
+      resourceType: params.type ?? null,
+      initiatorType: params.initiator?.type ?? null,
+      wallTime: params.wallTime ?? null,
+    })
+  })
+  await client.send('Network.enable', {})
+  return {
+    requests,
+    stop: unsubscribe,
+  }
+}
+
+// 127.0.0.0/8 (the whole loopback block, not just 127.0.0.1 -- this app
+// binds "127.0.0.1:0", but the classifier should not be narrower than what
+// actually counts as loopback on this host), plus the usual named/IPv6
+// spellings a browser or OS resolver can hand back for the same thing.
+const LOOPBACK_HOSTNAME_EXACT = new Set(['localhost', '::1', '[::1]', '0.0.0.0'])
+const LOOPBACK_IPV4_RE = /^127\.(?:\d{1,3})\.(?:\d{1,3})\.(?:\d{1,3})$/
+
+/** True if `hostname` (as returned by `new URL(...).hostname`, so already
+ * stripped of brackets/port) names a loopback address. */
+export function isLoopbackHostname(hostname) {
+  if (!hostname) return false
+  const h = hostname.toLowerCase()
+  if (LOOPBACK_HOSTNAME_EXACT.has(h)) return true
+  return LOOPBACK_IPV4_RE.test(h)
+}
+
+// Schemes that never leave the machine (or never leave the process) and so
+// carry no network-privacy signal at all -- a devtools:// or about: URL
+// captured alongside real HTTP traffic is not evidence of anything, and
+// classifying it as "external" would just manufacture false offenders.
+const NON_NETWORK_SCHEMES = new Set(['data', 'blob', 'about', 'chrome', 'chrome-extension', 'devtools', 'chrome-untrusted', 'edge', 'file'])
+
+/**
+ * Classify one request URL. Returns `{ url, scheme, hostname, loopback,
+ * classification }`. `classification` is one of:
+ *   - "loopback"           -- http(s) (or ws(s)) to a loopback address
+ *   - "external"           -- http(s)/ws(s) to anything else (a REAL
+ *                              network-privacy offender)
+ *   - "non-network-scheme" -- data:/blob:/about:/chrome:/file: etc; never
+ *                              actually leaves the machine
+ *   - "unparseable"        -- could not be parsed as a URL at all; treated
+ *                              as an offender rather than silently ignored,
+ *                              since an unparseable "URL" a real browser
+ *                              actually issued a request for is itself
+ *                              worth surfacing rather than swallowing.
+ */
+export function classifyRequestUrl(urlString) {
+  let parsed
+  try {
+    parsed = new URL(urlString)
+  } catch {
+    return { url: urlString, scheme: null, hostname: null, loopback: false, classification: 'unparseable' }
+  }
+  const scheme = parsed.protocol.replace(/:$/, '')
+  if (NON_NETWORK_SCHEMES.has(scheme)) {
+    return { url: urlString, scheme, hostname: parsed.hostname || null, loopback: true, classification: 'non-network-scheme' }
+  }
+  const loopback = isLoopbackHostname(parsed.hostname)
+  return { url: urlString, scheme, hostname: parsed.hostname || null, loopback, classification: loopback ? 'loopback' : 'external' }
+}
+
+/**
+ * Classify every entry in `requests` (the array `cdpRecordNetworkRequests`
+ * produces) and throw if any is not loopback. Returns
+ * `{ ok: true, count, classified }` on success so a caller can still log
+ * the full classified list even when nothing failed. Never mutates the
+ * input.
+ */
+export function assertLoopbackOnly(requests) {
+  const classified = requests.map((r) => ({ ...r, ...classifyRequestUrl(r.url) }))
+  const offenders = classified.filter((r) => !r.loopback)
+  if (offenders.length > 0) {
+    throw new Error(
+      `${offenders.length} non-loopback network request(s) detected: ${JSON.stringify(offenders.map((o) => ({ url: o.url, classification: o.classification })))}`,
+    )
+  }
+  return { ok: true, count: classified.length, classified }
 }
