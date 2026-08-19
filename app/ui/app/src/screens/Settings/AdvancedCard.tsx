@@ -36,7 +36,11 @@ export function AdvancedCard({ preferences, patchPreferences, preferencesLoading
   const [draftKind, setDraftKind] = useState<ScheduleKind>("dark")
 
   const schedules = preferences.schedules ?? []
-  const endpoints = preferences.endpoints.endpoints
+  // A nil Go slice marshals to JSON null, not [], so every array arriving from
+  // the preferences endpoint has to be guarded here. Reading .length off the
+  // raw value is what crashed the whole Settings route into the router error
+  // boundary with "Cannot read properties of null".
+  const endpoints = preferences.endpoints?.endpoints ?? []
 
   const addRule = () => {
     if (!draftTime) return
@@ -142,7 +146,7 @@ export function AdvancedCard({ preferences, patchPreferences, preferencesLoading
                     {fact(endpoint.baseUrl, "path")}
                   </span>
                 </div>
-                {endpoint.id === preferences.endpoints.activeId ? (
+                {endpoint.id === preferences.endpoints?.activeId ? (
                   <Badge variant="label" tone="tertiary">
                     {t("endpointActiveFact")}
                   </Badge>

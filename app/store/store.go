@@ -343,10 +343,17 @@ func DefaultUIPreferences() UIPreferences {
 			Density: "comfortable",
 			Radius:  12,
 		},
-		Vocab:     nil,
-		Schedules: nil,
+		// Empty slices, never nil. A nil slice marshals to JSON null rather
+		// than [], so the renderer receives null where it expects an array and
+		// the first .length access throws. That is not hypothetical: it took
+		// the entire Settings route down into the router's error boundary with
+		// "Cannot read properties of null (reading 'length')", reproduced 4/4.
+		// Guarding every read site works but has to be remembered every time;
+		// emitting [] here fixes the whole class once.
+		Vocab:     []VocabRule{},
+		Schedules: []ScheduleRule{},
 		Hardware:  map[string]HardwareOverrides{},
-		Endpoints: EndpointPrefs{},
+		Endpoints: EndpointPrefs{Endpoints: []Endpoint{}},
 	}
 }
 
