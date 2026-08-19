@@ -225,7 +225,11 @@ export default function CodexHarness() {
   };
 
   return (
-    <main className="min-h-screen bg-neutral-50 text-neutral-900 dark:bg-neutral-950 dark:text-neutral-100">
+    <main
+      className="min-h-screen bg-neutral-50 text-neutral-900 dark:bg-neutral-950 dark:text-neutral-100"
+      data-capture-id="codex"
+      data-capture-ready="true"
+    >
       <header className="flex h-14 items-center justify-between border-b border-neutral-200 px-5 dark:border-neutral-800">
         <div className="flex items-center gap-3">
           <button

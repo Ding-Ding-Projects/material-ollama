@@ -208,7 +208,7 @@ func osRun(shutdown func(), hasCompletedFirstRun, startHidden bool) {
 	if startHidden {
 		startHiddenTasks()
 	} else {
-		ptr := wv.Run("/")
+		ptr := wv.Run(initialRoute)
 
 		// Set the window icon using the tray icon
 		if ptr != nil {

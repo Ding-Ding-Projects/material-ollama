@@ -202,7 +202,7 @@ export default function Chat({ chatId }: { chatId: string }) {
       hasVisionCapability={hasVisionCapability}
     >
       {chatId === "new" ? (
-        <div className="flex flex-col h-screen justify-center relative">
+        <div className="flex flex-col h-screen justify-center relative" data-capture-id="c-new" data-capture-ready="true">
           <div className="px-6">
             <ChatForm
               hasMessages={false}

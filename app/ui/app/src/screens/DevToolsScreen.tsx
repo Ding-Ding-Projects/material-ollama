@@ -33,7 +33,7 @@ export default function DevToolsScreen() {
   const profiles = profilesQuery.data
 
   return (
-    <div className="mx-auto flex max-w-4xl flex-col gap-6 px-8 py-8">
+    <div className="mx-auto flex max-w-4xl flex-col gap-6 px-8 py-8" data-capture-id="devtools" data-capture-ready="true">
       <header className="flex flex-col gap-2">
         <div className="flex items-center gap-3">
           <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-primary-container text-on-primary-container">
