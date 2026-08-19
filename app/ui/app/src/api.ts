@@ -733,3 +733,45 @@ export function subscribeCodexSession(
   source.onerror = (error) => handlers.onError?.(error);
   return () => source.close();
 }
+
+// --- Offline documentation browser -----------------------------------
+//
+// Backed by app/ui/docs.go, which embeds articles staged from
+// docs/features/uh-completeness/articles/ into app/ui/articles/ (see
+// scripts/check-docs-bundle.mjs). `written` is false exactly when the
+// article is nothing but its generated TODO(...) scaffold -- see
+// docsIsScaffoldOnly in app/ui/docs.go -- and the docs screen renders an
+// explicit "Article not yet written" state instead of that scaffold body
+// rather than passing generated placeholder text off as documentation.
+
+export interface DocsFeature {
+  id: string;
+  title: string;
+  written: boolean;
+}
+
+export interface DocsArticle extends DocsFeature {
+  content: string;
+}
+
+export async function getDocsInventory(): Promise<DocsFeature[]> {
+  const response = await fetch(`${API_BASE}/api/v1/docs/inventory`);
+  if (!response.ok) {
+    throw new Error(`Failed to fetch docs inventory: ${response.status}`);
+  }
+  const data = (await response.json()) as { features: DocsFeature[] };
+  return data.features;
+}
+
+export async function getDocsArticle(id: string): Promise<DocsArticle> {
+  const response = await fetch(
+    `${API_BASE}/api/v1/docs/article/${encodeURIComponent(id)}`,
+  );
+  if (response.status === 404) {
+    throw new Error(`Documentation article not found: ${id}`);
+  }
+  if (!response.ok) {
+    throw new Error(`Failed to fetch docs article "${id}": ${response.status}`);
+  }
+  return (await response.json()) as DocsArticle;
+}
