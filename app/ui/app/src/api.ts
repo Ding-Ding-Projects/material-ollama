@@ -22,6 +22,13 @@ import type {
   ConfigProfileRequest,
   ConfigProfilesResponse,
 } from "./lib/cli-config";
+import type {
+  HardwareResponse,
+  InstalledModel,
+  PullQueueItem,
+  PullQueueItemWithFit,
+  RunningModel,
+} from "./screens/models/types";
 
 // Extend Model class with utility methods
 declare module "@/gotypes" {
@@ -729,6 +736,132 @@ export function subscribeCodexSession(
     const data = JSON.parse((event as MessageEvent).data) as CodexSession;
     handlers.onDone?.(data);
     source.close();
+  });
+  source.onerror = (error) => handlers.onError?.(error);
+  return () => source.close();
+}
+
+// --- Model store: hardware, installed/running models, pull queue --------
+//
+// These wrap the real, already-registered server routes in
+// app/ui/hardware.go and app/ui/models.go. Every shape below is a
+// transcription of that server's JSON (see src/screens/models/types.ts) —
+// this file adds no client-side fit computation, no invented catalog, and
+// no synthetic progress.
+
+async function modelsJson<T>(path: string, init?: RequestInit): Promise<T> {
+  const response = await fetch(`${API_BASE}${path}`, init);
+  if (!response.ok) {
+    let message = `${response.status} ${response.statusText}`;
+    try {
+      const body = await response.clone().json();
+      if (body && typeof body.error === "string" && body.error) {
+        message = body.error;
+      }
+    } catch {
+      const text = await response.text().catch(() => "");
+      if (text) message = text;
+    }
+    throw new Error(message);
+  }
+  return (await response.json()) as T;
+}
+
+export function getHardware(): Promise<HardwareResponse> {
+  return modelsJson<HardwareResponse>("/api/v1/hardware");
+}
+
+export async function getInstalledModels(): Promise<InstalledModel[]> {
+  const data = await modelsJson<{ models: InstalledModel[] }>(
+    "/api/v1/models/installed",
+  );
+  return data.models || [];
+}
+
+export async function getRunningModels(): Promise<RunningModel[]> {
+  const data = await modelsJson<{ models: RunningModel[] }>(
+    "/api/v1/models/running",
+  );
+  return data.models || [];
+}
+
+export function enqueueModelPull(model: string): Promise<PullQueueItem> {
+  return modelsJson<PullQueueItem>("/api/v1/models/pull", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ model }),
+  });
+}
+
+export async function getPullQueue(): Promise<PullQueueItemWithFit[]> {
+  const data = await modelsJson<{ items: PullQueueItemWithFit[] }>(
+    "/api/v1/models/pull/queue",
+  );
+  return data.items || [];
+}
+
+export function pauseModelPull(id: string): Promise<{ state: string }> {
+  return modelsJson<{ state: string }>(
+    `/api/v1/models/pull/${encodeURIComponent(id)}/pause`,
+    { method: "POST" },
+  );
+}
+
+export function resumeModelPull(id: string): Promise<{ state: string }> {
+  return modelsJson<{ state: string }>(
+    `/api/v1/models/pull/${encodeURIComponent(id)}/resume`,
+    { method: "POST" },
+  );
+}
+
+/** `deleteData: true` actually deletes the on-disk "-partial-*" blobs;
+ * `false` (the default the UI should offer first) keeps them so a future
+ * pull of the same model resumes from where this one stopped — see the
+ * brief's exact required copy for this choice. */
+export function cancelModelPull(
+  id: string,
+  deleteData: boolean,
+): Promise<{ state: string }> {
+  return modelsJson<{ state: string }>(
+    `/api/v1/models/pull/${encodeURIComponent(id)}/cancel`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ deleteData }),
+    },
+  );
+}
+
+/** The confirmation keyword is fixed server-side (models.go re-checks it
+ * regardless of what the UI sends), so it is hardcoded here rather than
+ * threaded through as a parameter — the UI's job is to make the user type
+ * it via ConfirmDialog before this is ever called, not to choose it. */
+export function deleteInstalledModel(name: string): Promise<{ deleted: string }> {
+  return modelsJson<{ deleted: string }>("/api/v1/models/delete", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ name, confirm: "REMOVE" }),
+  });
+}
+
+/** SSE subscription for the pull queue. The first event is always
+ * "snapshot" (PullQueueItemWithFit[], fit attached); every subsequent
+ * "queue" event is bare PullQueueItem[] with no fit (see models.go's
+ * attachFitVerdicts comment) — callers must carry a previously-seen fit
+ * forward themselves rather than treating its absence as "no verdict". */
+export function subscribeModelPullEvents(handlers: {
+  onSnapshot: (items: PullQueueItemWithFit[]) => void;
+  onQueue: (items: PullQueueItem[]) => void;
+  onError?: (error: Event) => void;
+}): () => void {
+  const source = new EventSource(`${API_BASE}/api/v1/models/pull/events`);
+  source.addEventListener("snapshot", (event) => {
+    const data = JSON.parse((event as MessageEvent).data) as PullQueueItemWithFit[];
+    handlers.onSnapshot(data || []);
+  });
+  source.addEventListener("queue", (event) => {
+    const data = JSON.parse((event as MessageEvent).data) as PullQueueItem[];
+    handlers.onQueue(data || []);
   });
   source.onerror = (error) => handlers.onError?.(error);
   return () => source.close();
