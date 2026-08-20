@@ -27,6 +27,25 @@ func TestQwenParserStreaming(t *testing.T) {
 		only  bool
 	}{
 		{
+			desc: "missing tool-call opener still parses",
+			steps: []step{
+				{
+					input: "before tool call<function=get_current_temperature>some tool content here</function></tool_call>",
+					wantEvents: []qwenEvent{
+						qwenEventContent{content: "before tool call"},
+						qwenEventRawToolCall{raw: "<function=get_current_temperature>some tool content here</function>"},
+					},
+				},
+			},
+		},
+		{
+			desc: "split missing tool-call opener is buffered",
+			steps: []step{
+				{input: "before tool call<func", wantEvents: []qwenEvent{qwenEventContent{content: "before tool call"}}},
+				{input: "tion=get_weather>{}</function></tool_call>", wantEvents: []qwenEvent{qwenEventRawToolCall{raw: "<function=get_weather>{}</function>"}}},
+			},
+		},
+		{
 			desc: "simple message streamed word by word",
 			steps: []step{
 				{
