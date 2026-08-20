@@ -377,6 +377,27 @@ func TestParseSafetensorsConsumesFP8ScaleCompanion(t *testing.T) {
 	}
 }
 
+func TestParseSafetensorsRejectsImplausibleHeaderSize(t *testing.T) {
+	for _, n := range []int64{0, -1, (100 << 20) + 1} {
+		t.Run(fmt.Sprintf("size_%d", n), func(t *testing.T) {
+			tempDir := t.TempDir()
+			var header bytes.Buffer
+			if err := binary.Write(&header, binary.LittleEndian, n); err != nil {
+				t.Fatal(err)
+			}
+			const name = "model.safetensors"
+			if err := os.WriteFile(filepath.Join(tempDir, name), header.Bytes(), 0o600); err != nil {
+				t.Fatal(err)
+			}
+
+			_, err := parseSafetensors(os.DirFS(tempDir), strings.NewReplacer(), name)
+			if err == nil || !strings.Contains(err.Error(), "file may be corrupted or a Git LFS pointer") {
+				t.Fatalf("expected bounded safetensors header error, got %v", err)
+			}
+		})
+	}
+}
+
 func TestParseSafetensorsRejectsFP8WithoutBlockMetadata(t *testing.T) {
 	tempDir := t.TempDir()
 	generateSafetensorTestData(t, tempDir, map[string]*tensorData{
