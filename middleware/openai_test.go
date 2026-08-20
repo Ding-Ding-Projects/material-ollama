@@ -1698,6 +1698,35 @@ func TestRetrieveMiddleware(t *testing.T) {
 	}
 }
 
+func TestDeleteMiddleware(t *testing.T) {
+	var captured api.DeleteRequest
+	router := gin.New()
+	router.Use(DeleteMiddleware())
+	router.DELETE("/v1/models/:model", func(c *gin.Context) {
+		if err := c.ShouldBindJSON(&captured); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
+		c.JSON(http.StatusOK, gin.H{})
+	})
+
+	req := httptest.NewRequest(http.MethodDelete, "/v1/models/test-model", nil)
+	resp := httptest.NewRecorder()
+	router.ServeHTTP(resp, req)
+
+	if captured.Model != "test-model" {
+		t.Fatalf("delete model = %q, want test-model", captured.Model)
+	}
+	var got map[string]any
+	if err := json.Unmarshal(resp.Body.Bytes(), &got); err != nil {
+		t.Fatal(err)
+	}
+	want := map[string]any{"id": "test-model", "object": "model", "deleted": true}
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("delete response = %#v, want %#v", got, want)
+	}
+}
+
 func zstdCompress(t *testing.T, data []byte) []byte {
 	t.Helper()
 	var buf bytes.Buffer

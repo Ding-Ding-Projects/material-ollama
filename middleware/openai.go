@@ -55,6 +55,11 @@ type RetrieveWriter struct {
 	model string
 }
 
+type DeleteWriter struct {
+	BaseWriter
+	model string
+}
+
 type EmbedWriter struct {
 	BaseWriter
 	model          string
@@ -299,6 +304,22 @@ func (w *RetrieveWriter) Write(data []byte) (int, error) {
 	return w.writeResponse(data)
 }
 
+func (w *DeleteWriter) Write(data []byte) (int, error) {
+	if w.ResponseWriter.Status() != http.StatusOK {
+		return w.writeError(data)
+	}
+
+	w.ResponseWriter.Header().Set("Content-Type", "application/json")
+	if err := json.NewEncoder(w.ResponseWriter).Encode(gin.H{
+		"id":      w.model,
+		"object":  "model",
+		"deleted": true,
+	}); err != nil {
+		return 0, err
+	}
+	return len(data), nil
+}
+
 func (w *EmbedWriter) writeResponse(data []byte) (int, error) {
 	var embedResponse api.EmbedResponse
 	err := json.Unmarshal(data, &embedResponse)
@@ -353,6 +374,22 @@ func RetrieveMiddleware() gin.HandlerFunc {
 
 		c.Writer = w
 
+		c.Next()
+	}
+}
+
+func DeleteMiddleware() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		var b bytes.Buffer
+		if err := json.NewEncoder(&b).Encode(api.DeleteRequest{Model: c.Param("model")}); err != nil {
+			c.AbortWithStatusJSON(http.StatusInternalServerError, openai.NewError(http.StatusInternalServerError, err.Error()))
+			return
+		}
+		c.Request.Body = io.NopCloser(&b)
+		c.Writer = &DeleteWriter{
+			BaseWriter: BaseWriter{ResponseWriter: c.Writer},
+			model:      c.Param("model"),
+		}
 		c.Next()
 	}
 }
