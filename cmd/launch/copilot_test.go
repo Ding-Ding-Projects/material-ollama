@@ -7,6 +7,8 @@ import (
 	"slices"
 	"strings"
 	"testing"
+
+	"github.com/ollama/ollama/api"
 )
 
 func TestCopilotIntegration(t *testing.T) {
@@ -126,7 +128,8 @@ func TestCopilotEnvVars(t *testing.T) {
 	}
 
 	t.Run("sets required provider env vars with model", func(t *testing.T) {
-		got := envMap(c.envVars("llama3.2"))
+		t.Setenv("OLLAMA_CONTEXT_LENGTH", "")
+		got := envMap(c.envVars("llama3.2", []LaunchModel{{Name: "llama3.2:latest", ContextLength: 65_536, MaxOutputTokens: 4_096}}))
 		if got["COPILOT_PROVIDER_BASE_URL"] == "" {
 			t.Error("COPILOT_PROVIDER_BASE_URL should be set")
 		}
@@ -139,13 +142,20 @@ func TestCopilotEnvVars(t *testing.T) {
 		if got["COPILOT_PROVIDER_WIRE_API"] != "responses" {
 			t.Errorf("COPILOT_PROVIDER_WIRE_API = %q, want %q", got["COPILOT_PROVIDER_WIRE_API"], "responses")
 		}
+		if got["COPILOT_PROVIDER_MAX_PROMPT_TOKENS"] != "65536" {
+			t.Errorf("COPILOT_PROVIDER_MAX_PROMPT_TOKENS = %q, want 65536", got["COPILOT_PROVIDER_MAX_PROMPT_TOKENS"])
+		}
+		if got["COPILOT_PROVIDER_MAX_OUTPUT_TOKENS"] != "4096" {
+			t.Errorf("COPILOT_PROVIDER_MAX_OUTPUT_TOKENS = %q, want 4096", got["COPILOT_PROVIDER_MAX_OUTPUT_TOKENS"])
+		}
 		if got["COPILOT_MODEL"] != "llama3.2" {
 			t.Errorf("COPILOT_MODEL = %q, want %q", got["COPILOT_MODEL"], "llama3.2")
 		}
 	})
 
 	t.Run("omits COPILOT_MODEL when model is empty", func(t *testing.T) {
-		got := envMap(c.envVars(""))
+		t.Setenv("OLLAMA_CONTEXT_LENGTH", "")
+		got := envMap(c.envVars("", nil))
 		if _, ok := got["COPILOT_MODEL"]; ok {
 			t.Errorf("COPILOT_MODEL should not be set for empty model, got %q", got["COPILOT_MODEL"])
 		}
@@ -153,9 +163,34 @@ func TestCopilotEnvVars(t *testing.T) {
 
 	t.Run("uses custom OLLAMA_HOST", func(t *testing.T) {
 		t.Setenv("OLLAMA_HOST", "http://myhost:9999")
-		got := envMap(c.envVars("test"))
+		t.Setenv("OLLAMA_CONTEXT_LENGTH", "")
+		got := envMap(c.envVars("test", nil))
 		if !strings.Contains(got["COPILOT_PROVIDER_BASE_URL"], "myhost:9999") {
 			t.Errorf("COPILOT_PROVIDER_BASE_URL = %q, want custom host", got["COPILOT_PROVIDER_BASE_URL"])
+		}
+	})
+
+	t.Run("uses details context length and default output", func(t *testing.T) {
+		t.Setenv("OLLAMA_CONTEXT_LENGTH", "")
+		got := envMap(c.envVars("llama3.2", []LaunchModel{{Name: "llama3.2", Details: api.ModelDetails{ContextLength: 32_768}}}))
+		if got["COPILOT_PROVIDER_MAX_PROMPT_TOKENS"] != "32768" || got["COPILOT_PROVIDER_MAX_OUTPUT_TOKENS"] != "64000" {
+			t.Fatalf("token limits = %q/%q, want 32768/64000", got["COPILOT_PROVIDER_MAX_PROMPT_TOKENS"], got["COPILOT_PROVIDER_MAX_OUTPUT_TOKENS"])
+		}
+	})
+
+	t.Run("uses known cloud limits", func(t *testing.T) {
+		t.Setenv("OLLAMA_CONTEXT_LENGTH", "64000")
+		got := envMap(c.envVars("qwen3.5:cloud", nil))
+		if got["COPILOT_PROVIDER_MAX_PROMPT_TOKENS"] != "262144" || got["COPILOT_PROVIDER_MAX_OUTPUT_TOKENS"] != "32768" {
+			t.Fatalf("cloud token limits = %q/%q, want 262144/32768", got["COPILOT_PROVIDER_MAX_PROMPT_TOKENS"], got["COPILOT_PROVIDER_MAX_OUTPUT_TOKENS"])
+		}
+	})
+
+	t.Run("uses explicit local context override", func(t *testing.T) {
+		t.Setenv("OLLAMA_CONTEXT_LENGTH", "64000")
+		got := envMap(c.envVars("llama3.2", []LaunchModel{{Name: "llama3.2", ContextLength: 131_072, Details: api.ModelDetails{Format: "gguf"}}}))
+		if got["COPILOT_PROVIDER_MAX_PROMPT_TOKENS"] != "64000" {
+			t.Fatalf("prompt tokens = %q, want 64000", got["COPILOT_PROVIDER_MAX_PROMPT_TOKENS"])
 		}
 	})
 }
