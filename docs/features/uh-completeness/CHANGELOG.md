@@ -1,5 +1,11 @@
 # Completeness inventory changelog
 
+## 2026-08-20 — Silent root builds consume their own switches
+
+- Corrected `build.bat /s` and `build.bat --silent` so the wrapper consumes those switches instead of forwarding them as invalid PowerShell build-step names.
+- Preserved named-step forwarding and documented `SILENT=1`.
+- Added focused exact-boundary checks for the parser and delegated command.
+
 ## 2026-08-18 — Inventory contract introduced
 
 - Added the hand-written canonical feature list for the installed desktop application and the independent landing/documentation site.

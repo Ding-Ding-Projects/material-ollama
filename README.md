@@ -92,6 +92,8 @@ These 12 captures are the complete real-capture evidence that exists right now. 
 
 The desktop project follows the upstream Go/CMake toolchain. The hosted landing source has its own `package.json`, Vinext/Vite configuration, Cloudflare-compatible worker entry, and `.openai/hosting.json` metadata. Build dependencies must remain outside the desktop dependency tree.
 
+From the repository root, `build.bat` runs the required inventory and vocabulary checks before the supported Windows build. Use `build.bat /s` (also `--silent` or `SILENT=1`) for a touchless full build. Optional step names follow the silent switch, for example `build.bat /s app`; the wrapper consumes silent switches instead of forwarding them as build step names.
+
 The landing site uses the existing local mark and social-preview assets. It has no remote fonts, analytics, tracking scripts, or runtime model connection.
 
 </details>

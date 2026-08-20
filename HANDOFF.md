@@ -1,7 +1,13 @@
 # Handoff
 
-Last updated: 2026-08-19. Written against the repository as it actually is.
+Last updated: 2026-08-20. Written against the repository as it actually is.
 Every number below was measured in this session, not remembered.
+
+## 2026-08-20 root-build correction
+
+- `build.bat` now consumes `/s` and `--silent`, recognizes `SILENT=1`, and forwards only named build steps.
+- Focused contract: `node --test scripts/test/root-build-entrypoint.test.mjs`.
+- Runtime proof uses the real root build path; installer install/uninstall evidence is outside this build-entrypoint correction.
 
 ## What this project is right now
 

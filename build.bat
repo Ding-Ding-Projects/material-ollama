@@ -14,13 +14,34 @@ rem   2. the current docs\features\uh-completeness\inventory.json must pass
 rem      the plain structural + evidence-resolution check with no flags.
 rem
 rem Only once both are green does this delegate to scripts\build_windows.ps1
-rem for the real Windows build. Every argument given to build.bat is passed
-rem straight through, unchanged, to build_windows.ps1's own step-name
-rem argument list (for example `build.bat app` builds only the app step);
-rem with no arguments build_windows.ps1 runs its full default build.
+rem for the real Windows build. /s and --silent are consumed here instead of
+rem being mistaken for build step names. SILENT=1 selects the same touchless
+rem route. Every remaining argument is passed to build_windows.ps1's step-name
+rem argument list (for example `build.bat /s app` builds only the app step);
+rem with no step names build_windows.ps1 runs its full default build.
 
 set "SCRIPT_DIR=%~dp0"
 cd /d "%SCRIPT_DIR%"
+
+set "BUILD_STEPS="
+set "SILENT_MODE=0"
+:parse_args
+if "%~1"=="" goto args_done
+if /I "%~1"=="/s" goto arg_silent
+if /I "%~1"=="--silent" goto arg_silent
+set "BUILD_STEPS=!BUILD_STEPS! "%~1""
+shift
+goto parse_args
+
+:arg_silent
+set "SILENT=1"
+set "SILENT_MODE=1"
+shift
+goto parse_args
+
+:args_done
+if /I "%SILENT%"=="1" set "SILENT_MODE=1"
+if "%SILENT_MODE%"=="1" echo [build.bat] Silent mode enabled; no build prompt will be shown.
 
 where node >nul 2>nul
 if errorlevel 1 (
@@ -50,7 +71,7 @@ if errorlevel 1 (
 )
 
 echo [build.bat] Inventory gate is green. Delegating to scripts\build_windows.ps1...
-powershell -NoProfile -ExecutionPolicy Bypass -File "%SCRIPT_DIR%scripts\build_windows.ps1" %*
+powershell -NoProfile -ExecutionPolicy Bypass -File "%SCRIPT_DIR%scripts\build_windows.ps1" %BUILD_STEPS%
 if errorlevel 1 (
     echo [build.bat] ERROR: scripts\build_windows.ps1 failed.
     exit /b 1
