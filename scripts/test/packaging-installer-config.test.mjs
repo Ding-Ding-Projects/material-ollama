@@ -155,7 +155,14 @@ test('universal packaging fails closed instead of silently falling back or omitt
   assert.match(buildScript, /vcruntime140\.dll/)
   assert.match(buildScript, /libgcc_s_seh-1\.dll/)
   assert.match(buildScript, /throw "Universal Windows installer payload is missing/)
-  assert.match(buildScript, /ValidateUniversalWindowsPayload\n\s+Write-Output "Building Ollama Installer"/)
+  const normalizedBuildScript = buildScript.replaceAll('\r\n', '\n')
+  const validationBeforeBuild = /ValidateUniversalWindowsPayload\n\s+Write-Output "Building Ollama Installer"/
+  assert.match(normalizedBuildScript, validationBeforeBuild)
+  assert.doesNotMatch(
+    normalizedBuildScript.replace(/^\s*ValidateUniversalWindowsPayload\s*$/m, ''),
+    validationBeforeBuild,
+    'removing the fail-closed payload validation must turn this ordering check red',
+  )
 })
 
 function activeWebViewRuntimeBody(content) {
