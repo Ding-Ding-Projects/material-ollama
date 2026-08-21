@@ -25,4 +25,5 @@ llama/build-info.cpp linguist-generated
 ml/backend/ggml/ggml/src/ggml-metal/ggml-metal-embed.s linguist-generated
 
 * text=auto
+design/** -text
 *.go text eol=lf
