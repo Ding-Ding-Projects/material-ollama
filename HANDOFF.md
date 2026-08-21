@@ -1,7 +1,10 @@
 # Handoff
 
-Last updated: 2026-08-20. Written against the repository as it actually is.
-Every number below was measured in this session, not remembered.
+Last updated: 2026-08-21. Written against the current local baseline
+`033efdecd8d29e1a8296c3bc37384cc35c40b360`. Release and publication remain
+pending; the published baseline is recorded separately below.
+Every number below was measured by a committed script in this session, not
+remembered.
 
 ## 2026-08-20 root-build correction
 
@@ -19,31 +22,53 @@ A Material Design 3 rewrite of that UI has largely landed. The app shell
 (title bar, browser-style tab strip, navigation rail), the MD3 token system
 with runtime OKLCh theming, bundled fonts and an icon sprite, a cross-cutting
 language/tone/restricted-mode layer, the settings store, the model-store
-backend, a Docker container manager, a file converter, an authenticator, a
-model catalog service, and nine screens all exist and are wired to real
-endpoints. **It is not finished** — see Boundaries.
+backend, a Docker container manager backend, a file-converter backend, an
+authenticator backend, a model catalog service, and nine user-facing screens
+all exist in the tree and use real endpoints where wired. The file converter,
+authenticator, and local suite manager do not yet have their user-facing
+screens wired into the navigation. **It is not finished** — see Boundaries.
 
 ## Current state
 
-- Default branch tip: `git log -1 main`.
-- Published baseline: **`v0.0.0-build.18`**.
-- **Desktop UI**: 367 tests across 53 files (`npx vitest run` in `app/ui/app`).
-- **Go**: 9 packages pass (`go test ./app/...`, needs CGO).
-- **Script tests**: all pass (`node --test "scripts/test/*.test.mjs"`).
-- **Captures**: 12 real built-artifact captures, blankness-validated and
-  sha256-verified, including dark theme, a dialog state and narrow layout.
-- **Network audit**: a real CDP recording against the built app across 9
-  screens — 182 requests, `allLoopback: true`, zero non-loopback offenders.
+- Published baseline: **`v0.0.0-build.18`**, targeting commit
+  [`3b33fc66c42c82b3d9fe0bfb012f85e68fc6ea6f`](https://github.com/Ding-Ding-Projects/material-ollama/commit/3b33fc66c42c82b3d9fe0bfb012f85e68fc6ea6f).
+- Local work after that baseline is not published. No release, installer, or
+  remote verification is claimed by this handoff.
+- **Line count:** `node scripts/count-lines.mjs` reported 1,610 included files,
+  486,437 total lines, and 424,482 non-blank lines. The breakdown was 854
+  source files (292,906 / 253,252 non-blank), 446 test files (170,363 /
+  153,450 non-blank), and 310 styles/markup files (23,168 / 17,780
+  non-blank). Surviving-line attribution was 74,128 agent-attributed,
+  412,309 other-attributed, and 0 unknown. Vendored sources, third-party
+  trees, dependency directories, generated build output, and lockfiles were
+  excluded by the script.
+- **Inventory self-test:** `node scripts/check-uh-inventory.mjs --self-test`
+  passed 28 guard cases; all 26 declared guard codes were observed failing at
+  least once before restoration, and the inventory structure passed.
+- **Sanitized-copy test:** `node --test
+  scripts/test/sanitized-instruction-copy.test.mjs` passed 4 tests.
+- **Docs bundle:** `node scripts/check-docs-bundle.mjs` passed with 85 staged
+  articles matching all 85 inventory features byte-for-byte; the companion
+  `node site/scripts/build-docs-index.mjs` wrote 85 articles across 11
+  categories.
+- **Status pure tests:** the direct Vitest entrypoint ran
+  `changelogEntries.test.ts`, `dateRange.test.ts`, and
+  `dimSumSurprise.test.ts`: 3 files and 16 tests passed. The wider status
+  subset was not promoted to green: its remaining DOM files stayed queued for
+  more than a minute and the run was stopped after 3 of 12 files completed.
+- **Go store package:** on the Windows/amd64 host,
+  `go test ./app/store -count=1 -run '^TestConfigMigration$' -v` passed for
+  the focused migration fixture, and `go test ./app/store -count=1` passed
+  for the full store package.
 
 ## Inventory status, measured
 
 | surface | verified | in-progress | missing | not-applicable |
 | --- | ---: | ---: | ---: | ---: |
-| desktop-app | 16 | 57 | 0 | 12 |
+| desktop-app | 22 | 51 | 0 | 12 |
 | landing-page | 0 | 0 | 85 | 0 |
 
-Suite inventory: 21 areas — 12 covered, 8 partial, 1 missing
-(`guided-recovery`, which has no troubleshooter anywhere in the codebase).
+Suite inventory: 21 areas — 13 covered, 8 partial, 0 missing.
 
 ## Verification posture
 
@@ -82,10 +107,9 @@ stylesheet (the defect it guards is invisible from both `vite.config.ts` and
    linked by *every* architecture and fails arm64 with
    `machine type x64 conflicts with arm64` while amd64 stays green.
 
-5. **57 desktop-app rows remain `in-progress`.** The measured gaps: 46 need
-   `builtArtifactProof` and `captureEvidence`, 24 need `focusedCheck`, 1 needs
-   `localizedCopy`. Several are genuinely non-visual and have no honest
-   screenshot.
+5. **51 desktop-app rows remain `in-progress`.** Their evidence gaps remain
+   recorded in the inventory; several are genuinely non-visual and have no
+   honest screenshot.
 
 6. **All 85 landing-page rows are `missing`.** The site at `site/` was scoped
    out for most of this work.
@@ -103,7 +127,7 @@ stylesheet (the defect it guards is invisible from both `vite.config.ts` and
 **Twice this session a delegated lane reported that it had committed and had
 not.** Merging that branch took an empty diff and reported success, which is
 indistinguishable from the work landing. Both were caught only because a later
-step re-proved preconditions from scratch — the first by mat day checking
+step re-proved preconditions from scratch — the first by cleanup checking
 whether every worktree was clean (it found 116 uncommitted files), the second
 by re-reading the inventory counts instead of trusting an earlier report.
 
@@ -113,12 +137,11 @@ by re-reading the inventory counts instead of trusting an earlier report.
 ## Next actions, in the order they unblock the most
 
 1. Resolve the CI push trigger. Everything is slower without it.
-2. Build `guided-recovery` — the last genuinely missing suite area.
-3. Lift the 57 `in-progress` rows: write the 24 missing focused tests, then
-   attach captures only where a capture actually shows the feature.
-4. Bring the landing page onto the contract, or record its rows
+2. Lift the 51 remaining `in-progress` desktop rows: add the missing focused
+   checks and attach captures only where a capture actually shows the feature.
+3. Bring the landing page onto the contract, or record its rows
    `not-applicable` with real reasons if the site is deliberately out of scope.
-5. Upload `social-preview.png`.
+4. Upload `social-preview.png`.
 
 ## Build
 

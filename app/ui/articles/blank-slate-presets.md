@@ -6,7 +6,9 @@
 
 The wizard's own doc comment states its presets are "the blank-slate presets contract's derived starting points" -- i.e. each preset's method/duration combination is derived from the same real `LockMethod`/`LockDurationChoice` types `locksStore.ts` uses everywhere else, never an invented value dressed up as a default; a preset and the wizard's own manual controls can never disagree about what the underlying defaults mean, because they share one type.
 
-No dedicated test file exists yet for `LockWizard.tsx` itself, so this is proven by reading the implementation rather than by a focused automated test in this pass.
+## Test coverage
+
+`LockWizard.dom.test.tsx` now exercises the real preset wiring: before any preset is applied, the wizard starts on the Password method radio and the "While this stays open" duration; clicking "Session code lock" flips both controls together in one click (the method radio group to "Authenticator code", the duration `<select>`'s value to `"untilClose"`), proving a preset drives both real controls rather than being a static label; and a third case manually selects TOTP first, then applies "Quick password lock" and asserts the preset genuinely overrides the manual choice outright (Password becomes checked, Authenticator code becomes unchecked, duration returns to `"surface"`) rather than merging with it or being ignored.
 
 ## Configuration
 
@@ -22,7 +24,9 @@ TODO(blank-slate-presets): describe what this feature must never expose or allow
 
 ## Verification
 
-TODO(blank-slate-presets): name the focused test(s), the built-artifact interaction proof, and the real capture evidence that back this feature.
+- Focused test: `app/ui/app/src/components/locks/LockWizard.dom.test.tsx::applying the Session code preset switches both the method and duration controls together` (plus its two sibling cases in the same file).
+- Built-artifact proof: not yet attached -- the wizard only opens after a "Lock this element…" context-menu action, and none of the 12 real captures in this inventory's manifest happened to be taken with it open.
+- Capture evidence: not yet attached, for the same reason. A dedicated capture of the open `LockWizard` showing its three presets would close this gap honestly.
 
 ## Suggested articles
 

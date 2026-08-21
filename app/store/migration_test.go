@@ -651,7 +651,7 @@ func TestExportContainsNoSecrets(t *testing.T) {
 					"--md-sys-color-primary": "#7C4DFF",
 				},
 			},
-			Vocab:     []VocabRule{{Find: "worktree", Repl: "Gerk Tong Hui"}},
+			Vocab:     []VocabRule{{Find: "worktree", Repl: "checkout"}},
 			Schedules: []ScheduleRule{{Time: "22:00", Kind: "dim"}},
 			Hardware: map[string]HardwareOverrides{
 				"endpoint-1": {

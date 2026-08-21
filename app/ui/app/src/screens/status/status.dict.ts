@@ -36,7 +36,7 @@ export const statusDict = defineDict("status", {
   unsignedHeading: ["Unsigned by policy", "按政策唔簽署"],
   unsignedBody: [
     "Code signing is permanently out of scope for this project. Windows may show an unknown-publisher warning — that's expected, not a bug.",
-    "呢個項目永久唔簽署代碼。Deen No 可能會彈「未知發行商」警告 —— 呢個係預咗嘅，唔係 bug。",
+    "呢個項目永久唔簽署代碼。Windows 可能會彈「未知發行商」警告 —— 呢個係預咗嘅，唔係 bug。",
   ],
   unsignedEvidenceLabel: ["Enforced by", "由呢度執行"],
   visitWebsiteLink: ["Visit the project website", "去項目網站睇睇"],

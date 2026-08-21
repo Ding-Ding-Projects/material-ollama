@@ -20,7 +20,10 @@ TODO(local-chat-sessions): describe what this feature must never expose or allow
 
 ## Verification
 
-TODO(local-chat-sessions): name the focused test(s), the built-artifact interaction proof, and the real capture evidence that back this feature.
+- Focused test: `app/store/database_test.go::TestChatDeletionWithCascade`.
+- Built-artifact proof: `docs/features/uh-completeness/captures/manifest.json#captures.1.artifact.sha256`.
+- Capture evidence: `docs/features/uh-completeness/captures/images/c-new.png`, showing the real empty `/c/new` thread, model picker, and message composer.
+- LocalizedCopy is honestly recorded as `no-copy:` rather than pointing at the dead `newChat`/`searchChats`/`clearChats` entries in `app.dict.ts` -- citing a dictionary key nothing renders would be exactly the kind of over-claiming this inventory's evidence resolvers exist to catch (the resolver only checks that the string is quoted *somewhere* in the named file, so it would have passed mechanically while being false).
 
 ## Suggested articles
 

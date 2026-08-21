@@ -45,6 +45,10 @@ right-click "Edit appearance..." on an arbitrary rendered element, Word-
 depth typography controls, and named presets with export/import -- which
 is still not built anywhere in the codebase.
 
+## Test coverage
+
+`applyScheme.dom.test.tsx` runs against a real jsdom `HTMLElement` (never `document`, per `applyScheme.ts`'s own header comment about staying out of the node-environment unit tests for the OKLCH maths) and asserts: every custom property `buildScheme()` computes for a seed color is genuinely written onto the element's inline style, matching value for value; two visually distinct seed colors (violet `#6750a4` vs. green `#006e1c`) produce different `--p` values, proving the seed genuinely drives the scheme rather than the app rendering a fixed palette regardless of user choice; and light vs. dark mode for the *same* seed produces a different `--p`, proving the mode switch is real.
+
 ## Configuration
 
 TODO(material-design): describe how a user or operator configures this feature -- the settings surface, its defaults, and where the choice persists.
@@ -59,7 +63,9 @@ TODO(material-design): describe what this feature must never expose or allow, an
 
 ## Verification
 
-TODO(material-design): name the focused test(s), the built-artifact interaction proof, and the real capture evidence that back this feature.
+- Focused test: `app/ui/app/src/theme/applyScheme.dom.test.tsx::produces a genuinely different primary token for a different seed color` (plus its two sibling cases in the same file).
+- Built-artifact proof: `docs/features/uh-completeness/captures/manifest.json#captures.0.artifact.sha256`.
+- Capture evidence: `docs/features/uh-completeness/captures/images/models.png`, showing the shared M3 primitive set (surfaces, badges, buttons, tab rail) rendered consistently across the Models screen.
 
 ## Suggested articles
 
