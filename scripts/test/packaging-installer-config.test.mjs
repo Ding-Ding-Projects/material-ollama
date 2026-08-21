@@ -152,6 +152,16 @@ test('universal packaging fails closed instead of silently falling back or omitt
   assert.match(buildScript, /windows-ollama-app-arm64\.exe/)
   assert.match(buildScript, /windows-arm64\\ollama\.exe/)
   assert.match(buildScript, /llama-server\.exe/)
+  assert.match(buildScript, /arm64CCPath = if \(\$script:LLVM_MINGW_BIN\)/)
+  assert.match(buildScript, /cmake --fresh -S llama\\server --preset cpu_arm64/)
+  assert.match(buildScript, /-DCMAKE_C_COMPILER=\$verifiedArm64CC/)
+  assert.match(buildScript, /-DCMAKE_CXX_COMPILER=\$verifiedArm64CXX/)
+  assert.match(buildScript, /-DHOST_CXX_COMPILER=\$verifiedHostCXX/)
+  assert.doesNotMatch(
+    buildScript.replace('cmake --fresh -S llama\\server --preset cpu_arm64', 'cmake -S llama\\server --preset cpu_arm64'),
+    /cmake --fresh -S llama\\server --preset cpu_arm64/,
+    'removing the fresh verified ARM64 configure path must turn this check red',
+  )
   assert.match(buildScript, /vcruntime140\.dll/)
   assert.match(buildScript, /libgcc_s_seh-1\.dll/)
   assert.match(buildScript, /throw "Universal Windows installer payload is missing/)

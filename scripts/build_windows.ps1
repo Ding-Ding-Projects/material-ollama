@@ -491,8 +491,12 @@ function checkEnv {
         Write-Output "No CUDA versions detected"
     }
 
-    $arm64CCPath = (Get-Command -Name "aarch64-w64-mingw32-gcc.exe" -ErrorAction SilentlyContinue | Select-Object -First 1).Path
-    $arm64CXXPath = (Get-Command -Name "aarch64-w64-mingw32-g++.exe" -ErrorAction SilentlyContinue | Select-Object -First 1).Path
+    $arm64CCPath = if ($script:LLVM_MINGW_BIN) { (Get-Item (Join-Path $script:LLVM_MINGW_BIN "aarch64-w64-mingw32-gcc.exe") -ErrorAction SilentlyContinue).FullName } else { $null }
+    $arm64CXXPath = if ($script:LLVM_MINGW_BIN) { (Get-Item (Join-Path $script:LLVM_MINGW_BIN "aarch64-w64-mingw32-g++.exe") -ErrorAction SilentlyContinue).FullName } else { $null }
+    if (-not $arm64CCPath -or -not $arm64CXXPath) {
+        $arm64CCPath = (Get-Command -Name "aarch64-w64-mingw32-gcc.exe" -ErrorAction SilentlyContinue | Select-Object -First 1).Path
+        $arm64CXXPath = (Get-Command -Name "aarch64-w64-mingw32-g++.exe" -ErrorAction SilentlyContinue | Select-Object -First 1).Path
+    }
     if (-not $arm64CCPath -or -not $arm64CXXPath) {
         $arm64Toolchain = Resolve-Path "C:\Program Files\llvm-mingw-*-x86_64*\bin" -ErrorAction SilentlyContinue | Select-Object -First 1
         if ($arm64Toolchain) {
@@ -694,7 +698,11 @@ function cpuArm64 {
     $env:CXX = $null
     $env:CMAKE_GENERATOR_PLATFORM = $null
     $env:CMAKE_GENERATOR_TOOLSET = $null
-    & cmake -S llama\server --preset cpu_arm64 --install-prefix $arm64DistDir
+    $verifiedArm64CC = convertToCMakePath $script:WINDOWS_ARM64_CC
+    $verifiedArm64CXX = convertToCMakePath $script:WINDOWS_ARM64_CXX
+    $verifiedHostCXX = convertToCMakePath (Join-Path $script:LLVM_MINGW_BIN 'x86_64-w64-mingw32-g++.exe')
+    Write-Output "Configuring ARM64 with verified compiler $verifiedArm64CC"
+    & cmake --fresh -S llama\server --preset cpu_arm64 --install-prefix $arm64DistDir "-DCMAKE_C_COMPILER=$verifiedArm64CC" "-DCMAKE_CXX_COMPILER=$verifiedArm64CXX" "-DHOST_CXX_COMPILER=$verifiedHostCXX"
     if ($LASTEXITCODE -ne 0) { exit($LASTEXITCODE)}
     & cmake --build build\llama-server-cpu_arm64 --config Release --parallel $script:JOBS
     if ($LASTEXITCODE -ne 0) { exit($LASTEXITCODE)}
