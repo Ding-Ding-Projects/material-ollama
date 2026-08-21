@@ -2,7 +2,7 @@
 
 ## Behaviour
 
-The repository ships a real, product-specific graphic — `social-preview.png`, committed at the repository ROOT — for GitHub's own social-preview mechanism (what renders when the repository link is shared) and as the source image for a future page-level Open Graph embed. It is not a stock photo, not a generic gradient-with-a-word-on-it, and not GitHub's own auto-generated repository-metadata card: it is composited directly from this project's real assets by `scripts/build-social-preview.mjs`.
+The repository ships a real, product-specific graphic — `social-preview.png`, committed at the repository ROOT, plus a byte-identical `docs/landing-site/social-preview.png` served by GitHub Pages — for GitHub's own social-preview mechanism and the public page-level Open Graph embed. It is not a stock photo, not a generic gradient-with-a-word-on-it, and not GitHub's own auto-generated repository-metadata card: both copies are composited directly from this project's real assets by `scripts/build-social-preview.mjs`.
 
 The graphic is built at 1280×640 (GitHub's own recommended social-preview size) by:
 
@@ -14,13 +14,13 @@ It is committed at the repository root specifically — not `docs/assets/` or `a
 
 ## Configuration
 
-Not applicable at runtime — regenerating the graphic after the mark changes is `node scripts/build-social-preview.mjs`.
+Not applicable at runtime — regenerating both copies after the mark changes is `node scripts/build-social-preview.mjs`.
 
 **Outstanding manual step**: GitHub's repository-level social-preview upload cannot be performed via `gh`/the REST API (there is no supported endpoint), so it remains a one-time manual action for a repository owner: Settings → General → Social preview → Upload an image → select the repository-root `social-preview.png`. This is stated here explicitly rather than silently claimed complete, per this project's own evidence discipline.
 
 ## Failure modes
 
-If the master SVG or the source `icon-512.png` ever changes without regenerating `social-preview.png`, the committed file becomes stale — caught by `node scripts/build-social-preview.mjs --check`, which re-derives the whole card from the current source bytes and diffs against the committed file, failing loudly (rather than silently serving an outdated card) the moment they disagree.
+If the master SVG or the source `icon-512.png` ever changes without regenerating the two PNG copies, either file becomes stale — caught by `node scripts/build-social-preview.mjs --check`, which re-derives the whole card and compares both files, failing loudly on a stale or non-identical served copy.
 
 ## Security considerations
 
@@ -28,10 +28,10 @@ Not directly security-relevant. The generator reads only local, already-committe
 
 ## Verification
 
-- Focused tests: `scripts/test/shared-link-embed.test.mjs` (`node --test scripts/test/shared-link-embed.test.mjs`) — four tests: the file exists at the repository root (not nested); it is a genuine, correctly-sized (1280×640) PNG; it is byte-identical to what `--check` currently re-derives from the real master SVG and icon; and it is large enough (>10KB) to plausibly be a real composited image rather than a blank placeholder.
-- All four were deliberately broken (the committed file was overwritten with 3 garbage bytes) and confirmed to fail — the size check, the byte-identity `--check`, and the too-small-to-be-real check all failed simultaneously, each naming its own specific problem — before the original file was restored (confirmed byte-identical via `cmp`) and every test re-confirmed passing.
+- Focused tests: `scripts/test/shared-link-embed.test.mjs` (`node --test scripts/test/shared-link-embed.test.mjs`) — five tests: the root file exists; both copies are genuine 1280×640 PNGs; the generator reproduces both; the static HTML has one absolute HTTPS PNG for Open Graph and X metadata; and the composite is large enough (>10KB) to plausibly be real.
+- The red/green mutation cases cover a missing or stale served copy, SVG/relative/wrong-size crawler metadata, and non-identical root/served bytes; restore the original bytes and metadata before accepting the green run.
 - Run: `node --test scripts/test/shared-link-embed.test.mjs`.
-- Implementation: `scripts/build-social-preview.mjs`; output: `social-preview.png` (repository root, 27,749 bytes, 1280×640, 58 distinct sampled colors confirming a genuine composite rather than a solid fill).
+- Implementation: `scripts/build-social-preview.mjs`; outputs: `social-preview.png` and `docs/landing-site/social-preview.png` (27,749 bytes each, 1280×640, 58 distinct sampled colors confirming a genuine composite rather than a solid fill).
 
 ## Suggested articles
 

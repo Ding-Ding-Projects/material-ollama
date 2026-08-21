@@ -38,6 +38,7 @@ const REPO_ROOT = path.resolve(__dirname, "..")
 const MASTER_SVG_PATH = path.join(REPO_ROOT, "app", "assets", "material-ollama-mark.svg")
 const SOURCE_ICON_PATH = path.join(REPO_ROOT, "app", "ui", "app", "public", "icons", "icon-512.png")
 const OUTPUT_PATH = path.join(REPO_ROOT, "social-preview.png")
+const SERVED_OUTPUT_PATH = path.join(REPO_ROOT, "docs", "landing-site", "social-preview.png")
 
 // GitHub's own recommended social-preview size.
 const CARD_W = 1280
@@ -254,39 +255,50 @@ function main() {
 
   const checkMode = process.argv.includes("--check")
   if (checkMode) {
-    let existing
-    try {
-      existing = readFileSync(OUTPUT_PATH)
-    } catch {
-      console.log(JSON.stringify({ ok: false, reason: "social-preview.png does not exist at the repository root" }))
-      process.exit(1)
+    for (const outputPath of [OUTPUT_PATH, SERVED_OUTPUT_PATH]) {
+      let existing
+      try {
+        existing = readFileSync(outputPath)
+      } catch {
+        console.log(JSON.stringify({ ok: false, reason: `${path.relative(REPO_ROOT, outputPath)} does not exist` }))
+        process.exit(1)
+      }
+      if (!existing.equals(png)) {
+        console.log(
+          JSON.stringify({
+            ok: false,
+            reason:
+              `${path.relative(REPO_ROOT, outputPath)} is stale relative to the master SVG/icon -- ` +
+              "re-run `node scripts/build-social-preview.mjs` and commit both generated copies",
+          }),
+        )
+        process.exit(1)
+      }
     }
-    if (!existing.equals(png)) {
-      console.log(
-        JSON.stringify({
-          ok: false,
-          reason:
-            "committed social-preview.png is stale relative to the master SVG/icon it is generated from -- " +
-            "re-run `node scripts/build-social-preview.mjs` and commit the result",
-        }),
-      )
-      process.exit(1)
-    }
-    console.log(JSON.stringify({ ok: true, bytes: png.length }))
+    console.log(JSON.stringify({ ok: true, bytes: png.length, outputs: ["social-preview.png", "docs/landing-site/social-preview.png"] }))
     return
   }
 
-  writeFileSync(OUTPUT_PATH, png)
+  for (const outputPath of [OUTPUT_PATH, SERVED_OUTPUT_PATH]) writeFileSync(outputPath, png)
 
   // Read the just-written file back and independently re-decode it with
   // the SAME narrow decoder used to read the source icon -- proves the
   // encoder's output is genuinely readable, not merely "written," and
   // that its declared dimensions match what was actually requested.
   const readBack = decodePng(readFileSync(OUTPUT_PATH))
+  const servedReadBack = decodePng(readFileSync(SERVED_OUTPUT_PATH))
   if (readBack.width !== CARD_W || readBack.height !== CARD_H) {
     throw new Error(
       `verify: wrote ${OUTPUT_PATH} but read back ${readBack.width}x${readBack.height}, expected ${CARD_W}x${CARD_H}`,
     )
+  }
+  if (servedReadBack.width !== CARD_W || servedReadBack.height !== CARD_H) {
+    throw new Error(
+      `verify: wrote ${SERVED_OUTPUT_PATH} but read back ${servedReadBack.width}x${servedReadBack.height}, expected ${CARD_W}x${CARD_H}`,
+    )
+  }
+  if (!readFileSync(OUTPUT_PATH).equals(readFileSync(SERVED_OUTPUT_PATH))) {
+    throw new Error("verify: root and served social-preview.png copies are not byte-identical")
   }
   // Cheap non-blankness check: a real composited card has many distinct
   // colors (gradient + mark + antialiased edges); a blank/solid write
@@ -300,7 +312,7 @@ function main() {
   }
 
   console.log(
-    `[build-social-preview] wrote ${path.relative(REPO_ROOT, OUTPUT_PATH)} (${CARD_W}x${CARD_H}, ` +
+    `[build-social-preview] wrote ${path.relative(REPO_ROOT, OUTPUT_PATH)} and ${path.relative(REPO_ROOT, SERVED_OUTPUT_PATH)} (${CARD_W}x${CARD_H}, ` +
       `${png.length} bytes, ${sampleColors.size} distinct sampled colors, read-back verified)`,
   )
 }

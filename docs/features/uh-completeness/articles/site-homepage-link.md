@@ -2,7 +2,7 @@
 
 ## Behaviour
 
-The repository's own GitHub homepage field points at the project's landing site — verified with `gh repo view Ding-Ding-Projects/material-ollama --json homepageUrl`, which returns `https://material-ollama-day-teet-hui.halowbak123.chatgpt.site`. This is what renders under the repository description in GitHub's own sidebar, and is what `README.md` links under "Hosted landing URL."
+The repository's own GitHub homepage field is intended to point at the public landing site: `https://ding-ding-projects.github.io/material-ollama/`. This is what renders under the repository description in GitHub's own sidebar, and is what `README.md` links under "Hosted landing URL." The field itself must be reconciled and re-read with `gh repo view Ding-Ding-Projects/material-ollama --json homepageUrl` before publication is called verified.
 
 On the desktop-app surface specifically, the Status screen's release card (`ReleaseCard.tsx`) carries a real, always-visible **"Visit the project website"** link (`t("visitWebsiteLink")`, both English and the Cantonese `去項目網站睇睇`) pointing at the exact same URL, exported as `PROJECT_HOMEPAGE_URL` from `app/ui/app/src/screens/status/changelogEntries.ts` — the same file that already exported `CHANGELOG_REPO_URL` for the changelog's own commit links, so both project-identity URLs live in one place rather than being duplicated per call site. The link is a real `<a>` element with `target="_blank" rel="noopener noreferrer"`, opening the site in the user's default OS browser rather than inside the app's own window — see `landing-page-boundary.md` for why that distinction matters.
 
@@ -23,7 +23,7 @@ The link opens in a new OS-browser tab rather than navigating the app's own wind
 - Focused tests: `app/ui/app/src/screens/status/ReleaseCard.dom.test.tsx` — `"links to the repository's real GitHub homepage, as a real anchor a user can open"` asserts the rendered link's `href` equals exactly the URL `gh repo view` reports for this repository's own homepage field; `"opens the site in a new tab via a real anchor, never as an embedded route inside this window"` asserts it is a real `<a>` tag with `target="_blank"` and a `rel` containing `noopener`, and that no `<iframe>`/`<webview>` exists anywhere in the rendered card.
 - Repo-wide guard: `app/ui/app/src/test/sourceGuards.test.ts`, `landing-page-boundary guard > "routes the site's homepage link out via a real anchor (target=_blank), never a same-window navigation"` — scans every `.tsx` file for any `<a>` tag referencing `PROJECT_HOMEPAGE_URL`/the literal homepage host, and fails if any such anchor is missing `target="_blank"`; also asserts at least one such link genuinely exists (so this guard cannot pass merely because the link was removed).
 - Run: `cd app/ui/app && npx vitest run src/screens/status/ReleaseCard.dom.test.tsx src/test/sourceGuards.test.ts`.
-- Real command verification: `gh repo view Ding-Ding-Projects/material-ollama --json homepageUrl` → `https://material-ollama-day-teet-hui.halowbak123.chatgpt.site` (matches both `README.md`'s link and the in-app constant exactly).
+- Real command verification required before publication: `gh repo view Ding-Ding-Projects/material-ollama --json homepageUrl` must return `https://ding-ding-projects.github.io/material-ollama/` (matching both `README.md`'s link and the in-app constant exactly).
 
 ## Suggested articles
 

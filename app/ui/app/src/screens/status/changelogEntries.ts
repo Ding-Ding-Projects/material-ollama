@@ -25,7 +25,7 @@ export const CHANGELOG_REPO_URL = "https://github.com/Ding-Ding-Projects/materia
  * site-homepage-link contract article for why this link exists on the
  * desktop-app surface specifically.
  */
-export const PROJECT_HOMEPAGE_URL = "https://material-ollama-day-teet-hui.halowbak123.chatgpt.site"
+export const PROJECT_HOMEPAGE_URL = "https://ding-ding-projects.github.io/material-ollama/"
 
 export interface ChangelogEntry {
   /** Full 40-character commit SHA. */

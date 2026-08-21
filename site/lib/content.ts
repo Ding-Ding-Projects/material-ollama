@@ -14,7 +14,7 @@ export const VERIFIED_RELEASE = {
   codeName: 'Scallop Har Gow · 帶子蝦餃',
   dishId: 'hk-dish-0002',
   photoUrl: 'https://github.com/Ding-Ding-Projects/dim-sum-photos/releases/download/catalog-v1/hk-dish-0002-scallop-har-gow.png',
-  landingUrl: 'https://material-ollama-day-teet-hui.halowbak123.chatgpt.site',
+  landingUrl: 'https://ding-ding-projects.github.io/material-ollama/',
 } as const
 
 export const PAGES: Array<{ id: PageId; icon: string; label: string; labelZh: string; summary: string; summaryZh: string }> = [

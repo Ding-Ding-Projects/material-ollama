@@ -1,6 +1,6 @@
 # Material Ollama landing site
 
-This directory contains the static landing, documentation, status, download, and settings surface for Material Ollama.
+This directory contains the static landing, documentation, status, download, and settings surface for Material Ollama. It is published at `https://ding-ding-projects.github.io/material-ollama/` by the repository's GitHub Pages workflow.
 
 ## Boundary
 
@@ -23,6 +23,6 @@ The settings surface supports language presentation, two tone sliders, theme, de
 - status cards with source, release, storage, and heartbeat state;
 - a release-proof empty state with no unverified download action;
 - browser-local settings with live theme and density changes;
-- locally bundled SVG mark and social-preview assets.
+- locally bundled SVG mark and the generated `social-preview.png` copy served by the public page.
 
-The HTML includes absolute Open Graph metadata for the product-specific social preview. The published URL and release manifest must be verified by the release owner before any public download control is added.
+The HTML includes absolute Open Graph metadata for the product-specific 1280×640 PNG social preview. The published URL and release manifest must be verified by the release owner before any public download control is added.

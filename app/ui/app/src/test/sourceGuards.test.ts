@@ -136,12 +136,12 @@ describe("landing-page-boundary guard", () => {
     const offenders: string[] = []
     for (const file of files) {
       const text = readFileSync(file, "utf8")
-      if (!text.includes("PROJECT_HOMEPAGE_URL") && !text.includes("halowbak123.chatgpt.site")) continue
+      if (!text.includes("PROJECT_HOMEPAGE_URL") && !text.includes("ding-ding-projects.github.io/material-ollama/")) continue
       // Find every <a ...> tag in the file and check the ones that use
       // the homepage URL/constant carry target="_blank".
       const anchorTags = text.match(/<a\b[^>]*>/g) ?? []
       for (const tag of anchorTags) {
-        if (!tag.includes("PROJECT_HOMEPAGE_URL") && !tag.includes("halowbak123.chatgpt.site")) continue
+        if (!tag.includes("PROJECT_HOMEPAGE_URL") && !tag.includes("ding-ding-projects.github.io/material-ollama/")) continue
         foundHomepageLink = true
         if (!/target=["']_blank["']/.test(tag)) {
           offenders.push(`${path.relative(SRC_ROOT, file)}: ${tag}`)
