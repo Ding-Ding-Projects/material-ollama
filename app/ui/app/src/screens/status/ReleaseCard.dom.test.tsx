@@ -117,7 +117,7 @@ describe("ReleaseCard", () => {
     // The exact URL `gh repo view Ding-Ding-Projects/material-ollama
     // --json homepageUrl` reports, so this test would fail the moment the
     // link and the repository's own recorded homepage disagree.
-    expect(link).toHaveAttribute("href", "https://material-ollama-day-teet-hui.halowbak123.chatgpt.site")
+    expect(link).toHaveAttribute("href", "https://ding-ding-projects.github.io/material-ollama/")
   })
 
   // Landing-page-boundary: the desktop app may LINK to the site, but must

@@ -1,8 +1,8 @@
 import type { Metadata, Viewport } from 'next'
 import './globals.css'
 
-const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://ding-ding-projects.github.io/material-ollama/landing-site/'
-const socialImage = new URL('social-preview.svg', siteUrl).toString()
+const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://ding-ding-projects.github.io/material-ollama/'
+const socialImage = 'https://ding-ding-projects.github.io/material-ollama/social-preview.png'
 
 export const dynamic = 'force-static'
 export const metadata: Metadata = {
@@ -15,7 +15,7 @@ export const metadata: Metadata = {
     url: siteUrl,
     title: 'Material Ollama — local models, clearly explained',
     description: 'Learn the desktop companion, its CLI and configuration coverage, and the evidence behind downloads.',
-    images: [{ url: socialImage, width: 1200, height: 630, alt: 'Material Ollama landing page with model, configuration, and documentation cards' }],
+    images: [{ url: socialImage, width: 1280, height: 640, alt: 'Material Ollama landing page with model, configuration, and documentation cards' }],
   },
   twitter: { card: 'summary_large_image', title: 'Material Ollama', description: 'Local models, clearly explained.', images: [socialImage] },
   icons: { icon: '/mark.svg', shortcut: '/mark.svg' },
