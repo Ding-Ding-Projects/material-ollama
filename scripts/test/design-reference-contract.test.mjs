@@ -4,9 +4,10 @@ import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { checkInventory } from '../parity/check-design-parity.mjs';
+import { checkDesignParity, checkInventory, validateReferenceSourceWiring } from '../parity/check-design-parity.mjs';
 import { startReferenceServer } from '../design-reference/reference-renderer.mjs';
 import { DesignAssetRequestError, loadDesignAssetMap, resolveDesignRequest, toFetchFulfillRequest } from '../design-reference/request-map.mjs';
+import { createDesignFetchHandler } from '../design-reference/fetch-handler.mjs';
 
 const root = resolve(fileURLToPath(new URL('../..', import.meta.url)));
 const design = name => resolve(root, 'design', name);
@@ -107,6 +108,29 @@ test('request map rejects a tampered byte before capture', async () => {
   );
 });
 
+test('CDP Fetch handler fulfills known requests and fails unknown requests without network fallback', async () => {
+  const calls = [];
+  const client = { send: async (method, params) => { calls.push({ method, params }); } };
+  const handler = await createDesignFetchHandler({ client });
+  assert.equal(calls[0].method, 'Fetch.enable');
+  const knownUrl = [...handler.requestMap.keys()][0];
+  const fulfilled = await handler.handleRequestPaused({ requestId: 'known-1', request: { url: knownUrl } });
+  assert.deepEqual(fulfilled, { status: 'fulfilled', sourceUrl: knownUrl });
+  assert.equal(calls[1].method, 'Fetch.fulfillRequest');
+  assert.equal(calls[1].params.requestId, 'known-1');
+  assert.equal(calls[1].params.responseCode, 200);
+  assert.ok(calls[1].params.body.length > 0);
+  await assert.rejects(
+    () => handler.handleRequestPaused({ requestId: 'unknown-1', request: { url: 'https://example.invalid/not-allowed.js' } }),
+    error => error instanceof DesignAssetRequestError && error.code === 'UNKNOWN_DESIGN_ASSET',
+  );
+  assert.equal(calls[2].method, 'Fetch.failRequest');
+  assert.equal(calls[2].params.errorReason, 'BlockedByClient');
+  assert.equal(calls.some(call => call.method === 'Network.load'), false);
+  await handler.disable();
+  assert.equal(calls.at(-1).method, 'Fetch.disable');
+});
+
 test('handoff sanitization contains no private-source marker and exactly three substitutions', async () => {
   const readme = await readFile(design('README.md'), 'utf8');
   const privateMarker = String.fromCharCode(64, 117, 104);
@@ -119,6 +143,20 @@ test('inventory has every declared row and preserves explicit gaps', async () =>
   const inventory = JSON.parse(await readFile(resolve(root, 'docs/features/design-parity/inventory.json'), 'utf8'));
   assert.deepEqual(checkInventory(inventory), { rows: 18, status: 'valid-gap-inventory' });
   assert.ok(inventory.rows.every(row => row.status === 'gap' && row.parityClaimed === false));
+});
+
+test('full parity checker validates pinned sources, tuples, routes, and manifest closure', async () => {
+  const result = await checkDesignParity();
+  assert.deepEqual(result.status, 'valid-gap-inventory-and-assets');
+  assert.equal(result.rows, 18);
+  assert.equal(result.assets, 127);
+});
+
+test('runtime wiring guard rejects commented and renamed script lines', async () => {
+  const html = await readFile(design('Material Ollama.dc.html'), 'utf8');
+  assert.doesNotThrow(() => validateReferenceSourceWiring(html));
+  assert.throws(() => validateReferenceSourceWiring(html.replace('<script src="./support.js"></script>', '<!-- <script src="./support.js"></script> -->')));
+  assert.throws(() => validateReferenceSourceWiring(html.replace('./support.js', './support-renamed.js')));
 });
 
 test('inventory guard rejects exact missing boundaries', async () => {
