@@ -26,20 +26,6 @@ const repo = option('--repo', process.env.GITHUB_REPOSITORY || 'Ding-Ding-Projec
 const token = process.env.GH_TOKEN || process.env.GITHUB_TOKEN
 
 const INSTALLER_NAME = 'OllamaSetup.exe'
-// Secondary assets worth naming explicitly on the download/status pages, beyond the primary
-// installer. Anything not in this list is still counted in `assetCount` and reachable through
-// the linked release page -- this file never claims to enumerate every asset.
-const NAMED_EXTRA_ASSETS = [
-  'ollama-windows-amd64.zip',
-  'ollama-windows-arm64.zip',
-  'windows-ollama-app-amd64.exe',
-  'windows-ollama-app-arm64.exe',
-  'SHA256SUMS.txt',
-  'install.ps1',
-  'line-count.md',
-  'release-metadata.json',
-]
-
 const headers = {
   accept: 'application/vnd.github+json',
   'user-agent': 'material-ollama-site-release-manifest',
@@ -126,6 +112,37 @@ async function main() {
     return
   }
 
+  const extrasName = `material-ollama-extras-${verified.tag_name}.zip`
+  const publishedNames = verified.assets?.map((asset) => asset.name) || []
+  if (publishedNames.length !== 2 || !publishedNames.includes(extrasName)) {
+    await writeResult({
+      schemaVersion: 1,
+      status: 'unavailable',
+      reason: `Release ${verified.tag_name} must publish exactly ${INSTALLER_NAME} and ${extrasName}.`,
+      repo,
+      releaseTag: verified.tag_name,
+      releaseUrl: verified.html_url,
+    })
+    return
+  }
+  const extrasAsset = verified.assets.find((asset) => asset.name === extrasName)
+  const digestFor = (asset) => typeof asset?.digest === 'string' && /^sha256:[0-9a-f]{64}$/i.test(asset.digest)
+    ? asset.digest.slice('sha256:'.length).toLowerCase()
+    : null
+  const installerSha256 = digestFor(installerAsset)
+  const extrasSha256 = digestFor(extrasAsset)
+  if (!installerSha256 || !extrasSha256 || !/^https:\/\//.test(installerAsset.browser_download_url) || !/^https:\/\//.test(extrasAsset.browser_download_url)) {
+    await writeResult({
+      schemaVersion: 1,
+      status: 'unavailable',
+      reason: `Release ${verified.tag_name} must expose valid sha256:<64hex> digests and HTTPS download URLs for both release assets.`,
+      repo,
+      releaseTag: verified.tag_name,
+      releaseUrl: verified.html_url,
+    })
+    return
+  }
+
   const body = typeof verified.body === 'string' ? verified.body : ''
   const codeName = parseDimSumCodeName(body)
   const workflow = parseWorkflowEvidence(body)
@@ -148,14 +165,12 @@ async function main() {
   }
   if (workflow) workflow.conclusion = workflowConclusion
 
-  const extraAssets = NAMED_EXTRA_ASSETS
-    .map((name) => verified.assets.find((asset) => asset.name === name))
-    .filter(Boolean)
+  const extraAssets = [extrasAsset]
     .map((asset) => ({
       name: asset.name,
       url: asset.browser_download_url,
       sizeBytes: asset.size,
-      sha256: typeof asset.digest === 'string' ? asset.digest.replace(/^sha256:/, '') : null,
+      sha256: extrasSha256,
     }))
 
   await writeResult({
@@ -176,7 +191,7 @@ async function main() {
       name: installerAsset.name,
       url: installerAsset.browser_download_url,
       sizeBytes: installerAsset.size,
-      sha256: typeof installerAsset.digest === 'string' ? installerAsset.digest.replace(/^sha256:/, '') : null,
+      sha256: installerSha256,
       platform: workflow?.platform || 'Windows',
       signed: false,
       signatureNote: 'This installer is unsigned by permanent project policy. Windows may show an unknown-publisher or SmartScreen warning; this does not mean the file was tampered with.',

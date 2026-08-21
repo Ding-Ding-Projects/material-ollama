@@ -1,6 +1,30 @@
 {
   "schemaVersion": 2,
   "platform": "windows",
+  "webview2": [
+    {
+      "name": "Microsoft WebView2 Evergreen Standalone Installer (x64)",
+      "version": "151.0.4129.101",
+      "architecture": "x64",
+      "url": "https://msedge.sf.dl.delivery.mp.microsoft.com/filestreamingservice/files/22ced09c-d6bd-4427-a658-f1dc48f3a440/MicrosoftEdgeWebView2RuntimeInstallerX64.exe",
+      "filename": "MicrosoftEdgeWebView2RuntimeInstallerX64.exe",
+      "sha256": "82b2d8a7013e0c0ea15d48ff4742ee3778ba16bd8b7b4a47876645b3e48d4016",
+      "licenseUrl": "https://learn.microsoft.com/microsoft-edge/webview2/concepts/distribution",
+      "sourcePage": "https://developer.microsoft.com/microsoft-edge/webview2/",
+      "provenance": "Microsoft Edge WebView2 official Evergreen Standalone Installer"
+    },
+    {
+      "name": "Microsoft WebView2 Evergreen Standalone Installer (ARM64)",
+      "version": "151.0.4129.101",
+      "architecture": "arm64",
+      "url": "https://msedge.sf.dl.delivery.mp.microsoft.com/filestreamingservice/files/cbc83776-e5df-4aed-8dba-02902abfe32f/MicrosoftEdgeWebView2RuntimeInstallerARM64.exe",
+      "filename": "MicrosoftEdgeWebView2RuntimeInstallerARM64.exe",
+      "sha256": "04e55e0e27c52aa05bf3856ffb968946665b0ef6fb4394a818e27eb526d0216e",
+      "licenseUrl": "https://learn.microsoft.com/microsoft-edge/webview2/concepts/distribution",
+      "sourcePage": "https://developer.microsoft.com/microsoft-edge/webview2/",
+      "provenance": "Microsoft Edge WebView2 official Evergreen Standalone Installer"
+    }
+  ],
   "dependencies": [
     {
       "name": "CMake",
@@ -16,7 +40,7 @@
         "archive": "zip",
         "directory": "cmake-4.4.2",
         "archiveRoot": "cmake-4.4.2-windows-x86_64",
-        "relativeExecutable": "cmake-4.4.2-windows-x86_64/bin/cmake.exe",
+        "relativeExecutable": "bin/cmake.exe",
         "scope": "user"
       },
       "purpose": "Pinned CMake generator and build orchestration"
@@ -78,8 +102,8 @@
     },
     {
       "name": "7-Zip",
-      "version": "24.9.0",
-      "source": "Chocolatey package 7zip.install",
+      "version": "26.2.0",
+      "source": "Chocolatey package 7zip.install; winget package 7zip.7zip version 26.02",
       "purpose": "Deterministic Windows archive generation when available"
     }
   ]

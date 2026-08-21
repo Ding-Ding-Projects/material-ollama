@@ -22,6 +22,11 @@ rem with no step names build_windows.ps1 runs its full default build.
 
 set "SCRIPT_DIR=%~dp0"
 cd /d "%SCRIPT_DIR%"
+set "POWERSHELL_EXE=%SystemRoot%\System32\WindowsPowerShell\v1.0\powershell.exe"
+if not exist "%POWERSHELL_EXE%" (
+    echo [build.bat] ERROR: Windows PowerShell 5.1 was not found at "%POWERSHELL_EXE%".
+    exit /b 1
+)
 
 set "BUILD_STEPS="
 set "SILENT_MODE=0"
@@ -42,6 +47,13 @@ goto parse_args
 :args_done
 if /I "%SILENT%"=="1" set "SILENT_MODE=1"
 if "%SILENT_MODE%"=="1" echo [build.bat] Silent mode enabled; no build prompt will be shown.
+
+echo [build.bat] Verifying pinned Windows build dependencies...
+call "%SCRIPT_DIR%download-dependencies.bat" /s
+if errorlevel 1 (
+    echo [build.bat] ERROR: dependency bootstrap failed.
+    exit /b 1
+)
 
 where node >nul 2>nul
 if errorlevel 1 (
@@ -71,7 +83,7 @@ if errorlevel 1 (
 )
 
 echo [build.bat] Inventory gate is green. Delegating to scripts\build_windows.ps1...
-powershell -NoProfile -ExecutionPolicy Bypass -File "%SCRIPT_DIR%scripts\build_windows.ps1" %BUILD_STEPS%
+"%POWERSHELL_EXE%" -NoProfile -ExecutionPolicy Bypass -File "%SCRIPT_DIR%scripts\build_windows.ps1" %BUILD_STEPS%
 if errorlevel 1 (
     echo [build.bat] ERROR: scripts\build_windows.ps1 failed.
     exit /b 1

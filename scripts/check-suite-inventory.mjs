@@ -69,6 +69,7 @@ const REQUIRED_AREA_IDS = [
   'localization',
   'security',
   'packaging',
+  'release-assets',
   'documentation',
   'completeness',
   'capture-coverage',

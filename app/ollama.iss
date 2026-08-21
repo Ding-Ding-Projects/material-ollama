@@ -11,6 +11,11 @@
 #else
   #define MyAppVersion "0.0.0"
 #endif
+#if GetEnv("GIT_COMMIT") != ""
+  #define MyAppCommit GetEnv("GIT_COMMIT")
+#else
+  #define MyAppCommit "unknown"
+#endif
 #define MyAppPublisher "Ollama"
 #define MyAppURL "https://ollama.com/"
 #define MyAppExeName "ollama app.exe"
@@ -30,6 +35,7 @@ AppId={{44E83376-CE68-45EB-8FC1-393500EB558C}
 AppName={#MyAppName}
 AppVersion={#MyAppVersion}
 VersionInfoVersion={#MyAppVersion}
+VersionInfoDescription=Material Ollama build {#MyAppCommit}
 ;AppVerName={#MyAppName} {#MyAppVersion}
 AppPublisher={#MyAppPublisher}
 AppPublisherURL={#MyAppURL}
@@ -121,27 +127,21 @@ Name: "english"; MessagesFile: "compiler:Default.isl"
 DialogFontSize=12
 
 [Files]
-#if FileExists("..\dist\windows-ollama-app-amd64.exe")
 Source: "..\dist\windows-ollama-app-amd64.exe"; DestDir: "{app}"; DestName: "{#MyAppExeName}" ;Check: not IsArm64();  Flags: ignoreversion 64bit; BeforeInstall: TaskKill('{#MyAppExeName}')
 Source: "..\dist\windows-amd64\ollama.exe"; DestDir: "{app}"; Check: not IsArm64(); Flags: ignoreversion 64bit; BeforeInstall: TaskKill('ollama.exe')
-Source: "..\dist\windows-amd64\lib\ollama\*"; Excludes: "\mlx_*\*"; DestDir: "{app}\lib\ollama\"; Check: not IsArm64(); Flags: ignoreversion 64bit recursesubdirs
-#endif
+Source: "..\dist\windows-amd64\lib\ollama\*"; DestDir: "{app}\lib\ollama\"; Check: not IsArm64(); Flags: ignoreversion 64bit recursesubdirs
 
-; For local development, rely on binary compatibility at runtime since we can't cross compile
-#if FileExists("..\dist\windows-ollama-app-arm64.exe")
 Source: "..\dist\windows-ollama-app-arm64.exe"; DestDir: "{app}"; DestName: "{#MyAppExeName}" ;Check: IsArm64();  Flags: ignoreversion 64bit; BeforeInstall: TaskKill('{#MyAppExeName}')
-#else 
-Source: "..\dist\windows-ollama-app-amd64.exe"; DestDir: "{app}"; DestName: "{#MyAppExeName}" ;Check: IsArm64();  Flags: ignoreversion 64bit; BeforeInstall: TaskKill('{#MyAppExeName}')
-#endif
 
-#if FileExists("..\dist\windows-arm64\ollama.exe")
 Source: "..\dist\windows-arm64\ollama.exe"; DestDir: "{app}"; Check: IsArm64(); Flags: ignoreversion 64bit; BeforeInstall: TaskKill('ollama.exe')
-#endif
-#if DirExists("..\dist\windows-arm64\lib\ollama")
 Source: "..\dist\windows-arm64\lib\ollama\*"; DestDir: "{app}\lib\ollama\"; Check: IsArm64(); Flags: ignoreversion 64bit recursesubdirs
-#endif
 
 Source: ".\assets\app.ico"; DestDir: "{app}"; Flags: ignoreversion
+; Both offline Evergreen Standalone Installers are embedded in OllamaSetup.exe.
+; The architecture-specific entry is selected at install time; no runtime
+; download is attempted on the user's machine.
+Source: "..\dist\webview2\MicrosoftEdgeWebView2RuntimeInstallerX64.exe"; DestDir: "{tmp}"; Flags: dontcopy deleteafterinstall
+Source: "..\dist\webview2\MicrosoftEdgeWebView2RuntimeInstallerARM64.exe"; DestDir: "{tmp}"; Flags: dontcopy deleteafterinstall
 
 [Icons]
 Name: "{group}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; IconFilename: "{app}\app.ico"
@@ -216,6 +216,8 @@ Root: HKA; Subkey: "Software\Classes\ollama\shell\open\command"; ValueType: stri
 [Code]
 
 const
+  WebView2ClientGuid = '{F3017226-FE2A-4295-8BDF-00C3A9A7E4C5}';
+  WebView2MinimumVersion = '151.0.4129.101';
   { Must stay in sync with [Setup] AppId above. Hardcoded rather than derived
     from a preprocessor lookup of AppId, so the preprocessor's escaping of the
     literal brace in AppId can never silently drift from this string - this way
@@ -301,6 +303,9 @@ begin
   end;
 end;
 
+function HasWebView2Runtime(): Boolean; forward;
+function InstallWebView2Runtime(): Boolean; forward;
+
 { Removes exactly PathToRemove from the Path value at RootKey\SubKeyName, if
   present - never a blind overwrite of the whole value. Splits on ';',
   drops the one matching element, rejoins, and writes back as REG_EXPAND_SZ
@@ -342,6 +347,21 @@ var
   ResultCode: Integer;
 begin
   Result := True;
+
+  { WebView2 is a required offline prerequisite for the desktop surface. Probe
+    both documented stable-channel hives first, then install the matching
+    embedded standalone payload. The desktop executable is never launched
+    until this check succeeds. }
+  if not HasWebView2Runtime() then begin
+    if not InstallWebView2Runtime() or not HasWebView2Runtime() then begin
+      SuppressibleMsgBox(
+        'The embedded WebView2 runtime could not be installed or verified.' + #13#10 + #13#10 +
+        'The desktop application will not be started until a suitable runtime is present.',
+        mbError, MB_OK, IDOK);
+      Result := False;
+      exit;
+    end;
+  end;
 
   { Migration hazard (see the AppId comment in [Setup]): only meaningful
     when THIS run is going machine-wide. A per-user install proceeding as
@@ -390,6 +410,82 @@ begin
       end;
     end;
   end;
+end;
+
+function VersionAtLeast(Actual, Minimum: string): Boolean;
+var
+  A, M: TArrayOfString;
+  I, AV, MV: Integer;
+begin
+  A := StringSplit(Actual, ['.'], stExcludeEmpty);
+  M := StringSplit(Minimum, ['.'], stExcludeEmpty);
+  Result := False;
+  for I := 0 to GetArrayLength(M) - 1 do begin
+    AV := 0;
+    MV := StrToIntDef(M[I], 0);
+    if I < GetArrayLength(A) then AV := StrToIntDef(A[I], 0);
+    if AV > MV then begin Result := True; exit; end;
+    if AV < MV then exit;
+  end;
+  Result := True;
+end;
+
+function HasWebView2Runtime(): Boolean;
+var
+  Roots: array[0..1] of Integer;
+  RootIndex: Integer;
+  KeyIndex: Integer;
+  ClientPath, ClientVersion, StateVersion: string;
+  ClientKeys, StateKeys: array[0..1] of string;
+  Architecture: string;
+begin
+  Roots[0] := HKEY_CURRENT_USER;
+  Roots[1] := HKEY_LOCAL_MACHINE;
+  ClientKeys[0] := 'Software\Microsoft\EdgeUpdate\Clients\' + WebView2ClientGuid;
+  StateKeys[0] := 'Software\Microsoft\EdgeUpdate\ClientState\' + WebView2ClientGuid;
+  { The C++ WebView2 loader deliberately opens the 32-bit registry view
+    (KEY_WOW64_32KEY). Inno's 64-bit install mode therefore needs the explicit
+    WOW6432Node spelling for HKLM as well as the ordinary HKCU path. }
+  ClientKeys[1] := 'Software\WOW6432Node\Microsoft\EdgeUpdate\Clients\' + WebView2ClientGuid;
+  StateKeys[1] := 'Software\WOW6432Node\Microsoft\EdgeUpdate\ClientState\' + WebView2ClientGuid;
+  if IsArm64() then Architecture := 'arm64' else Architecture := 'x64';
+  Result := False;
+  for RootIndex := 0 to 1 do begin
+    for KeyIndex := 0 to 1 do begin
+      { HKLM must use the explicit WOW6432Node path because the C++ loader
+        requests Registry32. HKCU is checked in both spellings for hosts that
+        expose the redirected user view differently. }
+      if not ((RootIndex = 1) and (KeyIndex = 0)) then begin
+        ClientPath := '';
+        ClientVersion := '';
+        if RegQueryStringValue(Roots[RootIndex], ClientKeys[KeyIndex], 'pv', ClientVersion) and
+           RegQueryStringValue(Roots[RootIndex], StateKeys[KeyIndex], 'EBWebView', ClientPath) then begin
+          StateVersion := ExtractFileName(RemoveBackslashUnlessRoot(ClientPath));
+          if VersionAtLeast(ClientVersion, WebView2MinimumVersion) and
+             VersionAtLeast(StateVersion, WebView2MinimumVersion) and
+             FileExists(AddBackslash(ClientPath) + 'EBWebView\' + Architecture + '\EmbeddedBrowserWebView.dll') then begin
+            Result := True;
+            exit;
+          end;
+        end;
+      end;
+    end;
+  end;
+end;
+
+function InstallWebView2Runtime(): Boolean;
+var
+  InstallerPath: string;
+  ResultCode: Integer;
+begin
+  if IsArm64() then
+    InstallerPath := ExpandConstant('{tmp}\MicrosoftEdgeWebView2RuntimeInstallerARM64.exe')
+  else
+    InstallerPath := ExpandConstant('{tmp}\MicrosoftEdgeWebView2RuntimeInstallerX64.exe');
+  ExtractTemporaryFile(ExtractFileName(InstallerPath));
+  Result := Exec(InstallerPath, '/silent /install', '', SW_HIDE, ewWaitUntilTerminated, ResultCode) and
+    ((ResultCode = 0) or (ResultCode = 3010));
+  if not Result then Log(Format('WebView2 standalone installer failed with exit code %d', [ResultCode]));
 end;
 
 function GetDirSize(Path: String): Int64;

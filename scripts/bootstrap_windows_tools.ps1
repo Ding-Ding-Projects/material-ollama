@@ -6,6 +6,10 @@ param(
 )
 
 $ErrorActionPreference = 'Stop'
+$utilityModulePath = Join-Path $PSHOME 'Modules\Microsoft.PowerShell.Utility\Microsoft.PowerShell.Utility.psd1'
+if (-not (Test-Path -LiteralPath $utilityModulePath -PathType Leaf)) { throw "Microsoft.PowerShell.Utility module manifest was not found under PSHOME: $utilityModulePath" }
+Import-Module -Name $utilityModulePath -Force -ErrorAction Stop
+Add-Type -AssemblyName System.IO.Compression.FileSystem
 
 function Normalize-PathForComparison {
     param([Parameter(Mandatory)][string]$Path)
@@ -250,6 +254,35 @@ function Download-VerifiedAsset {
     }
 }
 
+function Expand-VerifiedZip {
+    param(
+        [Parameter(Mandatory)][string]$ArchivePath,
+        [Parameter(Mandatory)][string]$DestinationRoot
+    )
+
+    $seen = @{}
+    $archive = [IO.Compression.ZipFile]::OpenRead($ArchivePath)
+    try {
+        foreach ($entry in $archive.Entries) {
+            $entryPath = $entry.FullName.Replace('\', '/')
+            if (-not $entryPath) { continue }
+            $segments = $entryPath.TrimEnd('/').Split('/')
+            if ($entryPath.StartsWith('/') -or $entryPath -match '^[A-Za-z]:' -or $segments -contains '..') {
+                throw "ZIP archive contains an unsafe member path: $($entry.FullName)"
+            }
+            $key = $entryPath.TrimEnd('/').ToLowerInvariant()
+            if ($key -and $seen.ContainsKey($key)) { throw "ZIP archive contains a duplicate member path: $($entry.FullName)" }
+            if ($key) { $seen[$key] = $true }
+        }
+    } finally {
+        $archive.Dispose()
+    }
+
+    # System.IO.Compression performs extraction in-process and avoids the
+    # very slow built-in PowerShell archive path for large official tool archives.
+    [IO.Compression.ZipFile]::ExtractToDirectory($ArchivePath, $DestinationRoot)
+}
+
 function Install-UserTool {
     param(
         [Parameter(Mandatory)]$Dependency,
@@ -264,31 +297,52 @@ function Install-UserTool {
 
     $assetPath = Get-DownloadPath -Url $user.url
     Download-VerifiedAsset -Dependency $Dependency -Path $assetPath
-    $stagingRoot = Join-Path $env:TEMP ("material-ollama-toolchain-stage-" + [guid]::NewGuid().ToString('N'))
+    # Stage beside the validated tool root so the final Move-Item is a
+    # same-volume directory rename even when TEMP and OLLAMA_TOOLCHAIN_ROOT
+    # live on different volumes. The unique sibling is removed on every exit.
+    $stagingRoot = Join-Path $ToolRoot (".material-ollama-toolchain-stage-" + [guid]::NewGuid().ToString('N'))
     try {
         New-Item -ItemType Directory -Force -Path $stagingRoot | Out-Null
+        (Get-Item -LiteralPath $stagingRoot).Attributes = [IO.FileAttributes]::Directory -bor [IO.FileAttributes]::Hidden
         if ($user.archive -eq 'zip') {
-            Expand-Archive -LiteralPath $assetPath -DestinationPath $stagingRoot -Force
-            $sourceRoot = $stagingRoot
+            $extractRoot = Join-Path $stagingRoot 'extract'
+            New-Item -ItemType Directory -Force -Path $extractRoot | Out-Null
+            Expand-VerifiedZip -ArchivePath $assetPath -DestinationRoot $extractRoot
+            $sourceRoot = $extractRoot
             if ($user.archiveRoot) {
-                $sourceRoot = Join-Path $stagingRoot ([string]$user.archiveRoot)
+                $sourceRoot = Join-Path $extractRoot ([string]$user.archiveRoot)
             }
             if (-not (Test-Path -LiteralPath $sourceRoot -PathType Container)) {
                 throw "$($Dependency.name) archive did not contain expected root '$($user.archiveRoot)'."
             }
-            Move-Item -LiteralPath $sourceRoot -Destination $candidateRoot
         } elseif ($user.installer -eq 'exe') {
+            $sourceRoot = Join-Path $stagingRoot ([string]$user.directory)
+            New-Item -ItemType Directory -Force -Path $sourceRoot | Out-Null
             $process = Start-Process -FilePath $assetPath -ArgumentList @(
                 '/VERYSILENT',
                 '/SUPPRESSMSGBOXES',
                 '/NORESTART',
-                "/DIR=$candidateRoot"
+                "/DIR=$sourceRoot"
             ) -Wait -PassThru -WindowStyle Hidden
             if ($process.ExitCode -ne 0) {
                 throw "$($Dependency.name) installer exited with code $($process.ExitCode)."
             }
         } else {
             throw "Unsupported user-scoped install format '$($user.archive)$($user.installer)' for $($Dependency.name)."
+        }
+
+        $expectedExecutable = Join-Path $sourceRoot ([string]$user.relativeExecutable)
+        if (-not (Test-Path -LiteralPath $expectedExecutable -PathType Leaf)) {
+            throw "$($Dependency.name) staged payload is missing its declared executable '$($user.relativeExecutable)'."
+        }
+        if ($Dependency.name -eq 'CMake' -and (Get-ToolVersion -Path $expectedExecutable -Kind CMake) -ne [string]$Dependency.version) {
+            throw "Staged CMake at '$expectedExecutable' failed its version check."
+        }
+        if ($Dependency.name -eq 'Ninja' -and (Get-ToolVersion -Path $expectedExecutable -Kind Ninja) -ne [string]$Dependency.version) {
+            throw "Staged Ninja at '$expectedExecutable' failed its version check."
+        }
+        if ($Dependency.name -eq 'Inno Setup' -and -not (Test-InnoSetupVersion -Path $expectedExecutable -ExpectedVersion ([string]$Dependency.version))) {
+            throw "Staged Inno Setup at '$expectedExecutable' failed its version check."
         }
 
         $marker = [ordered]@{
@@ -302,8 +356,28 @@ function Install-UserTool {
             relativeExecutable = [string]$user.relativeExecutable
             verifiedBy = 'scripts/bootstrap_windows_tools.ps1'
         }
-        $markerPath = Join-Path $candidateRoot 'material-ollama-toolchain.json'
+        $markerPath = Join-Path $sourceRoot 'material-ollama-toolchain.json'
         $marker | ConvertTo-Json -Depth 5 | Set-Content -LiteralPath $markerPath -Encoding utf8
+
+        $stagedMarker = Get-Content -Raw -LiteralPath $markerPath | ConvertFrom-Json
+        $stagedMarkerMatches =
+            $stagedMarker.schemaVersion -eq 1 -and
+            $stagedMarker.name -eq $Dependency.name -and
+            [string]$stagedMarker.version -eq [string]$Dependency.version -and
+            $stagedMarker.origin -eq 'official-release-asset' -and
+            $stagedMarker.sourceUrl -eq $user.url -and
+            $stagedMarker.archiveSha256 -eq ([string]$user.sha256).ToLowerInvariant() -and
+            ((Normalize-PathForComparison ([string]$stagedMarker.root)) -eq (Normalize-PathForComparison $candidateRoot)) -and
+            $stagedMarker.relativeExecutable -eq $user.relativeExecutable -and
+            (Test-Path -LiteralPath $expectedExecutable -PathType Leaf)
+        if (-not $stagedMarkerMatches) {
+            throw "$($Dependency.name) staged provenance marker did not match the release manifest."
+        }
+
+        # Publish only after payload and provenance validation succeeds. Move-Item
+        # is a same-volume directory rename here, so a failed cold-cache attempt
+        # never creates the final path that would block a retry.
+        Move-Item -LiteralPath $sourceRoot -Destination $candidateRoot
     } finally {
         if (Test-Path -LiteralPath $stagingRoot) {
             Remove-Item -LiteralPath $stagingRoot -Recurse -Force -ErrorAction SilentlyContinue

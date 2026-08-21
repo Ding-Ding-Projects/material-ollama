@@ -8,6 +8,9 @@
 # is not promoted to a terminating exception by the try/catch block.
 # All native commands already check $LASTEXITCODE explicitly.
 $ErrorActionPreference = "Continue"
+$utilityModulePath = Join-Path $PSHOME 'Modules\Microsoft.PowerShell.Utility\Microsoft.PowerShell.Utility.psd1'
+if (-not (Test-Path -LiteralPath $utilityModulePath -PathType Leaf)) { throw "Microsoft.PowerShell.Utility module manifest was not found under PSHOME: $utilityModulePath" }
+Import-Module -Name $utilityModulePath -Force -ErrorAction Stop
 
 $script:REPO_ROOT = Split-Path -Parent $PSScriptRoot
 
@@ -553,6 +556,10 @@ function checkEnv {
         $script:PKG_VERSION=$matches[1]
     } else {
         $script:PKG_VERSION="0.0.0"
+    }
+    $script:SOURCE_COMMIT = ((git rev-parse HEAD 2>$null) | Select-Object -First 1).Trim()
+    if ($script:SOURCE_COMMIT -notmatch '^[0-9a-f]{40}$') {
+        throw "Unable to resolve the exact source commit for installer provenance."
     }
     Write-Output "Building Ollama $script:VERSION with package version $script:PKG_VERSION"
 
@@ -1137,8 +1144,7 @@ function ollama {
 
 function ollamaArm64 {
     if (-not $script:WINDOWS_ARM64_CROSS_COMPILE) {
-        Write-Output "WARNING: skipping ollamaArm64; Windows ARM64 cross-compiling is disabled due to missing tools"
-        return
+        throw "Required ARM64 CLI build is unavailable: Windows ARM64 cross-compiling tools were not resolved."
     }
 
     Write-Output "Building ollama CLI for arm64"
@@ -1155,9 +1161,7 @@ function prepareApp {
     Write-Output "Building Ollama App $script:VERSION with package version $script:PKG_VERSION"
 
     if (!(Get-Command npm -ErrorAction SilentlyContinue)) {
-        Write-Output "npm is not installed. Please install Node.js and npm first:"
-        Write-Output "   Visit: https://nodejs.org/"
-        exit 1
+        throw "Node.js/npm is unavailable after the repository dependency bootstrap; aborting before the UI build rather than asking for a manual install."
     }
 
     if (!(Get-Command tsc -ErrorAction SilentlyContinue)) {
@@ -1259,8 +1263,7 @@ function app {
 
 function appArm64 {
     if (-not $script:WINDOWS_ARM64_CROSS_COMPILE) {
-        Write-Output "WARNING: skipping appArm64; Windows ARM64 cross-compiling is disabled due to missing tools"
-        return
+        throw "Required ARM64 desktop build is unavailable: Windows ARM64 cross-compiling tools were not resolved."
     }
 
     prepareApp
@@ -1274,7 +1277,32 @@ function deps {
     # MSVC CRT DLLs (vcruntime140.dll, msvcp140.dll, etc.) are now bundled
     # directly alongside the executables by CMake's RUNTIME_DEPENDENCIES
     # mechanism during install. No need to download vc_redist.exe.
-    Write-Output "deps: no external dependencies to download (CRT DLLs bundled by CMake install)"
+    Write-Output "deps: verifying pinned offline WebView2 standalone installers"
+    $webviewRoot = "${script:SRC_DIR}\dist\webview2"
+    $webviewManifest = getWindowsDependencyManifest
+    $needsFetch = $false
+    foreach ($item in @($webviewManifest.webview2)) {
+        $payload = Join-Path $webviewRoot ([string]$item.filename)
+        if (-not (Test-Path -LiteralPath $payload -PathType Leaf) -or
+            (Get-FileHash -LiteralPath $payload -Algorithm SHA256).Hash.ToLowerInvariant() -ne ([string]$item.sha256).ToLowerInvariant()) {
+            $needsFetch = $true
+        }
+    }
+    if ($needsFetch) {
+        $windowsPowerShellPath = Join-Path $env:SystemRoot 'System32\WindowsPowerShell\v1.0\powershell.exe'
+        if (-not (Test-Path -LiteralPath $windowsPowerShellPath -PathType Leaf)) {
+            throw "Windows PowerShell 5.1 was not found at '$windowsPowerShellPath'; cannot fetch the pinned WebView2 payloads."
+        }
+        & $windowsPowerShellPath -NoProfile -ExecutionPolicy Bypass -File "${script:SRC_DIR}\scripts\fetch-webview2.ps1" -ManifestPath "${script:SRC_DIR}\scripts\release-dependencies.json" -OutputRoot $webviewRoot
+        if ($LASTEXITCODE -ne 0) { throw "WebView2 dependency acquisition failed with exit code $LASTEXITCODE" }
+    }
+    foreach ($item in @($webviewManifest.webview2)) {
+        $payload = Join-Path $webviewRoot ([string]$item.filename)
+        if (-not (Test-Path -LiteralPath $payload -PathType Leaf)) { throw "Missing WebView2 standalone installer after dependency acquisition: $payload" }
+        $actual = (Get-FileHash -LiteralPath $payload -Algorithm SHA256).Hash.ToLowerInvariant()
+        if ($actual -ne ([string]$item.sha256).ToLowerInvariant()) { throw "WebView2 payload digest mismatch after acquisition: $payload" }
+    }
+    Write-Output "deps: CRT DLLs remain bundled by CMake install; WebView2 payloads are hash-verified and staged for Inno."
 }
 
 function sign {
@@ -1284,16 +1312,49 @@ function sign {
     Write-Output "Signing not enabled; copied files remain unsigned"
 }
 
+function ValidateUniversalWindowsPayload {
+    $required = @(
+        "${script:SRC_DIR}\dist\windows-ollama-app-amd64.exe",
+        "${script:SRC_DIR}\dist\windows-ollama-app-arm64.exe",
+        "${script:SRC_DIR}\dist\windows-amd64\ollama.exe",
+        "${script:SRC_DIR}\dist\windows-arm64\ollama.exe",
+        "${script:SRC_DIR}\dist\windows-amd64\lib\ollama\llama-server.exe",
+        "${script:SRC_DIR}\dist\windows-arm64\lib\ollama\llama-server.exe",
+        "${script:SRC_DIR}\dist\webview2\MicrosoftEdgeWebView2RuntimeInstallerX64.exe",
+        "${script:SRC_DIR}\dist\webview2\MicrosoftEdgeWebView2RuntimeInstallerARM64.exe"
+    )
+    foreach ($path in $required) {
+        if (-not (Test-Path -LiteralPath $path -PathType Leaf)) { throw "Universal Windows installer payload is missing: $path" }
+    }
+    $runtimeFamilies = @('vcruntime140.dll', 'msvcp140.dll', 'libgcc_s_seh-1.dll', 'libstdc++-6.dll', 'libwinpthread-1.dll')
+    foreach ($arch in @('amd64', 'arm64')) {
+        $root = "${script:SRC_DIR}\dist\windows-$arch"
+        foreach ($runtime in $runtimeFamilies) {
+            if (-not (Get-ChildItem -LiteralPath $root -File -Recurse -Filter $runtime -ErrorAction SilentlyContinue | Select-Object -First 1)) {
+                throw "Universal Windows installer payload is missing required $arch CRT/MinGW runtime family member: $runtime"
+            }
+        }
+    }
+    Write-Output "Universal Windows payload verified: x64 and ARM64 desktop, CLI, CPU/server, WebView2, CRT, and MinGW runtime families are present."
+}
+
 function installer {
     if ($null -eq ${script:INNO_SETUP_DIR}) {
         Write-Output "ERROR: missing Inno Setup installation directory - install from https://jrsoftware.org/isdl.php"
         exit 1
     }
+    ValidateUniversalWindowsPayload
     Write-Output "Building Ollama Installer"
     cd "${script:SRC_DIR}\app"
     $env:PKG_VERSION=$script:PKG_VERSION
-    & "${script:INNO_SETUP_DIR}\ISCC.exe" /DARCH=$script:TARGET_ARCH .\ollama.iss
-    if ($LASTEXITCODE -ne 0) { exit($LASTEXITCODE)}
+    $previousGitCommit = $env:GIT_COMMIT
+    $env:GIT_COMMIT = $script:SOURCE_COMMIT
+    try {
+        & "${script:INNO_SETUP_DIR}\ISCC.exe" /DARCH=$script:TARGET_ARCH .\ollama.iss
+        if ($LASTEXITCODE -ne 0) { exit($LASTEXITCODE)}
+    } finally {
+        $env:GIT_COMMIT = $previousGitCommit
+    }
 }
 
 function newZipJob($sourceDir, $destZip) {

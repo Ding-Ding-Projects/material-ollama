@@ -3,42 +3,61 @@
     Install, upgrade, or uninstall Ollama on Windows.
 
 .DESCRIPTION
-    Downloads and installs Ollama.
+    Resolves the exact published Material Ollama release, verifies its installer
+    digest, and installs the unsigned OllamaSetup.exe asset.
 
     Quick install:
 
-        irm https://ollama.com/install.ps1 | iex
+        .\install.ps1
 
     Specific version:
 
-        $env:OLLAMA_VERSION="0.5.7"; irm https://ollama.com/install.ps1 | iex
+        $env:OLLAMA_VERSION="v0.0.0-build.19"; .\install.ps1
 
     Custom install directory:
 
-        $env:OLLAMA_INSTALL_DIR="D:\Ollama"; irm https://ollama.com/install.ps1 | iex
+        $env:OLLAMA_INSTALL_DIR="D:\Ollama"; .\install.ps1
 
     Uninstall:
 
-        $env:OLLAMA_UNINSTALL=1; irm https://ollama.com/install.ps1 | iex
+        $env:OLLAMA_UNINSTALL=1; .\install.ps1
 
     Environment variables:
 
         OLLAMA_VERSION       Target version (default: latest stable)
         OLLAMA_INSTALL_DIR   Custom install directory
         OLLAMA_UNINSTALL     Set to 1 to uninstall Ollama
+        OLLAMA_INSTALLER_SHA256
+                              Published SHA-256 for OllamaSetup.exe
         OLLAMA_DEBUG         Enable verbose output
 
 .EXAMPLE
-    irm https://ollama.com/install.ps1 | iex
+    .\install.ps1
 
 .EXAMPLE
-    $env:OLLAMA_VERSION = "0.5.7"; irm https://ollama.com/install.ps1 | iex
+    $env:OLLAMA_VERSION = "v0.0.0-build.19"; .\install.ps1
+
+.EXAMPLE
+    .\install.ps1 -ExpectedSha256 <published-release-sha256>
+
+.NOTES
+    The helper resolves the exact published Material Ollama release and its
+    OllamaSetup.exe browser_download_url automatically. -ExpectedSha256 or
+    OLLAMA_INSTALLER_SHA256 is an optional explicit cross-check, not a required
+    undocumented prerequisite.
 
 .LINK
-    https://ollama.com
+    https://github.com/Ding-Ding-Projects/material-ollama/releases
 #>
 
+param(
+    [string]$ExpectedSha256 = ""
+)
+
 $ErrorActionPreference = "Stop"
+$utilityModulePath = Join-Path $PSHOME 'Modules\Microsoft.PowerShell.Utility\Microsoft.PowerShell.Utility.psd1'
+if (-not (Test-Path -LiteralPath $utilityModulePath -PathType Leaf)) { throw "Microsoft.PowerShell.Utility module manifest was not found under PSHOME: $utilityModulePath" }
+Import-Module -Name $utilityModulePath -Force -ErrorAction Stop
 $ProgressPreference = "SilentlyContinue"
 
 # --------------------------------------------------------------------------
@@ -48,14 +67,13 @@ $ProgressPreference = "SilentlyContinue"
 $Version      = if ($env:OLLAMA_VERSION) { $env:OLLAMA_VERSION } else { "" }
 $InstallDir   = if ($env:OLLAMA_INSTALL_DIR) { $env:OLLAMA_INSTALL_DIR } else { "" }
 $Uninstall    = $env:OLLAMA_UNINSTALL -eq "1"
+$ExpectedInstallerSha256 = if ($ExpectedSha256) { $ExpectedSha256.Trim().ToLowerInvariant() } elseif ($env:OLLAMA_INSTALLER_SHA256) { $env:OLLAMA_INSTALLER_SHA256.Trim().ToLowerInvariant() } else { "" }
 $DebugInstall = [bool]$env:OLLAMA_DEBUG
 
 # --------------------------------------------------------------------------
 # Constants
 # --------------------------------------------------------------------------
 
-# OLLAMA_DOWNLOAD_URL for developer testing only
-$DownloadBaseURL = if ($env:OLLAMA_DOWNLOAD_URL) { $env:OLLAMA_DOWNLOAD_URL.TrimEnd('/') } else { "https://ollama.com/download" }
 $InnoSetupUninstallGuid = "{44E83376-CE68-45EB-8FC1-393500EB558C}_is1"
 
 # --------------------------------------------------------------------------
@@ -72,25 +90,65 @@ function Write-Step {
     if ($DebugInstall) { Write-Host ">>> $Message" -ForegroundColor Cyan }
 }
 
-function Test-Signature {
+function Test-InstallerHash {
     param([string]$FilePath)
 
-    $sig = Get-AuthenticodeSignature -FilePath $FilePath
-    if ($sig.Status -ne "Valid") {
-        Write-Status "  Signature status: $($sig.Status)"
+    if ($ExpectedInstallerSha256 -notmatch '^[0-9a-f]{64}$') {
+        throw "Installer SHA-256 verification requires the published 64-character release hash (resolved from the exact release or supplied with -ExpectedSha256)."
+    }
+    $actual = (Get-FileHash -LiteralPath $FilePath -Algorithm SHA256).Hash.ToLowerInvariant()
+    Write-Status "  SHA-256: $actual"
+    if ($actual -ne $ExpectedInstallerSha256) {
+        Write-Status "  Expected SHA-256: $ExpectedInstallerSha256"
         return $false
     }
-
-    # Verify it's signed by Ollama Inc. (check exact organization name)
-    # Anchor with comma/boundary to prevent "O=Not Ollama Inc." from matching
-    $subject = $sig.SignerCertificate.Subject
-    if ($subject -notmatch "(^|, )O=Ollama Inc\.(,|$)") {
-        Write-Status "  Unexpected signer: $subject"
-        return $false
-    }
-
-    Write-Status "  Signature valid: $subject"
     return $true
+}
+
+function Resolve-PublishedInstaller {
+    # Resolve the exact Material Ollama release first, then download its exact
+    # browser_download_url. Never compare a project release digest with an
+    # unrelated upstream download URL.
+    $apiBase = "https://api.github.com/repos/Ding-Ding-Projects/material-ollama/releases"
+    $releaseTag = if ($Version) {
+        if ($Version.StartsWith('v')) { $Version } else { "v$Version" }
+    } else { $null }
+    $apiUrl = if ($releaseTag) { "$apiBase/tags/$([Uri]::EscapeDataString($releaseTag))" } else { "$apiBase/latest" }
+    try {
+        $release = Invoke-RestMethod -Uri $apiUrl -Headers @{ 'User-Agent' = 'material-ollama-install-helper' } -TimeoutSec 20
+    } catch {
+        throw "Unable to resolve the published Material Ollama release: $($_.Exception.Message)"
+    }
+    $assets = @($release.assets)
+    $extrasName = "material-ollama-extras-$($release.tag_name).zip"
+    if (-not $release.tag_name -or $release.draft -or $release.prerelease -or
+        $assets.Count -ne 2 -or -not ($assets.name -contains 'OllamaSetup.exe') -or -not ($assets.name -contains $extrasName)) {
+        throw "The published release does not satisfy the exact two-asset contract; refusing installer verification."
+    }
+    $installerAsset = $assets | Where-Object name -eq 'OllamaSetup.exe' | Select-Object -First 1
+    $extrasAsset = $assets | Where-Object name -eq $extrasName | Select-Object -First 1
+    if ($installerAsset.browser_download_url -notmatch '^https://') { throw 'Published installer browser_download_url is not HTTPS.' }
+    if ($extrasAsset.browser_download_url -notmatch '^https://') { throw 'Published extras browser_download_url is not HTTPS.' }
+    $digest = if ($installerAsset.digest -match '^sha256:([0-9a-f]{64})$') { $Matches[1] } else { $null }
+    $extrasDigest = if ($extrasAsset.digest -match '^sha256:([0-9a-f]{64})$') { $Matches[1] } else { $null }
+    if (-not $digest -or -not $extrasDigest) {
+        $body = [string]$release.body
+        $digest = [regex]::Match($body, 'OllamaSetup\.exe\s+[^\r\n]*SHA-256\s+`(?<hash>[0-9a-f]{64})`', [Text.RegularExpressions.RegexOptions]::IgnoreCase).Groups['hash'].Value
+        $extrasDigest = [regex]::Match($body, [regex]::Escape($extrasName) + '\s+[^\r\n]*SHA-256\s+`(?<hash>[0-9a-f]{64})`', [Text.RegularExpressions.RegexOptions]::IgnoreCase).Groups['hash'].Value
+    }
+    if ($digest -notmatch '^[0-9a-f]{64}$' -or $extrasDigest -notmatch '^[0-9a-f]{64}$') { throw "The published release omitted a usable SHA-256 for one or both assets." }
+    $digest = $digest.ToLowerInvariant()
+    if ($ExpectedInstallerSha256 -and $ExpectedInstallerSha256 -notmatch '^[0-9a-f]{64}$') { throw 'Explicit ExpectedSha256 is not a 64-character hexadecimal digest.' }
+    if ($ExpectedInstallerSha256 -and $ExpectedInstallerSha256 -ne $digest) { throw 'Explicit ExpectedSha256 does not match the published installer digest.' }
+    $script:ExpectedInstallerSha256 = $digest
+    $script:PublishedInstaller = [pscustomobject]@{
+        tag = [string]$release.tag_name
+        url = [string]$installerAsset.browser_download_url
+        sha256 = $digest
+        size = [int64]$installerAsset.size
+    }
+    Write-Status "  Resolved published installer SHA-256 from release $($release.tag_name)"
+    return $script:PublishedInstaller
 }
 
 function Find-InnoSetupInstall {
@@ -244,12 +302,8 @@ function Invoke-Uninstall {
 # --------------------------------------------------------------------------
 
 function Invoke-Install {
-    # Determine installer URL
-    if ($Version) {
-        $installerUrl = "$DownloadBaseURL/OllamaSetup.exe?version=$Version"
-    } else {
-        $installerUrl = "$DownloadBaseURL/OllamaSetup.exe"
-    }
+    $published = Resolve-PublishedInstaller
+    $installerUrl = $published.url
 
     # Download installer
     Write-Step "Downloading Ollama"
@@ -260,11 +314,12 @@ function Invoke-Install {
     $tempInstaller = Join-Path $env:TEMP "OllamaSetup.exe"
     Invoke-Download -Url $installerUrl -OutFile $tempInstaller
 
-    # Verify signature
-    Write-Step "Verifying signature"
-    if (-not (Test-Signature -FilePath $tempInstaller)) {
+    # This project deliberately ships unsigned installers; Authenticode is not
+    # an integrity contract here.
+    Write-Step "Verifying published SHA-256"
+    if (-not (Test-InstallerHash -FilePath $tempInstaller)) {
         Remove-Item $tempInstaller -Force -ErrorAction SilentlyContinue
-        throw "Installer signature verification failed"
+        throw "Installer SHA-256 verification failed"
     }
 
     # Build installer arguments
