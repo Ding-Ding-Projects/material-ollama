@@ -111,21 +111,34 @@ test('request map rejects a tampered byte before capture', async () => {
 test('CDP Fetch handler fulfills known requests and fails unknown requests without network fallback', async () => {
   const calls = [];
   const client = { send: async (method, params) => { calls.push({ method, params }); } };
-  const handler = await createDesignFetchHandler({ client });
+  const rendererOrigin = 'http://127.0.0.1:43123';
+  const handler = await createDesignFetchHandler({ client, rendererOrigin });
   assert.equal(calls[0].method, 'Fetch.enable');
+  const continuedHtml = await handler.handleRequestPaused({ requestId: 'html-1', request: { url: `${rendererOrigin}/reference/material-ollama/` } });
+  assert.deepEqual(continuedHtml, { status: 'continued', sourceUrl: `${rendererOrigin}/reference/material-ollama/` });
+  assert.equal(calls[1].method, 'Fetch.continueRequest');
+  const continuedRuntime = await handler.handleRequestPaused({ requestId: 'runtime-1', request: { url: `${rendererOrigin}/reference/material-ollama/support.js` } });
+  assert.deepEqual(continuedRuntime, { status: 'continued', sourceUrl: `${rendererOrigin}/reference/material-ollama/support.js` });
+  assert.equal(calls[2].method, 'Fetch.continueRequest');
   const knownUrl = [...handler.requestMap.keys()][0];
   const fulfilled = await handler.handleRequestPaused({ requestId: 'known-1', request: { url: knownUrl } });
   assert.deepEqual(fulfilled, { status: 'fulfilled', sourceUrl: knownUrl });
-  assert.equal(calls[1].method, 'Fetch.fulfillRequest');
-  assert.equal(calls[1].params.requestId, 'known-1');
-  assert.equal(calls[1].params.responseCode, 200);
-  assert.ok(calls[1].params.body.length > 0);
+  assert.equal(calls[3].method, 'Fetch.fulfillRequest');
+  assert.equal(calls[3].params.requestId, 'known-1');
+  assert.equal(calls[3].params.responseCode, 200);
+  assert.ok(calls[3].params.body.length > 0);
+  await assert.rejects(
+    () => handler.handleRequestPaused({ requestId: 'unknown-loopback-1', request: { url: `${rendererOrigin}/reference/material-ollama/unknown.js` } }),
+    error => error instanceof DesignAssetRequestError && error.code === 'UNKNOWN_DESIGN_ASSET',
+  );
+  assert.equal(calls[4].method, 'Fetch.failRequest');
   await assert.rejects(
     () => handler.handleRequestPaused({ requestId: 'unknown-1', request: { url: 'https://example.invalid/not-allowed.js' } }),
     error => error instanceof DesignAssetRequestError && error.code === 'UNKNOWN_DESIGN_ASSET',
   );
-  assert.equal(calls[2].method, 'Fetch.failRequest');
-  assert.equal(calls[2].params.errorReason, 'BlockedByClient');
+  assert.equal(calls[5].method, 'Fetch.failRequest');
+  assert.equal(calls[4].params.errorReason, 'BlockedByClient');
+  assert.equal(calls[5].params.errorReason, 'BlockedByClient');
   assert.equal(calls.some(call => call.method === 'Network.load'), false);
   await handler.disable();
   assert.equal(calls.at(-1).method, 'Fetch.disable');

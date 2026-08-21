@@ -1,8 +1,10 @@
 #!/usr/bin/env node
 import { createHash } from 'node:crypto';
+import { execFile } from 'node:child_process';
 import { readFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
+import { promisify } from 'node:util';
 import { loadDesignAssetMap } from '../design-reference/request-map.mjs';
 
 const root = resolve(fileURLToPath(new URL('../..', import.meta.url)));
@@ -27,6 +29,8 @@ const expectedFixedTuple = {
 };
 const expectedReadmeSha256 = '69079abb32044697ced6266161e58e9142c0c193b4706c4f471d6fdff30e7522';
 const expectedReceiptSha256 = '9be9d6c55583ef54161e64dd037fee5ceeb292bf3589b30a3efb0f6c75a8b019';
+const expectedSourceCommit = 'af5d9a4700692d47b97d40e438bd5c08d3d3b9fc';
+const execFileAsync = promisify(execFile);
 
 function fail(message) { throw new Error(message); }
 function assert(condition, message) { if (!condition) fail(message); }
@@ -50,6 +54,7 @@ export function checkInventory(inventory) {
   assert(inventory.reference.file === expectedReference.file && inventory.reference.sha256 === expectedReference.sha256, 'reference HTML metadata is invalid');
   assert(inventory.reference.runtime === expectedReference.runtime && inventory.reference.runtimeSha256 === expectedReference.runtimeSha256, 'reference runtime metadata is invalid');
   assert(sameJson(inventory.fixedTuple, expectedFixedTuple), 'fixed tuple metadata is incomplete or incorrect');
+  assert(inventory.sourceCommit === expectedSourceCommit, 'inventory sourceCommit is not pinned to the declared baseline');
   assert(Array.isArray(inventory.rows), 'rows must be an array');
   const ids = inventory.rows.map(row => row.id);
   assert(ids.length === requiredIds.length, `expected exactly ${requiredIds.length} rows`);
@@ -89,6 +94,7 @@ export function checkInventory(inventory) {
       assert(typeof deviation.approval === 'string' && deviation.approval.length > 0, `${row.id}: intentional deviation needs approval`);
     }
     assert(typeof row.sourceCommit === 'string' && /^[0-9a-f]{40}$/.test(row.sourceCommit), `${row.id}: sourceCommit must be a full lowercase commit SHA`);
+    assert(row.sourceCommit === inventory.sourceCommit, `${row.id}: sourceCommit differs from the pinned inventory provenance`);
     assert(row.status === 'gap', `${row.id}: this lane cannot claim parity before real captures`);
     assert(typeof row.gapReason === 'string' && row.gapReason.length > 0, `${row.id}: gapReason required`);
     assert(row.parityClaimed === false, `${row.id}: gap rows may not claim parity`);
@@ -114,6 +120,11 @@ export function validateReferenceSourceWiring(htmlText) {
 export async function checkDesignParity({ rootDir = root } = {}) {
   const inventory = JSON.parse(await readFile(resolve(rootDir, 'docs/features/design-parity/inventory.json'), 'utf8'));
   const shape = checkInventory(inventory);
+  try {
+    await execFileAsync('git', ['cat-file', '-e', `${expectedSourceCommit}^{commit}`], { cwd: rootDir, windowsHide: true });
+  } catch {
+    fail(`sourceCommit ${expectedSourceCommit} is not present in the local Git object database`);
+  }
   const html = await readFile(resolve(rootDir, expectedReference.file));
   const runtime = await readFile(resolve(rootDir, expectedReference.runtime));
   validateReferenceSourceWiring(html.toString('utf8'));
@@ -157,6 +168,7 @@ if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1]
   const mutations = [
     ['missing reference metadata', value => ({ ...value, reference: undefined })],
     ['bad reference hash', value => ({ ...value, reference: { ...value.reference, sha256: '0'.repeat(64) } })],
+    ['bad source provenance', value => ({ ...value, sourceCommit: '1'.repeat(40) })],
     ['missing fixed tuple field', value => ({ ...value, fixedTuple: { ...value.fixedTuple, seed: undefined } })],
     ['bad row tuple field', value => ({ ...value, rows: value.rows.map((row, index) => index === 0 ? { ...row, tuple: { ...row.tuple, radius: '12px' } } : row) })],
     ['duplicate routes', value => ({ ...value, rows: value.rows.map((row, index) => index === 1 ? { ...row, referenceRoute: value.rows[0].referenceRoute } : row) })],
@@ -183,7 +195,7 @@ if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1]
     try { validateReferenceSourceWiring(mutate(referenceHtml)); } catch { failed = true; }
     assert(failed, `source mutation stayed green: ${name}`);
   }
-  console.log('design-parity self-test: PASS (16 deliberate mutations red; baseline green)');
+  console.log('design-parity self-test: PASS (17 deliberate mutations red; baseline green)');
 } else if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1])).href) {
   console.log(JSON.stringify(await checkDesignParity(), null, 2));
 }
