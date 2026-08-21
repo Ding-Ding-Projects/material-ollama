@@ -86,3 +86,15 @@ func TestIsInstallerRunning(t *testing.T) {
 		t.Fatal("not running")
 	}
 }
+
+func TestIsInstallerRunningUsesProcessByteCountAsElements(t *testing.T) {
+	oldInstaller := Installer
+	defer func() {
+		Installer = oldInstaller
+	}()
+
+	Installer = "go.exe"
+	if got := len(IsProcRunning(Installer)); got == 0 {
+		t.Fatal("expected the running Go test process to be found")
+	}
+}
