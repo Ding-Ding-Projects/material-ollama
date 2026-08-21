@@ -6,6 +6,7 @@ import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { checkInventory } from '../parity/check-design-parity.mjs';
 import { startReferenceServer } from '../design-reference/reference-renderer.mjs';
+import { DesignAssetRequestError, loadDesignAssetMap, resolveDesignRequest, toFetchFulfillRequest } from '../design-reference/request-map.mjs';
 
 const root = resolve(fileURLToPath(new URL('../..', import.meta.url)));
 const design = name => resolve(root, 'design', name);
@@ -55,6 +56,55 @@ test('vendored asset manifest hashes every deterministic runtime and font respon
     for (const match of css.matchAll(/url\((https:[^)]+)\)/g)) assert.ok(sourceUrls.has(match[1]), `missing font response ${match[1]}`);
   }
   assert.equal(sawUnicodeRange, true, 'font family CSS must retain unicode-range declarations when supplied');
+});
+
+test('exact design request map covers every original runtime and font URL', async () => {
+  const assets = await loadDesignAssetMap();
+  const [html, runtime] = await Promise.all([
+    readFile(design('Material Ollama.dc.html'), 'utf8'),
+    readFile(design('support.js'), 'utf8'),
+  ]);
+  const originalUrls = new Set([
+    ...[...runtime.matchAll(/https:\/\/[^"']+/g)].map(match => match[0]),
+    ...[...html.matchAll(/https:\/\/fonts\.googleapis\.com\/css2\?[^"']+/g)].map(match => match[0]),
+  ]);
+  assert.ok(originalUrls.size > 0);
+  for (const sourceUrl of originalUrls) {
+    const response = resolveDesignRequest(assets, sourceUrl);
+    assert.equal(response.status, 200);
+    assert.ok(response.contentType);
+    assert.ok(Buffer.isBuffer(response.body));
+    const fulfilled = toFetchFulfillRequest(response);
+    assert.equal(fulfilled.responseCode, 200);
+    assert.ok(fulfilled.body.length > 0);
+  }
+});
+
+test('request map refuses unknown URLs exactly', async () => {
+  const assets = await loadDesignAssetMap();
+  assert.throws(
+    () => resolveDesignRequest(assets, 'https://example.invalid/not-a-design-asset.js'),
+    error => error instanceof DesignAssetRequestError && error.code === 'UNKNOWN_DESIGN_ASSET',
+  );
+});
+
+test('request map rejects a tampered byte before capture', async () => {
+  const { mkdtemp, writeFile: writeTempFile } = await import('node:fs/promises');
+  const { tmpdir } = await import('node:os');
+  const tempRoot = await mkdtemp(resolve(tmpdir(), 'design-request-map-'));
+  const manifest = JSON.parse(await readFile(resolve(root, 'design/vendor/manifest.json'), 'utf8'));
+  const entry = manifest.entries[0];
+  manifest.entries = [{ ...entry, localPath: 'design/vendor/tampered.bin' }];
+  await writeTempFile(resolve(tempRoot, 'manifest.json'), `${JSON.stringify(manifest)}\n`);
+  await (await import('node:fs/promises')).mkdir(resolve(tempRoot, 'design/vendor'), { recursive: true });
+  const original = await readFile(resolve(root, entry.localPath));
+  const tampered = Buffer.from(original);
+  tampered[0] ^= 0xff;
+  await writeTempFile(resolve(tempRoot, 'design/vendor/tampered.bin'), tampered);
+  await assert.rejects(
+    () => loadDesignAssetMap({ manifestPath: resolve(tempRoot, 'manifest.json'), rootDir: tempRoot }),
+    error => error instanceof DesignAssetRequestError && error.code === 'ASSET_HASH_MISMATCH',
+  );
 });
 
 test('handoff sanitization contains no private-source marker and exactly three substitutions', async () => {
