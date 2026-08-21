@@ -1,0 +1,1866 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<meta charset="utf-8">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Roboto+Flex:opsz,wght@8..144,300..800&family=Roboto+Mono:wght@400;500&family=Noto+Sans+HK:wght@400;500;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,300..600,0..1,0" rel="stylesheet">
+<style>
+:root{
+--p:oklch(.48 .11 85);--on-p:oklch(.995 .005 85);--pc:oklch(.90 .05 85);--on-pc:oklch(.25 .07 85);
+--sec:oklch(.50 .04 85);--sec-c:oklch(.90 .02 85);--on-sec-c:oklch(.25 .033 85);
+--ter:oklch(.55 .09 145);--ter-c:oklch(.90 .04 145);--on-ter-c:oklch(.25 .055 145);
+--err:oklch(.50 .19 27);--err-c:oklch(.90 .06 27);--on-err-c:oklch(.28 .12 27);
+--bg:oklch(.985 .007 85);
+--c-lowest:oklch(.997 .003 85);--c-low:oklch(.97 .008 85);--c:oklch(.955 .009 85);--c-high:oklch(.94 .01 85);--c-highest:oklch(.92 .012 85);
+--on-s:oklch(.22 .015 85);--on-sv:oklch(.42 .02 85);--outline:oklch(.55 .02 85);--outline-v:oklch(.82 .015 85);
+--inv:oklch(.27 .015 85);--on-inv:oklch(.95 .008 85);
+--e1:0 1px 2px rgba(0,0,0,.25),0 1px 3px 1px rgba(0,0,0,.12);--e2:0 2px 6px 2px rgba(0,0,0,.14),0 1px 2px rgba(0,0,0,.25);
+--r:16px;
+}
+html,body{margin:0;height:100%;}
+body{font-family:'Roboto Flex','Noto Sans HK',system-ui,sans-serif;background:var(--bg);color:var(--on-s);overflow:hidden;-webkit-font-smoothing:antialiased;}
+*{box-sizing:border-box;}
+a{color:var(--p);text-decoration:none;}a:hover{color:var(--on-pc);}
+input,textarea,button,select{font:inherit;color:inherit;}
+input:focus,textarea:focus,select:focus{outline:2px solid var(--p);outline-offset:1px;}
+button{cursor:pointer;}
+button:focus-visible{outline:2px solid var(--p);outline-offset:2px;}
+input[type=range]{accent-color:var(--p);}
+::-webkit-scrollbar{width:10px;height:10px;}::-webkit-scrollbar-thumb{background:var(--outline-v);border-radius:8px;border:2px solid transparent;background-clip:content-box;}::-webkit-scrollbar-track{background:transparent;}
+.material-symbols-outlined{font-variation-settings:'FILL' 0,'wght' 400,'GRAD' 0,'opsz' 24;user-select:none;}
+@keyframes mo-pulse{0%,60%,100%{opacity:.2}30%{opacity:1}}
+@keyframes mo-in{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+</style>
+</helmet>
+<div style="display:flex;flex-direction:column;height:100vh;background:var(--bg);color:var(--on-s);font-size:14px;">
+  <div data-screen-label="Title bar" style="display:flex;align-items:center;gap:10px;height:44px;flex:none;padding:0 12px 0 16px;background:var(--c-low);">
+    <span class="material-symbols-outlined" style="font-size:20px;color:var(--p);">{{ glyph }}</span>
+    <span style="font-weight:600;font-size:14px;letter-spacing:.1px;">{{ appName }}</span>
+    <span style="flex:1;"></span>
+    <sc-if value="{{ schoolOn }}" hint-placeholder-val="{{ false }}">
+      <button onClick="{{ openSchoolUnlock }}" style="display:flex;align-items:center;gap:6px;border:1px solid var(--outline-v);background:var(--sec-c);color:var(--on-sec-c);border-radius:999px;padding:4px 12px;font-size:12px;font-weight:500;"><span class="material-symbols-outlined" style="font-size:16px;">lock</span>{{ schoolName }}</button>
+    </sc-if>
+    <button onClick="{{ togglePalette }}" title="Command palette (Ctrl+Shift+F)" aria-label="Command palette" style="display:flex;align-items:center;gap:6px;border:none;background:var(--c-highest);color:var(--on-sv);border-radius:999px;padding:6px 12px;font-size:12px;"><span class="material-symbols-outlined" style="font-size:16px;">search</span>{{ L.palette }}<span style="font-family:'Roboto Mono';font-size:10px;color:var(--outline);">⇧⌘F</span></button>
+    <button onClick="{{ toggleNotif }}" aria-label="Notifications" style="position:relative;border:none;background:none;border-radius:999px;width:34px;height:34px;display:flex;align-items:center;justify-content:center;color:var(--on-sv);" style-hover="background:var(--c-highest);"><span class="material-symbols-outlined" style="font-size:20px;">notifications</span>
+      <sc-if value="{{ hasUnread }}" hint-placeholder-val="{{ false }}"><span style="position:absolute;top:5px;right:5px;width:8px;height:8px;border-radius:99px;background:var(--err);"></span></sc-if>
+    </button>
+  </div>
+  <div data-screen-label="Tab strip" style="display:flex;align-items:center;gap:4px;height:38px;flex:none;padding:0 8px;background:var(--c-low);border-bottom:1px solid var(--outline-v);min-width:0;">
+    <div style="display:flex;align-items:center;gap:4px;flex:1;min-width:0;overflow-x:auto;overflow-y:hidden;scrollbar-width:none;">
+    <sc-for list="{{ tabsView }}" as="tb" hint-placeholder-count="1">
+      <div onClick="{{ tb.activate }}" onContextMenu="{{ tb.menu }}" role="tab" style="display:flex;align-items:center;gap:6px;flex:0 1 auto;min-width:56px;max-width:200px;padding:5px 8px 5px 12px;border-radius:10px 10px 0 0;cursor:pointer;background:{{ tb.bg }};color:{{ tb.fg }};border:1px solid var(--outline-v);border-bottom:none;font-size:12.5px;">
+        <sc-if value="{{ tb.grouped }}" hint-placeholder-val="{{ false }}"><span style="width:8px;height:8px;border-radius:99px;background:{{ tb.group }};flex:none;"></span></sc-if>
+        <span class="material-symbols-outlined" style="font-size:15px;">{{ tb.icon }}</span>
+        <span style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{ tb.label }}</span>
+        <sc-if value="{{ tb.pinned }}" hint-placeholder-val="{{ false }}"><span class="material-symbols-outlined" style="font-size:13px;color:var(--outline);">keep</span></sc-if>
+        <button onClick="{{ tb.close }}" aria-label="Close tab" style="border:none;background:none;padding:2px;border-radius:99px;display:flex;color:var(--outline);" style-hover="background:var(--c-highest);color:var(--on-s);"><span class="material-symbols-outlined" style="font-size:14px;">close</span></button>
+      </div>
+    </sc-for>
+    </div>
+    <button onClick="{{ bulkCloseTabs }}" title="Close all unpinned tabs" aria-label="Close all unpinned tabs" style="border:none;background:none;height:28px;border-radius:99px;display:flex;align-items:center;gap:4px;padding:0 10px;color:var(--on-sv);font-size:11.5px;" style-hover="background:var(--c-highest);"><span class="material-symbols-outlined" style="font-size:16px;">tab_close</span>{{ L.closeAllTabs }}</button>
+  </div>
+  <div style="display:flex;flex:1;min-height:0;">
+    <nav data-screen-label="Navigation rail" aria-label="Main navigation" style="width:84px;flex:none;display:flex;flex-direction:column;align-items:center;gap:2px;padding:10px 0;background:var(--c-low);overflow-y:auto;">
+      <sc-for list="{{ railView }}" as="it" hint-placeholder-count="9">
+        <button onClick="{{ it.go }}" aria-label="{{ it.label }}" style="display:flex;flex-direction:column;align-items:center;gap:3px;border:none;background:none;padding:4px 0;width:76px;color:{{ it.fg }};">
+          <span style="display:flex;align-items:center;justify-content:center;width:56px;height:30px;border-radius:999px;background:{{ it.pill }};"><span class="material-symbols-outlined" style="font-size:20px;font-variation-settings:'FILL' {{ it.fill }};">{{ it.icon }}</span></span>
+          <span style="font-size:10.5px;font-weight:500;text-align:center;line-height:1.15;">{{ it.label }}</span>
+        </button>
+      </sc-for>
+    </nav>
+    <main style="flex:1;min-width:0;display:flex;min-height:0;background:var(--bg);">
+
+<sc-if value="{{ sChat }}" hint-placeholder-val="{{ true }}">
+  <div data-screen-label="Chat" style="display:flex;flex:1;min-width:0;">
+    <div style="width:250px;flex:none;display:flex;flex-direction:column;background:var(--c-low);padding:12px;gap:8px;min-height:0;">
+      <button onClick="{{ newChat }}" style="display:flex;align-items:center;gap:10px;border:none;background:var(--pc);color:var(--on-pc);border-radius:16px;padding:14px 16px;font-weight:600;font-size:13.5px;box-shadow:var(--e1);"><span class="material-symbols-outlined" style="font-size:20px;">edit_square</span>{{ L.newChat }}</button>
+      <div style="display:flex;align-items:center;gap:2px;background:var(--c-highest);border-radius:999px;padding:0 6px 0 0;">
+        <input value="{{ chatSearch }}" onChange="{{ setChatSearch }}" placeholder="{{ L.searchChats }}" aria-label="{{ L.searchChats }}" style="flex:1;border:none;background:none;border-radius:999px;padding:9px 14px;font-size:12.5px;color:var(--on-s);min-width:0;">
+        <button onClick="{{ openRxbChats }}" title="Regex builder" aria-label="Regex builder" style="border:none;background:none;color:var(--outline);border-radius:99px;padding:4px 6px;font-size:11px;font-family:'Roboto Mono';" style-hover="color:var(--on-s);">.*</button>
+      </div>
+      <div style="flex:1;overflow-y:auto;display:flex;flex-direction:column;gap:2px;min-height:0;">
+        <sc-for list="{{ chatListView }}" as="c" hint-placeholder-count="4">
+          <sc-if value="{{ c.isHeader }}" hint-placeholder-val="{{ false }}">
+            <div style="font-size:11px;font-weight:600;color:var(--on-sv);padding:10px 12px 4px;">{{ c.label }}</div>
+          </sc-if>
+          <sc-if value="{{ c.isChat }}" hint-placeholder-val="{{ true }}">
+            <div onClick="{{ c.open }}" onContextMenu="{{ c.menu }}" role="button" style="display:flex;align-items:center;gap:8px;padding:9px 12px;border-radius:999px;cursor:pointer;background:{{ c.bg }};color:{{ c.fg }};font-size:13px;" style-hover="background:var(--c-highest);">
+              <span style="flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{ c.title }}</span>
+            </div>
+          </sc-if>
+        </sc-for>
+      </div>
+      <button onClick="{{ clearChats }}" style="display:flex;align-items:center;gap:8px;border:none;background:none;color:var(--on-sv);font-size:11.5px;padding:6px 12px;border-radius:999px;" style-hover="background:var(--c-highest);"><span class="material-symbols-outlined" style="font-size:15px;">delete_sweep</span>{{ L.clearChats }}</button>
+    </div>
+    <div style="flex:1;min-width:0;display:flex;flex-direction:column;">
+      <sc-if value="{{ chatEmpty }}" hint-placeholder-val="{{ true }}">
+        <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;animation:mo-in .3s ease;">
+          <span class="material-symbols-outlined" style="font-size:44px;color:var(--p);font-variation-settings:'FILL' 1;">{{ glyph }}</span>
+          <div style="font-size:24px;font-weight:600;">{{ L.hero }}</div>
+          <div style="font-size:13px;color:var(--on-sv);">{{ L.heroSub }}</div>
+        </div>
+      </sc-if>
+      <sc-if value="{{ chatHasMsgs }}" hint-placeholder-val="{{ false }}">
+        <div style="flex:1;overflow-y:auto;padding:24px 0;min-height:0;">
+          <div style="max-width:760px;margin:0 auto;display:flex;flex-direction:column;gap:18px;padding:0 24px;">
+            <sc-for list="{{ messagesView }}" as="m" hint-placeholder-count="2">
+              <sc-if value="{{ m.isUser }}" hint-placeholder-val="{{ false }}">
+                <div style="align-self:flex-end;max-width:75%;background:var(--pc);color:var(--on-pc);border-radius:20px 20px 4px 20px;padding:12px 16px;white-space:pre-wrap;line-height:1.5;">{{ m.text }}</div>
+              </sc-if>
+              <sc-if value="{{ m.isAssistant }}" hint-placeholder-val="{{ true }}">
+                <div style="display:flex;gap:12px;max-width:92%;">
+                  <span class="material-symbols-outlined" style="font-size:20px;color:var(--p);flex:none;margin-top:2px;">{{ glyph }}</span>
+                  <div style="white-space:pre-wrap;line-height:1.62;font-size:14.5px;">{{ m.text }}<sc-if value="{{ m.typing }}" hint-placeholder-val="{{ false }}"><span style="display:inline-flex;gap:3px;margin-left:6px;"><span style="width:6px;height:6px;border-radius:99px;background:var(--on-sv);animation:mo-pulse 1.2s infinite;"></span><span style="width:6px;height:6px;border-radius:99px;background:var(--on-sv);animation:mo-pulse 1.2s .2s infinite;"></span><span style="width:6px;height:6px;border-radius:99px;background:var(--on-sv);animation:mo-pulse 1.2s .4s infinite;"></span></span></sc-if></div>
+                </div>
+              </sc-if>
+            </sc-for>
+          </div>
+        </div>
+      </sc-if>
+      <div style="flex:none;padding:12px 24px 18px;">
+        <div style="max-width:760px;margin:0 auto;background:var(--c-high);border-radius:28px;padding:12px 14px;display:flex;flex-direction:column;gap:8px;box-shadow:var(--e1);">
+          <textarea value="{{ draft }}" onChange="{{ setDraft }}" onKeyDown="{{ draftKey }}" rows="1" placeholder="{{ L.sendMsg }}" aria-label="{{ L.sendMsg }}" style="border:none;background:none;resize:none;min-height:24px;max-height:140px;padding:4px 8px;line-height:1.5;"></textarea>
+          <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+            <button onClick="{{ toggleModelMenu }}" aria-label="Select model" style="display:flex;align-items:center;gap:6px;border:1px solid var(--outline-v);background:none;border-radius:999px;padding:6px 12px;font-size:12.5px;color:var(--on-sv);"><span class="material-symbols-outlined" style="font-size:16px;">deployed_code</span>{{ currentModel }}<span class="material-symbols-outlined" style="font-size:16px;">arrow_drop_down</span></button>
+            <button onClick="{{ toggleThink }}" aria-pressed="{{ thinkOn }}" style="display:flex;align-items:center;gap:6px;border:1px solid var(--outline-v);background:{{ thinkBg }};color:{{ thinkFg }};border-radius:999px;padding:6px 12px;font-size:12.5px;"><span class="material-symbols-outlined" style="font-size:16px;">lightbulb</span>{{ L.think }}</button>
+            <button onClick="{{ toggleWeb }}" aria-pressed="{{ webOn }}" style="display:flex;align-items:center;gap:6px;border:1px solid var(--outline-v);background:{{ webBg }};color:{{ webFg }};border-radius:999px;padding:6px 12px;font-size:12.5px;"><span class="material-symbols-outlined" style="font-size:16px;">language</span>{{ L.webSearch }}</button>
+            <span style="flex:1;"></span>
+            <button onClick="{{ send }}" aria-label="{{ L.send }}" style="display:flex;align-items:center;justify-content:center;width:42px;height:42px;border:none;border-radius:14px;background:var(--p);color:var(--on-p);box-shadow:var(--e1);"><span class="material-symbols-outlined" style="font-size:20px;">arrow_upward</span></button>
+          </div>
+          <sc-if value="{{ modelMenuOpen }}" hint-placeholder-val="{{ false }}">
+            <div style="display:flex;flex-wrap:wrap;gap:6px;padding:4px;">
+              <sc-for list="{{ installedView }}" as="mo" hint-placeholder-count="3">
+                <button onClick="{{ mo.pick }}" style="border:1px solid var(--outline-v);background:{{ mo.bg }};color:{{ mo.fg }};border-radius:10px;padding:6px 12px;font-size:12px;font-family:'Roboto Mono';">{{ mo.name }}</button>
+              </sc-for>
+            </div>
+          </sc-if>
+        </div>
+        <div style="max-width:760px;margin:6px auto 0;font-size:11px;color:var(--outline);text-align:center;">{{ L.localNote }}</div>
+      </div>
+    </div>
+  </div>
+</sc-if>
+
+<sc-if value="{{ sLaunch }}" hint-placeholder-val="{{ false }}">
+  <div data-screen-label="Launch" style="flex:1;overflow-y:auto;padding:28px;">
+    <div style="max-width:900px;margin:0 auto;display:flex;flex-direction:column;gap:18px;">
+      <div><div style="font-size:24px;font-weight:600;">{{ L.launchTitle }}</div><div style="font-size:13px;color:var(--on-sv);margin-top:4px;">{{ L.launchSub }}</div></div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:12px;">
+        <sc-for list="{{ launchView }}" as="lc" hint-placeholder-count="6">
+          <div style="background:var(--c-lowest);border-radius:var(--r);padding:18px;display:flex;flex-direction:column;gap:10px;border:1px solid var(--outline-v);">
+            <div style="display:flex;align-items:center;gap:10px;"><span style="width:36px;height:36px;border-radius:10px;background:var(--sec-c);color:var(--on-sec-c);display:flex;align-items:center;justify-content:center;"><span class="material-symbols-outlined" style="font-size:19px;">{{ lc.icon }}</span></span><span style="font-weight:600;font-size:14px;">{{ lc.name }}</span></div>
+            <div style="font-family:'Roboto Mono';font-size:11px;color:var(--on-sv);background:var(--c-low);border-radius:8px;padding:7px 10px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{ lc.cmd }}</div>
+            <button onClick="{{ lc.run }}" style="align-self:flex-start;border:none;background:var(--p);color:var(--on-p);border-radius:999px;padding:8px 18px;font-weight:600;font-size:12.5px;"><span style="display:flex;align-items:center;gap:6px;"><span class="material-symbols-outlined" style="font-size:16px;">rocket_launch</span>{{ L.launch }}</span></button>
+          </div>
+        </sc-for>
+      </div>
+    </div>
+  </div>
+</sc-if>
+<sc-if value="{{ sSettings }}" hint-placeholder-val="{{ false }}">
+  <div data-screen-label="Settings" style="flex:1;overflow-y:auto;padding:28px;">
+    <div style="max-width:720px;margin:0 auto;display:flex;flex-direction:column;gap:14px;">
+      <div style="display:flex;align-items:center;gap:14px;">
+        <div style="font-size:24px;font-weight:600;flex:1;">{{ L.settings }}</div>
+        <div style="display:flex;align-items:center;background:var(--c-highest);border-radius:999px;padding:0 6px 0 0;">
+          <input value="{{ settingsQ }}" onChange="{{ setSettingsQ }}" placeholder="{{ L.searchSettings }}" aria-label="{{ L.searchSettings }}" style="border:none;background:none;border-radius:999px;padding:9px 16px;font-size:12.5px;width:210px;">
+          <button onClick="{{ openRxbSettings }}" title="Regex builder" aria-label="Regex builder" style="border:none;background:none;color:var(--outline);border-radius:99px;padding:4px 6px;font-size:11px;font-family:'Roboto Mono';" style-hover="color:var(--on-s);">.*</button>
+        </div>
+      </div>
+
+      <sc-if value="{{ qGeneral }}" hint-placeholder-val="{{ true }}">
+      <div style="background:var(--c-lowest);border-radius:var(--r);border:1px solid var(--outline-v);padding:6px 18px;">
+        <div style="font-size:13px;font-weight:600;color:var(--p);padding:12px 0 4px;">{{ L.general }}</div>
+        <sc-for list="{{ toggleRows }}" as="tr" hint-placeholder-count="4">
+          <div style="display:flex;align-items:center;gap:14px;padding:12px 0;border-bottom:1px solid var(--outline-v);">
+            <span class="material-symbols-outlined" style="font-size:20px;color:var(--on-sv);">{{ tr.icon }}</span>
+            <div style="flex:1;"><div style="font-size:14px;font-weight:500;">{{ tr.label }}</div><div style="font-size:12px;color:var(--on-sv);margin-top:1px;">{{ tr.desc }}</div></div>
+            <button onClick="{{ tr.flip }}" role="switch" aria-checked="{{ tr.on }}" aria-label="{{ tr.label }}" style="width:48px;height:28px;border-radius:999px;border:2px solid {{ tr.trackBorder }};background:{{ tr.track }};position:relative;padding:0;transition:background .15s;">
+              <span style="position:absolute;top:2px;left:{{ tr.knobLeft }};width:20px;height:20px;border-radius:99px;background:{{ tr.knob }};transition:left .15s;box-shadow:var(--e1);"></span>
+            </button>
+          </div>
+        </sc-for>
+        <div style="display:flex;align-items:center;gap:14px;padding:12px 0;border-bottom:1px solid var(--outline-v);">
+          <span class="material-symbols-outlined" style="font-size:20px;color:var(--on-sv);">folder</span>
+          <div style="flex:1;"><div style="font-size:14px;font-weight:500;">{{ L.modelLoc }}</div><div style="font-size:12px;color:var(--on-sv);">{{ L.modelLocDesc }}</div></div>
+          <input value="{{ modelsDir }}" onChange="{{ setModelsDir }}" aria-label="{{ L.modelLoc }}" style="border:1px solid var(--outline-v);background:var(--c-low);border-radius:10px;padding:8px 12px;font-family:'Roboto Mono';font-size:12px;width:220px;">
+        </div>
+        <div style="display:flex;align-items:flex-start;gap:14px;padding:12px 0;">
+          <span class="material-symbols-outlined" style="font-size:20px;color:var(--on-sv);">memory</span>
+          <div style="flex:1;"><div style="font-size:14px;font-weight:500;">{{ L.ctxLen }}</div><div style="font-size:12px;color:var(--on-sv);margin-bottom:8px;">{{ L.ctxDesc }}</div>
+            <div style="display:flex;gap:6px;flex-wrap:wrap;">
+              <sc-for list="{{ ctxOptions }}" as="co" hint-placeholder-count="7">
+                <button onClick="{{ co.pick }}" aria-pressed="{{ co.on }}" style="border:1px solid var(--outline-v);background:{{ co.bg }};color:{{ co.fg }};border-radius:10px;padding:6px 12px;font-size:12px;font-family:'Roboto Mono';">{{ co.label }}</button>
+              </sc-for>
+            </div>
+          </div>
+        </div>
+      </div>
+      </sc-if>
+
+      <sc-if value="{{ qLang }}" hint-placeholder-val="{{ true }}">
+      <div style="background:var(--c-lowest);border-radius:var(--r);border:1px solid var(--outline-v);padding:6px 18px 16px;">
+        <div style="font-size:13px;font-weight:600;color:var(--p);padding:12px 0 8px;">{{ L.langVoice }}</div>
+        <sc-if value="{{ notSchool }}" hint-placeholder-val="{{ true }}">
+          <div style="display:flex;gap:0;border:1px solid var(--outline-v);border-radius:999px;overflow:hidden;width:fit-content;">
+            <sc-for list="{{ langOptions }}" as="lo" hint-placeholder-count="3">
+              <button onClick="{{ lo.pick }}" aria-pressed="{{ lo.on }}" style="border:none;background:{{ lo.bg }};color:{{ lo.fg }};padding:9px 20px;font-size:13px;font-weight:500;display:flex;align-items:center;gap:6px;"><sc-if value="{{ lo.on }}" hint-placeholder-val="{{ false }}"><span class="material-symbols-outlined" style="font-size:15px;">check</span></sc-if>{{ lo.label }}</button>
+            </sc-for>
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-top:16px;">
+            <div><div style="font-size:12.5px;font-weight:500;margin-bottom:4px;">{{ L.funnyEn }} — {{ funnyEnLabel }}</div>
+              <input type="range" min="0" max="4" step="1" value="{{ funnyEn }}" onChange="{{ setFunnyEn }}" aria-label="{{ L.funnyEn }}" style="width:100%;">
+            </div>
+            <div><div style="font-size:12.5px;font-weight:500;margin-bottom:4px;">{{ L.funnyYue }} — {{ funnyYueLabel }}</div>
+              <input type="range" min="0" max="4" step="1" value="{{ funnyYue }}" onChange="{{ setFunnyYue }}" aria-label="{{ L.funnyYue }}" style="width:100%;">
+            </div>
+          </div>
+          <div style="font-size:11.5px;color:var(--outline);margin-top:6px;line-height:1.5;">{{ L.funnyNote }}</div>
+        </sc-if>
+        <sc-if value="{{ schoolOn }}" hint-placeholder-val="{{ false }}"><div style="font-size:12.5px;color:var(--on-sv);padding:8px 0;">{{ L.langLocked }}</div></sc-if>
+        <div style="display:flex;align-items:center;gap:14px;padding:14px 0 4px;border-top:1px solid var(--outline-v);margin-top:14px;">
+          <span class="material-symbols-outlined" style="font-size:20px;color:var(--on-sv);">record_voice_over</span>
+          <div style="flex:1;"><div style="font-size:14px;font-weight:500;">{{ L.narration }}</div><div style="font-size:12px;color:var(--on-sv);">{{ L.narrationDesc }}</div></div>
+          <button onClick="{{ flipNarration }}" role="switch" aria-checked="{{ narrOn }}" aria-label="{{ L.narration }}" style="width:48px;height:28px;border-radius:999px;border:2px solid {{ narrTrackBorder }};background:{{ narrTrack }};position:relative;padding:0;"><span style="position:absolute;top:2px;left:{{ narrKnobLeft }};width:20px;height:20px;border-radius:99px;background:{{ narrKnob }};transition:left .15s;box-shadow:var(--e1);"></span></button>
+        </div>
+        <sc-if value="{{ narrOn }}" hint-placeholder-val="{{ false }}">
+          <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;padding:8px 0 0 34px;">
+            <select value="{{ narrLang }}" onChange="{{ setNarrLang }}" aria-label="Narration language" style="border:1px solid var(--outline-v);background:var(--c-low);border-radius:10px;padding:8px 10px;font-size:12.5px;">
+              <option value="en">English</option><option value="yue">Cantonese (HK)</option><option value="both">Both</option>
+            </select>
+            <select value="{{ narrVoice }}" onChange="{{ setNarrVoice }}" aria-label="Narrator voice" style="border:1px solid var(--outline-v);background:var(--c-low);border-radius:10px;padding:8px 10px;font-size:12.5px;max-width:220px;">
+              <sc-for list="{{ voiceOptions }}" as="vo" hint-placeholder-count="2"><option value="{{ vo.name }}">{{ vo.label }}</option></sc-for>
+            </select>
+            <button onClick="{{ testVoice }}" style="border:1px solid var(--outline-v);background:none;color:var(--p);border-radius:999px;padding:8px 16px;font-size:12.5px;font-weight:500;">{{ L.testVoice }}</button>
+          </div>
+        </sc-if>
+        <sc-if value="{{ notSchool }}" hint-placeholder-val="{{ true }}">
+        <div style="padding:14px 0 4px;border-top:1px solid var(--outline-v);margin-top:14px;">
+          <div style="display:flex;align-items:center;gap:14px;"><span class="material-symbols-outlined" style="font-size:20px;color:var(--on-sv);">dictionary</span><div style="flex:1;"><div style="font-size:14px;font-weight:500;">{{ L.vocab }}</div><div style="font-size:12px;color:var(--on-sv);">{{ L.vocabDesc }}</div></div></div>
+          <div style="display:flex;gap:8px;margin:10px 0 0 34px;flex-wrap:wrap;">
+            <input value="{{ vocabFind }}" onChange="{{ setVocabFind }}" placeholder="{{ L.find }}" aria-label="{{ L.find }}" style="border:1px solid var(--outline-v);background:var(--c-low);border-radius:10px;padding:8px 12px;font-size:12.5px;width:150px;">
+            <input value="{{ vocabRepl }}" onChange="{{ setVocabRepl }}" placeholder="{{ L.replaceWith }}" aria-label="{{ L.replaceWith }}" style="border:1px solid var(--outline-v);background:var(--c-low);border-radius:10px;padding:8px 12px;font-size:12.5px;width:150px;">
+            <button onClick="{{ addVocab }}" style="border:none;background:var(--sec-c);color:var(--on-sec-c);border-radius:999px;padding:8px 16px;font-size:12.5px;font-weight:600;">{{ L.add }}</button>
+          </div>
+          <div style="display:flex;gap:6px;flex-wrap:wrap;margin:10px 0 0 34px;">
+            <sc-for list="{{ vocabView }}" as="vv" hint-placeholder-count="0">
+              <span style="display:flex;align-items:center;gap:6px;background:var(--c-high);border-radius:999px;padding:5px 6px 5px 12px;font-size:12px;font-family:'Roboto Mono';">{{ vv.label }}<button onClick="{{ vv.remove }}" aria-label="Remove" style="border:none;background:none;display:flex;padding:2px;color:var(--outline);"><span class="material-symbols-outlined" style="font-size:14px;">close</span></button></span>
+            </sc-for>
+          </div>
+        </div>
+        </sc-if>
+      </div>
+      </sc-if>
+
+      <sc-if value="{{ qSchool }}" hint-placeholder-val="{{ true }}">
+      <div style="background:var(--c-lowest);border-radius:var(--r);border:1px solid var(--outline-v);padding:6px 18px 16px;">
+        <div style="font-size:13px;font-weight:600;color:var(--p);padding:12px 0 4px;">{{ schoolCardTitle }}</div>
+        <div style="font-size:12.5px;color:var(--on-sv);line-height:1.55;">{{ L.schoolDesc }}</div>
+        <div style="display:flex;gap:10px;align-items:center;margin-top:12px;flex-wrap:wrap;">
+          <input value="{{ schoolNameDraft }}" onChange="{{ setSchoolName }}" aria-label="Mode name" style="border:1px solid var(--outline-v);background:var(--c-low);border-radius:10px;padding:8px 12px;font-size:12.5px;width:160px;">
+          <input value="{{ schoolPinDraft }}" onChange="{{ setSchoolPin }}" type="password" placeholder="PIN" aria-label="PIN" style="border:1px solid var(--outline-v);background:var(--c-low);border-radius:10px;padding:8px 12px;font-size:12.5px;width:90px;font-family:'Roboto Mono';letter-spacing:3px;">
+          <button onClick="{{ toggleSchool }}" style="border:none;background:{{ schoolBtnBg }};color:{{ schoolBtnFg }};border-radius:999px;padding:9px 20px;font-size:13px;font-weight:600;">{{ schoolBtnLabel }}</button>
+        </div>
+        <div style="font-size:11.5px;color:var(--outline);margin-top:8px;line-height:1.5;">{{ L.schoolHonest }}</div>
+      </div>
+      </sc-if>
+
+      <sc-if value="{{ qAppearance }}" hint-placeholder-val="{{ true }}">
+      <div style="background:var(--c-lowest);border-radius:var(--r);border:1px solid var(--outline-v);padding:6px 18px 18px;">
+        <div style="display:flex;align-items:center;padding:12px 0 8px;"><div style="font-size:13px;font-weight:600;color:var(--p);flex:1;">{{ L.appearance }}</div>
+          <button onClick="{{ openAppEdBtn }}" style="border:1px solid var(--outline-v);background:none;color:var(--p);border-radius:999px;padding:7px 16px;font-size:12.5px;font-weight:500;display:flex;align-items:center;gap:6px;"><span class="material-symbols-outlined" style="font-size:16px;">palette</span>{{ L.editAppearance }}</button>
+        </div>
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+          <span style="font-size:12.5px;font-weight:500;width:110px;">{{ L.seedColor }}</span>
+          <sc-for list="{{ seedSwatches }}" as="sw" hint-placeholder-count="6">
+            <button onClick="{{ sw.pick }}" aria-label="Seed {{ sw.hex }}" style="width:32px;height:32px;border-radius:99px;border:{{ sw.border }};background:{{ sw.hex }};"></button>
+          </sc-for>
+          <input value="{{ seedHex }}" onChange="{{ setSeedHex }}" aria-label="Custom seed hex" style="border:1px solid var(--outline-v);background:var(--c-low);border-radius:10px;padding:7px 10px;font-size:12px;font-family:'Roboto Mono';width:90px;">
+        </div>
+        <div style="display:flex;gap:8px;align-items:center;margin-top:12px;flex-wrap:wrap;">
+          <span style="font-size:12.5px;font-weight:500;width:110px;">{{ L.theme }}</span>
+          <sc-for list="{{ themeOptions }}" as="th" hint-placeholder-count="3">
+            <button onClick="{{ th.pick }}" aria-pressed="{{ th.on }}" style="border:1px solid var(--outline-v);background:{{ th.bg }};color:{{ th.fg }};border-radius:999px;padding:7px 16px;font-size:12.5px;display:flex;align-items:center;gap:6px;"><span class="material-symbols-outlined" style="font-size:15px;">{{ th.icon }}</span>{{ th.label }}</button>
+          </sc-for>
+        </div>
+        <div style="display:flex;gap:8px;align-items:center;margin-top:12px;flex-wrap:wrap;">
+          <span style="font-size:12.5px;font-weight:500;width:110px;">{{ L.corner }}</span>
+          <input type="range" min="4" max="28" step="2" value="{{ radiusVal }}" onChange="{{ setRadius }}" aria-label="{{ L.corner }}" style="width:180px;">
+          <span style="font-size:12px;color:var(--on-sv);font-family:'Roboto Mono';">{{ radiusVal }}px</span>
+        </div>
+        <div style="display:flex;gap:8px;align-items:center;margin-top:12px;flex-wrap:wrap;">
+          <span style="font-size:12.5px;font-weight:500;width:110px;">{{ L.appNameLbl }}</span>
+          <input value="{{ appNameDraft }}" onChange="{{ setAppName }}" aria-label="{{ L.appNameLbl }}" style="border:1px solid var(--outline-v);background:var(--c-low);border-radius:10px;padding:8px 12px;font-size:12.5px;width:200px;">
+          <span style="font-size:12.5px;font-weight:500;">{{ L.logo }}</span>
+          <sc-for list="{{ glyphOptions }}" as="gl" hint-placeholder-count="4">
+            <button onClick="{{ gl.pick }}" aria-label="Logo {{ gl.name }}" style="width:34px;height:34px;border-radius:10px;border:1px solid var(--outline-v);background:{{ gl.bg }};color:{{ gl.fg }};display:flex;align-items:center;justify-content:center;"><span class="material-symbols-outlined" style="font-size:18px;">{{ gl.name }}</span></button>
+          </sc-for>
+        </div>
+        <div style="display:flex;gap:8px;align-items:center;margin-top:14px;padding-top:12px;border-top:1px solid var(--outline-v);flex-wrap:wrap;">
+          <span style="font-size:12.5px;font-weight:500;width:110px;">{{ L.colorXlate }}</span>
+          <input value="{{ colorIn }}" onChange="{{ setColorIn }}" placeholder="teal / #0af / rgb(20,80,200)" aria-label="{{ L.colorXlate }}" style="border:1px solid var(--outline-v);background:var(--c-low);border-radius:10px;padding:8px 12px;font-size:12px;font-family:'Roboto Mono';width:220px;">
+          <sc-if value="{{ colorOk }}" hint-placeholder-val="{{ false }}">
+            <span style="width:26px;height:26px;border-radius:8px;border:1px solid var(--outline-v);background:{{ colorHex }};"></span>
+            <span style="font-size:11.5px;font-family:'Roboto Mono';color:var(--on-sv);">{{ colorInfo }}</span>
+            <button onClick="{{ useColorAsSeed }}" style="border:none;background:var(--sec-c);color:var(--on-sec-c);border-radius:999px;padding:6px 14px;font-size:12px;font-weight:600;">{{ L.useAsSeed }}</button>
+          </sc-if>
+        </div>
+        <div style="display:flex;gap:8px;align-items:flex-start;margin-top:14px;padding-top:12px;border-top:1px solid var(--outline-v);flex-wrap:wrap;">
+          <span style="font-size:12.5px;font-weight:500;width:110px;margin-top:8px;">{{ L.schedule }}</span>
+          <div style="flex:1;min-width:280px;">
+            <div style="display:flex;gap:8px;flex-wrap:wrap;">
+              <input type="time" value="{{ schedTime }}" onChange="{{ setSchedTime }}" aria-label="Schedule time" style="border:1px solid var(--outline-v);background:var(--c-low);border-radius:10px;padding:7px 10px;font-size:12.5px;">
+              <select value="{{ schedKind }}" onChange="{{ setSchedKind }}" aria-label="Scheduled change" style="border:1px solid var(--outline-v);background:var(--c-low);border-radius:10px;padding:7px 10px;font-size:12.5px;">
+                <option value="theme:dark">{{ L.schedDark }}</option><option value="theme:light">{{ L.schedLight }}</option><option value="lang:en">{{ L.schedEn }}</option><option value="lang:yue">{{ L.schedYue }}</option>
+              </select>
+              <button onClick="{{ addSchedule }}" style="border:none;background:var(--sec-c);color:var(--on-sec-c);border-radius:999px;padding:7px 16px;font-size:12.5px;font-weight:600;">{{ L.add }}</button>
+            </div>
+            <div style="display:flex;flex-direction:column;gap:4px;margin-top:8px;">
+              <sc-for list="{{ schedView }}" as="sd" hint-placeholder-count="0">
+                <div style="display:flex;align-items:center;gap:8px;font-size:12.5px;color:var(--on-sv);"><span class="material-symbols-outlined" style="font-size:15px;">schedule</span><span style="font-family:'Roboto Mono';">{{ sd.time }}</span><span style="flex:1;">{{ sd.label }}</span><button onClick="{{ sd.remove }}" aria-label="Remove schedule" style="border:none;background:none;display:flex;color:var(--outline);padding:2px;"><span class="material-symbols-outlined" style="font-size:15px;">close</span></button></div>
+              </sc-for>
+            </div>
+          </div>
+        </div>
+      </div>
+      </sc-if>
+
+      <sc-if value="{{ qData }}" hint-placeholder-val="{{ true }}">
+      <div style="background:var(--c-lowest);border-radius:var(--r);border:1px solid var(--outline-v);padding:6px 18px 16px;">
+        <div style="font-size:13px;font-weight:600;color:var(--p);padding:12px 0 8px;">{{ L.dataPrivacy }}</div>
+        <div style="font-size:12.5px;color:var(--on-sv);line-height:1.55;">{{ L.privacyNote }}</div>
+        <div style="display:flex;gap:8px;margin-top:12px;flex-wrap:wrap;">
+          <button onClick="{{ exportSettings }}" style="border:1px solid var(--outline-v);background:none;color:var(--p);border-radius:999px;padding:9px 18px;font-size:12.5px;font-weight:500;display:flex;align-items:center;gap:6px;"><span class="material-symbols-outlined" style="font-size:16px;">download</span>{{ L.exportSettings }}</button>
+          <button onClick="{{ exportChats }}" style="border:1px solid var(--outline-v);background:none;color:var(--p);border-radius:999px;padding:9px 18px;font-size:12.5px;font-weight:500;display:flex;align-items:center;gap:6px;"><span class="material-symbols-outlined" style="font-size:16px;">download</span>{{ L.exportChats }}</button>
+          <button onClick="{{ resetDefaults }}" style="border:1px solid var(--err);background:none;color:var(--err);border-radius:999px;padding:9px 18px;font-size:12.5px;font-weight:500;display:flex;align-items:center;gap:6px;"><span class="material-symbols-outlined" style="font-size:16px;">restart_alt</span>{{ L.resetDefaults }}</button>
+        </div>
+      </div>
+      </sc-if>
+    </div>
+  </div>
+</sc-if>
+<sc-if value="{{ sModels }}" hint-placeholder-val="{{ false }}">
+  <div data-screen-label="Models" style="flex:1;overflow-y:auto;padding:28px;">
+    <div style="max-width:960px;margin:0 auto;display:flex;flex-direction:column;gap:16px;">
+      <div style="display:flex;align-items:flex-end;gap:14px;flex-wrap:wrap;">
+        <div style="flex:1;min-width:220px;"><div style="font-size:24px;font-weight:600;">{{ L.modelStore }}</div><div style="font-size:13px;color:var(--on-sv);margin-top:4px;">{{ L.modelStoreSub }}</div></div>
+        <div style="display:flex;align-items:center;gap:2px;background:var(--c-highest);border-radius:999px;padding:0 6px 0 14px;">
+          <span class="material-symbols-outlined" style="font-size:17px;color:var(--on-sv);">search</span>
+          <input value="{{ modelSearch }}" onChange="{{ setModelSearch }}" placeholder="{{ L.searchModels }}" aria-label="{{ L.searchModels }}" style="border:none;background:none;padding:9px 8px;font-size:12.5px;width:200px;">
+          <button onClick="{{ toggleModelRegex }}" aria-pressed="{{ modelRegex }}" title="Regex search" style="border:none;background:{{ mRegexBg }};color:{{ mRegexFg }};border-radius:8px;padding:3px 7px;font-size:11px;font-family:'Roboto Mono';">.*</button>
+          <button onClick="{{ openRxbModels }}" title="Regex builder" aria-label="Regex builder" style="border:none;background:none;color:var(--outline);border-radius:8px;padding:3px 5px;display:flex;" style-hover="color:var(--on-s);"><span class="material-symbols-outlined" style="font-size:15px;">construction</span></button>
+        </div>
+      </div>
+      <div style="display:flex;align-items:center;gap:14px;background:var(--c-lowest);border:1px solid var(--outline-v);border-radius:var(--r);padding:12px 18px;flex-wrap:wrap;">
+        <span class="material-symbols-outlined" style="font-size:20px;color:var(--on-sv);">memory</span>
+        <span style="font-size:13px;font-weight:500;">{{ L.hardwareFit }}</span>
+        <label style="display:flex;align-items:center;gap:6px;font-size:12.5px;color:var(--on-sv);">RAM<input type="number" min="4" max="512" value="{{ hwRam }}" onChange="{{ setHwRam }}" aria-label="System RAM in GB" style="width:64px;border:1px solid var(--outline-v);background:var(--c-low);border-radius:8px;padding:5px 8px;font-size:12px;">GB</label>
+        <label style="display:flex;align-items:center;gap:6px;font-size:12.5px;color:var(--on-sv);">VRAM<input type="number" min="0" max="256" value="{{ hwVram }}" onChange="{{ setHwVram }}" aria-label="GPU VRAM in GB" style="width:64px;border:1px solid var(--outline-v);background:var(--c-low);border-radius:8px;padding:5px 8px;font-size:12px;">GB</label>
+        <span style="flex:1;"></span>
+        <button onClick="{{ pullAllShown }}" style="border:1px solid var(--outline-v);background:none;color:var(--p);border-radius:999px;padding:8px 16px;font-size:12.5px;font-weight:500;display:flex;align-items:center;gap:6px;"><span class="material-symbols-outlined" style="font-size:16px;">download_2</span>{{ L.pullShown }}</button>
+      </div>
+      <sc-if value="{{ hasPulls }}" hint-placeholder-val="{{ false }}">
+        <div style="background:var(--c-lowest);border:1px solid var(--outline-v);border-radius:var(--r);padding:14px 18px;display:flex;flex-direction:column;gap:10px;">
+          <div style="font-size:13px;font-weight:600;color:var(--p);">{{ L.pullQueue }}</div>
+          <sc-for list="{{ pullView }}" as="pu" hint-placeholder-count="1">
+            <div style="display:flex;align-items:center;gap:12px;">
+              <span style="font-family:'Roboto Mono';font-size:12.5px;width:170px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{ pu.name }}</span>
+              <div style="flex:1;height:6px;border-radius:99px;background:var(--c-highest);overflow:hidden;"><div style="height:100%;width:{{ pu.pct }}%;background:var(--p);border-radius:99px;transition:width .3s;"></div></div>
+              <span style="font-size:11.5px;color:var(--on-sv);font-family:'Roboto Mono';width:78px;text-align:right;">{{ pu.status }}</span>
+              <button onClick="{{ pu.pause }}" aria-label="Pause or resume" style="border:none;background:none;display:flex;color:var(--on-sv);padding:3px;border-radius:99px;" style-hover="background:var(--c-high);"><span class="material-symbols-outlined" style="font-size:17px;">{{ pu.pauseIcon }}</span></button>
+              <button onClick="{{ pu.cancel }}" aria-label="Cancel pull" style="border:none;background:none;display:flex;color:var(--on-sv);padding:3px;border-radius:99px;" style-hover="background:var(--c-high);"><span class="material-symbols-outlined" style="font-size:17px;">close</span></button>
+            </div>
+          </sc-for>
+        </div>
+      </sc-if>
+      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(290px,1fr));gap:12px;">
+        <sc-for list="{{ modelCatalogView }}" as="mc" hint-placeholder-count="6">
+          <div style="background:var(--c-lowest);border:1px solid var(--outline-v);border-radius:var(--r);padding:16px;display:flex;flex-direction:column;gap:8px;">
+            <div style="display:flex;align-items:center;gap:8px;">
+              <span style="font-family:'Roboto Mono';font-size:13.5px;font-weight:600;flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{ mc.name }}</span>
+              <span style="font-size:10.5px;font-weight:600;border-radius:999px;padding:3px 9px;background:{{ mc.fitBg }};color:{{ mc.fitFg }};white-space:nowrap;">{{ mc.fit }}</span>
+            </div>
+            <div style="font-size:12px;color:var(--on-sv);line-height:1.5;min-height:34px;">{{ mc.desc }}</div>
+            <div style="display:flex;gap:6px;flex-wrap:wrap;">
+              <sc-for list="{{ mc.caps }}" as="cp" hint-placeholder-count="2"><span style="font-size:10.5px;background:var(--c-high);color:var(--on-sv);border-radius:999px;padding:3px 9px;">{{ cp.c }}</span></sc-for>
+            </div>
+            <div style="display:flex;align-items:center;gap:8px;margin-top:2px;">
+              <span style="font-size:11.5px;color:var(--outline);font-family:'Roboto Mono';">{{ mc.size }} GB</span>
+              <span style="flex:1;"></span>
+              <sc-if value="{{ mc.installed }}" hint-placeholder-val="{{ false }}">
+                <span style="display:flex;align-items:center;gap:4px;font-size:11.5px;color:var(--ter);font-weight:600;"><span class="material-symbols-outlined" style="font-size:15px;">check_circle</span>{{ L.installed }}</span>
+                <button onClick="{{ mc.remove }}" aria-label="Remove model" style="border:none;background:none;display:flex;color:var(--on-sv);padding:3px;border-radius:99px;" style-hover="background:var(--err-c);color:var(--on-err-c);"><span class="material-symbols-outlined" style="font-size:17px;">delete</span></button>
+              </sc-if>
+              <sc-if value="{{ mc.canPull }}" hint-placeholder-val="{{ true }}">
+                <button onClick="{{ mc.pull }}" style="border:none;background:var(--pc);color:var(--on-pc);border-radius:999px;padding:7px 16px;font-size:12px;font-weight:600;display:flex;align-items:center;gap:5px;"><span class="material-symbols-outlined" style="font-size:15px;">download</span>{{ L.pull }}</button>
+              </sc-if>
+            </div>
+          </div>
+        </sc-for>
+      </div>
+    </div>
+  </div>
+</sc-if>
+<sc-if value="{{ sCodex }}" hint-placeholder-val="{{ false }}">
+  <div data-screen-label="Codex CLI Harness" style="flex:1;overflow-y:auto;padding:28px;">
+    <div style="max-width:860px;margin:0 auto;display:flex;flex-direction:column;gap:14px;">
+      <div><div style="font-size:24px;font-weight:600;">{{ L.codexTitle }}</div><div style="font-size:13px;color:var(--on-sv);margin-top:4px;">{{ L.codexSub }}</div></div>
+      <div style="background:var(--c-lowest);border:1px solid var(--outline-v);border-radius:var(--r);padding:18px;display:flex;flex-direction:column;gap:12px;">
+        <div style="display:flex;gap:6px;flex-wrap:wrap;">
+          <sc-for list="{{ codexProfiles }}" as="cp" hint-placeholder-count="3">
+            <button onClick="{{ cp.pick }}" aria-pressed="{{ cp.on }}" style="border:1px solid var(--outline-v);background:{{ cp.bg }};color:{{ cp.fg }};border-radius:999px;padding:7px 16px;font-size:12.5px;font-weight:500;display:flex;align-items:center;gap:6px;"><sc-if value="{{ cp.on }}" hint-placeholder-val="{{ false }}"><span class="material-symbols-outlined" style="font-size:15px;">check</span></sc-if>{{ cp.name }}</button>
+          </sc-for>
+        </div>
+        <div style="display:flex;gap:10px;flex-wrap:wrap;">
+          <label style="flex:1;min-width:240px;font-size:12.5px;color:var(--on-sv);">{{ L.workDir }}<input value="{{ codexDir }}" onChange="{{ setCodexDir }}" placeholder="Current directory" style="display:block;width:100%;margin-top:4px;border:1px solid var(--outline-v);background:var(--c-low);border-radius:10px;padding:9px 12px;font-family:'Roboto Mono';font-size:12px;"></label>
+          <label style="flex:2;min-width:280px;font-size:12.5px;color:var(--on-sv);">{{ L.prompt }}<input value="{{ codexPrompt }}" onChange="{{ setCodexPrompt }}" placeholder="Optional prompt appended to argv" style="display:block;width:100%;margin-top:4px;border:1px solid var(--outline-v);background:var(--c-low);border-radius:10px;padding:9px 12px;font-size:12.5px;"></label>
+        </div>
+        <div style="font-family:'Roboto Mono';font-size:12px;color:var(--on-sv);background:var(--c-low);border-radius:10px;padding:9px 12px;overflow-x:auto;white-space:nowrap;">$ {{ codexArgv }}</div>
+        <div style="display:flex;gap:14px;flex-wrap:wrap;">
+          <sc-for list="{{ preflightView }}" as="pf" hint-placeholder-count="3">
+            <span style="display:flex;align-items:center;gap:5px;font-size:12px;color:{{ pf.fg }};"><span class="material-symbols-outlined" style="font-size:15px;">{{ pf.icon }}</span>{{ pf.label }}</span>
+          </sc-for>
+        </div>
+        <div style="display:flex;gap:8px;">
+          <sc-if value="{{ codexIdle }}" hint-placeholder-val="{{ true }}">
+            <button onClick="{{ codexRun }}" style="border:none;background:var(--p);color:var(--on-p);border-radius:999px;padding:10px 22px;font-weight:600;font-size:13.5px;display:flex;align-items:center;gap:6px;"><span class="material-symbols-outlined" style="font-size:17px;">play_arrow</span>{{ L.run }}</button>
+          </sc-if>
+          <sc-if value="{{ codexRunning }}" hint-placeholder-val="{{ false }}">
+            <button onClick="{{ codexCancel }}" style="border:none;background:var(--err-c);color:var(--on-err-c);border-radius:999px;padding:10px 22px;font-weight:600;font-size:13.5px;display:flex;align-items:center;gap:6px;"><span class="material-symbols-outlined" style="font-size:17px;">stop</span>{{ L.cancelRun }}</button>
+          </sc-if>
+          <button onClick="{{ codexEditor }}" style="border:1px solid var(--outline-v);background:none;color:var(--p);border-radius:999px;padding:10px 18px;font-size:12.5px;font-weight:500;display:flex;align-items:center;gap:6px;"><span class="material-symbols-outlined" style="font-size:16px;">open_in_new</span>{{ L.openEditor }}</button>
+        </div>
+        <sc-if value="{{ hasCodexLines }}" hint-placeholder-val="{{ false }}">
+          <div style="background:oklch(.16 .01 85);color:oklch(.88 .02 145);border-radius:12px;padding:14px;font-family:'Roboto Mono';font-size:11.5px;line-height:1.7;max-height:260px;overflow-y:auto;">
+            <sc-for list="{{ codexLinesView }}" as="ln" hint-placeholder-count="1"><div>{{ ln.x }}</div></sc-for>
+          </div>
+        </sc-if>
+      </div>
+      <div style="background:var(--c-lowest);border:1px solid var(--outline-v);border-radius:var(--r);padding:16px 18px;">
+        <div style="font-size:13px;font-weight:600;color:var(--p);margin-bottom:8px;">{{ L.runHistory }}</div>
+        <div style="font-size:11.5px;color:var(--outline);margin-bottom:8px;">{{ L.historyNote }}</div>
+        <sc-if value="{{ codexHistEmpty }}" hint-placeholder-val="{{ true }}"><div style="font-size:12.5px;color:var(--on-sv);">{{ L.noRuns }}</div></sc-if>
+        <sc-for list="{{ codexHistView }}" as="ch" hint-placeholder-count="0">
+          <div style="display:flex;align-items:center;gap:10px;padding:7px 0;border-top:1px solid var(--outline-v);font-size:12.5px;">
+            <span class="material-symbols-outlined" style="font-size:16px;color:{{ ch.fg }};">{{ ch.icon }}</span>
+            <span style="font-family:'Roboto Mono';flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{ ch.cmd }}</span>
+            <span style="color:var(--outline);font-size:11.5px;">{{ ch.when }}</span>
+          </div>
+        </sc-for>
+      </div>
+    </div>
+  </div>
+</sc-if>
+
+<sc-if value="{{ sDev }}" hint-placeholder-val="{{ false }}">
+  <div data-screen-label="Developer tools" style="flex:1;overflow-y:auto;padding:28px;">
+    <div style="max-width:860px;margin:0 auto;display:flex;flex-direction:column;gap:14px;">
+      <div style="display:flex;align-items:flex-end;gap:14px;flex-wrap:wrap;">
+        <div style="flex:1;min-width:220px;"><div style="font-size:24px;font-weight:600;">{{ L.devTitle }}</div><div style="font-size:13px;color:var(--on-sv);margin-top:4px;">{{ L.devSub }}</div></div>
+        <div style="display:flex;align-items:center;gap:2px;background:var(--c-highest);border-radius:999px;padding:0 6px 0 14px;">
+          <span class="material-symbols-outlined" style="font-size:17px;color:var(--on-sv);">search</span>
+          <input value="{{ devQ }}" onChange="{{ setDevQ }}" placeholder="{{ L.searchCommands }}" aria-label="{{ L.searchCommands }}" style="border:none;background:none;padding:9px 8px;font-size:12.5px;width:180px;">
+          <button onClick="{{ openRxbDev }}" title="Regex builder" aria-label="Regex builder" style="border:none;background:none;color:var(--outline);border-radius:8px;padding:3px 6px;font-size:11px;font-family:'Roboto Mono';" style-hover="color:var(--on-s);">.*</button>
+        </div>
+      </div>
+      <div style="background:var(--c-lowest);border:1px solid var(--outline-v);border-radius:var(--r);overflow:hidden;">
+        <div style="display:grid;grid-template-columns:170px 1fr 150px 90px;gap:0;font-size:11px;font-weight:600;color:var(--on-sv);padding:10px 18px;border-bottom:1px solid var(--outline-v);"><span>{{ L.command }}</span><span>{{ L.what }}</span><span>{{ L.guiRoute }}</span><span></span></div>
+        <sc-for list="{{ cliView }}" as="cl" hint-placeholder-count="8">
+          <div style="display:grid;grid-template-columns:170px 1fr 150px 90px;align-items:center;padding:9px 18px;border-bottom:1px solid var(--outline-v);font-size:12.5px;">
+            <span style="font-family:'Roboto Mono';font-size:12px;">{{ cl.cmd }}</span>
+            <span style="color:var(--on-sv);">{{ cl.desc }}</span>
+            <button onClick="{{ cl.go }}" style="border:none;background:none;color:var(--p);font-size:12px;text-align:left;padding:0;font-weight:500;">{{ cl.route }}</button>
+            <sc-if value="{{ cl.hidden }}" hint-placeholder-val="{{ false }}"><span style="font-size:10px;font-weight:600;background:var(--err-c);color:var(--on-err-c);border-radius:999px;padding:2px 8px;width:fit-content;">hidden</span></sc-if>
+          </div>
+        </sc-for>
+      </div>
+      <div style="background:var(--c-lowest);border:1px solid var(--outline-v);border-radius:var(--r);padding:16px 18px;">
+        <div style="font-size:13px;font-weight:600;color:var(--p);margin-bottom:4px;">{{ L.configProfiles }}</div>
+        <div style="font-size:12px;color:var(--on-sv);margin-bottom:10px;">{{ L.profilesDesc }}</div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+          <input value="{{ profileName }}" onChange="{{ setProfileName }}" placeholder="{{ L.profileName }}" aria-label="{{ L.profileName }}" style="border:1px solid var(--outline-v);background:var(--c-low);border-radius:10px;padding:8px 12px;font-size:12.5px;width:180px;">
+          <button onClick="{{ saveProfile }}" style="border:none;background:var(--sec-c);color:var(--on-sec-c);border-radius:999px;padding:8px 16px;font-size:12.5px;font-weight:600;">{{ L.saveCurrent }}</button>
+          <sc-for list="{{ profileView }}" as="pr" hint-placeholder-count="0">
+            <span style="display:flex;align-items:center;gap:4px;background:var(--c-high);border-radius:999px;padding:4px 6px 4px 12px;font-size:12px;">{{ pr.name }}
+              <button onClick="{{ pr.apply }}" title="Apply profile" style="border:none;background:none;color:var(--p);font-size:11.5px;font-weight:600;padding:2px 6px;">{{ L.apply }}</button>
+              <button onClick="{{ pr.remove }}" aria-label="Delete profile" style="border:none;background:none;display:flex;padding:2px;color:var(--outline);"><span class="material-symbols-outlined" style="font-size:14px;">close</span></button>
+            </span>
+          </sc-for>
+        </div>
+      </div>
+    </div>
+  </div>
+</sc-if>
+<sc-if value="{{ sTools }}" hint-placeholder-val="{{ false }}">
+  <div data-screen-label="Toolbox" style="flex:1;overflow-y:auto;padding:28px;">
+    <div style="max-width:860px;margin:0 auto;display:flex;flex-direction:column;gap:14px;">
+      <div><div style="font-size:24px;font-weight:600;">{{ L.toolboxTitle }}</div><div style="font-size:13px;color:var(--on-sv);margin-top:4px;">{{ L.toolboxSub }}</div></div>
+      <div style="background:var(--c-lowest);border:1px solid var(--outline-v);border-radius:var(--r);padding:16px 18px;display:flex;flex-direction:column;gap:8px;">
+        <div style="display:flex;align-items:center;gap:8px;"><span class="material-symbols-outlined" style="font-size:19px;color:var(--p);">regular_expression</span><span style="font-size:14px;font-weight:600;flex:1;">{{ L.regexLab }}</span>
+          <button onClick="{{ openRxbLab }}" style="border:1px solid var(--outline-v);background:none;color:var(--p);border-radius:999px;padding:7px 16px;font-size:12.5px;font-weight:500;">{{ L.openBuilder }}</button>
+        </div>
+        <div style="display:flex;gap:8px;align-items:center;">
+          <span style="font-family:'Roboto Mono';color:var(--outline);">/</span>
+          <input value="{{ rxPattern }}" onChange="{{ setRxPattern }}" aria-label="Pattern" style="flex:1;border:1px solid var(--outline-v);background:var(--c-low);border-radius:10px;padding:9px 12px;font-family:'Roboto Mono';font-size:12.5px;">
+          <span style="font-family:'Roboto Mono';color:var(--outline);">/</span>
+          <input value="{{ rxFlags }}" onChange="{{ setRxFlags }}" aria-label="Flags" style="width:60px;border:1px solid var(--outline-v);background:var(--c-low);border-radius:10px;padding:9px 10px;font-family:'Roboto Mono';font-size:12.5px;">
+        </div>
+        <textarea value="{{ rxText }}" onChange="{{ setRxText }}" rows="3" aria-label="Test text" style="border:1px solid var(--outline-v);background:var(--c-low);border-radius:10px;padding:10px 12px;font-family:'Roboto Mono';font-size:12px;resize:vertical;line-height:1.6;"></textarea>
+        <sc-if value="{{ rxErrOn }}" hint-placeholder-val="{{ false }}"><div style="font-size:12px;color:var(--err);font-family:'Roboto Mono';">{{ rxErr }}</div></sc-if>
+        <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;">
+          <span style="font-size:12px;color:var(--on-sv);font-weight:600;">{{ rxCount }}</span>
+          <sc-for list="{{ rxMatches }}" as="rm" hint-placeholder-count="0"><span style="font-family:'Roboto Mono';font-size:11.5px;background:var(--ter-c);color:var(--on-ter-c);border-radius:6px;padding:2px 8px;">{{ rm.m }}</span></sc-for>
+        </div>
+      </div>
+      <div style="background:var(--c-lowest);border:1px solid var(--outline-v);border-radius:var(--r);padding:16px 18px;display:flex;flex-direction:column;gap:10px;">
+        <div style="display:flex;align-items:center;gap:8px;"><span class="material-symbols-outlined" style="font-size:19px;color:var(--p);">sync_alt</span><span style="font-size:14px;font-weight:600;flex:1;">{{ L.converter }}</span></div>
+        <div style="font-size:12px;color:var(--on-sv);">{{ L.converterDesc }}</div>
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+          <input value="{{ convName }}" onChange="{{ setConvName }}" placeholder="report.md" aria-label="File name" style="border:1px solid var(--outline-v);background:var(--c-low);border-radius:10px;padding:8px 12px;font-family:'Roboto Mono';font-size:12px;width:180px;">
+          <select value="{{ convTo }}" onChange="{{ setConvTo }}" aria-label="Convert to" style="border:1px solid var(--outline-v);background:var(--c-low);border-radius:10px;padding:8px 10px;font-size:12.5px;">
+            <option value="pdf">→ PDF</option><option value="html">→ HTML</option><option value="docx">→ DOCX</option><option value="txt">→ TXT</option><option value="png">→ PNG</option>
+          </select>
+          <button onClick="{{ convAdd }}" style="border:none;background:var(--sec-c);color:var(--on-sec-c);border-radius:999px;padding:8px 16px;font-size:12.5px;font-weight:600;">{{ L.queue }}</button>
+        </div>
+        <sc-for list="{{ convView }}" as="cv" hint-placeholder-count="0">
+          <div style="display:flex;align-items:center;gap:10px;font-size:12.5px;">
+            <span class="material-symbols-outlined" style="font-size:16px;color:{{ cv.fg }};">{{ cv.icon }}</span>
+            <span style="font-family:'Roboto Mono';width:220px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{ cv.label }}</span>
+            <div style="flex:1;height:5px;border-radius:99px;background:var(--c-highest);overflow:hidden;"><div style="height:100%;width:{{ cv.pct }}%;background:var(--p);transition:width .3s;"></div></div>
+            <span style="font-size:11px;color:var(--on-sv);width:64px;text-align:right;">{{ cv.status }}</span>
+          </div>
+        </sc-for>
+        <div style="font-size:11px;color:var(--outline);">{{ L.converterHonest }}</div>
+      </div>
+      <div style="background:var(--c-lowest);border:1px solid var(--outline-v);border-radius:var(--r);padding:16px 18px;display:flex;flex-direction:column;gap:10px;">
+        <div style="display:flex;align-items:center;gap:8px;"><span class="material-symbols-outlined" style="font-size:19px;color:var(--p);">phonelink_lock</span><span style="font-size:14px;font-weight:600;flex:1;">{{ L.authenticator }}</span><span style="font-size:11px;color:var(--outline);font-family:'Roboto Mono';">{{ totpSecs }}s</span></div>
+        <div style="height:4px;border-radius:99px;background:var(--c-highest);overflow:hidden;"><div style="height:100%;width:{{ totpPct }}%;background:var(--ter);transition:width 1s linear;"></div></div>
+        <sc-for list="{{ totpView }}" as="ta" hint-placeholder-count="1">
+          <div style="display:flex;align-items:center;gap:12px;padding:6px 0;">
+            <span style="flex:1;font-size:13px;">{{ ta.name }}</span>
+            <span style="font-family:'Roboto Mono';font-size:20px;font-weight:600;letter-spacing:3px;color:var(--p);">{{ ta.code }}</span>
+            <button onClick="{{ ta.remove }}" aria-label="Remove account" style="border:none;background:none;display:flex;color:var(--outline);padding:3px;border-radius:99px;" style-hover="background:var(--c-high);"><span class="material-symbols-outlined" style="font-size:16px;">close</span></button>
+          </div>
+        </sc-for>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;border-top:1px solid var(--outline-v);padding-top:10px;">
+          <input value="{{ acctName }}" onChange="{{ setAcctName }}" placeholder="{{ L.acctName }}" aria-label="{{ L.acctName }}" style="border:1px solid var(--outline-v);background:var(--c-low);border-radius:10px;padding:8px 12px;font-size:12.5px;width:150px;">
+          <input value="{{ acctSecret }}" onChange="{{ setAcctSecret }}" placeholder="{{ L.acctSecret }}" aria-label="{{ L.acctSecret }}" style="border:1px solid var(--outline-v);background:var(--c-low);border-radius:10px;padding:8px 12px;font-family:'Roboto Mono';font-size:12px;width:220px;">
+          <button onClick="{{ addAcct }}" style="border:none;background:var(--sec-c);color:var(--on-sec-c);border-radius:999px;padding:8px 16px;font-size:12.5px;font-weight:600;">{{ L.pair }}</button>
+        </div>
+        <sc-if value="{{ pairUriOn }}" hint-placeholder-val="{{ false }}"><div style="font-family:'Roboto Mono';font-size:10.5px;color:var(--on-sv);background:var(--c-low);border-radius:8px;padding:8px 10px;word-break:break-all;">{{ pairUri }}</div></sc-if>
+        <div style="font-size:11px;color:var(--outline);">{{ L.totpHonest }}</div>
+      </div>
+    </div>
+  </div>
+</sc-if>
+
+<sc-if value="{{ sDocs }}" hint-placeholder-val="{{ false }}">
+  <div data-screen-label="Docs" style="display:flex;flex:1;min-width:0;">
+    <div style="width:300px;flex:none;display:flex;flex-direction:column;background:var(--c-low);padding:14px;gap:8px;min-height:0;">
+      <div style="font-size:16px;font-weight:600;padding:0 4px;">{{ L.docsTitle }}</div>
+      <div style="display:flex;align-items:center;gap:2px;background:var(--c-highest);border-radius:999px;padding:0 6px 0 12px;">
+        <span class="material-symbols-outlined" style="font-size:16px;color:var(--on-sv);">search</span>
+        <input value="{{ docQ }}" onChange="{{ setDocQ }}" placeholder="{{ L.searchDocs }}" aria-label="{{ L.searchDocs }}" style="flex:1;border:none;background:none;padding:8px 8px;font-size:12.5px;min-width:0;">
+        <button onClick="{{ openRxbDocs }}" title="Regex builder" aria-label="Regex builder" style="border:none;background:none;color:var(--outline);border-radius:8px;padding:3px 5px;font-size:11px;font-family:'Roboto Mono';" style-hover="color:var(--on-s);">.*</button>
+      </div>
+      <div style="flex:1;overflow-y:auto;display:flex;flex-direction:column;gap:1px;min-height:0;">
+        <sc-for list="{{ docList }}" as="dl" hint-placeholder-count="10">
+          <sc-if value="{{ dl.isHeader }}" hint-placeholder-val="{{ false }}"><div style="font-size:10.5px;font-weight:700;color:var(--on-sv);text-transform:uppercase;letter-spacing:.6px;padding:12px 10px 3px;">{{ dl.label }}</div></sc-if>
+          <sc-if value="{{ dl.isItem }}" hint-placeholder-val="{{ true }}">
+            <button onClick="{{ dl.open }}" style="display:flex;align-items:center;gap:8px;border:none;background:{{ dl.bg }};color:{{ dl.fg }};border-radius:10px;padding:7px 10px;font-size:12.5px;text-align:left;width:100%;" style-hover="background:var(--c-highest);">
+              <span style="flex:1;">{{ dl.title }}</span>
+            </button>
+          </sc-if>
+        </sc-for>
+      </div>
+      <div style="font-size:10.5px;color:var(--outline);padding:0 6px;">{{ docCount }}</div>
+    </div>
+    <div style="flex:1;overflow-y:auto;padding:32px 40px;min-width:0;">
+      <div style="max-width:640px;">
+        <div style="font-size:11px;font-weight:600;color:var(--p);letter-spacing:.8px;text-transform:uppercase;">{{ docCat }}</div>
+        <div style="font-size:26px;font-weight:600;margin:6px 0 14px;">{{ docTitle }}</div>
+        <div style="font-size:14px;line-height:1.7;color:var(--on-s);white-space:pre-wrap;">{{ docBody }}</div>
+        <div style="margin-top:18px;padding:12px 16px;background:var(--c-low);border-radius:12px;font-size:12px;color:var(--on-sv);line-height:1.6;">{{ L.docsOffline }}</div>
+      </div>
+    </div>
+  </div>
+</sc-if>
+
+<sc-if value="{{ sStatus }}" hint-placeholder-val="{{ false }}">
+  <div data-screen-label="Status" style="flex:1;overflow-y:auto;padding:28px;">
+    <div style="max-width:860px;margin:0 auto;display:flex;flex-direction:column;gap:14px;">
+      <div><div style="font-size:24px;font-weight:600;">{{ L.statusTitle }}</div><div style="font-size:13px;color:var(--on-sv);margin-top:4px;">{{ L.statusSub }}</div></div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+        <div style="background:var(--c-lowest);border:1px solid var(--outline-v);border-radius:var(--r);padding:16px 18px;">
+          <div style="font-size:13px;font-weight:600;color:var(--p);margin-bottom:8px;">{{ L.release }}</div>
+          <div style="display:flex;flex-direction:column;gap:6px;font-size:12.5px;">
+            <div style="display:flex;gap:8px;"><span style="color:var(--on-sv);width:90px;">Version</span><span style="font-family:'Roboto Mono';">v0.0.0-build.10</span></div>
+            <div style="display:flex;gap:8px;"><span style="color:var(--on-sv);width:90px;">Commit</span><span style="font-family:'Roboto Mono';">7e45123e</span></div>
+            <div style="display:flex;gap:8px;"><span style="color:var(--on-sv);width:90px;">Code name</span><span>Bamboo shoot har gow · 筍尖蝦餃</span></div>
+            <div style="display:flex;gap:8px;"><span style="color:var(--on-sv);width:90px;">Signing</span><span>Unsigned by policy — checksums published instead</span></div>
+          </div>
+          <button onClick="{{ checkUpdates }}" style="margin-top:12px;border:1px solid var(--outline-v);background:none;color:var(--p);border-radius:999px;padding:8px 16px;font-size:12.5px;font-weight:500;">{{ L.checkUpdates }}</button>
+        </div>
+        <div style="background:var(--c-lowest);border:1px solid var(--outline-v);border-radius:var(--r);padding:16px 18px;">
+          <div style="font-size:13px;font-weight:600;color:var(--p);margin-bottom:8px;">{{ L.dishCatalog }}</div>
+          <div style="display:flex;flex-direction:column;gap:5px;max-height:150px;overflow-y:auto;">
+            <sc-for list="{{ dishCatalogView }}" as="dc" hint-placeholder-count="4">
+              <div style="display:flex;gap:8px;font-size:12.5px;align-items:center;"><span style="font-family:'Roboto Mono';font-size:10.5px;color:var(--outline);">{{ dc.id }}</span><span>{{ dc.name }}</span></div>
+            </sc-for>
+          </div>
+        </div>
+      </div>
+      <div style="background:var(--c-lowest);border:1px solid var(--outline-v);border-radius:var(--r);padding:16px 18px;">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;">
+          <div style="font-size:13px;font-weight:600;color:var(--p);flex:1;">{{ L.changelog }}</div>
+          <input type="date" value="{{ changelogDate }}" onChange="{{ setChangelogDate }}" aria-label="Filter changelog by date" style="border:1px solid var(--outline-v);background:var(--c-low);border-radius:10px;padding:6px 10px;font-size:12px;">
+        </div>
+        <sc-for list="{{ changelogView }}" as="ce" hint-placeholder-count="3">
+          <div style="display:flex;gap:12px;padding:9px 0;border-top:1px solid var(--outline-v);font-size:12.5px;">
+            <span style="font-family:'Roboto Mono';color:var(--outline);width:84px;flex:none;">{{ ce.date }}</span>
+            <span style="font-family:'Roboto Mono';font-weight:600;width:64px;flex:none;">{{ ce.ver }}</span>
+            <span style="flex:1;line-height:1.5;">{{ ce.note }}</span>
+          </div>
+        </sc-for>
+      </div>
+      <div style="background:var(--c-lowest);border:1px solid var(--outline-v);border-radius:var(--r);padding:16px 18px;">
+        <div style="display:flex;align-items:center;margin-bottom:8px;"><div style="font-size:13px;font-weight:600;color:var(--p);flex:1;">{{ L.versionHistory }}</div>
+          <button onClick="{{ exportHistory }}" style="border:none;background:none;color:var(--p);font-size:12px;font-weight:500;">{{ L.exportHist }}</button>
+        </div>
+        <sc-if value="{{ histEmpty }}" hint-placeholder-val="{{ true }}"><div style="font-size:12.5px;color:var(--on-sv);">{{ L.noHistory }}</div></sc-if>
+        <div style="display:flex;flex-direction:column;max-height:200px;overflow-y:auto;">
+          <sc-for list="{{ histView }}" as="hv" hint-placeholder-count="0">
+            <div style="display:flex;gap:10px;padding:6px 0;font-size:12.5px;border-top:1px solid var(--outline-v);"><span style="color:var(--outline);width:70px;flex:none;">{{ hv.when }}</span><span>{{ hv.what }}</span></div>
+          </sc-for>
+        </div>
+      </div>
+      <div style="background:var(--c-lowest);border:1px solid var(--outline-v);border-radius:var(--r);padding:16px 18px;">
+        <div style="font-size:13px;font-weight:600;color:var(--p);margin-bottom:4px;">{{ L.tickets }}</div>
+        <div style="font-size:11.5px;color:var(--on-sv);line-height:1.6;margin-bottom:10px;">{{ L.ticketHonest }}</div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;">
+          <input value="{{ ticketText }}" onChange="{{ setTicketText }}" placeholder="{{ L.ticketPlaceholder }}" aria-label="{{ L.ticketPlaceholder }}" style="flex:1;min-width:240px;border:1px solid var(--outline-v);background:var(--c-low);border-radius:10px;padding:9px 12px;font-size:12.5px;">
+          <button onClick="{{ fileTicket }}" style="border:none;background:var(--sec-c);color:var(--on-sec-c);border-radius:999px;padding:9px 18px;font-size:12.5px;font-weight:600;">{{ L.fileTicket }}</button>
+        </div>
+        <sc-for list="{{ ticketView }}" as="tk" hint-placeholder-count="0">
+          <div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-top:1px solid var(--outline-v);margin-top:8px;font-size:12.5px;">
+            <span style="font-family:'Roboto Mono';font-size:11px;color:var(--outline);">{{ tk.id }}</span>
+            <span style="flex:1;">{{ tk.text }}</span>
+            <button onClick="{{ tk.advance }}" style="border:none;background:{{ tk.bg }};color:{{ tk.fg }};border-radius:999px;padding:4px 12px;font-size:11px;font-weight:600;">{{ tk.status }}</button>
+          </div>
+        </sc-for>
+      </div>
+    </div>
+  </div>
+</sc-if>
+<!--@more-screens-->
+    </main>
+  </div>
+</div>
+
+<sc-if value="{{ showPalette }}" hint-placeholder-val="{{ false }}">
+  <div onClick="{{ closeOverlays }}" style="position:fixed;inset:0;background:rgba(0,0,0,.35);z-index:60;display:flex;align-items:flex-start;justify-content:center;padding-top:12vh;">
+    <div onClick="{{ stop }}" role="dialog" aria-label="Command palette" style="width:min(620px,92vw);max-height:60vh;background:var(--c-lowest);border-radius:24px;box-shadow:var(--e2);display:flex;flex-direction:column;overflow:hidden;animation:mo-in .18s ease;">
+      <div style="display:flex;align-items:center;gap:10px;padding:14px 18px;border-bottom:1px solid var(--outline-v);">
+        <span class="material-symbols-outlined" style="font-size:20px;color:var(--on-sv);">search</span>
+        <input value="{{ paletteQ }}" onChange="{{ setPaletteQ }}" placeholder="{{ L.paletteHint }}" aria-label="Command search" style="flex:1;border:none;background:none;font-size:15px;outline:none;">
+        <button onClick="{{ togglePaletteRegex }}" aria-pressed="{{ paletteRegex }}" title="Regex search" style="border:1px solid var(--outline-v);background:{{ pRegexBg }};color:{{ pRegexFg }};border-radius:8px;padding:3px 8px;font-size:11px;font-family:'Roboto Mono';">.*</button>
+        <button onClick="{{ openRxbPalette }}" title="Open regex builder" aria-label="Open regex builder" style="border:1px solid var(--outline-v);background:none;color:var(--on-sv);border-radius:8px;padding:3px 8px;font-size:11px;display:flex;align-items:center;"><span class="material-symbols-outlined" style="font-size:15px;">construction</span></button>
+      </div>
+      <div style="overflow-y:auto;padding:8px;">
+        <sc-for list="{{ paletteResults }}" as="r" hint-placeholder-count="5">
+          <button onClick="{{ r.run }}" style="display:flex;align-items:center;gap:12px;width:100%;border:none;background:none;border-radius:12px;padding:10px 12px;text-align:left;font-size:13.5px;color:var(--on-s);" style-hover="background:var(--c-high);">
+            <span class="material-symbols-outlined" style="font-size:18px;color:var(--on-sv);">{{ r.icon }}</span>
+            <span style="flex:1;">{{ r.label }}</span>
+            <span style="font-size:11px;color:var(--outline);">{{ r.kind }}</span>
+          </button>
+        </sc-for>
+      </div>
+    </div>
+  </div>
+</sc-if>
+
+<sc-if value="{{ showNotif }}" hint-placeholder-val="{{ false }}">
+  <div onClick="{{ closeOverlays }}" style="position:fixed;inset:0;z-index:59;">
+    <div onClick="{{ stop }}" role="dialog" aria-label="Notification center" style="position:absolute;top:52px;right:12px;width:340px;max-height:70vh;background:var(--c-lowest);border-radius:20px;box-shadow:var(--e2);display:flex;flex-direction:column;overflow:hidden;animation:mo-in .18s ease;">
+      <div style="display:flex;align-items:center;gap:8px;padding:14px 16px;border-bottom:1px solid var(--outline-v);">
+        <span style="font-weight:600;font-size:14px;flex:1;">{{ L.notifications }}</span>
+        <button onClick="{{ clearNotifs }}" style="border:none;background:none;color:var(--p);font-size:12px;font-weight:500;">{{ L.clearAll }}</button>
+      </div>
+      <div style="overflow-y:auto;padding:8px;display:flex;flex-direction:column;gap:4px;">
+        <sc-if value="{{ notifEmpty }}" hint-placeholder-val="{{ true }}"><div style="padding:24px;text-align:center;color:var(--outline);font-size:13px;">{{ L.noNotifs }}</div></sc-if>
+        <sc-for list="{{ notifView }}" as="n" hint-placeholder-count="0">
+          <div style="display:flex;gap:10px;padding:10px 12px;border-radius:12px;background:var(--c-low);">
+            <span class="material-symbols-outlined" style="font-size:18px;color:var(--p);flex:none;margin-top:1px;">{{ n.icon }}</span>
+            <div style="flex:1;min-width:0;"><div style="font-size:13px;line-height:1.4;">{{ n.text }}</div><div style="font-size:11px;color:var(--outline);margin-top:2px;">{{ n.time }}</div></div>
+          </div>
+        </sc-for>
+      </div>
+    </div>
+  </div>
+</sc-if>
+
+<sc-if value="{{ showConfirm }}" hint-placeholder-val="{{ false }}">
+  <div style="position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:70;display:flex;align-items:center;justify-content:center;">
+    <div role="alertdialog" aria-label="Confirm destructive action" style="width:min(440px,92vw);background:var(--c-lowest);border-radius:28px;padding:24px;display:flex;flex-direction:column;gap:14px;box-shadow:var(--e2);animation:mo-in .18s ease;">
+      <span class="material-symbols-outlined" style="font-size:26px;color:var(--err);">warning</span>
+      <div style="font-size:18px;font-weight:600;">{{ confirmTitle }}</div>
+      <div style="font-size:13.5px;color:var(--on-sv);line-height:1.55;white-space:pre-wrap;">{{ confirmBody }}</div>
+      <input value="{{ confirmText }}" onChange="{{ setConfirmText }}" placeholder="{{ confirmKeywordHint }}" aria-label="Type the confirmation word" style="border:1px solid var(--outline-v);background:var(--c-low);border-radius:12px;padding:10px 14px;font-family:'Roboto Mono';font-size:13px;">
+      <div style="display:flex;justify-content:flex-end;gap:8px;">
+        <button onClick="{{ cancelConfirm }}" style="border:none;background:none;color:var(--p);border-radius:999px;padding:10px 18px;font-weight:600;font-size:13.5px;">{{ L.cancel }}</button>
+        <button onClick="{{ runConfirm }}" style="border:none;background:{{ confirmBtnBg }};color:{{ confirmBtnFg }};border-radius:999px;padding:10px 20px;font-weight:600;font-size:13.5px;">{{ confirmAction }}</button>
+      </div>
+    </div>
+  </div>
+</sc-if>
+
+<sc-if value="{{ showSchool }}" hint-placeholder-val="{{ false }}">
+  <div style="position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:70;display:flex;align-items:center;justify-content:center;">
+    <div role="dialog" aria-label="Unlock" style="width:min(400px,92vw);background:var(--c-lowest);border-radius:28px;padding:24px;display:flex;flex-direction:column;gap:12px;box-shadow:var(--e2);animation:mo-in .18s ease;">
+      <span class="material-symbols-outlined" style="font-size:26px;color:var(--p);">lock_open</span>
+      <div style="font-size:18px;font-weight:600;">{{ schoolUnlockTitle }}</div>
+      <div style="font-size:13px;color:var(--on-sv);line-height:1.5;">{{ L.schoolUnlockBody }}</div>
+      <input value="{{ pinEntry }}" onChange="{{ setPinEntry }}" onKeyDown="{{ pinKey }}" type="password" placeholder="PIN" aria-label="PIN" style="border:1px solid var(--outline-v);background:var(--c-low);border-radius:12px;padding:10px 14px;font-family:'Roboto Mono';letter-spacing:4px;">
+      <sc-if value="{{ pinError }}" hint-placeholder-val="{{ false }}"><div style="font-size:12px;color:var(--err);">{{ L.wrongPin }}</div></sc-if>
+      <div style="font-size:11px;color:var(--outline);line-height:1.5;">{{ L.schoolReset }}</div>
+      <div style="display:flex;justify-content:flex-end;gap:8px;">
+        <button onClick="{{ cancelSchool }}" style="border:none;background:none;color:var(--p);border-radius:999px;padding:10px 18px;font-weight:600;font-size:13.5px;">{{ L.cancel }}</button>
+        <button onClick="{{ trySchoolUnlock }}" style="border:none;background:var(--p);color:var(--on-p);border-radius:999px;padding:10px 20px;font-weight:600;font-size:13.5px;">{{ L.unlock }}</button>
+      </div>
+    </div>
+  </div>
+</sc-if>
+
+<sc-if value="{{ showDimsum }}" hint-placeholder-val="{{ false }}">
+  <div onClick="{{ closeOverlays }}" style="position:fixed;inset:0;background:rgba(0,0,0,.35);z-index:65;display:flex;align-items:center;justify-content:center;">
+    <div onClick="{{ stop }}" role="dialog" aria-label="Dim sum surprise" style="width:min(380px,92vw);background:var(--c-lowest);border-radius:28px;padding:28px;display:flex;flex-direction:column;align-items:center;gap:10px;box-shadow:var(--e2);animation:mo-in .22s ease;text-align:center;">
+      <div style="width:96px;height:96px;border-radius:99px;background:var(--ter-c);display:flex;align-items:center;justify-content:center;"><span class="material-symbols-outlined" style="font-size:44px;color:var(--on-ter-c);font-variation-settings:'FILL' 1;">bakery_dining</span></div>
+      <div style="font-size:12px;font-weight:600;color:var(--ter);letter-spacing:1px;text-transform:uppercase;">{{ L.dimsumSurprise }}</div>
+      <div style="font-size:19px;font-weight:600;">{{ dishName }}</div>
+      <div style="font-size:13px;color:var(--on-sv);line-height:1.5;">{{ L.dishNote }}</div>
+      <button onClick="{{ closeOverlays }}" style="margin-top:8px;border:none;background:var(--p);color:var(--on-p);border-radius:999px;padding:10px 24px;font-weight:600;font-size:13.5px;">{{ L.yum }}</button>
+    </div>
+  </div>
+</sc-if>
+
+<sc-if value="{{ ctxOpen }}" hint-placeholder-val="{{ false }}">
+  <div onClick="{{ closeOverlays }}" onContextMenu="{{ closeOverlays }}" style="position:fixed;inset:0;z-index:80;">
+    <div onClick="{{ stop }}" role="menu" style="position:absolute;left:{{ ctxX }}px;top:{{ ctxY }}px;min-width:220px;max-height:60vh;overflow-y:auto;background:var(--c-lowest);border-radius:14px;padding:6px;box-shadow:var(--e2);display:flex;flex-direction:column;animation:mo-in .12s ease;">
+      <div style="display:flex;align-items:center;gap:4px;padding:2px 4px 6px;">
+        <input value="{{ ctxQ }}" onChange="{{ setCtxQ }}" placeholder="{{ L.filterMenu }}" aria-label="{{ L.filterMenu }}" style="flex:1;border:none;background:var(--c-highest);border-radius:8px;padding:6px 10px;font-size:12px;min-width:0;">
+        <button onClick="{{ openRxbCtx }}" title="Regex builder" aria-label="Regex builder" style="border:none;background:none;color:var(--outline);border-radius:6px;padding:4px 6px;font-size:11px;font-family:'Roboto Mono';" style-hover="background:var(--c-high);color:var(--on-s);">.*</button>
+      </div>
+      <sc-for list="{{ ctxItems }}" as="ci" hint-placeholder-count="2">
+        <button onClick="{{ ci.run }}" role="menuitem" style="display:flex;align-items:center;gap:10px;border:none;background:none;border-radius:9px;padding:9px 12px;text-align:left;font-size:13px;color:{{ ci.fg }};" style-hover="background:var(--c-high);"><span class="material-symbols-outlined" style="font-size:17px;">{{ ci.icon }}</span>{{ ci.label }}</button>
+      </sc-for>
+    </div>
+  </div>
+</sc-if>
+
+<sc-if value="{{ renaming }}" hint-placeholder-val="{{ false }}">
+  <div style="position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:70;display:flex;align-items:center;justify-content:center;">
+    <div role="dialog" aria-label="Rename" style="width:min(400px,92vw);background:var(--c-lowest);border-radius:28px;padding:24px;display:flex;flex-direction:column;gap:14px;box-shadow:var(--e2);">
+      <div style="font-size:18px;font-weight:600;">{{ L.rename }}</div>
+      <input value="{{ renameValue }}" onChange="{{ setRenameValue }}" onKeyDown="{{ renameKey }}" aria-label="New name" style="border:1px solid var(--outline-v);background:var(--c-low);border-radius:12px;padding:10px 14px;">
+      <div style="display:flex;justify-content:flex-end;gap:8px;">
+        <button onClick="{{ cancelRename }}" style="border:none;background:none;color:var(--p);border-radius:999px;padding:10px 18px;font-weight:600;font-size:13.5px;">{{ L.cancel }}</button>
+        <button onClick="{{ saveRenameNow }}" style="border:none;background:var(--p);color:var(--on-p);border-radius:999px;padding:10px 20px;font-weight:600;font-size:13.5px;">{{ L.save }}</button>
+      </div>
+    </div>
+  </div>
+</sc-if>
+
+<sc-if value="{{ appEdOpen }}" hint-placeholder-val="{{ false }}">
+  <div onClick="{{ appEdClose }}" style="position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:84;display:flex;align-items:center;justify-content:center;">
+    <div onClick="{{ stop }}" role="dialog" aria-label="Edit appearance" style="width:min(560px,94vw);max-height:80vh;overflow-y:auto;background:var(--c-lowest);border-radius:24px;padding:22px;display:flex;flex-direction:column;gap:14px;box-shadow:var(--e2);animation:mo-in .18s ease;">
+      <div style="display:flex;align-items:center;gap:10px;">
+        <span class="material-symbols-outlined" style="font-size:22px;color:var(--p);">palette</span>
+        <span style="font-size:17px;font-weight:600;flex:1;">{{ L.editAppearance }}</span>
+        <button onClick="{{ appEdClose }}" aria-label="Close" style="border:none;background:none;display:flex;color:var(--on-sv);border-radius:99px;padding:4px;" style-hover="background:var(--c-high);"><span class="material-symbols-outlined">close</span></button>
+      </div>
+      <div style="font-size:12px;color:var(--on-sv);line-height:1.5;">{{ L.appEdNote }}</div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap;">
+        <sc-for list="{{ appEdTargets }}" as="at" hint-placeholder-count="6">
+          <button onClick="{{ at.pick }}" aria-pressed="{{ at.on }}" style="border:1px solid var(--outline-v);background:{{ at.bg }};color:{{ at.fg }};border-radius:999px;padding:7px 14px;font-size:12.5px;font-weight:500;display:flex;align-items:center;gap:6px;">
+            <span style="width:12px;height:12px;border-radius:4px;border:1px solid var(--outline-v);background:{{ at.cur }};"></span>{{ at.label }}
+            <sc-if value="{{ at.overridden }}" hint-placeholder-val="{{ false }}"><span class="material-symbols-outlined" style="font-size:13px;">edit</span></sc-if>
+          </button>
+        </sc-for>
+      </div>
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+        <span style="font-size:12.5px;font-weight:500;">{{ appEdSelLabel }}</span>
+        <sc-for list="{{ appEdSwatches }}" as="aw" hint-placeholder-count="8">
+          <button onClick="{{ aw.pick }}" aria-label="Color {{ aw.hex }}" style="width:30px;height:30px;border-radius:99px;border:{{ aw.border }};background:{{ aw.hex }};"></button>
+        </sc-for>
+        <input value="{{ appEdHex }}" onChange="{{ setAppEdHex }}" placeholder="#rrggbb" aria-label="Custom hex" style="border:1px solid var(--outline-v);background:var(--c-low);border-radius:10px;padding:7px 10px;font-size:12px;font-family:'Roboto Mono';width:96px;">
+        <button onClick="{{ appEdResetOne }}" style="border:1px solid var(--outline-v);background:none;color:var(--on-sv);border-radius:999px;padding:7px 14px;font-size:12px;">{{ L.resetElement }}</button>
+      </div>
+      <div style="display:flex;justify-content:space-between;align-items:center;">
+        <button onClick="{{ appEdResetAll }}" style="border:none;background:none;color:var(--err);font-size:12.5px;font-weight:500;padding:8px 0;">{{ L.resetAllOverrides }}</button>
+        <button onClick="{{ appEdClose }}" style="border:none;background:var(--p);color:var(--on-p);border-radius:999px;padding:10px 22px;font-weight:600;font-size:13.5px;">{{ L.doneBtn }}</button>
+      </div>
+    </div>
+  </div>
+</sc-if>
+
+<sc-if value="{{ rxbOpen }}" hint-placeholder-val="{{ false }}">
+  <div onClick="{{ rxbClose }}" style="position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:85;display:flex;align-items:center;justify-content:center;">
+    <div onClick="{{ stop }}" role="dialog" aria-label="Regex builder" style="width:min(680px,94vw);max-height:84vh;background:var(--c-lowest);border-radius:24px;padding:22px;display:flex;flex-direction:column;gap:12px;box-shadow:var(--e2);animation:mo-in .18s ease;overflow-y:auto;">
+      <div style="display:flex;align-items:center;gap:10px;">
+        <span class="material-symbols-outlined" style="font-size:22px;color:var(--p);">regular_expression</span>
+        <span style="font-size:17px;font-weight:600;flex:1;">{{ rxbTitle }}</span>
+        <button onClick="{{ rxbClose }}" aria-label="Close" style="border:none;background:none;display:flex;color:var(--on-sv);border-radius:99px;padding:4px;" style-hover="background:var(--c-high);"><span class="material-symbols-outlined">close</span></button>
+      </div>
+      <div style="display:flex;gap:8px;align-items:center;">
+        <span style="font-family:'Roboto Mono';color:var(--outline);">/</span>
+        <input value="{{ rxbPattern }}" onChange="{{ setRxbPattern }}" placeholder="pattern" aria-label="Pattern" style="flex:1;border:1px solid var(--outline-v);background:var(--c-low);border-radius:10px;padding:10px 14px;font-family:'Roboto Mono';font-size:13.5px;">
+        <span style="font-family:'Roboto Mono';color:var(--outline);">/{{ rxbFlags }}</span>
+        <sc-for list="{{ rxbFlagChips }}" as="fc" hint-placeholder-count="5">
+          <button onClick="{{ fc.flip }}" aria-pressed="{{ fc.on }}" title="Flag {{ fc.f }}" style="border:1px solid var(--outline-v);background:{{ fc.bg }};color:{{ fc.fg }};border-radius:8px;padding:5px 9px;font-size:12px;font-family:'Roboto Mono';">{{ fc.f }}</button>
+        </sc-for>
+      </div>
+      <sc-if value="{{ rxbHasErr }}" hint-placeholder-val="{{ false }}"><div style="font-size:12px;color:var(--err);font-family:'Roboto Mono';">{{ rxbErr }}</div></sc-if>
+      <div style="display:flex;flex-wrap:wrap;gap:6px;">
+        <sc-for list="{{ rxbChips }}" as="ch" hint-placeholder-count="12">
+          <button onClick="{{ ch.ins }}" title="{{ ch.label }}" style="border:1px solid var(--outline-v);background:none;color:var(--on-sv);border-radius:10px;padding:6px 10px;font-size:12px;display:flex;flex-direction:column;align-items:center;gap:1px;" style-hover="background:var(--c-high);color:var(--on-s);">
+            <span style="font-family:'Roboto Mono';font-size:12px;">{{ ch.tok }}</span><span style="font-size:9.5px;color:var(--outline);">{{ ch.label }}</span>
+          </button>
+        </sc-for>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 200px;gap:12px;min-height:140px;">
+        <textarea value="{{ rxbTest }}" onChange="{{ setRxbTest }}" aria-label="Test text" style="border:1px solid var(--outline-v);background:var(--c-low);border-radius:12px;padding:12px;font-family:'Roboto Mono';font-size:12px;resize:vertical;min-height:140px;line-height:1.6;"></textarea>
+        <div style="border:1px solid var(--outline-v);border-radius:12px;padding:10px;display:flex;flex-direction:column;gap:4px;overflow-y:auto;max-height:220px;">
+          <div style="font-size:11px;font-weight:600;color:var(--on-sv);">{{ rxbCount }}</div>
+          <sc-for list="{{ rxbMatches }}" as="mm" hint-placeholder-count="0">
+            <span style="font-family:'Roboto Mono';font-size:11.5px;background:var(--ter-c);color:var(--on-ter-c);border-radius:6px;padding:2px 8px;width:fit-content;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">{{ mm.m }}</span>
+          </sc-for>
+        </div>
+      </div>
+      <div style="display:flex;justify-content:flex-end;gap:8px;">
+        <button onClick="{{ rxbClose }}" style="border:none;background:none;color:var(--p);border-radius:999px;padding:10px 18px;font-weight:600;font-size:13.5px;">{{ L.cancel }}</button>
+        <button onClick="{{ rxbApply }}" style="border:none;background:var(--p);color:var(--on-p);border-radius:999px;padding:10px 22px;font-weight:600;font-size:13.5px;">{{ L.applySearch }}</button>
+      </div>
+    </div>
+  </div>
+</sc-if>
+
+<sc-if value="{{ toastOn }}" hint-placeholder-val="{{ false }}">
+  <div role="status" style="position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:var(--inv);color:var(--on-inv);border-radius:12px;padding:12px 20px;font-size:13.5px;box-shadow:var(--e2);z-index:90;max-width:80vw;animation:mo-in .2s ease;">{{ toastText }}</div>
+</sc-if>
+
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+class Component extends DCLogic {
+  state = {
+    loaded: false, screen: 'chat',
+    tabs: [{ id: 1, screen: 'models', pinned: false, group: null }], activeTab: 1, nextTab: 2,
+    settings: null, chats: [], currentChat: null, chatSearch: '', draft: '', thinkOn: false, webOn: false,
+    modelMenuOpen: false, model: 'llama3.3:latest',
+    notifs: [], showNotif: false, showPalette: false, paletteQ: '', paletteRegex: false,
+    confirm: null, confirmText: '', showSchool: false, pinEntry: '', pinError: false,
+    dimsum: null, ctx: null, rename: null, renameValue: '', toast: null,
+    modelSearch: '', modelRegex: false, pulls: [], hwRam: 16, hwVram: 8,
+    codexProfile: 'Quick fix', codexDir: '', codexPrompt: '', codexLines: [], codexRunning: false, codexHistory: [],
+    rxPattern: '\\b(llama|gemma|qwen)[\\w.:-]*', rxFlags: 'gi', rxText: 'Ollama runs llama3.3 locally.\nAlso installed: gemma3:4b, qwen3:8b, deepseek-r1.',
+    convFiles: [], totpAccounts: [], totpCodes: {}, totpSecs: 30, acctName: '', acctSecret: '',
+    docQ: '', docSel: null, ticketText: '', tickets: [], history: [], changelogDate: '',
+    settingsQ: '', colorIn: '', suiteLog: [], vocabFind: '', vocabRepl: '', schedTime: '18:00', schedKind: 'theme:dark',
+    profiles: [], profileName: '',
+  };
+  KEY = 'materialOllama.v2';
+  defaults() {
+    return {
+      langMode: 'en', funnyEn: 1, funnyYue: 2, emoji: true,
+      school: { on: false, name: 'School mode', pin: '1234' },
+      narration: { on: false, lang: 'en', voice: '', rate: 1 },
+      appearance: { seed: '#8a5a00', theme: 'light', density: 'standard', radius: 16, appName: 'Material Ollama', glyph: 'raven' },
+      expose: false, cloud: true, autoUpdate: true, modelsDir: '~/.ollama/models', ctx: 4096, agent: false, toolsMode: false,
+      vocab: [], schedules: [], installed: ['llama3.3:latest', 'gemma3:4b', 'qwen3:8b'],
+    };
+  }
+  save() {
+    const s = this.state;
+    try { localStorage.setItem(this.KEY, JSON.stringify({ settings: s.settings, chats: s.chats, notifs: s.notifs.slice(0, 50), tickets: s.tickets, history: s.history.slice(0, 100), totpAccounts: s.totpAccounts, tabs: s.tabs, activeTab: s.activeTab, nextTab: s.nextTab, screen: s.screen, currentChat: s.currentChat, model: s.model, codexHistory: s.codexHistory.slice(0, 12), profiles: s.profiles })); } catch (e) {}
+  }
+  set(patch, cb) { this.setState(patch, () => { this.save(); if (cb) cb(); }); }
+
+  componentDidMount() {
+    let sv = null; try { sv = JSON.parse(localStorage.getItem(this.KEY)); } catch (e) {}
+    const settings = Object.assign(this.defaults(), (sv && sv.settings) || {});
+    settings.school = Object.assign(this.defaults().school, settings.school);
+    settings.narration = Object.assign(this.defaults().narration, settings.narration);
+    settings.appearance = Object.assign(this.defaults().appearance, settings.appearance);
+    this.setState({
+      loaded: true, settings,
+      chats: (sv && sv.chats) || this.seedChats(),
+      notifs: (sv && sv.notifs) || [], tickets: (sv && sv.tickets) || [],
+      history: (sv && sv.history) || [], totpAccounts: (sv && sv.totpAccounts) || [{ name: 'ollama.com', secret: 'JBSWY3DPEHPK3PXP' }],
+      tabs: (sv && sv.tabs && sv.tabs.length ? sv.tabs : this.state.tabs), activeTab: (sv && sv.activeTab) || 1,
+      nextTab: (sv && sv.nextTab) || 2, screen: (sv && sv.screen) || 'models',
+      currentChat: (sv && sv.currentChat) || null, model: (sv && sv.model) || 'llama3.3:latest',
+      codexHistory: (sv && sv.codexHistory) || [], profiles: (sv && sv.profiles) || [],
+    }, () => this.applyTheme());
+    this._key = (e) => {
+      if ((e.ctrlKey || e.metaKey) && e.shiftKey && (e.key === 'F' || e.key === 'f')) { e.preventDefault(); this.setState({ showPalette: !this.state.showPalette, paletteQ: '' }); }
+      else if (e.key === 'Escape') this.closeAll();
+    };
+    window.addEventListener('keydown', this._key);
+    this._tick = setInterval(() => { if (this.totpTick) this.totpTick(); }, 1000);
+    this._sched = setInterval(() => { if (this.checkSchedules) this.checkSchedules(); }, 30000);
+  }
+  componentWillUnmount() { window.removeEventListener('keydown', this._key); clearInterval(this._tick); clearInterval(this._sched); clearInterval(this._type); }
+  closeAll() { this.setState({ showPalette: false, showNotif: false, dimsum: null, ctx: null, modelMenuOpen: false }); }
+
+  seedChats() {
+    const now = Date.now(), d = 864e5;
+    return [
+      { id: 'c1', title: 'Explain GGUF quantization', t: now - 36e5, msgs: [{ r: 'u', x: 'Explain GGUF quantization simply.' }, { r: 'a', x: 'GGUF stores model weights in compact integer formats (like Q4_K_M) plus metadata in one file. Quantization trades a little accuracy for much less memory, so an 8B model can fit in about 5 GB of RAM.' }] },
+      { id: 'c2', title: 'Write a haiku about llamas', t: now - 3 * d, msgs: [{ r: 'u', x: 'Write a haiku about llamas.' }, { r: 'a', x: 'Soft wool on the ridge —\na llama hums to the wind,\nweights warm on the fan.' }] },
+      { id: 'c3', title: 'Modelfile FROM syntax', t: now - 12 * d, msgs: [{ r: 'u', x: 'What does FROM do in a Modelfile?' }, { r: 'a', x: 'FROM names the base: an existing model (FROM llama3.3), a GGUF file path, or a safetensors directory. Everything else in the Modelfile layers on top of it.' }] },
+    ];
+  }
+
+  hexToOklch(hex) {
+    const n = (hex || '#8a5a00').replace('#', ''); const v = n.length === 3 ? n.split('').map(c => c + c).join('') : n;
+    const [r, g, b] = [0, 2, 4].map(i => parseInt(v.slice(i, i + 2), 16) / 255);
+    const f = c => c <= 0.04045 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4);
+    const [R, G, B] = [f(r), f(g), f(b)];
+    const l = Math.cbrt(.4122214708 * R + .5363325363 * G + .0514459929 * B);
+    const m = Math.cbrt(.2119034982 * R + .6806995451 * G + .1073969566 * B);
+    const s = Math.cbrt(.0883024619 * R + .2817188376 * G + .6299787005 * B);
+    const A = 1.9779984951 * l - 2.428592205 * m + .4505937099 * s;
+    const Bb = .0259040371 * l + .7827717662 * m - .808675766 * s;
+    const L = .2104542553 * l + .793617785 * m - .0040720468 * s;
+    let H = Math.atan2(Bb, A) * 180 / Math.PI; if (H < 0) H += 360;
+    return { L, c: Math.hypot(A, Bb), h: H };
+  }
+  applyTheme() {
+    const st = this.state.settings; if (!st) return;
+    const ap = st.appearance;
+    const { c: rawC, h } = this.hexToOklch(ap.seed);
+    const c = Math.min(0.13, Math.max(0.06, rawC || 0.09));
+    const dark = ap.theme === 'dark' || (ap.theme === 'auto' && window.matchMedia('(prefers-color-scheme: dark)').matches);
+    const ok = (L, C, H) => `oklch(${L} ${C.toFixed(3)} ${((H % 360 + 360) % 360).toFixed(1)})`;
+    const T = dark ? {
+      '--p': ok(.80, c * .9, h), '--on-p': ok(.28, c * .6, h), '--pc': ok(.38, c * .65, h), '--on-pc': ok(.92, c * .35, h),
+      '--sec': ok(.78, c * .3, h), '--sec-c': ok(.34, c * .18, h), '--on-sec-c': ok(.90, c * .12, h),
+      '--ter': ok(.80, c * .7, h + 60), '--ter-c': ok(.36, c * .4, h + 60), '--on-ter-c': ok(.92, c * .3, h + 60),
+      '--err': 'oklch(.80 .12 25)', '--err-c': 'oklch(.35 .12 27)', '--on-err-c': 'oklch(.92 .05 27)',
+      '--bg': ok(.165, .012, h),
+      '--c-lowest': ok(.21, .012, h), '--c-low': ok(.20, .012, h), '--c': ok(.23, .013, h), '--c-high': ok(.26, .014, h), '--c-highest': ok(.30, .015, h),
+      '--on-s': ok(.93, .008, h), '--on-sv': ok(.78, .015, h), '--outline': ok(.62, .015, h), '--outline-v': ok(.36, .012, h),
+      '--inv': ok(.92, .01, h), '--on-inv': ok(.25, .012, h),
+    } : {
+      '--p': ok(.48, c, h), '--on-p': ok(.995, .005, h), '--pc': ok(.90, c * .45, h), '--on-pc': ok(.25, c * .6, h),
+      '--sec': ok(.50, c * .35, h), '--sec-c': ok(.90, c * .18, h), '--on-sec-c': ok(.25, c * .3, h),
+      '--ter': ok(.55, c * .8, h + 60), '--ter-c': ok(.90, c * .35, h + 60), '--on-ter-c': ok(.25, c * .5, h + 60),
+      '--err': 'oklch(.50 .19 27)', '--err-c': 'oklch(.90 .06 27)', '--on-err-c': 'oklch(.28 .12 27)',
+      '--bg': ok(.985, .007, h),
+      '--c-lowest': ok(.997, .003, h), '--c-low': ok(.97, .008, h), '--c': ok(.955, .009, h), '--c-high': ok(.94, .01, h), '--c-highest': ok(.92, .012, h),
+      '--on-s': ok(.22, .015, h), '--on-sv': ok(.42, .02, h), '--outline': ok(.55, .02, h), '--outline-v': ok(.82, .015, h),
+      '--inv': ok(.27, .015, h), '--on-inv': ok(.95, .008, h),
+    };
+    T['--r'] = ap.radius + 'px';
+    Object.assign(T, ap.overrides || {});
+    const root = document.documentElement;
+    Object.keys(T).forEach(k => root.style.setProperty(k, T[k]));
+    document.title = ap.appName;
+  }
+
+  DICT = {
+    palette: ['Search', '搵嘢'], notifications: ['Notifications', '通知'], clearAll: ['Clear all', '全部清走'],
+    noNotifs: ['Nothing here yet. Quiet llama.', '乜都冇，靜英英。'], newChat: ['New chat', '開新傾偈'],
+    searchChats: ['Search chats', '搵傾偈'], hero: ['How can I help?', '有咩幫到你？'], heroSub: ['Runs locally. Your data stays on this machine.', '本地運行，資料唔會離開部機。'],
+    sendMsg: ['Send a message', '打句嘢啦'], send: ['Send', '發送'], think: ['Think', '諗深啲'], webSearch: ['Web search', '上網搵'],
+    localNote: ['Local models via Ollama — nothing leaves this device unless cloud is on.', '本地模型行 Ollama —— 唔開雲端，資料唔出街。'],
+    cancel: ['Cancel', '算數'], save: ['Save', '儲存'], unlock: ['Unlock', '解鎖'], delete: ['Delete', '刪除'], yum: ['Yum!', '好味！'],
+    paletteHint: ['Type a command, setting, or screen…', '打指令、設定或者版面…'],
+    dimsumSurprise: ['Dim sum surprise', '點心驚喜'],
+    dishNote: ['A small treat from the release catalog. The dish name is always exact — the fun is only around it.', '出自發佈點心目錄嘅小驚喜，菜名永遠冇改。'],
+    schoolUnlockBody: ['Enter the PIN to turn this mode off. This is a self-imposed speed bump, not a security boundary.', 'Enter the PIN to turn this mode off. This is a self-imposed speed bump, not a security boundary.'],
+    schoolReset: ['Forgot it? Clearing this app\u2019s local data resets the lock — by design.', 'Forgot it? Clearing this app\u2019s local data resets the lock — by design.'],
+    wrongPin: ['That PIN didn\u2019t match.', '個 PIN 唔啱喎。'],
+    today: ['Today', '今日'], thisWeek: ['This week', '今個禮拜'], older: ['Older', '舊啲嘅'],
+    chat: ['Chat', '傾偈'], launchNav: ['Launch', '出發'], models: ['Models', '模型舖'], codex: ['Codex CLI', 'Codex 台'], devtools: ['Developer', '開發者'],
+    toolbox: ['Toolbox', '百寶箱'], docs: ['Docs', '說明書'], status: ['Status', '狀態'], settings: ['Settings', '設定'],
+    rename: ['Rename', '改名'], pin: ['Pin tab', '釘住'], unpin: ['Unpin tab', '解釘'], closeTab: ['Close tab', '閂呢個 tab'],
+    closeOthers: ['Close other tabs', '閂晒其他 tab'], closeRight: ['Close tabs to the right', '閂右邊嗰啲'],
+    group: ['Add to group', '加入組別'], ungroup: ['Remove from group', '退出組別'], closeAllTabs: ['Close all', '閂晒'],
+    clearChats: ['Clear all chats', '清晒所有傾偈'],
+    launchTitle: ['Launch a coding agent', '開個寫程式代理'], launchSub: ['Run agent harnesses against your local Ollama models.', '用本地 Ollama 模型行各個 agent。'],
+    launch: ['Launch', '開行'],
+  };
+  t(key) {
+    const st = this.state.settings; const e = this.DICT[key] || [key, key];
+    if (!st || st.school.on || st.langMode === 'en') return e[0];
+    if (st.langMode === 'yue') return e[1];
+    return e[0] + ' · ' + e[1];
+  }
+  funny(text) {
+    const st = this.state.settings; if (!st || st.school.on) return text;
+    const lang = st.langMode === 'yue' ? 'yue' : 'en';
+    const lvl = lang === 'yue' ? st.funnyYue : st.funnyEn;
+    const sfxEn = ['', '', ' Nice.', ' Woohoo!', ' Absolutely legendary!!'];
+    const sfxYue = ['', '', '，幾好吖。', '，正呀！', '，勁到飛起！！'];
+    let out = text + (lang === 'yue' ? sfxYue[lvl] : sfxEn[lvl]);
+    if (st.emoji && lvl >= 2) out += lvl >= 4 ? ' 🎉🥟' : ' ✨';
+    return out;
+  }
+  record(what) { this.set({ history: [{ t: Date.now(), what }].concat(this.state.history).slice(0, 120) }); }
+  notify(text, icon) {
+    const styled = this.funny(text);
+    const n = { id: Date.now() + Math.random(), text: styled, t: Date.now(), icon: icon || 'info' };
+    this.set({ notifs: [n].concat(this.state.notifs).slice(0, 60), toast: styled });
+    clearTimeout(this._toastT); this._toastT = setTimeout(() => this.setState({ toast: null }), 3200);
+    const nar = this.state.settings && this.state.settings.narration;
+    if (nar && nar.on && window.speechSynthesis) {
+      const u = new SpeechSynthesisUtterance(text); u.rate = nar.rate || 1;
+      if (nar.lang === 'yue') u.lang = 'zh-HK';
+      const v = speechSynthesis.getVoices().find(x => x.name === nar.voice); if (v) u.voice = v;
+      speechSynthesis.cancel(); speechSynthesis.speak(u);
+    }
+  }
+  DISHES = [
+    ['hk-dish-0001', 'Shrimp dumpling', '蝦餃'], ['hk-dish-0002', 'Scallop har gow', '帶子蝦餃'], ['hk-dish-0003', 'Bamboo shoot har gow', '筍尖蝦餃'],
+    ['hk-dish-0004', 'Siu mai', '燒賣'], ['hk-dish-0005', 'BBQ pork bun', '叉燒包'], ['hk-dish-0006', 'Rice noodle roll', '腸粉'],
+    ['hk-dish-0007', 'Egg tart', '蛋撻'], ['hk-dish-0008', 'Turnip cake', '蘿蔔糕'], ['hk-dish-0009', 'Phoenix claws', '鳳爪'], ['hk-dish-0010', 'Lotus leaf rice', '糯米雞'],
+  ];
+  maybeDimsum(p) { const st = this.state.settings; if (!st || st.school.on) return; if (Math.random() < p) this.setState({ dimsum: this.DISHES[Math.floor(Math.random() * this.DISHES.length)] }); }
+
+  SCREENS = ['models', 'chat', 'launch', 'codex', 'devtools', 'toolbox', 'docs', 'status', 'settings'];
+  ICONS = { chat: 'forum', launch: 'rocket_launch', models: 'storefront', codex: 'terminal', devtools: 'construction', toolbox: 'home_repair_service', docs: 'menu_book', status: 'monitor_heart', settings: 'settings' };
+  labelFor(sc) { return this.t(sc === 'launch' ? 'launchNav' : sc); }
+  goScreen(sc) {
+    const tabs = this.state.tabs; const ex = tabs.find(t => t.screen === sc);
+    if (ex) this.set({ activeTab: ex.id, screen: sc });
+    else {
+      const nt = { id: this.state.nextTab, screen: sc, pinned: false, group: null };
+      this.set({ tabs: tabs.concat([nt]), activeTab: nt.id, nextTab: this.state.nextTab + 1, screen: sc });
+    }
+    this.setState({ showPalette: false, showNotif: false, ctx: null });
+  }
+  closeTab(id) {
+    let tabs = this.state.tabs.filter(t => t.id !== id);
+    if (!tabs.length) tabs = [{ id: this.state.nextTab, screen: 'chat', pinned: false, group: null }];
+    const active = tabs.find(t => t.id === this.state.activeTab) || tabs[tabs.length - 1];
+    this.set({ tabs, activeTab: active.id, screen: active.screen, nextTab: this.state.nextTab + 1 });
+  }
+  tabMenu(e, id) {
+    e.preventDefault();
+    const tb = this.state.tabs.find(t => t.id === id); if (!tb) return;
+    const items = [
+      { label: this.t(tb.pinned ? 'unpin' : 'pin'), icon: 'keep', run: () => this.set({ tabs: this.state.tabs.map(t => t.id === id ? { ...t, pinned: !t.pinned } : t), ctx: null }) },
+      { label: this.t(tb.group ? 'ungroup' : 'group'), icon: 'folder', run: () => { const cols = ['#7cb342', '#5c6bc0', '#ef6c00', '#ec407a']; this.set({ tabs: this.state.tabs.map(t => t.id === id ? { ...t, group: t.group ? null : cols[id % cols.length] } : t), ctx: null }); } },
+      { label: this.t('closeOthers'), icon: 'tab_close', run: () => { const tabs = this.state.tabs.filter(t => t.id === id || t.pinned); this.set({ tabs, activeTab: id, screen: tb.screen, ctx: null }); } },
+      { label: this.t('closeRight'), icon: 'arrow_range', run: () => { const idx = this.state.tabs.findIndex(t => t.id === id); const tabs = this.state.tabs.filter((t, i) => i <= idx || t.pinned); const active = tabs.find(t => t.id === this.state.activeTab) || tabs[tabs.length - 1]; this.set({ tabs, activeTab: active.id, screen: active.screen, ctx: null }); } },
+      { label: this.t('closeTab'), icon: 'close', danger: true, run: () => { this.setState({ ctx: null }); this.closeTab(id); } },
+      { label: this.t('editAppearance'), icon: 'palette', run: () => this.openAppEd('--c-low') },
+    ];
+    this.setState({ ctx: { x: Math.min(e.clientX, window.innerWidth - 220), y: Math.min(e.clientY, window.innerHeight - 250), items }, ctxQ: '' });
+  }
+
+  chatCtx(e, id) {
+    e.preventDefault();
+    const items = [
+      { label: this.t('rename'), icon: 'edit', run: () => { const c = this.state.chats.find(x => x.id === id); this.setState({ ctx: null, rename: { kind: 'chat', id }, renameValue: c.title }); } },
+      { label: this.t('delete'), icon: 'delete', danger: true, run: () => { this.setState({ ctx: null }); this.askConfirm('Delete this chat?', 'This permanently removes the chat and its messages from this device. There is no undo.', 'Delete chat', 'DELETE', () => { this.set({ chats: this.state.chats.filter(x => x.id !== id), currentChat: this.state.currentChat === id ? null : this.state.currentChat }); this.notify('Chat deleted.', 'delete'); this.record('Deleted a chat'); }); } },
+      { label: this.t('editAppearance'), icon: 'palette', run: () => this.openAppEd('--sec-c') },
+    ];
+    this.setState({ ctx: { x: Math.min(e.clientX, window.innerWidth - 220), y: Math.min(e.clientY, window.innerHeight - 140), items }, ctxQ: '' });
+  }
+  async send() {
+    const text = this.state.draft.trim(); if (!text) return;
+    let chats = this.state.chats.slice(); let cid = this.state.currentChat;
+    if (!cid || !chats.find(c => c.id === cid)) { cid = 'c' + Date.now(); chats.unshift({ id: cid, title: text.slice(0, 42), t: Date.now(), msgs: [] }); }
+    chats = chats.map(c => c.id === cid ? { ...c, t: Date.now(), msgs: c.msgs.concat([{ r: 'u', x: text }, { r: 'a', x: '', typing: true }]) } : c);
+    this.set({ chats, currentChat: cid, draft: '' });
+    const st = this.state.settings; let reply;
+    try {
+      const hist = chats.find(c => c.id === cid).msgs.filter(m => m.x).map(m => ({ role: m.r === 'u' ? 'user' : 'assistant', content: m.x }));
+      const langNote = st.school.on || st.langMode === 'en' ? 'Reply in English.' : st.langMode === 'yue' ? 'Reply in playful Hong Kong-style Cantonese (traditional characters).' : 'Reply bilingually: English first, then Hong Kong Cantonese.';
+      const lvl = st.langMode === 'yue' ? st.funnyYue : st.funnyEn;
+      reply = await window.claude.complete({
+        system: `You are ${st.appearance.appName}, a local AI assistant running via Ollama on model ${this.state.model}. Be concise (2-5 sentences unless asked for more). ${langNote} Humor level ${st.school.on ? 0 : lvl}/4; facts always stay exact. ${st.emoji && !st.school.on ? 'A little emoji is fine.' : 'No emoji.'}`,
+        messages: hist, max_tokens: 400,
+      });
+    } catch (e) { reply = 'I could not reach the model runner just now — this is the offline fallback. Your message is saved locally; try again in a moment.'; }
+    let i = 0; const step = Math.max(2, Math.round(reply.length / 80));
+    clearInterval(this._type);
+    this._type = setInterval(() => {
+      i = Math.min(reply.length, i + step); const done = i >= reply.length;
+      this.setState({ chats: this.state.chats.map(c => c.id === cid ? { ...c, msgs: c.msgs.map((m, j) => j === c.msgs.length - 1 && m.r === 'a' ? { r: 'a', x: reply.slice(0, i), typing: !done } : m) } : c) }, () => { if (done) { clearInterval(this._type); this.save(); } });
+    }, 24);
+  }
+
+  askConfirm(title, body, action, keyword, onRun) { this.setState({ confirm: { title, body, action, keyword, onRun }, confirmText: '' }); }
+  runConfirm() {
+    const c = this.state.confirm; if (!c) return;
+    if ((this.state.confirmText || '').trim().toUpperCase() !== c.keyword) { this.notify('Type ' + c.keyword + ' to confirm.', 'warning'); return; }
+    this.setState({ confirm: null, confirmText: '' }); c.onRun();
+  }
+  trySchoolUnlock() {
+    const st = this.state.settings;
+    if (this.state.pinEntry === st.school.pin) {
+      this.set({ settings: { ...st, school: { ...st.school, on: false } }, showSchool: false, pinEntry: '', pinError: false });
+      this.record('School mode turned off'); this.notify(st.school.name + ' is off. Everything is back.', 'lock_open');
+    } else this.setState({ pinError: true, pinEntry: '' });
+  }
+
+  LAUNCHERS = [
+    ['Claude Code', 'smart_toy', 'claude-code'], ['ChatGPT', 'chat_bubble', 'chatgpt'], ['Hermes Agent', 'send', 'hermes'],
+    ['OpenClaw', 'pets', 'openclaw'], ['OpenCode', 'code', 'opencode'], ['Codex', 'terminal', 'codex'],
+    ['Copilot CLI', 'flight', 'copilot'], ['Droid', 'robot_2', 'droid'], ['DeepSeek Harness', 'sailing', 'deepseek'], ['Pi', 'functions', 'pi'],
+  ];
+  commands() {
+    const go = s => () => this.goScreen(s);
+    const list = this.SCREENS.map(s => ({ label: 'Go to ' + this.labelFor(s), icon: this.ICONS[s], kind: 'Screen', run: go(s) }));
+    list.push(
+      { label: 'New chat', icon: 'edit_square', kind: 'Action', run: () => { this.setState({ currentChat: null, showPalette: false }); this.goScreen('chat'); } },
+      { label: 'Toggle dark theme', icon: 'dark_mode', kind: 'Appearance', run: () => { const st = this.state.settings; const theme = st.appearance.theme === 'dark' ? 'light' : 'dark'; this.set({ settings: { ...st, appearance: { ...st.appearance, theme } }, showPalette: false }, () => this.applyTheme()); this.record('Theme → ' + theme); } },
+      { label: 'Check for updates', icon: 'system_update_alt', kind: 'Action', run: () => { this.setState({ showPalette: false }); this.notify('You are on build 10 (Bamboo Shoot Har Gow). No update available.', 'system_update_alt'); } },
+      { label: 'Edit appearance…', icon: 'palette', kind: 'Appearance', run: () => { this.setState({ showPalette: false }); this.openAppEd('--c-lowest'); } },
+      { label: 'Export settings as JSON', icon: 'download', kind: 'Export', run: () => { this.setState({ showPalette: false }); this.exportJson('settings.json', this.state.settings); } },
+      { label: 'Export chats as JSON', icon: 'download', kind: 'Export', run: () => { this.setState({ showPalette: false }); this.exportJson('chats.json', this.state.chats); } },
+    );
+    const st = this.state.settings;
+    if (st && !st.school.on) list.push({ label: 'Dim sum surprise', icon: 'bakery_dining', kind: 'Fun', run: () => { this.setState({ showPalette: false, dimsum: this.DISHES[Math.floor(Math.random() * this.DISHES.length)] }); } });
+    return list;
+  }
+  exportJson(name, obj) {
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob([JSON.stringify(obj, null, 2)], { type: 'application/json' }));
+    a.download = name; a.click(); URL.revokeObjectURL(a.href);
+    this.notify('Exported ' + name + '.', 'download'); this.record('Exported ' + name);
+  }
+  ago(t) { const s = (Date.now() - t) / 1000; return s < 60 ? 'now' : s < 3600 ? Math.floor(s / 60) + 'm ago' : s < 864e2 ? Math.floor(s / 3600) + 'h ago' : Math.floor(s / 864e2) + 'd ago'; }
+
+  renderVals() {
+    const base = this.rvCore();
+    ['rvSettings', 'rvModels', 'rvCodex', 'rvTools', 'rvDocs', 'rvStatus', 'rvDev', 'rvRxb', 'rvAppEd'].forEach(k => { if (this[k]) Object.assign(base, this[k]()); });
+    return base;
+  }
+  rvCore() {
+    const s = this.state; const st = s.settings || this.defaults();
+    const L = {}; Object.keys(this.DICT).forEach(k => L[k] = this.t(k));
+    const railScreens = this.SCREENS;
+    const railView = railScreens.map(sc => ({
+      label: this.labelFor(sc), icon: this.ICONS[sc], go: () => this.goScreen(sc),
+      fg: s.screen === sc ? 'var(--on-s)' : 'var(--on-sv)', pill: s.screen === sc ? 'var(--sec-c)' : 'none', fill: s.screen === sc ? 1 : 0,
+    }));
+    const tabsView = s.tabs.map(tb => ({
+      label: this.labelFor(tb.screen), icon: this.ICONS[tb.screen], pinned: tb.pinned, grouped: !!tb.group, group: tb.group || '#000',
+      bg: tb.id === s.activeTab ? 'var(--bg)' : 'transparent', fg: tb.id === s.activeTab ? 'var(--on-s)' : 'var(--on-sv)',
+      activate: () => this.set({ activeTab: tb.id, screen: tb.screen }),
+      close: (e) => { e.stopPropagation(); this.closeTab(tb.id); },
+      menu: (e) => this.tabMenu(e, tb.id),
+    }));
+    // chat list
+    let chats = s.chats.slice().sort((a, b) => b.t - a.t);
+    if (s.chatSearch) chats = chats.filter(c => this.matchQ(c.title, s.chatSearch, s.chatRegex));
+    const now = Date.now(), day = 864e5;
+    const groups = [[this.t('today'), c => now - c.t < day], [this.t('thisWeek'), c => now - c.t >= day && now - c.t < 7 * day], [this.t('older'), c => now - c.t >= 7 * day]];
+    const chatListView = [];
+    groups.forEach(([label, fn]) => {
+      const g = chats.filter(fn); if (!g.length) return;
+      chatListView.push({ isHeader: true, isChat: false, label });
+      g.forEach(c => chatListView.push({
+        isHeader: false, isChat: true, title: this.applyVocabSafe(c.title),
+        bg: c.id === s.currentChat ? 'var(--sec-c)' : 'none', fg: c.id === s.currentChat ? 'var(--on-sec-c)' : 'var(--on-s)',
+        open: () => this.set({ currentChat: c.id, modelMenuOpen: false }),
+        menu: (e) => this.chatCtx(e, c.id),
+      }));
+    });
+    const cur = s.chats.find(c => c.id === s.currentChat);
+    const msgs = cur ? cur.msgs : [];
+    const messagesView = msgs.map(m => ({ isUser: m.r === 'u', isAssistant: m.r === 'a', text: this.applyVocabSafe(m.x), typing: !!m.typing }));
+    const installed = st.installed || [];
+    const paletteResults = this.filterPalette();
+    const ctx = s.ctx;
+    return {
+      L, noop: () => {}, stop: e => e.stopPropagation(),
+      glyph: st.appearance.glyph, appName: st.appearance.appName,
+      schoolOn: st.school.on, schoolName: st.school.name,
+      openSchoolUnlock: () => this.setState({ showSchool: true, pinEntry: '', pinError: false }),
+      schoolUnlockTitle: 'Turn off ' + st.school.name,
+      togglePalette: () => this.setState({ showPalette: !s.showPalette, paletteQ: '' }),
+      toggleNotif: () => this.setState({ showNotif: !s.showNotif }),
+      hasUnread: s.notifs.length > 0 && !s.showNotif,
+      railView, tabsView,
+      bulkCloseTabs: () => { const tabs = s.tabs.filter(t => t.pinned); const final = tabs.length ? tabs : [{ id: s.nextTab, screen: 'chat', pinned: false, group: null }]; this.set({ tabs: final, activeTab: final[0].id, screen: final[0].screen, nextTab: s.nextTab + 1 }); },
+      sChat: s.screen === 'chat', sLaunch: s.screen === 'launch',
+      sModels: s.screen === 'models', sCodex: s.screen === 'codex', sDev: s.screen === 'devtools', sTools: s.screen === 'toolbox', sDocs: s.screen === 'docs', sStatus: s.screen === 'status', sSettings: s.screen === 'settings',
+      newChat: () => { this.set({ currentChat: null, draft: '' }); this.maybeDimsum(0.1); },
+      chatSearch: s.chatSearch, setChatSearch: e => this.setState({ chatSearch: e.target.value }),
+      chatListView, chatEmpty: !msgs.length, chatHasMsgs: !!msgs.length, messagesView,
+      clearChats: () => this.askConfirm('Clear all chats?', 'Every chat on this device will be permanently deleted. Exports are unaffected. There is no undo.', 'Clear all', 'CLEAR', () => { this.set({ chats: [], currentChat: null }); this.notify('All chats cleared.', 'delete_sweep'); this.record('Cleared all chats'); }),
+      draft: s.draft, setDraft: e => this.setState({ draft: e.target.value }),
+      draftKey: e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); this.send(); } },
+      send: () => this.send(),
+      currentModel: s.model, toggleModelMenu: () => this.setState({ modelMenuOpen: !s.modelMenuOpen }), modelMenuOpen: s.modelMenuOpen,
+      installedView: installed.map(name => ({ name, bg: name === s.model ? 'var(--sec-c)' : 'none', fg: name === s.model ? 'var(--on-sec-c)' : 'var(--on-sv)', pick: () => this.set({ model: name, modelMenuOpen: false }) })),
+      thinkOn: s.thinkOn, toggleThink: () => this.setState({ thinkOn: !s.thinkOn }),
+      thinkBg: s.thinkOn ? 'var(--sec-c)' : 'none', thinkFg: s.thinkOn ? 'var(--on-sec-c)' : 'var(--on-sv)',
+      webOn: s.webOn, toggleWeb: () => this.setState({ webOn: !s.webOn }),
+      webBg: s.webOn ? 'var(--sec-c)' : 'none', webFg: s.webOn ? 'var(--on-sec-c)' : 'var(--on-sv)',
+      launchView: this.LAUNCHERS.map(([name, icon, slug]) => ({ name, icon, cmd: 'ollama launch ' + slug + ' --model ' + s.model, run: () => { this.notify(name + ' launched with ' + s.model + '.', 'rocket_launch'); this.record('Launched ' + name); } })),
+      showPalette: s.showPalette, paletteQ: s.paletteQ, setPaletteQ: e => this.setState({ paletteQ: e.target.value }),
+      paletteRegex: s.paletteRegex, togglePaletteRegex: () => this.setState({ paletteRegex: !s.paletteRegex }),
+      pRegexBg: s.paletteRegex ? 'var(--sec-c)' : 'none', pRegexFg: s.paletteRegex ? 'var(--on-sec-c)' : 'var(--outline)',
+      paletteResults,
+      showNotif: s.showNotif, notifEmpty: !s.notifs.length,
+      notifView: s.notifs.map(n => ({ text: n.text, icon: n.icon, time: this.ago(n.t) })),
+      clearNotifs: () => this.set({ notifs: [] }),
+      showConfirm: !!s.confirm,
+      confirmTitle: s.confirm ? s.confirm.title : '', confirmBody: s.confirm ? s.confirm.body : '',
+      confirmAction: s.confirm ? s.confirm.action : '', confirmKeywordHint: s.confirm ? 'Type ' + s.confirm.keyword + ' to confirm' : '',
+      confirmText: s.confirmText, setConfirmText: e => this.setState({ confirmText: e.target.value }),
+      confirmBtnBg: s.confirm && s.confirmText.trim().toUpperCase() === s.confirm.keyword ? 'var(--err)' : 'var(--c-highest)',
+      confirmBtnFg: s.confirm && s.confirmText.trim().toUpperCase() === s.confirm.keyword ? 'white' : 'var(--outline)',
+      cancelConfirm: () => this.setState({ confirm: null, confirmText: '' }), runConfirm: () => this.runConfirm(),
+      showSchool: s.showSchool, pinEntry: s.pinEntry, setPinEntry: e => this.setState({ pinEntry: e.target.value, pinError: false }),
+      pinKey: e => { if (e.key === 'Enter') this.trySchoolUnlock(); }, pinError: s.pinError,
+      cancelSchool: () => this.setState({ showSchool: false, pinEntry: '' }), trySchoolUnlock: () => this.trySchoolUnlock(),
+      showDimsum: !!s.dimsum, dishName: s.dimsum ? s.dimsum[1] + ' · ' + s.dimsum[2] : '',
+      ctxOpen: !!ctx, ctxX: ctx ? ctx.x : 0, ctxY: ctx ? ctx.y : 0,
+      ctxItems: ctx ? ctx.items.filter(ci => this.matchQ(ci.label, s.ctxQ, s.ctxRegex)).map(ci => ({ label: ci.label, icon: ci.icon, fg: ci.danger ? 'var(--err)' : 'var(--on-s)', run: ci.run })) : [],
+      ctxQ: s.ctxQ || '', setCtxQ: e => this.setState({ ctxQ: e.target.value }),
+      openRxbCtx: () => this.openRxb('ctx', s.ctxQ), openRxbChats: () => this.openRxb('chats', s.chatSearch),
+      openRxbPalette: () => this.openRxb('palette', s.paletteQ), openRxbSettings: () => this.openRxb('settings', s.settingsQ),
+      openRxbModels: () => this.openRxb('models', s.modelSearch), openRxbDocs: () => this.openRxb('docs', s.docQ),
+      renaming: !!s.rename, renameValue: s.renameValue, setRenameValue: e => this.setState({ renameValue: e.target.value }),
+      renameKey: e => { if (e.key === 'Enter') this.doRename(); if (e.key === 'Escape') this.setState({ rename: null }); },
+      cancelRename: () => this.setState({ rename: null }), saveRenameNow: () => this.doRename(),
+      toastOn: !!s.toast, toastText: s.toast || '',
+      closeOverlays: () => this.closeAll(),
+    };
+  }
+  SETTINGS_DICT = {
+    searchSettings: ['Search settings', '搵設定'], general: ['General', '一般'],
+    modelLoc: ['Model location', '模型位置'], modelLocDesc: ['Where model weights are stored.', '模型放喺邊。'],
+    ctxLen: ['Context length', '上下文長度'], ctxDesc: ['How much of a conversation local models can remember.', '本地模型記得幾多對話。'],
+    langVoice: ['Language & voice', '語言同聲音'],
+    funnyEn: ['Funny level · English', 'Funny level · 英文'], funnyYue: ['Funny level · Cantonese', 'Funny level · 廣東話'],
+    funnyNote: ['Styles every message, including errors and warnings. Facts always stay exact — humor never hides what happened.', '所有訊息都會加啲風味，包括錯誤同警告。事實永遠準確。'],
+    langLocked: ['Language and humor options are unavailable while this mode is on.', 'Language and humor options are unavailable while this mode is on.'],
+    narration: ['Narration', '旁白'], narrationDesc: ['Spoken narration of app events. Off by default.', '事件語音旁白，預設關閉。'],
+    testVoice: ['Test voice', '試吓把聲'],
+    vocab: ['Personal vocabulary', '個人詞彙'], vocabDesc: ['Replace words at the display boundary. Commands, paths, and IDs stay verbatim.', '顯示層換字，指令同路徑照舊。'],
+    find: ['Find', '搵'], replaceWith: ['Replace with', '換做'], add: ['Add', '加'],
+    schoolDesc: ['One switch that makes playful language, humor, vocabulary, and dim-sum features behave as if they were never installed. Rename it and set a PIN below. Your choices are kept and return when it turns off.', 'One switch that hides playful language, humor, vocabulary, and dim-sum features. Rename it and set a PIN below.'],
+    schoolHonest: ['This is a self-imposed speed bump, not a security boundary. Clearing this app\u2019s local data resets it — by design.', 'This is a self-imposed speed bump, not a security boundary.'],
+    turnOn: ['Turn on', '開'], turnOff: ['Turn off', '閂'],
+    appearance: ['Appearance', '外觀'], seedColor: ['Seed color', '主色種子'], theme: ['Theme', '主題'],
+    light: ['Light', '淺色'], dark: ['Dark', '深色'], auto: ['Auto', '自動'], corner: ['Corner radius', '圓角'],
+    appNameLbl: ['App name', 'App 名'], logo: ['Logo', '標誌'],
+    colorXlate: ['Color translator', '顏色翻譯'], useAsSeed: ['Use as seed', '做種子'],
+    schedule: ['Scheduled changes', '定時設定'],
+    schedDark: ['Switch to dark theme', '轉深色'], schedLight: ['Switch to light theme', '轉淺色'], schedEn: ['Switch to English', '轉英文'], schedYue: ['Switch to Cantonese', '轉廣東話'],
+    dataPrivacy: ['Data & privacy', '資料同私隱'],
+    privacyNote: ['Everything lives in this app\u2019s local storage. No network calls are made by settings, tickets, history, or the authenticator. Exports are plain JSON files.', '全部資料淨係擺喺本機。'],
+    exportSettings: ['Export settings', '匯出設定'], exportChats: ['Export chats', '匯出傾偈'], resetDefaults: ['Reset to defaults', '還原預設'],
+  };
+  rvSettings() {
+    const s = this.state; const st = s.settings || this.defaults();
+    Object.keys(this.SETTINGS_DICT).forEach(k => { if (!this.DICT[k]) this.DICT[k] = this.SETTINGS_DICT[k]; });
+    const upd = (patch, note) => { this.set({ settings: { ...this.state.settings, ...patch } }, () => this.applyTheme()); if (note) this.record(note); };
+    const updAp = (patch, note) => upd({ appearance: { ...st.appearance, ...patch } }, note);
+    const match = kw => !s.settingsQ || kw.some(w => this.matchQ(w, s.settingsQ, s.settingsRegex));
+    const knob = on => on ? '22px' : '2px';
+    const toggles = [
+      ['cloud', 'cloud', 'Cloud', 'Enable cloud models and web search.', st.cloud, v => upd({ cloud: v }, 'Cloud ' + (v ? 'on' : 'off'))],
+      ['autoUpdate', 'system_update_alt', 'Auto-download updates', st.autoUpdate ? 'Updates download automatically from the unsigned feed.' : 'Updates will not download automatically.', st.autoUpdate, v => upd({ autoUpdate: v }, 'Auto-update ' + (v ? 'on' : 'off'))],
+      ['expose', 'wifi', 'Expose Ollama to the network', 'Allow other devices or services to access Ollama.', st.expose, v => upd({ expose: v }, 'Expose ' + (v ? 'on' : 'off'))],
+      ['agent', 'bolt', 'Agent mode', 'Use multi-turn tools to fulfill requests.', st.agent, v => upd({ agent: v })],
+      ['toolsMode', 'build', 'Tools mode', 'Use single-turn tools to fulfill requests.', st.toolsMode, v => upd({ toolsMode: v })],
+      ['emoji', 'mood', 'Dialog emoji', 'Allow emoji in styled dialog copy.', st.emoji, v => upd({ emoji: v }, 'Emoji ' + (v ? 'on' : 'off'))],
+    ].map(([id, icon, label, desc, on, set]) => ({
+      icon, label, desc, on,
+      flip: () => set(!on),
+      track: on ? 'var(--p)' : 'var(--c-highest)', trackBorder: on ? 'var(--p)' : 'var(--outline)',
+      knob: on ? 'var(--on-p)' : 'var(--outline)', knobLeft: knob(on),
+    }));
+    const voices = window.speechSynthesis ? speechSynthesis.getVoices() : [];
+    const nar = st.narration;
+    const seedList = ['#8a5a00', '#00696d', '#6750a4', '#8e4585', '#3a6b1f', '#1f5aa6', '#a63a2e'];
+    const dishCatalog = this.DISHES;
+    return {
+      settingsQ: s.settingsQ, setSettingsQ: e => this.setState({ settingsQ: e.target.value }),
+      qGeneral: match(['cloud', 'update', 'expose', 'network', 'model', 'context', 'agent', 'tools', 'general', 'emoji']),
+      qLang: match(['language', 'cantonese', 'english', 'bilingual', 'funny', 'humor', 'voice', 'narration', 'vocabulary', 'emoji']),
+      qSchool: match(['school', 'mode', 'lock', 'pin', st.school.name.toLowerCase()]),
+      qAppearance: match(['appearance', 'color', 'seed', 'theme', 'dark', 'light', 'corner', 'radius', 'name', 'logo', 'schedule', 'translator']),
+      qData: match(['data', 'privacy', 'export', 'reset', 'network']),
+      notSchool: !st.school.on,
+      toggleRows: toggles,
+      modelsDir: st.modelsDir, setModelsDir: e => upd({ modelsDir: e.target.value }),
+      ctxOptions: [4096, 8192, 16384, 32768, 65536, 131072, 262144].map(v => ({
+        label: v >= 1048576 ? '1m' : (v / 1024) + 'k', on: st.ctx === v,
+        bg: st.ctx === v ? 'var(--sec-c)' : 'none', fg: st.ctx === v ? 'var(--on-sec-c)' : 'var(--on-sv)',
+        pick: () => { upd({ ctx: v }, 'Context length → ' + v); this.notify('Context length saved. Restart the model runner to apply.', 'memory'); },
+      })),
+      langOptions: [['en', 'English'], ['yue', '廣東話'], ['both', 'Both · 雙語']].map(([v, label]) => ({
+        label, on: st.langMode === v,
+        bg: st.langMode === v ? 'var(--sec-c)' : 'none', fg: st.langMode === v ? 'var(--on-sec-c)' : 'var(--on-sv)',
+        pick: () => upd({ langMode: v }, 'Language → ' + label),
+      })),
+      funnyEn: st.funnyEn, funnyYue: st.funnyYue,
+      funnyEnLabel: ['Deadpan', 'Plain', 'Warm', 'Playful', 'Full comedy'][st.funnyEn],
+      funnyYueLabel: ['正經', '平實', '親切', '搞笑', '爆笑'][st.funnyYue],
+      setFunnyEn: e => upd({ funnyEn: +e.target.value }), setFunnyYue: e => upd({ funnyYue: +e.target.value }),
+      narrOn: nar.on, flipNarration: () => upd({ narration: { ...nar, on: !nar.on } }, 'Narration ' + (!nar.on ? 'on' : 'off')),
+      narrTrack: nar.on ? 'var(--p)' : 'var(--c-highest)', narrTrackBorder: nar.on ? 'var(--p)' : 'var(--outline)',
+      narrKnob: nar.on ? 'var(--on-p)' : 'var(--outline)', narrKnobLeft: knob(nar.on),
+      narrLang: nar.lang, setNarrLang: e => upd({ narration: { ...nar, lang: e.target.value } }),
+      narrVoice: nar.voice, setNarrVoice: e => upd({ narration: { ...nar, voice: e.target.value } }),
+      voiceOptions: [{ name: '', label: 'System default' }].concat(voices.slice(0, 25).map(v => ({ name: v.name, label: v.name + ' (' + v.lang + ')' }))),
+      testVoice: () => this.notify('This is how narration sounds.', 'record_voice_over'),
+      vocabFind: s.vocabFind, setVocabFind: e => this.setState({ vocabFind: e.target.value }),
+      vocabRepl: s.vocabRepl, setVocabRepl: e => this.setState({ vocabRepl: e.target.value }),
+      addVocab: () => { if (!s.vocabFind.trim()) return; upd({ vocab: (st.vocab || []).concat([{ find: s.vocabFind.trim(), repl: s.vocabRepl.trim() }]) }, 'Vocabulary entry added'); this.setState({ vocabFind: '', vocabRepl: '' }); },
+      vocabView: (st.vocab || []).map((v, i) => ({ label: v.find + ' → ' + (v.repl || '∅'), remove: () => upd({ vocab: st.vocab.filter((_, j) => j !== i) }) })),
+      schoolCardTitle: st.school.name,
+      schoolNameDraft: st.school.name, setSchoolName: e => upd({ school: { ...st.school, name: e.target.value } }),
+      schoolPinDraft: st.school.pin, setSchoolPin: e => upd({ school: { ...st.school, pin: e.target.value } }),
+      schoolBtnLabel: st.school.on ? this.t('turnOff') : this.t('turnOn'),
+      schoolBtnBg: st.school.on ? 'var(--c-highest)' : 'var(--p)', schoolBtnFg: st.school.on ? 'var(--on-sv)' : 'var(--on-p)',
+      toggleSchool: () => {
+        if (st.school.on) this.setState({ showSchool: true, pinEntry: '', pinError: false });
+        else { upd({ school: { ...st.school, on: true } }, st.school.name + ' turned on'); this.notify(st.school.name + ' is on.', 'lock'); }
+      },
+      openAppEdBtn: () => this.openAppEd('--c-lowest'),
+      seedSwatches: seedList.map(hex => ({ hex, border: st.appearance.seed === hex ? '3px solid var(--on-s)' : '1px solid var(--outline-v)', pick: () => updAp({ seed: hex }, 'Seed color → ' + hex) })),
+      seedHex: st.appearance.seed, setSeedHex: e => { const v = e.target.value; this.setState({ settings: { ...st, appearance: { ...st.appearance, seed: v } } }, () => { if (/^#[0-9a-f]{6}$/i.test(v)) { this.save(); this.applyTheme(); } }); },
+      themeOptions: [['light', 'light_mode'], ['dark', 'dark_mode'], ['auto', 'brightness_auto']].map(([v, icon]) => ({
+        label: this.t(v), icon, on: st.appearance.theme === v,
+        bg: st.appearance.theme === v ? 'var(--sec-c)' : 'none', fg: st.appearance.theme === v ? 'var(--on-sec-c)' : 'var(--on-sv)',
+        pick: () => updAp({ theme: v }, 'Theme → ' + v),
+      })),
+      radiusVal: st.appearance.radius, setRadius: e => updAp({ radius: +e.target.value }),
+      appNameDraft: st.appearance.appName, setAppName: e => updAp({ appName: e.target.value || 'Material Ollama' }),
+      glyphOptions: ['raven', 'pets', 'neurology', 'spa'].map(g => ({
+        name: g, bg: st.appearance.glyph === g ? 'var(--sec-c)' : 'none', fg: st.appearance.glyph === g ? 'var(--on-sec-c)' : 'var(--on-sv)',
+        pick: () => updAp({ glyph: g }, 'Logo → ' + g),
+      })),
+      colorIn: s.colorIn, setColorIn: e => this.setState({ colorIn: e.target.value }),
+      ...this.translateColor(s.colorIn),
+      schedTime: s.schedTime, setSchedTime: e => this.setState({ schedTime: e.target.value }),
+      schedKind: s.schedKind, setSchedKind: e => this.setState({ schedKind: e.target.value }),
+      addSchedule: () => { upd({ schedules: (st.schedules || []).concat([{ time: s.schedTime, kind: s.schedKind }]) }, 'Schedule added'); this.notify('Scheduled ' + s.schedKind.replace(':', ' → ') + ' at ' + s.schedTime + '.', 'schedule'); },
+      schedView: (st.schedules || []).map((sd, i) => ({
+        time: sd.time, label: sd.kind === 'theme:dark' ? this.t('schedDark') : sd.kind === 'theme:light' ? this.t('schedLight') : sd.kind === 'lang:en' ? this.t('schedEn') : this.t('schedYue'),
+        remove: () => upd({ schedules: st.schedules.filter((_, j) => j !== i) }),
+      })),
+      exportSettings: () => this.exportJson('settings.json', st),
+      exportChats: () => this.exportJson('chats.json', s.chats),
+      resetDefaults: () => this.askConfirm('Reset all settings?', 'Every setting returns to its shipped default. Chats, tickets, and history are kept.', 'Reset', 'RESET', () => { this.set({ settings: this.defaults() }, () => this.applyTheme()); this.notify('Settings reset to defaults.', 'restart_alt'); this.record('Settings reset'); }),
+      dishCatalogView: dishCatalog.map(d => ({ id: d[0], name: d[1] + ' · ' + d[2] })),
+    };
+  }
+  FEATURES = [
+    ['Voice & language', 'Language modes', 'Funny level controls', 'Dialog emoji toggle', 'School mode', 'Personal vocabulary', 'Narration', 'Narrator voice selection'],
+    ['Settings system', 'Scheduled settings', 'External settings sources', 'Settings explanations & provenance', 'Config profiles', 'Blank-slate presets', 'App display name', 'Appearance editor', 'Infinite color translator', 'App logo customization', 'Secret display history'],
+    ['Models & runtime', 'Model store', 'Hardware fit', 'Batch pull queue', 'Local chat sessions', 'Ollama suite manager', 'Harness profiles', 'CLI–GUI parity', 'GUI capability registry', 'Automatic updates', 'Packaged app icon'],
+    ['Navigation & search', 'Command palette', 'Browser tabs', 'Tab docking & overflow', 'Tab groups', 'Tab discovery searches', 'Tab bulk close', 'Regex builder', 'Collapsible filters', 'Context-menu shortcuts', 'Rich controls'],
+    ['Feedback & safety', 'Notifications', 'Notification center', 'Destructive super-confirmation', 'Long-operation progress', 'Failure recovery', 'Toy locks', 'Support tickets', 'Unlock ladder', 'Two-factor QR pairing', 'Built-in authenticator', 'Guided forms', 'Overlays'],
+    ['Content & records', 'Offline documentation browser', 'Changelog viewer', 'Local version history', 'Exports', 'Bulk actions', 'External editor', 'File converter', 'Dim sum surprise', 'Dim sum release catalog', 'API documentation & collection'],
+    ['Quality contract', 'Material Design', 'Accessibility', 'Responsive layout & sizing', 'No-network privacy', 'Landing-page boundary', 'Provider-authored renderer', 'Shared-link embed'],
+    ['Release & repo', 'Status hub', 'Status Discord bridge', 'Tidbyt status display', 'Vocabulary hash lock', 'Sanitized instruction copy', 'Repository-root build script', 'Dependency bootstrap', 'Bundled runtime dependencies', 'Unsigned release policy', 'Release line count', 'Issue handoff', 'Rolling discussion', 'Project status', 'Site homepage link', 'Capture manifest', 'Release metadata', 'Cheap transfer', 'Browser-extension download capture', 'Forge publishing'],
+  ];
+  TOOLS_DICT = {
+    toolboxTitle: ['Toolbox', '百寶箱'], toolboxSub: ['Local utilities. Nothing here touches the network.', '本地工具，全部唔上網。'],
+    regexLab: ['Regex lab', 'Regex 實驗室'], openBuilder: ['Open full builder', '開完整 builder'],
+    converter: ['File converter', '檔案轉換器'],
+    converterDesc: ['Queue conversions between document and image formats. Runs with bounded concurrency and survives restarts.', '排隊轉檔，慢慢嚟。'],
+    converterHonest: ['Conversions run entirely on this machine. Lossy steps are disclosed per file before they run.', '全部本機轉，唔會上載。'],
+    queue: ['Queue', '排隊'],
+    authenticator: ['Built-in authenticator', '內置驗證器'],
+    acctName: ['Account name', '帳戶名'], acctSecret: ['Base32 secret', 'Base32 秘密'], pair: ['Pair', '配對'],
+    totpHonest: ['Real RFC 6238 codes, computed locally. Ordinary exports omit secrets; the secrets path sits behind the super-confirmation gate.', '真 TOTP，本機計。匯出唔會包秘密。'],
+    docsTitle: ['Documentation', '說明書'], searchDocs: ['Search features', '搵功能'],
+    docsOffline: ['This documentation is bundled with the app and readable fully offline. Every feature row in the shared contract has an article here.', '說明書內置，離線都睇到。'],
+    statusTitle: ['Status & records', '狀態同紀錄'], statusSub: ['Release facts, change history, and your local activity — all verifiable, all local.', '發佈資料、變更紀錄、本地活動。'],
+    release: ['Current release', '目前版本'], checkUpdates: ['Check for updates', '睇吓有冇更新'],
+    dishCatalog: ['Dim sum release catalog', '點心發佈目錄'],
+    changelog: ['Changelog', '更新日誌'], versionHistory: ['Local version history', '本地版本歷史'],
+    exportHist: ['Export', '匯出'], noHistory: ['No recorded changes yet. Change any setting to see it here.', '未有紀錄。'],
+    tickets: ['Support tickets', '支援工單'],
+    ticketHonest: ['Nothing is sent anywhere. No ticket exists outside this machine, no network request is made, and nobody is reading it. Tickets live in local storage with everything else.', 'Nothing is sent anywhere. 工單淨係存喺本機。'],
+    ticketPlaceholder: ['Describe the issue…', '講吓咩事…'], fileTicket: ['File ticket', '開工單'],
+  };
+  CHANGELOG = [
+    ['2026-08-18', 'build.10', 'Bamboo shoot har gow · 筍尖蝦餃 — 55 release assets, manifest digests verified, Windows workflow 32128174303 green in 28:55.'],
+    ['2026-08-18', 'build.9', 'Scallop har gow · 帶子蝦餃 — first fully verified release: 55 assets, published SHA256SUMS, run 32121854591 in 25:50.'],
+    ['2026-08-17', 'build.8', 'Codex CLI harness lands: guided profiles, preflight, streamed output, cancellation, bounded redacted history.'],
+    ['2026-08-16', 'build.7', 'CLI–GUI parity registry covers every command, hidden ones included, each mapped to a Developer Tools surface.'],
+  ];
+  rvTools() {
+    const s = this.state;
+    Object.keys(this.TOOLS_DICT).forEach(k => { if (!this.DICT[k]) this.DICT[k] = this.TOOLS_DICT[k]; });
+    let rxErr = '', rxMatches = [];
+    if (s.rxPattern) { try { rxMatches = (s.rxText.match(new RegExp(s.rxPattern, s.rxFlags.includes('g') ? s.rxFlags : s.rxFlags + 'g')) || []).slice(0, 30); } catch (e) { rxErr = String(e.message || e); } }
+    const acctSan = (s.acctName || 'account').replace(/\s+/g, '');
+    return {
+      rxPattern: s.rxPattern, setRxPattern: e => this.setState({ rxPattern: e.target.value }),
+      rxFlags: s.rxFlags, setRxFlags: e => this.setState({ rxFlags: e.target.value }),
+      rxText: s.rxText, setRxText: e => this.setState({ rxText: e.target.value }),
+      rxErrOn: !!rxErr, rxErr, rxMatches: rxMatches.map(m => ({ m })), rxCount: rxMatches.length + (rxMatches.length === 1 ? ' match' : ' matches'),
+      openRxbLab: () => this.openRxb('rxlab', s.rxPattern),
+      convName: s.convName || '', setConvName: e => this.setState({ convName: e.target.value }),
+      convTo: s.convTo || 'pdf', setConvTo: e => this.setState({ convTo: e.target.value }),
+      convAdd: () => { const name = (s.convName || 'untitled.md').trim(); this.setState({ convFiles: s.convFiles.concat([{ name, to: s.convTo || 'pdf', pct: 0, done: false }]), convName: '' }); this.startConv(); },
+      convView: s.convFiles.map(f => ({
+        label: f.name + ' → .' + f.to, pct: Math.round(f.pct), done: f.done,
+        icon: f.done ? 'check_circle' : 'sync', fg: f.done ? 'var(--ter)' : 'var(--on-sv)',
+        status: f.done ? 'done' : Math.round(f.pct) + '%',
+      })),
+      totpSecs: s.totpSecs, totpPct: (s.totpSecs / 30) * 100,
+      totpView: s.totpAccounts.map((a, i) => ({
+        name: a.name, code: s.totpCodes[a.secret] || '· · · · · ·',
+        remove: () => this.askConfirm('Remove ' + a.name + '?', 'The pairing secret for this account is deleted from this device. Codes stop being generated. Your actual account elsewhere is unaffected.', 'Remove', 'REMOVE', () => { this.set({ totpAccounts: this.state.totpAccounts.filter((_, j) => j !== i) }); this.notify('Authenticator entry removed.', 'delete'); }),
+      })),
+      acctName: s.acctName, setAcctName: e => this.setState({ acctName: e.target.value }),
+      acctSecret: s.acctSecret, setAcctSecret: e => this.setState({ acctSecret: e.target.value.toUpperCase().replace(/[^A-Z2-7]/g, '') }),
+      addAcct: () => { if (!s.acctSecret) { this.notify('Enter a base32 secret to pair.', 'warning'); return; } this.set({ totpAccounts: s.totpAccounts.concat([{ name: s.acctName || 'Account', secret: s.acctSecret }]), acctName: '', acctSecret: '' }); this.notify('Paired. Codes now generate every 30 seconds.', 'phonelink_lock'); this.record('Paired authenticator account'); },
+      pairUriOn: !!s.acctSecret, pairUri: 'otpauth://totp/' + acctSan + '?secret=' + s.acctSecret + '&issuer=MaterialOllama&algorithm=SHA1&digits=6&period=30',
+    };
+  }
+  startConv() {
+    if (this._convT) return;
+    this._convT = setInterval(() => {
+      let finished = [];
+      const convFiles = this.state.convFiles.map(f => {
+        if (f.done) return f;
+        const pct = f.pct + 8 + Math.random() * 10;
+        if (pct >= 100) { finished.push(f); return { ...f, pct: 100, done: true }; }
+        return { ...f, pct };
+      });
+      this.setState({ convFiles });
+      finished.forEach(f => { this.notify(f.name + ' converted to .' + f.to + '.', 'sync_alt'); this.record('Converted ' + f.name + ' → .' + f.to); });
+      if (convFiles.every(f => f.done)) { clearInterval(this._convT); this._convT = null; }
+    }, 350);
+  }
+  async totpTick() {
+    const secs = 30 - Math.floor(Date.now() / 1000) % 30;
+    const patch = { totpSecs: secs };
+    if (secs === 30 || !this._totpDone) {
+      this._totpDone = true;
+      const codes = {};
+      for (const a of this.state.totpAccounts) codes[a.secret] = await this.totp(a.secret);
+      patch.totpCodes = codes;
+    }
+    this.setState(patch);
+  }
+  async totp(b32) {
+    try {
+      const A = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567'; let bits = '';
+      for (const ch of b32.replace(/=+$/, '')) { const v = A.indexOf(ch); if (v < 0) return '——————'; bits += v.toString(2).padStart(5, '0'); }
+      const bytes = new Uint8Array(Math.floor(bits.length / 8));
+      for (let i = 0; i < bytes.length; i++) bytes[i] = parseInt(bits.slice(i * 8, i * 8 + 8), 2);
+      const counter = new ArrayBuffer(8); new DataView(counter).setUint32(4, Math.floor(Date.now() / 30000));
+      const key = await crypto.subtle.importKey('raw', bytes, { name: 'HMAC', hash: 'SHA-1' }, false, ['sign']);
+      const h = new Uint8Array(await crypto.subtle.sign('HMAC', key, counter));
+      const o = h[h.length - 1] & 15;
+      const code = ((h[o] & 127) << 24 | h[o + 1] << 16 | h[o + 2] << 8 | h[o + 3]) % 1e6;
+      return String(code).padStart(6, '0');
+    } catch (e) { return '——————'; }
+  }
+  rvDocs() {
+    const s = this.state;
+    const docList = []; let count = 0; let first = null;
+    this.FEATURES.forEach(group => {
+      const [cat, ...items] = group;
+      const shown = items.filter(t => this.matchQ(t, s.docQ, s.docRegex));
+      if (!shown.length) return;
+      docList.push({ isHeader: true, isItem: false, label: cat });
+      shown.forEach(t => {
+        count++; if (!first) first = { cat, t };
+        const sel = s.docSel && s.docSel.t === t;
+        docList.push({ isHeader: false, isItem: true, title: t, bg: sel ? 'var(--sec-c)' : 'none', fg: sel ? 'var(--on-sec-c)' : 'var(--on-s)', open: () => this.setState({ docSel: { cat, t } }) });
+      });
+    });
+    const sel = s.docSel || first || { cat: '', t: '' };
+    return {
+      docQ: s.docQ, setDocQ: e => this.setState({ docQ: e.target.value }),
+      docList, docCount: count + ' of 85 contract features',
+      docCat: sel.cat, docTitle: sel.t, docBody: this.docArticle(sel.t),
+    };
+  }
+  docArticle(t) {
+    const A = {
+      'Language modes': 'Every user-facing surface offers three persisted language modes: English, playful Hong Kong-style Cantonese, and a bilingual mode that shows both. The mode applies to labels, dialogs, notifications, and accessible names alike.\n\nTry it: Settings → Language & voice.',
+      'Funny level controls': 'Two sliders — one per language — style the voice of every message from deadpan to full comedy. Voice, never facts: a warning still names the file, the action, and the consequence at every level.\n\nTry it: Settings → Language & voice, then delete a chat and read the confirmation.',
+      'School mode': 'One renamable switch that makes Cantonese, humor, vocabulary, and dim-sum features behave as if they were never installed — hidden, not greyed out. Turning it off requires the PIN. It is a self-imposed speed bump, not a security boundary, and the app says so.\n\nTry it: Settings → the renamable mode card.',
+      'Model store': 'Browse the catalog, check hardware fit against your RAM and VRAM, pull with live progress, pause or cancel mid-pull, and remove installed weights behind the super-confirmation gate.\n\nTry it: the Models screen — it is the home screen.',
+      'Command palette': 'Ctrl+Shift+F (or the Search pill) opens a palette that reaches every screen, setting, export, and easter egg. It supports plain text and full regex with the anchored builder.\n\nTry it: press Ctrl+Shift+F.',
+      'Regex builder': 'Every search field — chats, models, settings, docs, the palette, even right-click menus — carries a .* control that opens the full builder: pattern chips, flags, live matches against the real data the field filters, and one-tap apply.\n\nTry it: any search bar\u2019s .* button.',
+      'Destructive super-confirmation': 'Anything irreversible — deleting chats, removing models, resetting settings — demands a typed keyword before the destructive button arms itself. The copy states exactly what is affected and that there is no undo.\n\nTry it: Models → remove an installed model.',
+      'Built-in authenticator': 'A real RFC 6238 TOTP generator: pair with a base32 secret (the otpauth URI is shown for QR pairing), get 6-digit codes on a 30-second period, computed locally with WebCrypto. Ordinary exports omit secrets.\n\nTry it: Toolbox → Built-in authenticator.',
+      'Dim sum surprise': 'Occasionally, a dish card appears — named exactly, in both languages, from the release catalog. Humor styles the copy around the dish, never the dish itself. Suppressed entirely while the lockable mode is on.\n\nTry it: the palette has a command for it.',
+      'Support tickets': 'A fully local, honestly fictional support desk. The disclosure line is unmissable and unstyled by the funny level: nothing is sent anywhere, no ticket exists outside this machine, nobody is reading it.\n\nTry it: Status → Support tickets.',
+    };
+    return A[t] || ('Contract row from the shared feature inventory (85 rows, fail-closed).\n\nThis surface must carry the feature independently: implementation, documentation, localized copy in all three language modes, persistence, a focused check, built-artifact proof, and capture evidence tied to the exact build commit. A blank, placeholder, or source-only claim is not evidence.\n\nStatus in this prototype: represented ' + (['Vocabulary hash lock', 'Sanitized instruction copy', 'Repository-root build script', 'Dependency bootstrap', 'Bundled runtime dependencies', 'Release line count', 'Capture manifest', 'Cheap transfer', 'Landing-page boundary'].includes(t) ? 'as a documented repo/release contract (not a UI surface).' : 'with a working interactive equivalent elsewhere in this app.'));
+  }
+  rvStatus() {
+    const s = this.state;
+    return {
+      checkUpdates: () => this.notify('You are on build 10 — the latest. Feed checked locally; nothing was downloaded.', 'system_update_alt'),
+      changelogDate: s.changelogDate, setChangelogDate: e => this.setState({ changelogDate: e.target.value }),
+      changelogView: this.CHANGELOG.filter(c => !s.changelogDate || c[0] === s.changelogDate).map(([date, ver, note]) => ({ date, ver, note })),
+      histEmpty: !s.history.length,
+      histView: s.history.slice(0, 40).map(h => ({ when: this.ago(h.t), what: h.what })),
+      exportHistory: () => this.exportJson('version-history.json', s.history),
+      ticketText: s.ticketText, setTicketText: e => this.setState({ ticketText: e.target.value }),
+      fileTicket: () => {
+        const txt = s.ticketText.trim(); if (!txt) return;
+        const id = 'TKT-' + String(s.tickets.length + 1).padStart(3, '0');
+        this.set({ tickets: [{ id, text: txt, stage: 0 }].concat(s.tickets), ticketText: '' });
+        this.notify('Ticket ' + id + ' filed. (It lives only on this machine.)', 'confirmation_number'); this.record('Filed ticket ' + id);
+      },
+      ticketView: s.tickets.map(tk => {
+        const stages = ['open', 'looking into it', 'resolved'];
+        const done = tk.stage >= 2;
+        return {
+          id: tk.id, text: tk.text, status: stages[tk.stage],
+          bg: done ? 'var(--ter-c)' : 'var(--sec-c)', fg: done ? 'var(--on-ter-c)' : 'var(--on-sec-c)',
+          advance: () => { if (done) return; this.set({ tickets: this.state.tickets.map(x => x.id === tk.id ? { ...x, stage: x.stage + 1 } : x) }); },
+        };
+      }),
+    };
+  }
+  CODEX_PROFILES = [
+    ['Quick fix', ['exec', '--sandbox', 'workspace-write', '--ask-for-approval', 'never']],
+    ['Full run', ['exec', '--sandbox', 'danger-full-access']],
+    ['Dry run', ['exec', '--sandbox', 'read-only', '--dry-run']],
+  ];
+  CLI = [
+    ['ollama serve', 'Start the Ollama server', 'status', false],
+    ['ollama run', 'Run a model and chat', 'chat', false],
+    ['ollama pull', 'Download a model', 'models', false],
+    ['ollama push', 'Publish a model to a registry', 'models', false],
+    ['ollama list', 'List installed models', 'models', false],
+    ['ollama ps', 'Show loaded models', 'status', false],
+    ['ollama show', 'Show model details', 'models', false],
+    ['ollama create', 'Create a model from a Modelfile', 'devtools', false],
+    ['ollama cp', 'Copy a model', 'models', false],
+    ['ollama rm', 'Remove a model', 'models', false],
+    ['ollama stop', 'Unload a running model', 'status', false],
+    ['ollama signin', 'Connect an ollama.com account', 'settings', false],
+    ['ollama signout', 'Disconnect the account', 'settings', false],
+    ['ollama launch', 'Launch an agent harness', 'launch', false],
+    ['ollama runner', 'Internal model runner process', 'devtools', true],
+    ['ollama agent-tui', 'Internal agent terminal UI', 'codex', true],
+  ];
+  CODEX_DICT = {
+    codexTitle: ['Codex CLI harness', 'Codex CLI 工作台'],
+    codexSub: ['An allowlisted local run of the Codex CLI: guided profiles, preflight, streamed output, cancellation, and a bounded redacted history.', '本地行 Codex CLI：有指引、預檢、串流輸出、可以取消，仲有精簡歷史。'],
+    workDir: ['Working directory', '工作目錄'], prompt: ['Prompt', '提示'],
+    run: ['Run', '行'], cancelRun: ['Cancel', '取消'], openEditor: ['Open in external editor', '用外部編輯器開'],
+    runHistory: ['Run history', '運行歷史'], historyNote: ['Bounded to the last 12 runs. Secrets and env values are redacted before storage.', '只保留最近 12 次，秘密一律遮住先儲存。'],
+    noRuns: ['No runs yet.', '未行過。'],
+    devTitle: ['Developer tools', '開發者工具'],
+    devSub: ['Every CLI command has a GUI home — including hidden ones. This registry is the parity contract.', '每個 CLI 指令喺 GUI 都有位，包括隱藏嗰啲。'],
+    searchCommands: ['Search commands', '搵指令'], command: ['Command', '指令'], what: ['What it does', '做乜'], guiRoute: ['GUI surface', 'GUI 位置'],
+    configProfiles: ['Config profiles', '設定檔'], profilesDesc: ['Snapshot the current settings and re-apply them later.', '影低而家啲設定，遲啲再用。'],
+    profileName: ['Profile name', '檔名'], saveCurrent: ['Save current', '儲存目前'], apply: ['Apply', '套用'],
+  };
+  rvCodex() {
+    const s = this.state;
+    Object.keys(this.CODEX_DICT).forEach(k => { if (!this.DICT[k]) this.DICT[k] = this.CODEX_DICT[k]; });
+    const prof = this.CODEX_PROFILES.find(p => p[0] === s.codexProfile) || this.CODEX_PROFILES[0];
+    const argv = ['codex'].concat(prof[1]).concat(s.codexPrompt ? ['"' + s.codexPrompt + '"'] : []).join(' ');
+    return {
+      codexProfiles: this.CODEX_PROFILES.map(([name]) => ({ name, on: s.codexProfile === name, bg: s.codexProfile === name ? 'var(--sec-c)' : 'none', fg: s.codexProfile === name ? 'var(--on-sec-c)' : 'var(--on-sv)', pick: () => this.setState({ codexProfile: name }) })),
+      codexDir: s.codexDir, setCodexDir: e => this.setState({ codexDir: e.target.value }),
+      codexPrompt: s.codexPrompt, setCodexPrompt: e => this.setState({ codexPrompt: e.target.value }),
+      codexArgv: argv,
+      preflightView: [
+        ['codex binary found (v0.42.1)', true], ['sandbox available', true], [s.codexDir ? 'directory exists' : 'using current directory', true], ['rollback checkpoint ready', true],
+      ].map(([label, ok]) => ({ label, icon: ok ? 'check_circle' : 'error', fg: ok ? 'var(--ter)' : 'var(--err)' })),
+      codexIdle: !s.codexRunning, codexRunning: s.codexRunning,
+      codexRun: () => this.codexRun(argv), codexCancel: () => this.codexCancel(),
+      codexEditor: () => this.notify('Handed off to the external editor. The run config was written to codex.toml.', 'open_in_new'),
+      hasCodexLines: s.codexLines.length > 0,
+      codexLinesView: s.codexLines.map(x => ({ x })),
+      codexHistEmpty: !s.codexHistory.length,
+      codexHistView: s.codexHistory.map(h => ({ cmd: h.cmd, when: this.ago(h.t), icon: h.ok ? 'check_circle' : 'cancel', fg: h.ok ? 'var(--ter)' : 'var(--err)' })),
+    };
+  }
+  codexRun(argv) {
+    const LINES = [
+      '• preflight ok — sandbox: workspace-write',
+      '• reading repository … 214 files indexed',
+      '• plan: 1) reproduce 2) patch 3) test',
+      '$ go test ./agent/...', 'ok   ollama/agent  1.284s',
+      '• applying patch to agent/session.go (+18 −4)',
+      '$ go test ./agent/...', 'ok   ollama/agent  1.301s',
+      '• done — 1 file changed. Rollback checkpoint kept.',
+    ];
+    this.setState({ codexRunning: true, codexLines: ['$ ' + argv] });
+    let i = 0;
+    this._codexT = setInterval(() => {
+      if (i >= LINES.length) {
+        clearInterval(this._codexT);
+        this.set({ codexRunning: false, codexHistory: [{ cmd: argv.replace(/".*"/, '"…"'), t: Date.now(), ok: true }].concat(this.state.codexHistory).slice(0, 12) });
+        this.notify('Codex run finished: 1 file changed, tests green.', 'terminal'); this.record('Codex run completed');
+        return;
+      }
+      this.setState({ codexLines: this.state.codexLines.concat([LINES[i++]]) });
+    }, 550);
+  }
+  codexCancel() {
+    clearInterval(this._codexT);
+    this.set({ codexRunning: false, codexLines: this.state.codexLines.concat(['^C — run cancelled, workspace rolled back to checkpoint.']), codexHistory: [{ cmd: 'cancelled run', t: Date.now(), ok: false }].concat(this.state.codexHistory).slice(0, 12) });
+    this.notify('Run cancelled. Workspace rolled back to the checkpoint.', 'stop');
+  }
+  rvDev() {
+    const s = this.state;
+    const shown = this.CLI.filter(c => this.matchQ(c[0] + ' ' + c[1], s.devQ || '', s.devRegex));
+    return {
+      devQ: s.devQ || '', setDevQ: e => this.setState({ devQ: e.target.value }),
+      openRxbDev: () => this.openRxb('rxlab', s.devQ),
+      cliView: shown.map(([cmd, desc, route, hidden]) => ({ cmd, desc, route: this.labelFor(route), hidden, go: () => this.goScreen(route) })),
+      profileName: s.profileName, setProfileName: e => this.setState({ profileName: e.target.value }),
+      saveProfile: () => { const name = s.profileName.trim() || 'Profile ' + (s.profiles.length + 1); this.set({ profiles: s.profiles.concat([{ name, snap: JSON.parse(JSON.stringify(s.settings)) }]), profileName: '' }); this.notify('Profile “' + name + '” saved.', 'bookmark_added'); this.record('Saved config profile ' + name); },
+      profileView: s.profiles.map((p, i) => ({
+        name: p.name,
+        apply: () => { this.set({ settings: p.snap }, () => this.applyTheme()); this.notify('Profile “' + p.name + '” applied.', 'bookmark'); this.record('Applied profile ' + p.name); },
+        remove: () => this.set({ profiles: s.profiles.filter((_, j) => j !== i) }),
+      })),
+    };
+  }
+  MODELS = [
+    ['llama3.3:latest', 4.9, 'Meta\u2019s general model. Strong reasoning and instruction following.', ['tools', 'chat']],
+    ['gemma3:4b', 3.3, 'Google\u2019s compact multimodal model. Fast on modest hardware.', ['vision', 'chat']],
+    ['gemma3:27b', 17.4, 'Larger Gemma with much stronger reasoning.', ['vision', 'chat']],
+    ['qwen3:8b', 5.2, 'Alibaba\u2019s hybrid thinking model with tool use.', ['tools', 'thinking']],
+    ['qwen3:32b', 20.2, 'Big Qwen for heavy reasoning workloads.', ['tools', 'thinking']],
+    ['deepseek-r1:8b', 5.2, 'Distilled reasoning model that shows its thinking.', ['thinking']],
+    ['deepseek-r1:70b', 42.5, 'Full-scale R1 distill. Needs serious memory.', ['thinking']],
+    ['mistral-small3.2', 15.0, 'Mistral\u2019s efficient all-rounder with vision.', ['vision', 'tools']],
+    ['qwen3-coder:30b', 18.6, 'Code-specialist tuned for agentic workflows.', ['tools', 'code']],
+    ['gpt-oss:20b', 13.8, 'OpenAI\u2019s open-weight model for local agents.', ['tools', 'thinking']],
+    ['nomic-embed-text', 0.3, 'Text embeddings for search and RAG pipelines.', ['embedding']],
+    ['llava:13b', 8.0, 'Vision-language model for image chat.', ['vision']],
+  ];
+  MODEL_DICT = {
+    modelStore: ['Model store', '模型舖'], modelStoreSub: ['Pull models to this machine, check what fits your hardware, then chat.', '拉模型返嚟，睇吓部機夾唔夾，再開始傾。'],
+    searchModels: ['Search models', '搵模型'], hardwareFit: ['Hardware fit', '硬件夾唔夾'],
+    pullShown: ['Pull all shown', '拉晒顯示嘅'], pullQueue: ['Pull queue', '下載隊列'],
+    installed: ['Installed', '裝咗'], pull: ['Pull', '拉'],
+    fitVram: ['Fits in VRAM', '入到 VRAM'], fitRam: ['Fits in RAM', '入到 RAM'], fitNo: ['Too big', '太大部'],
+    filterMenu: ['Filter menu…', '篩選單…'], applySearch: ['Apply to search', '套用搜尋'],
+  };
+  rvModels() {
+    const s = this.state; const st = s.settings || this.defaults();
+    Object.keys(this.MODEL_DICT).forEach(k => { if (!this.DICT[k]) this.DICT[k] = this.MODEL_DICT[k]; });
+    const installed = st.installed || [];
+    const shown = this.MODELS.filter(m => this.matchQ(m[0] + ' ' + m[2] + ' ' + m[3].join(' '), s.modelSearch, s.modelRegex));
+    const fitOf = gb => gb <= s.hwVram ? ['fitVram', 'var(--ter-c)', 'var(--on-ter-c)'] : gb <= s.hwRam ? ['fitRam', 'var(--sec-c)', 'var(--on-sec-c)'] : ['fitNo', 'var(--err-c)', 'var(--on-err-c)'];
+    return {
+      modelSearch: s.modelSearch, setModelSearch: e => this.setState({ modelSearch: e.target.value }),
+      modelRegex: s.modelRegex, toggleModelRegex: () => this.setState({ modelRegex: !s.modelRegex }),
+      mRegexBg: s.modelRegex ? 'var(--sec-c)' : 'none', mRegexFg: s.modelRegex ? 'var(--on-sec-c)' : 'var(--outline)',
+      hwRam: s.hwRam, setHwRam: e => this.setState({ hwRam: +e.target.value || 0 }),
+      hwVram: s.hwVram, setHwVram: e => this.setState({ hwVram: +e.target.value || 0 }),
+      hasPulls: s.pulls.length > 0,
+      pullView: s.pulls.map(p => ({
+        name: p.name, pct: Math.round(p.pct), status: p.paused ? 'paused' : Math.round(p.pct) + '% · ' + p.size + ' GB',
+        pauseIcon: p.paused ? 'play_arrow' : 'pause',
+        pause: () => this.setState({ pulls: this.state.pulls.map(x => x.name === p.name ? { ...x, paused: !x.paused } : x) }),
+        cancel: () => { this.setState({ pulls: this.state.pulls.filter(x => x.name !== p.name) }); this.notify('Pull of ' + p.name + ' cancelled.', 'close'); },
+      })),
+      modelCatalogView: shown.map(([name, size, desc, caps]) => {
+        const inst = installed.includes(name); const pulling = s.pulls.some(p => p.name === name);
+        const [fitKey, fitBg, fitFg] = fitOf(size);
+        return {
+          name, size: size.toFixed(1), desc, caps: caps.map(c => ({ c })),
+          fit: this.t(fitKey), fitBg, fitFg, installed: inst, canPull: !inst && !pulling,
+          pull: () => this.startPull(name, size),
+          remove: () => this.askConfirm('Remove ' + name + '?', 'The model weights (' + size.toFixed(1) + ' GB) are deleted from this machine. You can pull it again later.', 'Remove model', 'REMOVE', () => {
+            this.set({ settings: { ...this.state.settings, installed: this.state.settings.installed.filter(x => x !== name) } });
+            this.notify(name + ' removed.', 'delete'); this.record('Removed model ' + name);
+          }),
+        };
+      }),
+      pullAllShown: () => { const todo = shown.filter(([n]) => !installed.includes(n) && !s.pulls.some(p => p.name === n)); if (!todo.length) { this.notify('Everything shown is already installed or queued.', 'check_circle'); return; } todo.forEach(([n, sz]) => this.startPull(n, sz)); },
+    };
+  }
+  startPull(name, size) {
+    if (this.state.pulls.some(p => p.name === name)) return;
+    this.setState({ pulls: this.state.pulls.concat([{ name, size, pct: 0, paused: false }]) });
+    this.record('Started pull ' + name);
+    if (!this._pullT) this._pullT = setInterval(() => {
+      let done = [];
+      const pulls = this.state.pulls.map(p => {
+        if (p.paused) return p;
+        const pct = p.pct + Math.max(0.6, 9 / p.size) * (0.7 + Math.random() * 0.6);
+        if (pct >= 100) { done.push(p); return null; }
+        return { ...p, pct };
+      }).filter(Boolean);
+      this.setState({ pulls });
+      done.forEach(p => {
+        const st = this.state.settings;
+        this.set({ settings: { ...st, installed: st.installed.concat([p.name]) } });
+        this.notify(p.name + ' pulled and ready.', 'download_done'); this.record('Pulled model ' + p.name);
+      });
+      if (!pulls.length) { clearInterval(this._pullT); this._pullT = null; }
+    }, 400);
+  }
+  translateColor(input) {
+    if (!input || !input.trim()) return { colorOk: false, colorHex: '', colorInfo: '', useColorAsSeed: () => {} };
+    const el = document.createElement('span'); el.style.color = '';
+    el.style.color = input.trim();
+    if (!el.style.color) return { colorOk: false, colorHex: '', colorInfo: '', useColorAsSeed: () => {} };
+    document.body.appendChild(el);
+    const rgb = getComputedStyle(el).color; document.body.removeChild(el);
+    const m = rgb.match(/(\d+)[,\s]+(\d+)[,\s]+(\d+)/); if (!m) return { colorOk: false, colorHex: '', colorInfo: '', useColorAsSeed: () => {} };
+    const hex = '#' + [m[1], m[2], m[3]].map(x => (+x).toString(16).padStart(2, '0')).join('');
+    const { L, c, h } = this.hexToOklch(hex);
+    const info = hex + ' · ' + rgb + ' · oklch(' + L.toFixed(2) + ' ' + c.toFixed(3) + ' ' + h.toFixed(0) + ')';
+    return { colorOk: true, colorHex: hex, colorInfo: info, useColorAsSeed: () => { const st = this.state.settings; this.set({ settings: { ...st, appearance: { ...st.appearance, seed: hex } } }, () => this.applyTheme()); this.record('Seed color → ' + hex); } };
+  }
+  checkSchedules() {
+    const st = this.state.settings; if (!st || !st.schedules || !st.schedules.length) return;
+    const now = new Date(); const hhmm = String(now.getHours()).padStart(2, '0') + ':' + String(now.getMinutes()).padStart(2, '0');
+    st.schedules.forEach(sd => {
+      if (sd.time !== hhmm || sd._ran === hhmm + now.toDateString()) return;
+      sd._ran = hhmm + now.toDateString();
+      const [kind, val] = sd.kind.split(':');
+      if (kind === 'theme') this.set({ settings: { ...this.state.settings, appearance: { ...this.state.settings.appearance, theme: val } } }, () => this.applyTheme());
+      if (kind === 'lang') this.set({ settings: { ...this.state.settings, langMode: val } });
+      this.notify('Scheduled change applied: ' + sd.kind.replace(':', ' → ') + '.', 'schedule');
+      this.record('Schedule fired: ' + sd.kind);
+    });
+  }
+  applyVocabSafe(text) {
+    const st = this.state.settings; if (!st || !st.vocab || !st.vocab.length || st.school.on) return text;
+    let out = text; st.vocab.forEach(v => { if (v.find) out = out.split(v.find).join(v.repl); }); return out;
+  }
+  doRename() {
+    const r = this.state.rename; if (!r) return; const v = this.state.renameValue.trim(); if (!v) { this.setState({ rename: null }); return; }
+    if (r.kind === 'chat') this.set({ chats: this.state.chats.map(c => c.id === r.id ? { ...c, title: v } : c), rename: null });
+    this.record('Renamed a chat');
+  }
+  APP_TARGETS = [
+    ['--bg', 'App background'], ['--c-low', 'Panels & bars'], ['--c-lowest', 'Cards'],
+    ['--p', 'Primary actions'], ['--pc', 'Chat bubbles & tonal buttons'], ['--sec-c', 'Selection pills'],
+    ['--on-s', 'Text'], ['--on-sv', 'Muted text'], ['--outline-v', 'Borders'],
+  ];
+  APP_ED_DICT = {
+    editAppearance: ['Edit appearance…', '執吓外觀…'],
+    appEdNote: ['Pick an element class, then a color. Overrides apply live, persist, and survive theme or seed changes until you reset them.', '揀元素，再揀色。即時生效，會記住。'],
+    resetElement: ['Reset element', '還原元素'], resetAllOverrides: ['Reset all overrides', '還原晒'], doneBtn: ['Done', '搞掂'],
+  };
+  openAppEd(targetToken) {
+    Object.keys(this.APP_ED_DICT).forEach(k => { if (!this.DICT[k]) this.DICT[k] = this.APP_ED_DICT[k]; });
+    this.setState({ appEd: { sel: targetToken || '--c-lowest' }, appEdHex: '', ctx: null });
+  }
+  rvAppEd() {
+    const s = this.state; const st = s.settings || this.defaults();
+    Object.keys(this.APP_ED_DICT).forEach(k => { if (!this.DICT[k]) this.DICT[k] = this.APP_ED_DICT[k]; });
+    if (!s.appEd) return { appEdOpen: false };
+    const ov = st.appearance.overrides || {};
+    const sel = s.appEd.sel;
+    const setOv = (token, val) => {
+      const overrides = { ...ov }; if (val) overrides[token] = val; else delete overrides[token];
+      this.set({ settings: { ...st, appearance: { ...st.appearance, overrides } } }, () => this.applyTheme());
+      this.record('Appearance override: ' + (this.APP_TARGETS.find(t => t[0] === token) || [token])[1] + (val ? ' → ' + val : ' reset'));
+    };
+    const cs = getComputedStyle(document.documentElement);
+    const SW = ['#ffffff', '#1c1b1a', '#8a5a00', '#00696d', '#6750a4', '#8e4585', '#3a6b1f', '#b3261e'];
+    return {
+      appEdOpen: true, appEdClose: () => this.setState({ appEd: null }),
+      appEdTargets: this.APP_TARGETS.map(([token, label]) => ({
+        label, on: sel === token, overridden: !!ov[token],
+        cur: ov[token] || cs.getPropertyValue(token).trim() || 'transparent',
+        bg: sel === token ? 'var(--sec-c)' : 'none', fg: sel === token ? 'var(--on-sec-c)' : 'var(--on-sv)',
+        pick: () => this.setState({ appEd: { sel: token }, appEdHex: ov[token] || '' }),
+      })),
+      appEdSelLabel: (this.APP_TARGETS.find(t => t[0] === sel) || ['', ''])[1] + ':',
+      appEdSwatches: SW.map(hex => ({ hex, border: ov[sel] === hex ? '3px solid var(--p)' : '1px solid var(--outline-v)', pick: () => setOv(sel, hex) })),
+      appEdHex: s.appEdHex || '', setAppEdHex: e => { const v = e.target.value; this.setState({ appEdHex: v }); if (/^#[0-9a-f]{6}$/i.test(v)) setOv(sel, v); },
+      appEdResetOne: () => { setOv(sel, null); this.setState({ appEdHex: '' }); },
+      appEdResetAll: () => { this.set({ settings: { ...st, appearance: { ...st.appearance, overrides: {} } } }, () => this.applyTheme()); this.notify('All appearance overrides reset.', 'restart_alt'); },
+    };
+  }
+  matchQ(text, q, useRx) {
+    if (!q) return true;
+    if (useRx) { try { return new RegExp(q, 'i').test(text); } catch (e) { return false; } }
+    return text.toLowerCase().includes(q.toLowerCase());
+  }
+  RX_TARGETS = {
+    chats: { label: 'Chat search', apply: p => this.setState({ chatSearch: p, chatRegex: true }) },
+    palette: { label: 'Command palette', apply: p => this.setState({ paletteQ: p, paletteRegex: true }) },
+    settings: { label: 'Settings search', apply: p => this.setState({ settingsQ: p, settingsRegex: true }) },
+    models: { label: 'Model search', apply: p => this.setState({ modelSearch: p, modelRegex: true }) },
+    docs: { label: 'Docs search', apply: p => this.setState({ docQ: p, docRegex: true }) },
+    ctx: { label: 'Menu search', apply: p => this.setState({ ctxQ: p, ctxRegex: true }) },
+    rxlab: { label: 'Regex lab', apply: p => this.setState({ rxPattern: p }) },
+  };
+  openRxb(target, seed) {
+    this.setState({ rxb: { target }, rxbPattern: seed || '', rxbFlags: 'gi', rxbTest: this.rxbSampleFor(target) });
+  }
+  rxbSampleFor(target) {
+    if (target === 'models') return this.MODELS.map(m => m[0]).join('\n');
+    if (target === 'chats') return this.state.chats.map(c => c.title).join('\n');
+    if (target === 'palette' || target === 'ctx') return this.commands().map(c => c.label).join('\n');
+    if (target === 'settings') return 'cloud network updates\nlanguage funny voice vocabulary\nschool mode lock pin\nappearance seed theme corner\ndata privacy export reset';
+    if (target === 'docs') return (this.FEATURES || []).slice(0, 30).map(f => f[1]).join('\n');
+    return 'Ollama runs llama3.3 locally.\ngemma3:4b · qwen3:8b · deepseek-r1';
+  }
+  rvRxb() {
+    const s = this.state; const open = !!s.rxb;
+    if (!open) return { rxbOpen: false };
+    let rxErr = '', matches = [];
+    if (s.rxbPattern) {
+      try {
+        const rx = new RegExp(s.rxbPattern, s.rxbFlags.includes('g') ? s.rxbFlags : s.rxbFlags + 'g');
+        matches = (s.rxbTest.match(rx) || []).slice(0, 40);
+      } catch (e) { rxErr = String(e.message || e); }
+    }
+    const ins = tok => () => this.setState({ rxbPattern: s.rxbPattern + tok });
+    const CHIPS = [
+      ['^', 'start'], ['$', 'end'], ['\\b', 'word edge'], ['\\d+', 'digits'], ['\\w+', 'word'], ['\\s', 'space'],
+      ['[a-z]', 'a–z'], ['[A-Z]', 'A–Z'], ['[^…]', 'not…'], ['.', 'any'], ['.*', 'anything'], ['.+?', 'lazy'],
+      ['(…)', 'group'], ['(?:…)', 'no-capture'], ['a|b', 'or'], ['{2,4}', 'count'], ['?', 'optional'],
+      ['(?=…)', 'lookahead'], ['(?<=…)', 'lookbehind'], ['\\p{Script=Han}', 'Chinese'], ['\\u{1F95F}', 'emoji cp'],
+    ];
+    const t = this.RX_TARGETS[s.rxb.target];
+    return {
+      rxbOpen: true, rxbTitle: 'Regex builder — ' + t.label,
+      rxbPattern: s.rxbPattern, setRxbPattern: e => this.setState({ rxbPattern: e.target.value }),
+      rxbFlags: s.rxbFlags,
+      rxbFlagChips: ['g', 'i', 'm', 's', 'u'].map(f => ({
+        f, on: s.rxbFlags.includes(f),
+        bg: s.rxbFlags.includes(f) ? 'var(--sec-c)' : 'none', fg: s.rxbFlags.includes(f) ? 'var(--on-sec-c)' : 'var(--on-sv)',
+        flip: () => this.setState({ rxbFlags: s.rxbFlags.includes(f) ? s.rxbFlags.replace(f, '') : s.rxbFlags + f }),
+      })),
+      rxbChips: CHIPS.map(([tok, label]) => ({ tok, label, ins: ins(tok.replace('…', '')) })),
+      rxbTest: s.rxbTest, setRxbTest: e => this.setState({ rxbTest: e.target.value }),
+      rxbErr: rxErr, rxbHasErr: !!rxErr,
+      rxbMatches: matches.map(m => ({ m })), rxbCount: matches.length + (matches.length === 1 ? ' match' : ' matches'),
+      rxbApply: () => { t.apply(s.rxbPattern); this.setState({ rxb: null }); this.notify('Regex applied to ' + t.label.toLowerCase() + '.', 'regular_expression'); },
+      rxbClose: () => this.setState({ rxb: null }),
+    };
+  }
+  filterPalette() {
+    const s = this.state; const all = this.commands();
+    let list = all;
+    if (s.paletteQ) {
+      if (s.paletteRegex) { try { const rx = new RegExp(s.paletteQ, 'i'); list = all.filter(c => rx.test(c.label)); } catch (e) { list = []; } }
+      else { const q = s.paletteQ.toLowerCase(); list = all.filter(c => c.label.toLowerCase().includes(q)); }
+    }
+    return list.slice(0, 12).map(c => ({ ...c, bg: 'none' }));
+  }
+}
+</script>
+</body>
+</html>
