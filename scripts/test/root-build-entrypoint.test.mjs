@@ -14,6 +14,7 @@ const unsignedProbe = fs.readFileSync(path.join(root, 'scripts', 'verify-unsigne
 const artifactProbe = fs.readFileSync(path.join(root, 'scripts', 'verify-installer-artifact.ps1'), 'utf8').replaceAll('\r\n', '\n')
 const prereqBootstrap = fs.readFileSync(path.join(root, 'scripts', 'bootstrap_windows_prerequisites.ps1'), 'utf8').replaceAll('\r\n', '\n')
 const toolBootstrap = fs.readFileSync(path.join(root, 'scripts', 'bootstrap_windows_tools.ps1'), 'utf8').replaceAll('\r\n', '\n')
+const webViewFetcher = fs.readFileSync(path.join(root, 'scripts', 'fetch-webview2.ps1'), 'utf8').replaceAll('\r\n', '\n')
 const hashModuleFixture = path.join(root, 'scripts', 'check-powershell-hash-module.ps1')
 
 function assertUnsignedProbeContract(source) {
@@ -65,6 +66,22 @@ test('root dependency bootstrap owns fresh-machine tools and WebView2, while ins
   assert.doesNotMatch(entrypoint, /^powershell(?:\.exe)?\s+-NoProfile/m)
   assert.match(installerEntrypoint, /POWERSHELL_EXE=%SystemRoot%\\System32\\WindowsPowerShell\\v1\.0\\powershell\.exe/)
   assert.doesNotMatch(installerEntrypoint, /^powershell(?:\.exe)?\s+-NoProfile/m)
+})
+
+test('silent download helpers suppress host progress rendering while keeping phase receipts', () => {
+  const progressContract = /^\$ProgressPreference = 'SilentlyContinue'$/m
+  assert.match(toolBootstrap, progressContract)
+  assert.match(webViewFetcher, progressContract)
+  assert.doesNotMatch(
+    toolBootstrap.replace("$ProgressPreference = 'SilentlyContinue'", ''),
+    progressContract,
+    'removing the tool-download progress contract must turn this check red',
+  )
+  assert.doesNotMatch(
+    webViewFetcher.replace("$ProgressPreference = 'SilentlyContinue'", ''),
+    progressContract,
+    'removing the WebView2 progress contract must turn this check red',
+  )
 })
 
 test('installer entrypoint proves the produced executable is unsigned before reporting its digest', () => {
