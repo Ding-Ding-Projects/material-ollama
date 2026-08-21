@@ -6,6 +6,10 @@
 
 Measured against the canonical contract, two gaps are worth stating plainly: the toast renders `fixed bottom-6 left-1/2 -translate-x-1/2` (bottom-**center**), not the required bottom-left/bottom-right screen corner; and every toast shares the same fixed 4000ms auto-dismiss regardless of severity, rather than errors and warnings persisting until the user dismisses them. There is no notification history behind this component -- see `notification-center.md` for the separate surface that does keep one.
 
+## Test coverage
+
+`Snackbar.dom.test.tsx` uses fake timers to prove the queueing contract stated above is real, not just documented: firing two `show()` calls back to back renders only the first message's text in the `status`/`aria-live="polite"` region, with the second message absent from the DOM entirely (not hidden -- queued); advancing past the first message's duration dequeues it and the same status region then shows the second message; and advancing past the second message's own duration removes the status region altogether, proving auto-dismiss actually clears the queue rather than leaving a stale toast behind.
+
 ## Configuration
 
 TODO(notifications): describe how a user or operator configures this feature -- the settings surface, its defaults, and where the choice persists.
@@ -20,7 +24,9 @@ TODO(notifications): describe what this feature must never expose or allow, and 
 
 ## Verification
 
-TODO(notifications): name the focused test(s), the built-artifact interaction proof, and the real capture evidence that back this feature.
+- Focused test: `app/ui/app/src/components/md3/Snackbar.dom.test.tsx::shows two queued messages one at a time, not stacked together` (plus its sibling case in the same file).
+- Built-artifact proof: not yet attached -- a toast is only ever on screen for the seconds after a triggering action, and none of the 12 real captures in this inventory's manifest happened to be taken while one was visible.
+- Capture evidence: not yet attached, for the same reason. A dedicated capture taken immediately after an action that calls `useSnackbar().show()` (e.g. applying a regex pattern in the Toolbox) would close this gap honestly.
 
 ## Suggested articles
 

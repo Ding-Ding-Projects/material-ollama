@@ -8,6 +8,10 @@ Measured against the fuller canonical contract (named colors, HEX8, RGBA/HSLA, H
 
 The translator is deliberately a mixing workspace, not a value that writes itself back to the theme on every keystroke: `AppearanceCard.tsx` seeds it from the current theme seed but only commits a change to the live theme and to `/api/v1/uh/preferences` when the user explicitly clicks "Use as seed colour" (`onUseAsSeed`) -- so exploring colors freely never has a side effect until that one deliberate step.
 
+## Test coverage
+
+`colorMath.test.ts` proves the conversion maths the whole panel is built on: `normalizeHex` accepts both 3- and 6-digit hex with or without a leading `#` and rejects garbage rather than throwing; hex round-trips exactly back to hex through `rgbToHex(hexToRgb(...))`; RGB round-trips through both HSL and HSV within a one-unit-per-channel rounding tolerance; and `contrastRatio` computes the real WCAG maximum of 21:1 between pure black and white (in both directions) and exactly 1 for a colour against itself. The 2D saturation/value field's pointer/keyboard handlers and the OKLCH readout remain uncovered by a dedicated test in this pass.
+
 ## Configuration
 
 TODO(infinite-color-translator): describe how a user or operator configures this feature -- the settings surface, its defaults, and where the choice persists.
@@ -22,7 +26,9 @@ TODO(infinite-color-translator): describe what this feature must never expose or
 
 ## Verification
 
-TODO(infinite-color-translator): name the focused test(s), the built-artifact interaction proof, and the real capture evidence that back this feature.
+- Focused test: `app/ui/app/src/screens/Settings/colorMath.test.ts::computes the real WCAG maximum (21:1) contrast between pure black and white` (plus its five sibling cases in the same file).
+- Built-artifact proof: not yet attached -- the translator sits below the fold on `/settings`, and no capture in this inventory's manifest shows it.
+- Capture evidence: not yet attached, for the same reason. Recapturing `/settings` scrolled to the Appearance card's colour translator would close this gap honestly.
 
 ## Suggested articles
 

@@ -10,6 +10,10 @@ What still does not exist: no call site anywhere imports the `app/ui/app/src/uh/
 
 As with `language-modes.md`, the real `/settings` route currently crashes before a user can reach this card in the packaged build (see that article's caveat), so the preference-writing half above is proven at the component-test level only for now.
 
+## Test coverage
+
+`narration.test.ts` exercises the real `narration` singleton in the node test environment, where `window.speechSynthesis` genuinely does not exist -- exactly the "engine has none installed" case `NarrationOutcome`'s `"unsupported"` status exists to distinguish from a silent no-op: with narration off (the shipped default), `speak()` resolves `{ status: "skipped-disabled" }` rather than throwing or hanging; once enabled, the same call resolves `{ status: "unsupported" }` because there is genuinely no speech synthesis API available; `speakBoth()` resolves both halves of its pair together rather than one hanging while the other resolves; and `stop()` is safe to call with nothing queued. This proves the queue's real disabled/unsupported reporting, not the settings toggle UI (already covered separately) and not an actual spoken utterance, which needs a mocked `speechSynthesis` this pass did not add.
+
 ## Configuration
 
 TODO(narration): describe how a user or operator configures this feature -- the settings surface, its defaults, and where the choice persists.
@@ -24,7 +28,9 @@ TODO(narration): describe what this feature must never expose or allow, and the 
 
 ## Verification
 
-TODO(narration): name the focused test(s), the built-artifact interaction proof, and the real capture evidence that back this feature.
+- Focused test: `app/ui/app/src/uh/narration.test.ts::reports skipped-disabled and never throws when narration is off (the shipped default)` (plus its three sibling cases in the same file).
+- Built-artifact proof: not yet attached -- the Narrator section sits below the fold on `/settings`, and no capture in this inventory's manifest shows it.
+- Capture evidence: not yet attached, for the same reason. Recapturing `/settings` scrolled to the Narrator section would close this gap honestly.
 
 ## Suggested articles
 
