@@ -125,7 +125,7 @@ function normalizeWindowsToolPath {
 function getWindowsUserToolchainRoot {
     $root = $env:OLLAMA_TOOLCHAIN_ROOT
     if (-not $root -and $env:LOCALAPPDATA) {
-        $root = Join-Path $env:LOCALAPPDATA "MaterialOllama\tools"
+        $root = Join-Path $env:LOCALAPPDATA "MaterialOllama\tools-v2"
     }
     if (-not $root) {
         return $null
@@ -169,7 +169,7 @@ function getWindowsVerifiedUserTool {
         # require the executable and its exact manifest version. New installs
         # created by bootstrap_windows_tools.ps1 still take the stronger
         # archive-digest marker path below.
-        $approvedRoot = if ($env:LOCALAPPDATA) { Join-Path $env:LOCALAPPDATA "MaterialOllama\tools" } else { $null }
+        $approvedRoot = if ($env:LOCALAPPDATA) { Join-Path $env:LOCALAPPDATA "MaterialOllama\tools-v2" } else { $null }
         if (-not $approvedRoot -or (normalizeWindowsToolPath $ToolRoot) -ne (normalizeWindowsToolPath $approvedRoot)) {
             throw "Refusing unverified user-scoped $($Dependency.name) directory: $candidateRoot"
         }

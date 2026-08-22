@@ -155,7 +155,10 @@ function Get-UserToolRoot {
         if (-not $env:LOCALAPPDATA) {
             throw 'LOCALAPPDATA is unavailable; cannot choose a user-scoped Windows toolchain root.'
         }
-        $root = Join-Path $env:LOCALAPPDATA 'MaterialOllama\tools'
+        # Keep the verified toolchain namespace distinct from historical
+        # unmarked installs. Those directories are deliberately neither used
+        # nor overwritten by the reproducible bootstrap path.
+        $root = Join-Path $env:LOCALAPPDATA 'MaterialOllama\tools-v2'
     }
     $root = [IO.Path]::GetFullPath($root)
     New-Item -ItemType Directory -Force -Path $root | Out-Null
