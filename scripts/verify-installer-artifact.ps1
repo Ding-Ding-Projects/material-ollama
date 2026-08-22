@@ -55,7 +55,7 @@ try {
 }
 
 $expectedDescription = "MO build $($ExpectedCommit.ToLowerInvariant())"
-$description = [string]$file.VersionInfo.FileDescription
+$description = ([string]$file.VersionInfo.FileDescription).TrimEnd()
 if ($description -ne $expectedDescription) {
     throw "Installer artifact provenance mismatch: expected FileDescription '$expectedDescription', got '$description'."
 }
