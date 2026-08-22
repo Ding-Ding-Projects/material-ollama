@@ -10,7 +10,9 @@ does not claim that an unpublished build is released.
 - [x] Record current line-count and inventory evidence from committed scripts.
 - [x] Keep the release/publication boundary explicit for unreleased local work.
 - [ ] Integrate this local repair into the default branch.
-- [ ] Build and publish the next unsigned Windows installer from the intended
+- [x] Build the next unsigned Windows installer locally through
+  `build-installer.bat /s` and verify its PE provenance.
+- [ ] Publish the next unsigned Windows installer from the intended
   integration commit.
 - [ ] Verify the published release target, assets, hashes, line-count table,
   timing, and unsigned status.
@@ -24,6 +26,8 @@ does not claim that an unpublished build is released.
   a precise not-applicable boundary for each unsupported item.
 - [ ] Attach the remaining focused checks, built-artifact interactions, and
   real captures to the inventory rows that are still in progress.
+- [ ] Re-run the real built-app capture matrix once no user-owned installed
+  application instance holds the product-wide single-instance lock.
 - [ ] Upload the committed root `social-preview.png` through the repository's
   hosting settings; this remains an owner/manual external step while no
   supported API is available.

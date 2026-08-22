@@ -6,19 +6,26 @@ that supplied the evidence.
 
 ## [Unreleased]
 
-The following local work is based on
-[`033efdecd8d29e1a8296c3bc37384cc35c40b360`](https://github.com/Ding-Ding-Projects/material-ollama/commit/033efdecd8d29e1a8296c3bc37384cc35c40b360)
-and has not been integrated, published, or installer-verified:
+The following local work is currently verified through
+[`b0b6a961473d026430a34a4f16f5d64843efeea5`](https://github.com/Ding-Ding-Projects/material-ollama/commit/b0b6a961473d026430a34a4f16f5d64843efeea5)
+but has not been published:
 
 - Repaired public documentation wording so private conversational labels do
   not appear in README, handoff, migration fixtures, or status copy.
 - Added a checked-in roadmap with real completion checkboxes and explicit
   release/publication pending states.
 - Added this root changelog with commit-linked release history.
+- Added the exact two-download release contract: `OllamaSetup.exe` plus a
+  versioned extras ZIP, explicit nested archive coverage, a member manifest,
+  and post-publication asset validation.
+- Added offline, hash-pinned x64 and arm64 WebView2 installer payloads to the
+  normal installer path. The local installer is intentionally unsigned and
+  passed PE provenance verification.
+- Added the canonical GitHub Pages source, Page workflow, canonical metadata,
+  and a byte-identical social-preview copy for the served site.
 
-This entry intentionally does not claim a release. After integration, refresh
-the entry with the exact integration commit link; until then the baseline link
-above is the only verified public reference for this local work.
+This entry intentionally does not claim a release. After publication, refresh
+it with the exact integration commit, release tag, and remote evidence.
 
 ## [v0.0.0-build.18]
 

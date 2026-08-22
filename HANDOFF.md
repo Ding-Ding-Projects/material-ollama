@@ -1,7 +1,7 @@
 # Handoff
 
-Last updated: 2026-08-21. Written against the current local baseline
-`033efdecd8d29e1a8296c3bc37384cc35c40b360`. Release and publication remain
+Last updated: 2026-08-21. Written against local commit
+`b0b6a961473d026430a34a4f16f5d64843efeea5`. Release and publication remain
 pending; the published baseline is recorded separately below.
 Every number below was measured by a committed script in this session, not
 remembered.
@@ -32,8 +32,19 @@ screens wired into the navigation. **It is not finished** — see Boundaries.
 
 - Published baseline: **`v0.0.0-build.18`**, targeting commit
   [`3b33fc66c42c82b3d9fe0bfb012f85e68fc6ea6f`](https://github.com/Ding-Ding-Projects/material-ollama/commit/3b33fc66c42c82b3d9fe0bfb012f85e68fc6ea6f).
-- Local work after that baseline is not published. No release, installer, or
-  remote verification is claimed by this handoff.
+- Local work after that baseline is not published. No remote release or live
+  Pages verification is claimed by this handoff.
+- Local installer evidence for `b0b6a961473d026430a34a4f16f5d64843efeea5`:
+  `build-installer.bat /s` produced `dist/OllamaSetup.exe` (472,056,790
+  bytes; SHA-256
+  `d6e9425f9bad7052811144be6a7aaaa93788d5242aa052beaf091d07164deae6`).
+  Its signature status is `NotSigned`, and its PE version metadata carries
+  the exact source commit. The recursive archive-coverage check covered 42
+  nested payload files across the amd64 and arm64 archives.
+- Final local checks at that commit: 79 script tests, the root inventory,
+  suite, and design verifiers, `go test ./app/...`, and 459 UI tests across
+  80 files all passed. Test-only console warnings are recorded in the task
+  log; none changed the exit status.
 - **Line count:** `node scripts/count-lines.mjs` reported 1,610 included files,
   486,437 total lines, and 424,482 non-blank lines. The breakdown was 854
   source files (292,906 / 253,252 non-blank), 446 test files (170,363 /
@@ -111,8 +122,10 @@ stylesheet (the defect it guards is invisible from both `vite.config.ts` and
    recorded in the inventory; several are genuinely non-visual and have no
    honest screenshot.
 
-6. **All 85 landing-page rows are `missing`.** The site at `site/` was scoped
-   out for most of this work.
+6. **The canonical static landing source is ready locally, but live proof is
+   pending.** `docs/landing-site/` is the Pages source and passed local
+   desktop and mobile-emulation checks. The public root was still 404 before
+   the final push, so no deployment is claimed until served-byte proof lands.
 
 7. **`social-preview.png` needs a manual upload.** GitHub's social-preview
    setting has no API. It is committed at the repository root; a maintainer
@@ -121,6 +134,12 @@ stylesheet (the defect it guards is invisible from both `vite.config.ts` and
 8. **`app-display-name` is deliberately not verified.** The write-side UI is
    real, but `appName` has no readers — the title bar renders a hardcoded
    constant. The article says so rather than implying a working rename.
+
+9. **Built-app capture is presently blocked by a user-owned installed
+   instance.** The real capture preflight reaches the compiled app but its
+   product-wide single-instance lock sends the isolated process to that
+   existing instance. That process and profile were not stopped or inspected.
+   Paired parity captures remain gaps, not evidence.
 
 ## A failure mode worth knowing about
 
@@ -136,12 +155,13 @@ by re-reading the inventory counts instead of trusting an earlier report.
 
 ## Next actions, in the order they unblock the most
 
-1. Resolve the CI push trigger. Everything is slower without it.
-2. Lift the 51 remaining `in-progress` desktop rows: add the missing focused
-   checks and attach captures only where a capture actually shows the feature.
-3. Bring the landing page onto the contract, or record its rows
-   `not-applicable` with real reasons if the site is deliberately out of scope.
-4. Upload `social-preview.png`.
+1. Push the integrated local work once, then verify the release and Pages
+   workflows, their external assets, and the live Pages bytes.
+2. Re-run the isolated built-app capture matrix after the existing installed
+   instance is gone; record paired parity evidence or explicit row gaps.
+3. Lift remaining `in-progress` desktop rows with focused checks and captures
+   only where a capture actually demonstrates the feature.
+4. Upload `social-preview.png` through Settings → General → Social preview.
 
 ## Build
 
