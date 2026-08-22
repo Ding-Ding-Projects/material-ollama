@@ -1282,9 +1282,8 @@ function appArm64 {
 }
 
 function deps {
-    # MSVC CRT DLLs (vcruntime140.dll, msvcp140.dll, etc.) are now bundled
-    # directly alongside the executables by CMake's RUNTIME_DEPENDENCIES
-    # mechanism during install. No need to download vc_redist.exe.
+    # Compiler runtime DLLs are bundled directly beside the executables by
+    # CMake install. No separate runtime installer is downloaded at setup time.
     Write-Output "deps: verifying pinned offline WebView2 standalone installers"
     $webviewRoot = "${script:SRC_DIR}\dist\webview2"
     $webviewManifest = getWindowsDependencyManifest
@@ -1310,7 +1309,7 @@ function deps {
         $actual = (Get-FileHash -LiteralPath $payload -Algorithm SHA256).Hash.ToLowerInvariant()
         if ($actual -ne ([string]$item.sha256).ToLowerInvariant()) { throw "WebView2 payload digest mismatch after acquisition: $payload" }
     }
-    Write-Output "deps: CRT DLLs remain bundled by CMake install; WebView2 payloads are hash-verified and staged for Inno."
+    Write-Output "deps: LLVM-MinGW runtime DLLs remain bundled by CMake install; WebView2 payloads are hash-verified and staged for Inno."
 }
 
 function sign {
@@ -1334,16 +1333,19 @@ function ValidateUniversalWindowsPayload {
     foreach ($path in $required) {
         if (-not (Test-Path -LiteralPath $path -PathType Leaf)) { throw "Universal Windows installer payload is missing: $path" }
     }
-    $runtimeFamilies = @('vcruntime140.dll', 'msvcp140.dll', 'libgcc_s_seh-1.dll', 'libstdc++-6.dll', 'libwinpthread-1.dll')
+    $runtimeFamiliesByArch = @{
+        'amd64' = @('libc++.dll', 'libunwind.dll', 'libwinpthread-1.dll', 'libomp.dll')
+        'arm64' = @('libc++.dll', 'libunwind.dll', 'libwinpthread-1.dll')
+    }
     foreach ($arch in @('amd64', 'arm64')) {
         $root = "${script:SRC_DIR}\dist\windows-$arch"
-        foreach ($runtime in $runtimeFamilies) {
+        foreach ($runtime in $runtimeFamiliesByArch[$arch]) {
             if (-not (Get-ChildItem -LiteralPath $root -File -Recurse -Filter $runtime -ErrorAction SilentlyContinue | Select-Object -First 1)) {
-                throw "Universal Windows installer payload is missing required $arch CRT/MinGW runtime family member: $runtime"
+                throw "Universal Windows installer payload is missing required $arch LLVM-MinGW runtime family member: $runtime"
             }
         }
     }
-    Write-Output "Universal Windows payload verified: x64 and ARM64 desktop, CLI, CPU/server, WebView2, CRT, and MinGW runtime families are present."
+    Write-Output "Universal Windows payload verified: x64 and ARM64 desktop, CLI, CPU/server, WebView2, and LLVM-MinGW runtime families are present."
 }
 
 function installer {

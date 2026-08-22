@@ -162,8 +162,16 @@ test('universal packaging fails closed instead of silently falling back or omitt
     /cmake --fresh -S llama\\server --preset cpu_arm64/,
     'removing the fresh verified ARM64 configure path must turn this check red',
   )
-  assert.match(buildScript, /vcruntime140\.dll/)
-  assert.match(buildScript, /libgcc_s_seh-1\.dll/)
+  const amd64Runtimes = /'amd64' = @\('libc\+\+\.dll', 'libunwind\.dll', 'libwinpthread-1\.dll', 'libomp\.dll'\)/
+  const arm64Runtimes = /'arm64' = @\('libc\+\+\.dll', 'libunwind\.dll', 'libwinpthread-1\.dll'\)/
+  assert.match(buildScript, amd64Runtimes)
+  assert.match(buildScript, arm64Runtimes)
+  assert.doesNotMatch(
+    buildScript.replace("'libunwind.dll', ", ''),
+    amd64Runtimes,
+    'removing a required x64 LLVM-MinGW runtime must turn this check red',
+  )
+  assert.doesNotMatch(buildScript, /vcruntime140\.dll|msvcp140\.dll|libgcc_s_seh-1\.dll|libstdc\+\+-6\.dll/)
   assert.match(buildScript, /throw "Universal Windows installer payload is missing/)
   const normalizedBuildScript = buildScript.replaceAll('\r\n', '\n')
   const validationBeforeBuild = /ValidateUniversalWindowsPayload\n\s+Write-Output "Building Ollama Installer"/
