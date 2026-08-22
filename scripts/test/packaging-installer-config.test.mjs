@@ -114,7 +114,7 @@ test('the installer embeds the exact source commit in PE version information for
   const content = readIss()
   const buildScript = readFileSync(path.join(REPO_ROOT, 'scripts', 'build_windows.ps1'), 'utf8')
   assert.match(content, /#if GetEnv\("GIT_COMMIT"\)/)
-  assert.match(content, /VersionInfoDescription=Material Ollama build \{#MyAppCommit\}/)
+  assert.match(content, /VersionInfoDescription=MO build \{#MyAppCommit\}/)
   assert.match(buildScript, /SOURCE_COMMIT\s*=\s*\(\(git rev-parse HEAD/)
   assert.match(buildScript, /GIT_COMMIT = \$script:SOURCE_COMMIT/)
 })

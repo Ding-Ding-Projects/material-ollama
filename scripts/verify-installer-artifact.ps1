@@ -54,7 +54,7 @@ try {
     if ($null -ne $stream) { $stream.Dispose() }
 }
 
-$expectedDescription = "Material Ollama build $($ExpectedCommit.ToLowerInvariant())"
+$expectedDescription = "MO build $($ExpectedCommit.ToLowerInvariant())"
 $description = [string]$file.VersionInfo.FileDescription
 if ($description -ne $expectedDescription) {
     throw "Installer artifact provenance mismatch: expected FileDescription '$expectedDescription', got '$description'."

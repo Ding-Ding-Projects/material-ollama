@@ -35,7 +35,10 @@ AppId={{44E83376-CE68-45EB-8FC1-393500EB558C}
 AppName={#MyAppName}
 AppVersion={#MyAppVersion}
 VersionInfoVersion={#MyAppVersion}
-VersionInfoDescription=Material Ollama build {#MyAppCommit}
+; VersionInfoDescription is limited to 60 characters by the Inno resource
+; writer. Keep the value compact so the complete 40-character Git commit is
+; retained instead of silently truncating its final two characters.
+VersionInfoDescription=MO build {#MyAppCommit}
 ;AppVerName={#MyAppName} {#MyAppVersion}
 AppPublisher={#MyAppPublisher}
 AppPublisherURL={#MyAppURL}
