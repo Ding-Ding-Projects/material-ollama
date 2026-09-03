@@ -2,6 +2,7 @@ name: Windows release
 
 on:
   push:
+    branches: [main]
   workflow_dispatch:
 
 permissions:
@@ -409,11 +410,16 @@ jobs:
           $draft = gh api --method POST "repos/$env:GITHUB_REPOSITORY/releases" -f tag_name=$tag -f target_commitish='${{ github.sha }}' -f name=$title -F "body=@release-notes.md" -F draft=true -F prerelease=false | ConvertFrom-Json
           if (-not $draft.id -or -not $draft.draft) { throw 'Draft release creation did not return a draft numeric release ID' }
           $releaseId = [string]$draft.id
+          # Release asset uploads live on uploads.github.com, not api.github.com. A bare
+          # gh api path resolves against the API host and returns 404. Take the real upload
+          # host from the release response's own RFC 6570 upload_url template.
+          if ($draft.upload_url -notmatch '^https://[^/]+/repos/') { throw 'Draft release did not expose a usable upload_url' }
+          $uploadBase = $draft.upload_url -replace '\{.*$', ''
           foreach ($asset in $stagedAssets) {
             $assetPath = Join-Path $stagingRoot $asset.uploadName
             $contentType = if ($asset.uploadName.EndsWith('.zip')) { 'application/zip' } else { 'application/vnd.microsoft.portable-executable' }
             $assetName = [Uri]::EscapeDataString($asset.uploadName)
-            $uploaded = gh api --method POST "repos/$env:GITHUB_REPOSITORY/releases/$releaseId/assets?name=$assetName" -H "Content-Type: $contentType" --input $assetPath | ConvertFrom-Json
+            $uploaded = gh api --method POST "${uploadBase}?name=$assetName" -H "Content-Type: $contentType" --input $assetPath | ConvertFrom-Json
             if (-not $uploaded.id -or $uploaded.name -ne $asset.uploadName) { throw "Numeric release upload failed for staged asset $($asset.uploadName)" }
           }
           $draft = gh api "repos/$env:GITHUB_REPOSITORY/releases/$releaseId" | ConvertFrom-Json
