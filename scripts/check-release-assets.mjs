@@ -14,20 +14,28 @@ import { fileURLToPath } from 'node:url'
 
 export const INSTALLER_NAME = 'OllamaSetup.exe'
 
-export function extrasName(tag) {
+export function assertReleaseTag(tag) {
   if (typeof tag !== 'string' || !/^v[^/\\]+$/.test(tag)) {
-    throw new Error(`Invalid release tag for extras asset: ${tag}`)
+    throw new Error(`Invalid release tag: ${tag}`)
   }
-  return `material-ollama-extras-${tag}.zip`
+  return tag
 }
 
+/**
+ * One release, one download. The installer is a self-contained universal
+ * bundle -- desktop app, server and CLI for both architectures, the llama.cpp
+ * runners, and the WebView2 runtime -- so nothing else belongs on the release
+ * page. Portable archives, dependency audits, checksums and the line-count
+ * table stay reachable as workflow run artifacts.
+ */
 export function assertReleaseAssetNames(names, tag) {
-  const expected = new Set([INSTALLER_NAME, extrasName(tag)])
+  assertReleaseTag(tag)
+  const expected = new Set([INSTALLER_NAME])
   const actual = [...names]
   const duplicateNames = actual.filter((name, index) => actual.indexOf(name) !== index)
   if (duplicateNames.length > 0) throw new Error(`Release contains duplicate asset names: ${[...new Set(duplicateNames)].join(', ')}`)
   if (actual.length !== expected.size) {
-    throw new Error(`Release must contain exactly two assets (${[...expected].join(', ')}); found ${actual.length}.`)
+    throw new Error(`Release must contain exactly one asset (${[...expected].join(', ')}); found ${actual.length}.`)
   }
   for (const name of actual) {
     if (!expected.has(name)) throw new Error(`Unexpected release asset: ${name}`)
@@ -167,7 +175,7 @@ async function main() {
     const tag = tagIndex >= 0 ? args[tagIndex + 1] : null
     const names = []
     for (let index = namesIndex + 1; index < args.length && !args[index].startsWith('--'); index += 1) names.push(args[index])
-    if (!tag || names.length === 0) throw new Error('Usage: check-release-assets.mjs --tag <tag> --asset-names <installer> <extras> [--dist <dir>]')
+    if (!tag || names.length === 0) throw new Error('Usage: check-release-assets.mjs --tag <tag> --asset-names <installer> [--dist <dir>]')
     assertReleaseAssetNames(names, tag)
     process.stdout.write('Release asset names verified.\n')
   }

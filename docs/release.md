@@ -54,19 +54,53 @@ repository's declared `1.26` line. Both checks refresh the current process PATH 
 
 The package is unsigned by project policy. The workflow fails if signing inputs are present and verifies that `OllamaSetup.exe` has Authenticode status `NotSigned`. Windows may show an unknown-publisher or SmartScreen warning.
 
+## Why Inno Setup rather than Squirrel.Windows
+
+The shared agent instructions require every Windows installer to use
+Squirrel.Windows. This project does not, and the reason is recorded here so the
+gap reads as a decision rather than an oversight.
+
+Squirrel.Windows packages one architecture per installer. Material Ollama ships
+a single `OllamaSetup.exe` that carries both the x64 and the ARM64 payload and
+selects between them at install time (`app/ollama.iss`, gated on `IsArm64()`),
+so a Squirrel migration would replace one universal download with two
+architecture-specific ones -- the opposite of the one-installer contract above,
+and the opposite of what a user asking for "one download" wants. The product is
+also a native Go application with a WebView2 host, not an Electron app, so the
+Squirrel tooling and its `Setup.exe` / `RELEASES` / `.nupkg` triplet have no
+natural fit here.
+
+What ships instead is the closest equivalent that keeps every property the rule
+protects: one installable artifact per release, produced by the project's own
+supported packaging path, verified to come from the intended commit, and
+verified unsigned. The permanent no-signing policy is unaffected either way --
+Squirrel would not have changed it.
+
+Automatic updates use the HTTPS feed, package hashes and rollback protections
+described above; they neither require nor claim a signature.
+
 ## Release evidence
 
-The build evidence is retained, but the public release has exactly two downloads: `OllamaSetup.exe`
-and `material-ollama-extras-<tag>.zip`. Before the extras ZIP is built, [`scripts/check-release-assets.mjs`](../scripts/check-release-assets.mjs)
-walks every `dist/windows-*` payload and proves that matching `ollama-<platform>*.zip` archives
-cover every member, including zero-byte files and optional accelerator archives. The extras ZIP
-contains the portable architecture/accelerator archives, desktop executables, dependency-audit
-records, recursive `SHA256SUMS.txt`, line-count evidence, release metadata, the hash-verifying
-`install.ps1` helper, and `extras-manifest.json`. The latter records each member's architecture,
-backend, role, path, byte length, and SHA-256, excluding its own hash and the containing ZIP hash.
-After publication, the workflow downloads and extracts the extras ZIP and runs
-[`scripts/validate-extras-manifest.mjs`](../scripts/validate-extras-manifest.mjs), which rejects
-missing, unexpected, duplicate, self-referential, length-mismatched, or hash-mismatched members.
+**The public release has exactly one download: `OllamaSetup.exe`.** It is the whole
+product -- the desktop app, the `ollama` server and CLI for x64 and ARM64, the
+llama.cpp runners and every ggml CPU variant, and the Microsoft Edge WebView2
+runtime, which it installs only when the machine does not already have it. There
+is nothing else for a user to fetch, and nothing else is permitted on the release
+page: [`scripts/check-release-assets.mjs`](../scripts/check-release-assets.mjs)
+refuses a second asset, an unexpected name, a duplicate, a flattened `__` path
+marker, and a `--<hash>` suffix.
+
+The same checker walks every `dist/windows-*` payload before publication and
+proves that matching `ollama-<platform>*.zip` archives cover every member,
+including zero-byte files and optional accelerator archives.
+
+The supporting build evidence is retained, but as **workflow run artifacts**
+rather than release downloads. The `windows-release-evidence-<run_id>` artifact
+on each run carries the portable architecture and accelerator archives, the
+standalone desktop executables, the dependency-audit records, the recursive
+`SHA256SUMS.txt`, the line-count evidence, the release metadata, and the
+hash-verifying `install.ps1` helper.
+
 The committed [`scripts/count-lines.mjs`](../scripts/count-lines.mjs) reports source, tests,
 styles/markup, generated, and other categories with total and non-blank lines, plus surviving-line
 attribution from `git blame`. Vendored trees, dependency directories, generated build output, and
@@ -76,6 +110,6 @@ lockfiles are excluded explicitly.
 
 The published release notes expand the metadata into the code name, dish ID, English and Traditional Chinese names, source catalog release URL, and authoritative public image URL. They also state the no-copy boundary explicitly: the consumer project does not download, vendor, or attach a duplicate image asset.
 
-Release tags use the source version plus the monotonic workflow run number, for example `v0.0.0-build.42`. The workflow refuses to reuse an existing tag, creates a numeric-ID draft release against the exact triggering commit, uploads through that ID, reads the draft's actual assets back, and only then changes that same ID to non-draft. A failed upload or validation leaves a recoverable draft and never strands a misleading public partial release. The workflow rejects any third or flattened/hash-suffixed asset name, uploads exactly the installer and versioned extras ZIP, and downloads both again to verify their published sizes and SHA-256 values.
+Release tags use the source version plus the monotonic workflow run number, for example `v0.0.0-build.42`. The workflow refuses to reuse an existing tag, creates a numeric-ID draft release against the exact triggering commit, uploads through that ID, reads the draft's actual assets back, and only then changes that same ID to non-draft. A failed upload or validation leaves a recoverable draft and never strands a misleading public partial release. The workflow rejects any second, flattened, or hash-suffixed asset name, uploads exactly the installer, and downloads it again to verify its published size and SHA-256. Asset uploads go to the upload host taken from the release response's own `upload_url`; a bare `gh api` path resolves against the API host and returns 404.
 
 GitHub Actions does not run tests, lint, or static-analysis jobs. Those checks remain available as local project scripts and are reported separately from release publication; an artifact publication is not presented as a test verdict.

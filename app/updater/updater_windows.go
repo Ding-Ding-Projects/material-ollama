@@ -375,15 +375,29 @@ func isInstallerRunning() bool {
 }
 
 func IsProcRunning(procName string) []uint32 {
-	pids := make([]uint32, 2048)
-	var ret uint32
-	if err := windows.EnumProcesses(pids, &ret); err != nil || ret == 0 {
-		slog.Debug("failed to check for running installers", "error", err)
-		return nil
-	}
-	processCount := int(ret / uint32(unsafe.Sizeof(pids[0])))
-	if processCount > len(pids) {
-		processCount = len(pids)
+	// EnumProcesses never reports that it truncated: it fills the buffer and
+	// returns exactly the buffer size. A busy machine therefore silently loses
+	// every process past the end, which for an "is the installer running?"
+	// question is a false negative -- the worst direction for that answer. Grow
+	// and retry until the returned size is strictly smaller than the buffer,
+	// which is the only signal that the whole list actually fit.
+	const maxProcessBuffer = 1 << 20
+	var pids []uint32
+	var processCount int
+	for size := 2048; ; size *= 2 {
+		pids = make([]uint32, size)
+		var ret uint32
+		if err := windows.EnumProcesses(pids, &ret); err != nil || ret == 0 {
+			slog.Debug("failed to check for running installers", "error", err)
+			return nil
+		}
+		processCount = int(ret / uint32(unsafe.Sizeof(pids[0])))
+		if processCount > len(pids) {
+			processCount = len(pids)
+		}
+		if processCount < len(pids) || size >= maxProcessBuffer {
+			break
+		}
 	}
 	pids = pids[:processCount]
 	matches := []uint32{}

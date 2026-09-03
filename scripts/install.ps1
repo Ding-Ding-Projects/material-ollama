@@ -120,23 +120,18 @@ function Resolve-PublishedInstaller {
         throw "Unable to resolve the published Material Ollama release: $($_.Exception.Message)"
     }
     $assets = @($release.assets)
-    $extrasName = "material-ollama-extras-$($release.tag_name).zip"
     if (-not $release.tag_name -or $release.draft -or $release.prerelease -or
-        $assets.Count -ne 2 -or -not ($assets.name -contains 'OllamaSetup.exe') -or -not ($assets.name -contains $extrasName)) {
-        throw "The published release does not satisfy the exact two-asset contract; refusing installer verification."
+        $assets.Count -ne 1 -or -not ($assets.name -contains 'OllamaSetup.exe')) {
+        throw "The published release does not satisfy the exact one-asset contract; refusing installer verification."
     }
     $installerAsset = $assets | Where-Object name -eq 'OllamaSetup.exe' | Select-Object -First 1
-    $extrasAsset = $assets | Where-Object name -eq $extrasName | Select-Object -First 1
     if ($installerAsset.browser_download_url -notmatch '^https://') { throw 'Published installer browser_download_url is not HTTPS.' }
-    if ($extrasAsset.browser_download_url -notmatch '^https://') { throw 'Published extras browser_download_url is not HTTPS.' }
     $digest = if ($installerAsset.digest -match '^sha256:([0-9a-f]{64})$') { $Matches[1] } else { $null }
-    $extrasDigest = if ($extrasAsset.digest -match '^sha256:([0-9a-f]{64})$') { $Matches[1] } else { $null }
-    if (-not $digest -or -not $extrasDigest) {
+    if (-not $digest) {
         $body = [string]$release.body
         $digest = [regex]::Match($body, 'OllamaSetup\.exe\s+[^\r\n]*SHA-256\s+`(?<hash>[0-9a-f]{64})`', [Text.RegularExpressions.RegexOptions]::IgnoreCase).Groups['hash'].Value
-        $extrasDigest = [regex]::Match($body, [regex]::Escape($extrasName) + '\s+[^\r\n]*SHA-256\s+`(?<hash>[0-9a-f]{64})`', [Text.RegularExpressions.RegexOptions]::IgnoreCase).Groups['hash'].Value
     }
-    if ($digest -notmatch '^[0-9a-f]{64}$' -or $extrasDigest -notmatch '^[0-9a-f]{64}$') { throw "The published release omitted a usable SHA-256 for one or both assets." }
+    if ($digest -notmatch '^[0-9a-f]{64}$') { throw "The published release omitted a usable SHA-256 for the installer." }
     $digest = $digest.ToLowerInvariant()
     if ($ExpectedInstallerSha256 -and $ExpectedInstallerSha256 -notmatch '^[0-9a-f]{64}$') { throw 'Explicit ExpectedSha256 is not a 64-character hexadecimal digest.' }
     if ($ExpectedInstallerSha256 -and $ExpectedInstallerSha256 -ne $digest) { throw 'Explicit ExpectedSha256 does not match the published installer digest.' }

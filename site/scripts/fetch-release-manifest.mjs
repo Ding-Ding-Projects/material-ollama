@@ -112,30 +112,29 @@ async function main() {
     return
   }
 
-  const extrasName = `material-ollama-extras-${verified.tag_name}.zip`
+  // One release, one download. Anything beyond the installer on the release page
+  // means the publishing contract has drifted, so refuse rather than link it.
   const publishedNames = verified.assets?.map((asset) => asset.name) || []
-  if (publishedNames.length !== 2 || !publishedNames.includes(extrasName)) {
+  if (publishedNames.length !== 1) {
     await writeResult({
       schemaVersion: 1,
       status: 'unavailable',
-      reason: `Release ${verified.tag_name} must publish exactly ${INSTALLER_NAME} and ${extrasName}.`,
+      reason: `Release ${verified.tag_name} must publish exactly ${INSTALLER_NAME} and nothing else; found ${publishedNames.length} assets.`,
       repo,
       releaseTag: verified.tag_name,
       releaseUrl: verified.html_url,
     })
     return
   }
-  const extrasAsset = verified.assets.find((asset) => asset.name === extrasName)
   const digestFor = (asset) => typeof asset?.digest === 'string' && /^sha256:[0-9a-f]{64}$/i.test(asset.digest)
     ? asset.digest.slice('sha256:'.length).toLowerCase()
     : null
   const installerSha256 = digestFor(installerAsset)
-  const extrasSha256 = digestFor(extrasAsset)
-  if (!installerSha256 || !extrasSha256 || !/^https:\/\//.test(installerAsset.browser_download_url) || !/^https:\/\//.test(extrasAsset.browser_download_url)) {
+  if (!installerSha256 || !/^https:\/\//.test(installerAsset.browser_download_url)) {
     await writeResult({
       schemaVersion: 1,
       status: 'unavailable',
-      reason: `Release ${verified.tag_name} must expose valid sha256:<64hex> digests and HTTPS download URLs for both release assets.`,
+      reason: `Release ${verified.tag_name} must expose a valid sha256:<64hex> digest and an HTTPS download URL for the installer.`,
       repo,
       releaseTag: verified.tag_name,
       releaseUrl: verified.html_url,
@@ -165,13 +164,7 @@ async function main() {
   }
   if (workflow) workflow.conclusion = workflowConclusion
 
-  const extraAssets = [extrasAsset]
-    .map((asset) => ({
-      name: asset.name,
-      url: asset.browser_download_url,
-      sizeBytes: asset.size,
-      sha256: extrasSha256,
-    }))
+  const extraAssets = []
 
   await writeResult({
     schemaVersion: 1,
