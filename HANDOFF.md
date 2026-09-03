@@ -97,11 +97,12 @@ stylesheet (the defect it guards is invisible from both `vite.config.ts` and
 
 ## Boundaries and known problems
 
-1. **Pushes do not trigger CI runs.** Every build this session was dispatched
-   by hand with `gh workflow run`. The workflow is `state: active` with
-   `on: push`, the repository is neither archived nor disabled. This reads as
-   an account- or billing-level Actions restriction not visible via the API.
-   **Until it is fixed, pushing does not produce a build.**
+1. **Pushes now do trigger CI runs; the earlier restriction has lifted.**
+   Runs 32544293738 and 32544293950 (2026-08-22) were both `push`-triggered,
+   so the account- or billing-level Actions restriction recorded here
+   previously no longer applies. The workflow now filters to
+   `push: branches: [main]` so a push to a side branch no longer mints a
+   release; use `gh workflow run` for anything else.
 
 2. **`gh` resolves `:owner/:repo` to `ollama/ollama`** because of the
    `upstream` remote. Every invocation needs

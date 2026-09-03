@@ -7,7 +7,7 @@ that supplied the evidence.
 ## [Unreleased]
 
 The following local work is currently verified through
-[`b0b6a961473d026430a34a4f16f5d64843efeea5`](https://github.com/Ding-Ding-Projects/material-ollama/commit/b0b6a961473d026430a34a4f16f5d64843efeea5)
+[`dc16db422293ba3a95b621da81aae7ae5786fc49`](https://github.com/Ding-Ding-Projects/material-ollama/commit/dc16db422293ba3a95b621da81aae7ae5786fc49)
 but has not been published:
 
 - Repaired public documentation wording so private conversational labels do
@@ -15,9 +15,26 @@ but has not been published:
 - Added a checked-in roadmap with real completion checkboxes and explicit
   release/publication pending states.
 - Added this root changelog with commit-linked release history.
-- Added the exact two-download release contract: `OllamaSetup.exe` plus a
-  versioned extras ZIP, explicit nested archive coverage, a member manifest,
-  and post-publication asset validation.
+- Fixed the release publication failure that had blocked every build since
+  2026-08-19. The publish job POSTed release asset uploads through `gh api`
+  with a bare path, which resolves against `api.github.com`; asset uploads
+  live on `uploads.github.com`, so every upload returned 404 and run
+  32544293738 spent 64 minutes building an installer it could not hand over.
+  The upload host now comes from the release response's own `upload_url`.
+- Reduced the release to a single download. `OllamaSetup.exe` is the whole
+  product -- desktop app, server and CLI for x64 and ARM64, the llama.cpp
+  runners and every ggml CPU variant, and the WebView2 runtime it installs
+  only when the machine lacks it. The versioned extras ZIP is gone; the
+  portable archives, dependency audits, checksums, line-count table and
+  `install.ps1` remain available as workflow run artifacts. The asset checker
+  refuses a second asset, a duplicate, a flattened `__` path marker and a
+  `--<hash>` suffix, so the old 57-asset release shape cannot return.
+- Filtered the release trigger to `main`, so a push to a side branch no
+  longer mints a release.
+- Fixed `IsProcRunning` silently truncating the Windows process list. An
+  earlier commit clamped the count to stop a panic, but truncation turns
+  "is the installer running?" into a false negative on exactly the busy
+  machines that caused the overflow. It now grows the buffer and retries.
 - Added offline, hash-pinned x64 and arm64 WebView2 installer payloads to the
   normal installer path. The local installer is intentionally unsigned and
   passed PE provenance verification.
