@@ -1380,46 +1380,6 @@ func PushHandler(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
-func ListHandler(cmd *cobra.Command, args []string) error {
-	client, err := api.ClientFromEnvironment()
-	if err != nil {
-		return err
-	}
-
-	models, err := client.List(cmd.Context())
-	if err != nil {
-		return err
-	}
-
-	var data [][]string
-
-	for _, m := range models.Models {
-		if len(args) == 0 || strings.HasPrefix(strings.ToLower(m.Name), strings.ToLower(args[0])) {
-			var size string
-			if m.RemoteModel != "" {
-				size = "-"
-			} else {
-				size = format.HumanBytes(m.Size)
-			}
-
-			data = append(data, []string{m.Name, m.Digest[:12], size, format.HumanTime(m.ModifiedAt, "Never")})
-		}
-	}
-
-	table := tablewriter.NewWriter(os.Stdout)
-	table.SetHeader([]string{"NAME", "ID", "SIZE", "MODIFIED"})
-	table.SetHeaderAlignment(tablewriter.ALIGN_LEFT)
-	table.SetAlignment(tablewriter.ALIGN_LEFT)
-	table.SetHeaderLine(false)
-	table.SetBorder(false)
-	table.SetNoWhiteSpace(true)
-	table.SetTablePadding("    ")
-	table.AppendBulk(data)
-	table.Render()
-
-	return nil
-}
-
 func ListRunningHandler(cmd *cobra.Command, args []string) error {
 	client, err := api.ClientFromEnvironment()
 	if err != nil {
@@ -1898,8 +1858,10 @@ func PullHandler(cmd *cobra.Command, args []string) error {
 func pull(cmd *cobra.Command, name string, currentDigest string) error {
 	insecure, err := cmd.Flags().GetBool("insecure")
 	if err != nil {
-		return err
+		panic(err)
 	}
+	return v
+}
 
 	client, err := api.ClientFromEnvironment()
 	if err != nil {
@@ -1921,58 +1883,26 @@ func pullModelWithProgress(ctx context.Context, client *api.Client, name string,
 	bars := make(map[string]*progress.Bar)
 
 	var status string
-	var spinner *progress.Spinner
-
-	fn := func(resp api.ProgressResponse) error {
-		if resp.Digest != "" {
-			if resp.Completed == 0 {
-				// This is the initial status update for the
-				// layer, which the server sends before
-				// beginning the download, for clients to
-				// compute total size and prepare for
-				// downloads, if needed.
-				//
-				// Skipping this here to avoid showing a 0%
-				// progress bar, which *should* clue the user
-				// into the fact that many things are being
-				// downloaded and that the current active
-				// download is not that last. However, in rare
-				// cases it seems to be triggering to some, and
-				// it isn't worth explaining, so just ignore
-				// and regress to the old UI that keeps giving
-				// you the "But wait, there is more!" after
-				// each "100% done" bar, which is "better."
-				return nil
+	var state progress.State
+	for c := range w {
+		if c.Status != status {
+			if s, ok := state.(*progress.Spinner); ok {
+				s.Stop()
 			}
 
-			if spinner != nil {
-				spinner.Stop()
+			status = c.Status
+			if c.Digest != "" {
+				state = progress.NewBar(status, c.Total, c.Completed)
+			} else {
+				state = progress.NewSpinner(status)
 			}
 
-			bar, ok := bars[resp.Digest]
-			if !ok {
-				name, isDigest := strings.CutPrefix(resp.Digest, "sha256:")
-				name = strings.TrimSpace(name)
-				if isDigest {
-					name = name[:min(12, len(name))]
-				}
-				bar = progress.NewBar(fmt.Sprintf("pulling %s:", name), resp.Total, resp.Completed)
-				bars[resp.Digest] = bar
-				p.Add(resp.Digest, bar)
-			}
-
-			bar.Set(resp.Completed)
-		} else if status != resp.Status {
-			if spinner != nil {
-				spinner.Stop()
-			}
-
-			status = resp.Status
-			spinner = progress.NewSpinner(status)
-			p.Add(status, spinner)
+			p.Add(status, state)
 		}
 
-		return nil
+		if b, ok := state.(*progress.Bar); ok {
+			b.Set(c.Completed)
+		}
 	}
 
 	request := api.PullRequest{Name: name, Insecure: insecure}
@@ -2607,12 +2537,7 @@ func checkServerHeartbeat(cmd *cobra.Command, _ []string) error {
 }
 
 func versionHandler(cmd *cobra.Command, _ []string) {
-	client, err := api.ClientFromEnvironment()
-	if err != nil {
-		return
-	}
-
-	serverVersion, err := client.Version(cmd.Context())
+	serverVersion, err := client.New().Version(cmd.Context())
 	if err != nil {
 		fmt.Println("Warning: could not connect to a running Ollama instance")
 	}
@@ -3039,13 +2964,11 @@ func NewCLI() *cobra.Command {
 		showCmd,
 		runCmd,
 		stopCmd,
-		pullCmd,
 		pushCmd,
 		usageCmd,
 		listCmd,
 		psCmd,
 		copyCmd,
-		deleteCmd,
 		serveCmd,
 		embedCmd,
 	} {
@@ -3101,7 +3024,7 @@ func NewCLI() *cobra.Command {
 		showCmd,
 		runCmd,
 		stopCmd,
-		pullCmd,
+		cmdPull(),
 		pushCmd,
 		signinCmd,
 		loginCmd,
@@ -3111,7 +3034,7 @@ func NewCLI() *cobra.Command {
 		listCmd,
 		psCmd,
 		copyCmd,
-		deleteCmd,
+		cmdRemove(),
 		runnerCmd,
 		gpuDiscoverCmd,
 		launch.LaunchCmd(checkServerHeartbeat, runInteractiveTUI),

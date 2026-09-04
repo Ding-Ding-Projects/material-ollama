@@ -348,25 +348,6 @@ func (c *Client) Chat(ctx context.Context, req *ChatRequest, fn ChatResponseFunc
 	})
 }
 
-// PullProgressFunc is a function that [Client.Pull] invokes every time there
-// is progress with a "pull" request sent to the service. If this function
-// returns an error, [Client.Pull] will stop the process and return this error.
-type PullProgressFunc func(ProgressResponse) error
-
-// Pull downloads a model from the ollama library. fn is called each time
-// progress is made on the request and can be used to display a progress bar,
-// etc.
-func (c *Client) Pull(ctx context.Context, req *PullRequest, fn PullProgressFunc) error {
-	return c.stream(ctx, http.MethodPost, "/api/pull", req, func(bts []byte) error {
-		var resp ProgressResponse
-		if err := json.Unmarshal(bts, &resp); err != nil {
-			return err
-		}
-
-		return fn(resp)
-	})
-}
-
 // PushProgressFunc is a function that [Client.Push] invokes when progress is
 // made.
 // It's similar to other progress function types like [PullProgressFunc].
@@ -456,14 +437,6 @@ func (c *Client) Fetch(ctx context.Context, req *FetchRequest) (*FetchResponse, 
 // model.
 func (c *Client) Copy(ctx context.Context, req *CopyRequest) error {
 	if err := c.do(ctx, http.MethodPost, "/api/copy", req, nil); err != nil {
-		return err
-	}
-	return nil
-}
-
-// Delete deletes a model and its data.
-func (c *Client) Delete(ctx context.Context, req *DeleteRequest) error {
-	if err := c.do(ctx, http.MethodDelete, "/api/delete", req, nil); err != nil {
 		return err
 	}
 	return nil
