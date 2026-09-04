@@ -295,7 +295,6 @@ var integrationSpecs = []*IntegrationSpec{
 		Runner:      &VSCode{},
 		Aliases:     []string{"code"},
 		Description: "Microsoft's open-source AI code editor",
-		Hidden:      true,
 		Install: IntegrationInstallSpec{
 			CheckInstalled: func() bool {
 				return (&VSCode{}).findBinary() != ""

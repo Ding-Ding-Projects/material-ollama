@@ -2124,7 +2124,7 @@ func TestListIntegrationInfos(t *testing.T) {
 		}
 		wantPrefix := []string{"claude", "chatgpt", "hermes", "openclaw", "opencode", "hermes-desktop", "codex", "copilot", "omp"}
 		if codexAppSupported() != nil {
-			wantPrefix = []string{"claude", "hermes", "openclaw", "opencode", "hermes-desktop", "codex", "copilot", "omp"}
+			wantPrefix = []string{"claude", "vscode", "hermes", "openclaw", "opencode", "hermes-desktop", "codex", "copilot", "omp"}
 		}
 		if len(got) < len(wantPrefix) {
 			t.Fatalf("expected at least %d integrations, got %v", len(wantPrefix), got)
@@ -2146,7 +2146,7 @@ func TestListIntegrationInfos(t *testing.T) {
 	})
 
 	t.Run("includes known integrations", func(t *testing.T) {
-		known := map[string]bool{"claude": false, "cline": false, "codex": false, "opencode": false, "omp": false}
+		known := map[string]bool{"claude": false, "cline": false, "codex": false, "opencode": false, "omp": false, "vscode": false}
 		if codexAppSupported() == nil {
 			known["chatgpt"] = false
 		}
