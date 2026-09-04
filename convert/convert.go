@@ -294,7 +294,7 @@ func LoadModelMetadata(fsys fs.FS) (ModelKV, *Tokenizer, error) {
 
 	var conv ModelConverter
 	switch p.Architectures[0] {
-	case "LlamaForCausalLM":
+	case "LlamaForCausalLM", "MistralForCausalLM":
 		conv = &llamaModel{}
 	case "MllamaForConditionalGeneration":
 		conv = &mllamaModel{}

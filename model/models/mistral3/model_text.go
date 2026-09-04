@@ -40,36 +40,24 @@ type SelfAttention struct {
 
 func (sa *SelfAttention) Forward(ctx ml.Context, hiddenState, positionIDs ml.Tensor, cache kvcache.Cache, opts *TextOptions) ml.Tensor {
 	batchSize := hiddenState.Dim(1)
+	headDim := opts.hiddenSize / opts.numHeads
 	ropeType := uint32(0)
-	// Get head dimension - use explicit value if available, otherwise calculate
-	headDim := opts.headDim
-	if headDim == 0 {
-		headDim = opts.hiddenSize / opts.numHeads
-	}
 
-	// Query projection and reshape
 	q := sa.Query.Forward(ctx, hiddenState)
 	q = q.Reshape(ctx, headDim, opts.numHeads, batchSize)
 	q = q.RoPE(ctx, positionIDs, sa.RopeFactors, opts.ropeConfig)
 
-	// Key projection and reshape
 	k := sa.Key.Forward(ctx, hiddenState)
 	k = k.Reshape(ctx, headDim, opts.numKVHeads, batchSize)
 	k = k.RoPE(ctx, positionIDs, sa.RopeFactors, opts.ropeConfig)
 
-	// Value projection and reshape
 	v := sa.Value.Forward(ctx, hiddenState)
 	v = v.Reshape(ctx, headDim, opts.numKVHeads, batchSize)
 
-	// Attention computation
 	scaleFactor := 1.0 / math.Sqrt(float64(headDim))
 	kqv := nn.Attention(ctx, q, k, v, scaleFactor, cache)
+	kqv = kqv.Reshape(ctx, opts.hiddenSize, batchSize)
 
-	// Reshape attention output for final projection
-	outputDim := headDim * opts.numHeads
-	kqv = kqv.Reshape(ctx, outputDim, batchSize)
-
-	// Apply output projection
 	return sa.Output.Forward(ctx, kqv)
 }
 
