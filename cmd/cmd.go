@@ -1634,6 +1634,17 @@ func CopyHandler(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
+func CopyHandler(cmd *cobra.Command, args []string) error {
+	client := api.NewClient()
+
+	req := api.CopyRequest{Source: args[0], Destination: args[1]}
+	if err := client.Copy(context.Background(), &req); err != nil {
+		return err
+	}
+	fmt.Printf("copied '%s' to '%s'\n", args[0], args[1])
+	return nil
+}
+
 func PullHandler(cmd *cobra.Command, args []string) error {
 	insecure, err := cmd.Flags().GetBool("insecure")
 	if err != nil {
