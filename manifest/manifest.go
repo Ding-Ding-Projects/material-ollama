@@ -169,6 +169,7 @@ func WriteManifest(name model.Name, config Layer, layers []Layer) error {
 		MediaType:     "application/vnd.docker.distribution.manifest.v2+json",
 		Config:        config,
 		Layers:        layers,
+		Ollama:        ollama,
 	}
 
 	return json.NewEncoder(f).Encode(m)

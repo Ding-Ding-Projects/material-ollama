@@ -455,6 +455,8 @@ func (c Command) String() string {
 	case "message":
 		role, message, _ := strings.Cut(c.Args, ": ")
 		fmt.Fprintf(&sb, "MESSAGE %s %s", role, quote(message))
+	case "ollama":
+		fmt.Fprintf(&sb, "OLLAMA %s", c.Args)
 	default:
 		fmt.Fprintf(&sb, "PARAMETER %s %s", c.Name, quote(c.Args))
 	}
@@ -471,6 +473,7 @@ const (
 	stateParameter
 	stateMessage
 	stateComment
+	stateVersion
 )
 
 var (
@@ -546,6 +549,9 @@ func ParseFile(r io.Reader) (*Modelfile, error) {
 				case "message":
 					// transition to stateMessage which validates the message role
 					next = stateMessage
+					cmd.Name = s
+				case "ollama":
+					next = stateVersion
 					fallthrough
 				default:
 					cmd.Name = s
@@ -563,6 +569,29 @@ func ParseFile(r io.Reader) (*Modelfile, error) {
 				role = b.String()
 			case stateComment, stateNil:
 				// pass
+			case stateVersion:
+				s, ok := unquote(strings.TrimSpace(b.String()))
+				if !ok {
+					if _, err := b.WriteRune(r); err != nil {
+						return nil, err
+					}
+
+					continue
+				} else if isSpace(r) {
+					return nil, errInvalidVersion
+				}
+
+				if s[0] != 'v' {
+					s = "v" + s
+				}
+
+				if !semver.IsValid(s) {
+					return nil, errInvalidVersion
+				}
+
+				cmd.Args = semver.Canonical(s)
+				f.Commands = append(f.Commands, cmd)
+
 			case stateValue:
 				s, ok := unquote(strings.TrimSpace(b.String()))
 				if !ok || isSpace(r) {
@@ -597,6 +626,22 @@ func ParseFile(r io.Reader) (*Modelfile, error) {
 	switch curr {
 	case stateComment, stateNil:
 		// pass; nothing to flush
+	case stateVersion:
+		s, ok := unquote(strings.TrimSpace(b.String()))
+		if !ok {
+			return nil, io.ErrUnexpectedEOF
+		}
+
+		if s[0] != 'v' {
+			s = "v" + s
+		}
+
+		if !semver.IsValid(s) {
+			return nil, errInvalidVersion
+		}
+
+		cmd.Args = semver.Canonical(s)
+		f.Commands = append(f.Commands, cmd)
 	case stateValue:
 		s, ok := unquote(strings.TrimSpace(b.String()))
 		if !ok {
@@ -675,6 +720,15 @@ func parseRuneForState(r rune, cs state) (state, rune, error) {
 			return stateNil, 0, nil
 		default:
 			return stateComment, 0, nil
+		}
+	case stateVersion:
+		switch {
+		case isNewline(r), isSpace(r):
+			return stateNil, 0, nil
+		case isAlpha(r), isNumber(r), r == '.', r == '+', r == '-':
+			return stateVersion, r, nil
+		default:
+			return stateNil, r, nil
 		}
 	default:
 		return stateNil, 0, errors.New("")
