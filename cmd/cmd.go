@@ -2665,6 +2665,18 @@ func NewCLI() *cobra.Command {
 		}
 	}
 
+	updateCmd := &cobra.Command{
+		Use:   "update",
+		Short: "Update Ollama to the latest version",
+		Args:  cobra.ExactArgs(0),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			force, _ := cmd.Flags().GetBool("force")
+			_ = version.ClearCachedUpdate()
+			return version.DoUpdate(force)
+		},
+	}
+	updateCmd.Flags().BoolP("force", "f", false, "Force update even if installed via a package manager")
+
 	rootCmd.AddCommand(
 		serveCmd,
 		createCmd,
