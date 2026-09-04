@@ -3179,6 +3179,9 @@ func (s *Server) ChatHandler(c *gin.Context) {
 		return
 	}
 
+	// Set numKeep to protect system prompt + tools from truncation during context shift
+	opts.NumKeep = numKeep
+
 	// If debug mode is enabled, return the rendered template instead of calling the model
 	if req.DebugRenderOnly {
 		c.JSON(http.StatusOK, api.ChatResponse{
