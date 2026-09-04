@@ -402,6 +402,7 @@ func (s *Server) processBatch() error {
 
 	f32s := logit.Floats()
 
+	var totalSamplingTime time.Duration
 	for i, seq := range s.seqs {
 		if seq == nil {
 			continue
@@ -629,6 +630,7 @@ func (s *Server) completion(w http.ResponseWriter, r *http.Request) {
 	// defer grammar.Close()
 	// sampler := sample.WithGrammar(sample.Greedy(), grammar)
 
+	start := time.Now()
 	seq, err := s.NewSequence(req.Prompt, req.Images, NewSequenceParams{
 		numPredict: req.NumPredict,
 		stop:       req.Stop,
@@ -636,6 +638,7 @@ func (s *Server) completion(w http.ResponseWriter, r *http.Request) {
 		samplers:   getSamplers(req),
 		embedding:  false,
 	})
+	slog.Info("new sequence created", "duration", time.Since(start))
 	if err != nil {
 		http.Error(w, fmt.Sprintf("Failed to create new sequence: %v", err), http.StatusInternalServerError)
 		return
