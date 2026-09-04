@@ -17,6 +17,11 @@ const (
 	toolsState_Done
 )
 
+type ToolParser interface {
+	Add(s string) (tools []api.ToolCall, content string)
+	NewParser(templateToProcess *gotmpl.Template) (ToolParser, error)
+}
+
 type Parser struct {
 	tag   string
 	tools []api.Tool
@@ -374,4 +379,9 @@ func (p *Parser) Content() string {
 	}
 
 	return ""
+}
+
+// NewParser implements the ToolParser interface
+func (p *Parser) NewParser(templateToProcess *gotmpl.Template) (ToolParser, error) {
+	return NewParser(templateToProcess)
 }
