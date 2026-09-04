@@ -111,7 +111,7 @@ function scanSourceForIconNames(dir) {
   // whole attribute. Pull every quoted name out of the braces. A false
   // positive here is safe: an unknown name fails this build loudly rather
   // than shipping a symbol nobody asked for.
-  const bracedIcon = /\b(?:icon|trailingIcon)\s*=\s*\{([^}]*)}/g
+  const bracedIcon = /(?:\b(?:icon|trailingIcon)|<Icon\b[^>]*?\bname)\s*=\s*\{([^}]*)}/g
   const quoted = /["']([a-z0-9_]+)["']/g
   const walk = (d) => {
     for (const entry of readdirSync(d, { withFileTypes: true })) {

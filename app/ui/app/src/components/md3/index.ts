@@ -14,6 +14,7 @@ export {
   type SegmentedControlProps,
 } from "./SegmentedControl"
 export { Switch, type SwitchProps } from "./Switch"
+export { Checkbox, type CheckboxProps } from "./Checkbox"
 export { Slider, type SliderProps } from "./Slider"
 export { TextField, type TextFieldProps } from "./TextField"
 export { SearchField, type SearchFieldProps } from "./SearchField"

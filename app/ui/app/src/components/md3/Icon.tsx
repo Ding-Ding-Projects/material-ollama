@@ -78,6 +78,7 @@ export const ICON_NAMES = [
   'raven',
   'record_voice_over',
   'regular_expression',
+  'remove',
   'restart_alt',
   'robot_2',
   'rocket_launch',

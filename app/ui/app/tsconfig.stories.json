@@ -3,6 +3,6 @@
   "compilerOptions": {
     "types": ["@storybook/react-vite"]
   },
-  "include": ["src/**/*.stories.*"],
+  "include": ["src/**/*.stories.*", "src/**/*.d.ts"],
   "exclude": []
 }
