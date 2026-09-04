@@ -5,7 +5,6 @@ import (
 	"bytes"
 	"encoding/binary"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io"
 	"io/fs"

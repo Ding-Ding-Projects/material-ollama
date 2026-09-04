@@ -192,6 +192,14 @@ func chatTemplateCapabilities(capabilities []model.Capability, chatTemplate stri
 		capabilities = appendCapability(capabilities, model.CapabilityThinking)
 	}
 
+	// Temporary workaround — suppress vision/audio for gemma4 MLX models
+	// until multimodal runtime pipeline lands. Remove when imageproc.go is wired up.
+	if m.Config.ModelFormat == "safetensors" && m.Config.Renderer == "gemma4" {
+		capabilities = slices.DeleteFunc(capabilities, func(c model.Capability) bool {
+			return c == model.CapabilityVision || c == "audio"
+		})
+	}
+
 	return capabilities
 }
 
