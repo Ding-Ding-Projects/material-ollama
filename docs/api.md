@@ -1379,7 +1379,7 @@ curl -T model.gguf -X POST http://localhost:11434/api/blobs/sha256:29fdb92e57cf0
 
 Return 201 Created if the blob was successfully created, 400 Bad Request if the digest used is not expected.
 
-## List Local Models
+## List Models
 
 ```
 GET /api/tags
@@ -1392,7 +1392,7 @@ List models that are available locally.
 #### Request
 
 ```shell
-curl http://localhost:11434/api/tags
+curl http://localhost:11434/api/list
 ```
 
 #### Response
