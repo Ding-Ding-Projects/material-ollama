@@ -486,6 +486,8 @@ func (w *Webview) Run(path string) unsafe.Pointer {
 		w.webview = wv
 		w.webview.Navigate(url)
 	} else {
+		// Path has been validated by parseURLScheme() to only contain
+		// allowed paths, so it's safe to use directly
 		w.webview.Eval(fmt.Sprintf(`
 			history.pushState({}, '', '%s');
 		`, path))
