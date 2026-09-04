@@ -54,10 +54,10 @@ func (r *GlmOcrRenderer) Render(messages []api.Message, tools []api.Tool, thinkV
 
 	imageOffset := 0
 	for i, message := range messages {
+		content, nextOffset := r.renderContent(message, imageOffset)
 		switch message.Role {
 		case "user":
 			sb.WriteString("<|user|>\n")
-			content, nextOffset := r.renderContent(message, imageOffset)
 			imageOffset = nextOffset
 			sb.WriteString(content)
 			if thinkingExplicitlySet && !enableThinking && !strings.HasSuffix(message.Content, "/nothink") {

@@ -437,6 +437,39 @@ func FromMessagesRequest(r MessagesRequest) (*api.ChatRequest, error) {
 	return convertedRequest, nil
 }
 
+func extractBase64ImageSource(source *ImageSource) (api.ImageData, error) {
+	if source == nil {
+		return nil, errors.New("invalid image source")
+	}
+
+	if source.Type == "base64" {
+		decoded, err := base64.StdEncoding.DecodeString(source.Data)
+		if err != nil {
+			return nil, fmt.Errorf("invalid base64 image data: %w", err)
+		}
+		return decoded, nil
+	}
+	return nil, fmt.Errorf("invalid image source type: %s. Only base64 images are supported", source.Type)
+}
+
+func extractBase64Image(blockMap map[string]any) (api.ImageData, error) {
+	source, ok := blockMap["source"].(map[string]any)
+	if !ok {
+		return nil, errors.New("invalid image source")
+	}
+
+	sourceType, _ := source["type"].(string)
+	if sourceType == "base64" {
+		data, _ := source["data"].(string)
+		decoded, err := base64.StdEncoding.DecodeString(data)
+		if err != nil {
+			return nil, fmt.Errorf("invalid base64 image data: %w", err)
+		}
+		return decoded, nil
+	}
+	return nil, fmt.Errorf("invalid image source type: %s. Only base64 images are supported", sourceType)
+}
+
 // convertMessage converts an Anthropic MessageParam to Ollama api.Message(s)
 func convertMessage(msg MessageParam) ([]api.Message, error) {
 	var messages []api.Message
