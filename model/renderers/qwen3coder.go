@@ -96,7 +96,7 @@ func (r *Qwen3CoderRenderer) Render(messages []api.Message, tools []api.Tool, _ 
 				sb.WriteString("<function>\n")
 				sb.WriteString("<name>" + tool.Function.Name + "</name>")
 				if tool.Function.Description != "" {
-					sb.WriteString("\n<description>" + tool.Function.Description + "</description>")
+					sb.WriteString("\n<description>" + strings.TrimSpace(tool.Function.Description) + "</description>")
 				}
 				sb.WriteString("\n<parameters>")
 
@@ -109,7 +109,7 @@ func (r *Qwen3CoderRenderer) Render(messages []api.Message, tools []api.Tool, _ 
 					}
 
 					if prop.Description != "" {
-						sb.WriteString("\n<description>" + prop.Description + "</description>")
+						sb.WriteString("\n<description>" + strings.TrimSpace(prop.Description) + "</description>")
 					}
 
 					// Render any additional keys not already handled
@@ -141,7 +141,7 @@ func (r *Qwen3CoderRenderer) Render(messages []api.Message, tools []api.Tool, _ 
 
 	for i, message := range filteredMessages {
 		lastMessage := i == len(filteredMessages)-1
-		prefill := lastMessage && message.Role == "assistant"
+		// prefill := lastMessage && message.Role == "assistant"
 		switch message.Role {
 		case "assistant":
 			if len(message.ToolCalls) > 0 {
@@ -161,9 +161,9 @@ func (r *Qwen3CoderRenderer) Render(messages []api.Message, tools []api.Tool, _ 
 			} else {
 				sb.WriteString(imStartTag + "assistant\n")
 				sb.WriteString(message.Content)
-				if !prefill {
-					sb.WriteString(imEndTag + "\n")
-				}
+				// if !prefill {
+				sb.WriteString(imEndTag + "\n")
+				// }
 			}
 		case "tool":
 			// consecutive tool responses should share a single `<im_start>user`, but
@@ -188,7 +188,7 @@ func (r *Qwen3CoderRenderer) Render(messages []api.Message, tools []api.Tool, _ 
 			sb.WriteString(imEndTag + "\n")
 		}
 
-		if lastMessage && !prefill {
+		if lastMessage {
 			sb.WriteString(imStartTag + "assistant\n")
 		}
 	}
