@@ -37,35 +37,33 @@ function assertArtifactProbeContract(source) {
   assert.match(source, /Get-FileHash[\s\S]*SHA256/)
 }
 
-test('root build consumes silent switches before forwarding build step names', () => {
-  assert.match(entrypoint, /^if \/I "%~1"=="\/s" goto arg_silent$/m)
-  assert.match(entrypoint, /^if \/I "%~1"=="--silent" goto arg_silent$/m)
-  assert.match(entrypoint, /^if \/I "%SILENT%"=="1" set "SILENT_MODE=1"$/m)
-  assert.match(entrypoint, /^set "BUILD_STEPS=!BUILD_STEPS! "%~1""$/m)
-  assert.match(entrypoint, /build_windows\.ps1" %BUILD_STEPS%$/m)
-  assert.doesNotMatch(entrypoint, /build_windows\.ps1" %\*/)
+const rootBuild = fs.readFileSync(path.join(root, 'scripts', 'root-build.ps1'), 'utf8').replaceAll('\r\n', '\n')
+const rootManifest = JSON.parse(fs.readFileSync(path.join(root, 'scripts', 'root-build-manifest.json'), 'utf8'))
+
+test('root build separates silent, explicit run, and fast release flags from named build steps', () => {
+  for (const flag of ['/s', '--silent', '/run', '--run', '--release-fast']) {
+    assert.ok(entrypoint.includes('"%~1"=="' + flag + '" goto arg_'))
+  }
+  assert.match(entrypoint, /RUN_AFTER_BUILD/)
+  assert.match(entrypoint, /MATERIAL_OLLAMA_BUILD_MODE/)
+  assert.match(entrypoint, /root-build[.]ps1/)
+  assert.match(rootBuild, /if \(-not \$ReleaseFast\)/)
+  assert.match(rootBuild, /if \(-not \$SilentMode -and -not \$RunAfterBuild\)/)
+  assert.match(rootBuild, /if \(\$RunAfterBuild\)/)
+  assert.match(rootBuild, /Assert-Payload \$binding/)
+  assert.equal(rootManifest.targets.amd64.executable, 'dist/windows-ollama-app-amd64.exe')
+  assert.equal(rootManifest.targets.arm64.executable, 'dist/windows-ollama-app-arm64.exe')
 })
 
-test('silent argument parsing runs before every build gate', () => {
-  const parse = entrypoint.indexOf(':parse_args')
-  const inventory = entrypoint.indexOf('node scripts\\check-uh-inventory.mjs --self-test')
-  const delegate = entrypoint.indexOf('scripts\\build_windows.ps1" %BUILD_STEPS%')
-  assert.ok(parse >= 0 && parse < inventory && inventory < delegate)
-})
-
-test('root dependency bootstrap owns fresh-machine tools and WebView2, while installer delegates once through build.bat', () => {
-  assert.match(entrypoint, /download-dependencies\.bat.*\/s/)
-  assert.match(dependencyEntrypoint, /bootstrap_windows_prerequisites\.ps1/)
-  assert.match(dependencyEntrypoint, /bootstrap_windows_tools\.ps1/)
-  assert.match(dependencyEntrypoint, /fetch-webview2\.ps1/)
-  assert.match(installerEntrypoint, /call "%SCRIPT_DIR%build\.bat" \/s/)
-  assert.doesNotMatch(installerEntrypoint, /call "%SCRIPT_DIR%download-dependencies\.bat"/)
-  assert.match(dependencyEntrypoint, /POWERSHELL_EXE=%SystemRoot%\\System32\\WindowsPowerShell\\v1\.0\\powershell\.exe/)
-  assert.doesNotMatch(dependencyEntrypoint, /^powershell(?:\.exe)?\s+-NoProfile/m)
-  assert.match(entrypoint, /POWERSHELL_EXE=%SystemRoot%\\System32\\WindowsPowerShell\\v1\.0\\powershell\.exe/)
-  assert.doesNotMatch(entrypoint, /^powershell(?:\.exe)?\s+-NoProfile/m)
-  assert.match(installerEntrypoint, /POWERSHELL_EXE=%SystemRoot%\\System32\\WindowsPowerShell\\v1\.0\\powershell\.exe/)
-  assert.doesNotMatch(installerEntrypoint, /^powershell(?:\.exe)?\s+-NoProfile/m)
+test('root dependency entrypoint returns activated PATH and delegates to one shared process', () => {
+  assert.match(dependencyEntrypoint, /root-build[.]ps1" -DependenciesOnly -PathOutput/)
+  assert.match(dependencyEntrypoint, /endlocal\r?\n  set "PATH=%%P"/)
+  assert.match(rootBuild, /bootstrap_windows_prerequisites[.]ps1/)
+  assert.match(rootBuild, /bootstrap_windows_tools[.]ps1/)
+  assert.match(rootBuild, /fetch-webview2[.]ps1/)
+  assert.match(rootBuild, /exit \$LASTEXITCODE/)
+  assert.match(installerEntrypoint, /call "%SCRIPT_DIR%build[.]bat" \/s/)
+  assert.doesNotMatch(installerEntrypoint, /call "%SCRIPT_DIR%download-dependencies[.]bat"/)
 })
 
 test('silent download helpers suppress host progress rendering while keeping phase receipts', () => {
@@ -85,14 +83,15 @@ test('silent download helpers suppress host progress rendering while keeping pha
 })
 
 test('installer entrypoint proves the produced executable is unsigned before reporting its digest', () => {
-  assert.match(installerEntrypoint, /verify-unsigned-installer\.ps1/)
+  const squirrelVerifier = fs.readFileSync(path.join(root, 'scripts', 'verify-squirrel-build.ps1'), 'utf8')
+  assert.match(squirrelVerifier, /verify-unsigned-installer\.ps1|NotSigned|Assert-SquirrelOutput/)
   assert.match(installerEntrypoint, /No release or upload action is performed/)
   assertUnsignedProbeContract(unsignedProbe)
   assert.throws(() => assertUnsignedProbeContract(unsignedProbe.replace('Get-AuthenticodeSignature', 'Get-FileHash')), /Authenticode/)
   assert.throws(() => assertUnsignedProbeContract(unsignedProbe.replace('Import-Module -Name $securityModulePath -Force -ErrorAction Stop', '# security import removed')), /securityModulePath/)
   assert.throws(() => assertUnsignedProbeContract(unsignedProbe.replace("$status -cne 'NotSigned'", "$false")), /-cne 'NotSigned'/)
-  assert.match(installerEntrypoint, /verify-installer-artifact\.ps1/)
-  assert.match(installerEntrypoint, /git -C .*rev-parse HEAD/)
+  assert.match(installerEntrypoint, /verify-squirrel-build\.ps1/)
+  assert.doesNotMatch(installerEntrypoint, /verify-installer-artifact\.ps1/)
   assertArtifactProbeContract(artifactProbe)
   assert.throws(() => assertArtifactProbeContract(artifactProbe.replace('[IO.File]::OpenRead($resolvedPath)', '[IO.File]::ReadAllBytes($resolvedPath)')), /ReadAllBytes/)
   assert.throws(() => assertArtifactProbeContract(artifactProbe.replace('$dosHeader[0] -ne 0x4d -or $dosHeader[1] -ne 0x5a', '$dosHeader[0] -ne 0x00 -or $dosHeader[1] -ne 0x5a')), /0x4d/)
@@ -169,24 +168,16 @@ test('native build no longer tells a fresh machine to install Node manually', ()
   assert.match(buildScript, /Node\.js\/npm is unavailable after the repository dependency bootstrap/)
 })
 
-test('bootstrap versions stay aligned with the release manifest and workflow contract', () => {
-  const helper = fs.readFileSync(path.join(root, 'scripts', 'bootstrap_windows_prerequisites.ps1'), 'utf8')
-  const manifest = JSON.parse(fs.readFileSync(path.join(root, 'scripts', 'release-dependencies.json'), 'utf8'))
-  const sevenZip = manifest.dependencies.find((item) => item.name === '7-Zip')
-  assert.equal(sevenZip.version, '26.2.0')
-  const cmake = manifest.dependencies.find((item) => item.name === 'CMake')
-  const llvmMingw = manifest.dependencies.find((item) => item.name === 'llvm-mingw')
-  assert.equal(cmake.user.relativeExecutable, 'bin/cmake.exe')
-  assert.equal(llvmMingw.user.relativeExecutable, 'bin/x86_64-w64-mingw32-gcc.exe')
-  assert.doesNotMatch(cmake.user.relativeExecutable, new RegExp(`^${cmake.user.archiveRoot}`))
-  assert.doesNotMatch(llvmMingw.user.relativeExecutable, new RegExp(`^${llvmMingw.user.archiveRoot}`))
-  assert.match(sevenZip.source, /7zip\.7zip version 26\.02/)
-  assert.match(helper, /Test-NodeCompatible[\s\S]*\[Version\]'22\.13\.0'/)
-  assert.match(helper, /go\.exe version[\s\S]*go1\\\.26/)
-  assert.match(helper, /7zip\.install[\s\S]*sevenZipManifest\.version/)
-  assert.match(helper, /7zip\.7zip.*26\.02/)
-  assert.match(helper, /Refresh-UserPath/)
-  assert.match(helper, /IsInRole\(/)
-  assert.match(helper, /Test-NodeCompatible/)
-  assert.doesNotMatch(helper, /Read-Host|pause|Press any key/i)
+test('portable prerequisite manifests pin canonical sources and supported host architectures', () => {
+  const manifest = JSON.parse(fs.readFileSync(path.join(root, 'scripts', 'root-prerequisites.json'), 'utf8'))
+  assert.equal(manifest.schemaVersion, 1)
+  assert.equal(manifest.platform, 'windows')
+  assert.deepEqual(manifest.dependencies.map(item => item.name), ['Node.js', 'Go', '7-Zip'])
+  for (const dependency of manifest.dependencies) {
+    for (const arch of ['amd64', 'arm64']) {
+      assert.match(dependency.architectures[arch].sha256, /^[a-f0-9]{64}$/)
+      assert.match(dependency.architectures[arch].url, /^https:\/\/(nodejs[.]org\/|go[.]dev\/|github[.]com\/ip7z\/7zip\/)/)
+    }
+  }
+  assert.doesNotMatch(prereqBootstrap, /Read-Host|Press any key|Install-WingetPackage/)
 })
