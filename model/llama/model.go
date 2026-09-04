@@ -73,14 +73,17 @@ func (sa *SelfAttention) Forward(ctx ml.Context, hiddenState, positionIDs ml.Ten
 		RopeScale:   opts.ropeScale,
 	}
 
+	// Query projection and reshape
 	q := sa.Query.Forward(ctx, hiddenState)
 	q = q.Reshape(ctx, headDim, opts.numHeads, batchSize)
 	q = q.RoPE(ctx, rc)
 
+	// Key projection and reshape
 	k := sa.Key.Forward(ctx, hiddenState)
 	k = k.Reshape(ctx, headDim, opts.numKVHeads, batchSize)
 	k = k.RoPE(ctx, rc)
 
+	// Value projection and reshape
 	v := sa.Value.Forward(ctx, hiddenState)
 	v = v.Reshape(ctx, headDim, opts.numKVHeads, batchSize)
 
@@ -98,6 +101,11 @@ func (sa *SelfAttention) Forward(ctx ml.Context, hiddenState, positionIDs ml.Ten
 	kqv = kqv.Permute(ctx, 0, 2, 1, 3).Contiguous(ctx)
 	kqv = kqv.Reshape(ctx, opts.hiddenSize, batchSize)
 
+	// Reshape attention output for final projection
+	outputDim := headDim * opts.numHeads
+	kqv = kqv.Reshape(ctx, outputDim, batchSize)
+
+	// Apply output projection
 	return sa.Output.Forward(ctx, kqv)
 }
 

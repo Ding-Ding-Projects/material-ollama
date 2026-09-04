@@ -251,6 +251,10 @@ func (bpe BytePairEncoding) Encode(s string) ([]int32, error) {
 					continue
 				}
 
+				if id := bpe.vocab.Encode(pair.value); id < 0 {
+					continue
+				}
+
 				merges[pair.a].runes = append(left.runes, right.runes...)
 				merges[pair.b].runes = nil
 
