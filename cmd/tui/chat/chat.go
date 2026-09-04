@@ -690,6 +690,20 @@ func (m *chatModel) toggleInlineTranscriptDetails() {
 	m.scroll = 0
 }
 
+func (m chatModel) closeToolDetailsWindow() (tea.Model, tea.Cmd) {
+	wasFlowMode := !m.boundedFrame
+	m.toolDetailsOpen = false
+	m.toolDetailsScroll = 0
+	if !wasFlowMode {
+		return m, nil
+	}
+
+	m.boundedFrame = true
+	m.scroll = m.maxScroll()
+	m.flowPrintedLines = 0
+	return m, tea.ClearScreen
+}
+
 func (m chatModel) updateCtrlC() (tea.Model, tea.Cmd) {
 	if len(m.input) > 0 {
 		m.clearInput()

@@ -265,6 +265,13 @@ func (m chatModel) viewSize() (int, int) {
 	return defaultSize(m.width, m.height)
 }
 
+func (m chatModel) viewHeight() int {
+	if m.height > 0 {
+		return m.height
+	}
+	return 24
+}
+
 func (m chatModel) transcriptHeight() int {
 	width, height := m.viewSize()
 	lineCount := len(m.transcriptLines(width))
@@ -296,7 +303,9 @@ func (m chatModel) maxScroll() int {
 
 func (m chatModel) bottomLines(width, maxHeight int) []string {
 	var lines []string
-	if m.modelPicker != nil {
+	if m.resumePicker != nil {
+		lines = append(lines, m.renderInlineResumePicker(width)...)
+	} else if m.modelPicker != nil {
 		lines = append(lines, m.renderInlineModelPicker(width)...)
 	} else {
 		lines = append(lines, m.completionLines(width)...)
@@ -1634,6 +1643,15 @@ func (m chatModel) permissionModeNotice() string {
 		return "full access enabled"
 	}
 	return ""
+}
+
+func (m chatModel) permissionModeNotice() string {
+	switch strings.TrimSpace(m.status) {
+	case "full access enabled", "review mode enabled":
+		return strings.TrimSpace(m.status)
+	default:
+		return ""
+	}
 }
 
 func (m *chatModel) refreshContextWindowTokens(modelName string) {

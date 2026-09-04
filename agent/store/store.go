@@ -743,6 +743,10 @@ func currentAgentModelSelectExpr(chatAlias string) string {
 			)`, chatAlias)
 }
 
+func isCompactionToolName(name string) bool {
+	return name == compactionToolName
+}
+
 func messagesContainCompactionSummary(messages []api.Message) bool {
 	for _, msg := range messages {
 		if agent.IsCompactionSummary(msg) {

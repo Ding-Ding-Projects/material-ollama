@@ -1111,6 +1111,17 @@ func ApproximateTokens(n int) int {
 	return max(1, (n+3)/4)
 }
 
+func toolOutputFullyOmitted(content string) bool {
+	return strings.HasPrefix(content, toolOutputFullOmissionPrefix)
+}
+
+func approximateTokensFromRunes(n int) int {
+	if n <= 0 {
+		return 0
+	}
+	return max(1, (n+3)/4)
+}
+
 func messageEmpty(msg api.Message) bool {
 	return msg.Content == "" && msg.Thinking == "" && len(msg.ToolCalls) == 0
 }
