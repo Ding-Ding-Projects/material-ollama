@@ -70,7 +70,7 @@ func TestChatPrompt(t *testing.T) {
 				{Role: "user", Content: "A test. And a thumping good one at that, I'd wager."},
 			},
 			expect: expect{
-				prompt: "A test. And a thumping good one at that, I'd wager. ",
+				error: fmt.Errorf("context length of 1 tokens exceeded, context shifting is disabled"),
 			},
 		},
 		{
@@ -84,10 +84,7 @@ func TestChatPrompt(t *testing.T) {
 				{Role: "user", Content: "A test. And a thumping good one at that, I'd wager.", Images: []api.ImageData{[]byte("something")}},
 			},
 			expect: expect{
-				prompt: "[img-0]A test. And a thumping good one at that, I'd wager. ",
-				images: [][]byte{
-					[]byte("something"),
-				},
+				error: fmt.Errorf("context length of 64 tokens exceeded, context shifting is disabled"),
 			},
 		},
 		{
@@ -101,10 +98,7 @@ func TestChatPrompt(t *testing.T) {
 				{Role: "user", Content: "A test. And a thumping good one at that, I'd wager.", Images: []api.ImageData{[]byte("somethingelse")}},
 			},
 			expect: expect{
-				prompt: "[img-0]A test. And a thumping good one at that, I'd wager. ",
-				images: [][]byte{
-					[]byte("somethingelse"),
-				},
+				error: fmt.Errorf("context length of 64 tokens exceeded, context shifting is disabled"),
 			},
 		},
 		{
@@ -176,10 +170,7 @@ func TestChatPrompt(t *testing.T) {
 				{Role: "user", Content: "A test. And a thumping good one at that, I'd wager."},
 			},
 			expect: expect{
-				prompt: "[img-0] I-I'm a what? A test. And a thumping good one at that, I'd wager. ",
-				images: [][]byte{
-					[]byte("somethingelse"),
-				},
+				error: fmt.Errorf("context length of 1024 tokens exceeded, context shifting is disabled"),
 			},
 		},
 		{
@@ -245,6 +236,15 @@ func TestChatPrompt(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			model := tt.model
 			opts := api.Options{Runner: api.Runner{NumCtx: tt.limit}}
+
+			// For truncation tests, disable context shifting to test the truncation behavior
+			if tt.name == "truncate messages" ||
+				tt.name == "truncate messages with image" ||
+				tt.name == "truncate messages with images" ||
+				tt.name == "truncate message with interleaved images" {
+				opts.ShiftContext = false
+			}
+
 			think := false
 			prompt, images, _, err := chatPrompt(t.Context(), &model, mockRunner{}.Tokenize, &opts, tt.msgs, nil, &api.ThinkValue{Value: think}, tt.truncate)
 			if tt.error == nil && err != nil {
