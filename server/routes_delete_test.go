@@ -114,14 +114,12 @@ func TestDeleteCloudSourceNormalizesToLegacyName(t *testing.T) {
 		t.Fatalf("expected status code 200, actual %d", w.Code)
 	}
 
-	checkFileExists(t, filepath.Join(p, "manifests", "*", "*", "*", "*"), []string{
-		filepath.Join(p, "manifests", "registry.ollama.ai", "library", "gpt-oss", "20b-cloud"),
-	})
+	checkManifestFiles(t, "gpt-oss:20b-cloud")
 
 	w = createRequest(t, s.DeleteHandler, api.DeleteRequest{Name: "gpt-oss:20b:cloud"})
 	if w.Code != http.StatusOK {
 		t.Fatalf("expected status code 200, actual %d (%s)", w.Code, w.Body.String())
 	}
 
-	checkFileExists(t, filepath.Join(p, "manifests", "*", "*", "*", "*"), []string{})
+	checkManifestFiles(t)
 }

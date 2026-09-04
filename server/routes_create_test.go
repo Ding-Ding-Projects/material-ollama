@@ -210,6 +210,9 @@ func TestCreateModelPreservesEmbeddedCompatibilityGGUFWithoutQuantization(t *tes
 	if err != nil {
 		t.Fatal(err)
 	}
+	if strings.HasSuffix(filepath.ToSlash(p), "/blobs/*") {
+		actual = slices.DeleteFunc(actual, isManifestBlobForTest)
+	}
 
 	name := model.ParseName("test-create-preserve-gguf:latest")
 	config := &model.ConfigV2{
@@ -718,6 +721,35 @@ func checkFileExists(t *testing.T, p string, expect []string) {
 	}), actual, gocmpopts.SortSlices(strings.Compare), gocmpopts.EquateEmpty()); diff != "" {
 		t.Errorf("file exists mismatch (-want +got):\n%s", diff)
 	}
+}
+
+func checkManifestFiles(t *testing.T, names ...string) {
+	t.Helper()
+
+	expect := make([]string, len(names))
+	for i, name := range names {
+		p, err := manifest.V2PathForName(model.ParseName(name))
+		if err != nil {
+			t.Fatal(err)
+		}
+		expect[i] = p
+	}
+
+	checkFileExists(t, filepath.Join(envconfig.Models(), "manifests-v2", "*", "*", "*", "*"), expect)
+}
+
+func isManifestBlobForTest(path string) bool {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return false
+	}
+
+	var m manifest.Manifest
+	if err := json.Unmarshal(data, &m); err != nil {
+		return false
+	}
+
+	return m.SchemaVersion != 0 && m.MediaType != "" && (m.Config.Digest != "" || len(m.Layers) > 0)
 }
 
 func TestCreateFromBin(t *testing.T) {

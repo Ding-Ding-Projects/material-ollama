@@ -11,6 +11,8 @@ import (
 	"strings"
 
 	"github.com/ollama/ollama/envconfig"
+	rootmanifest "github.com/ollama/ollama/manifest"
+	"github.com/ollama/ollama/types/model"
 )
 
 // ManifestLayer represents a layer in the manifest.
@@ -49,9 +51,7 @@ func DefaultManifestDir() string {
 // LoadManifest loads a manifest for the given model name.
 // Model name format: "modelname" or "modelname:tag" or "host/namespace/name:tag"
 func LoadManifest(modelName string) (*ModelManifest, error) {
-	manifestPath := resolveManifestPath(modelName)
-
-	data, err := os.ReadFile(manifestPath)
+	data, err := rootmanifest.ReadManifestData(model.ParseName(modelName))
 	if err != nil {
 		return nil, fmt.Errorf("read manifest: %w", err)
 	}
