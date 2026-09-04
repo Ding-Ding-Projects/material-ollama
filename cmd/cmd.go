@@ -1947,8 +1947,6 @@ func pullModelWithProgress(ctx context.Context, client *api.Client, name string,
 	return err
 }
 
-type generateContextKey string
-
 type runOptions struct {
 	Model          string
 	ParentModel    string
