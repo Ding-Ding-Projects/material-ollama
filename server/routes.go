@@ -1670,6 +1670,108 @@ func (s *Server) CopyHandler(c *gin.Context) {
 	}
 }
 
+func (s *Server) WebSearchHandler(c *gin.Context) {
+	var req api.SearchRequest
+	if err := c.ShouldBindJSON(&req); errors.Is(err, io.EOF) {
+		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"error": "missing request body"})
+		return
+	} else if err != nil {
+		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	if req.Query == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "query is required"})
+		return
+	}
+
+	if req.MaxResults <= 0 {
+		req.MaxResults = 5
+	}
+
+	results, err := s.callWebSearchAPI(req.Query, req.MaxResults)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	if len(results) > req.MaxResults {
+		results = results[:req.MaxResults]
+	}
+
+	resp := api.SearchResponse{
+		Results: results,
+	}
+
+	c.JSON(http.StatusOK, resp)
+}
+
+func (s *Server) callWebSearchAPI(query string, maxResults int) ([]api.SearchResult, error) {
+	searchReq := api.SearchRequest{
+		Query:      query,
+		MaxResults: maxResults,
+	}
+
+	client := api.NewClient(&url.URL{Scheme: "https", Host: "ollama.com"}, http.DefaultClient)
+
+	searchResp, err := client.WebSearch(context.Background(), &searchReq)
+	if err != nil {
+		return nil, err
+	}
+
+	return searchResp.Results, nil
+}
+
+func (s *Server) FetchHandler(c *gin.Context) {
+	var req api.FetchRequest
+	if err := c.ShouldBindJSON(&req); errors.Is(err, io.EOF) {
+		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"error": "missing request body"})
+		return
+	} else if err != nil {
+		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	// Validate required fields
+	if req.URL == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "url is required"})
+		return
+	}
+
+	// Call the real web fetch API
+	content, title, err := s.callWebFetchAPI(req.URL)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	resp := api.FetchResponse{
+		Content: content,
+		Title:   title,
+		URL:     req.URL,
+	}
+
+	c.JSON(http.StatusOK, resp)
+}
+
+func (s *Server) callWebFetchAPI(targetURL string) (string, string, error) {
+	// Create request to ollama.com web fetch API
+	fetchReq := api.FetchRequest{
+		URL: targetURL,
+	}
+
+	// Create client to call ollama.com
+	client := api.NewClient(&url.URL{Scheme: "https", Host: "ollama.com"}, http.DefaultClient)
+
+	// Call the web fetch API
+	fetchResp, err := client.Fetch(context.Background(), &fetchReq)
+	if err != nil {
+		return "", "", err
+	}
+
+	return fetchResp.Content, fetchResp.Title, nil
+}
+
 func (s *Server) HeadBlobHandler(c *gin.Context) {
 	path, err := manifest.BlobsPath(c.Param("digest"))
 	if err != nil {
@@ -1899,6 +2001,8 @@ func (s *Server) GenerateRoutes() (http.Handler, error) {
 	r.POST("/api/chat", s.withInferenceRequestLogging("/api/chat", s.ChatHandler)...)
 	r.POST("/api/embed", s.EmbedHandler)
 	r.POST("/api/embeddings", s.EmbeddingsHandler)
+	r.POST("/api/web_search", s.WebSearchHandler)
+	r.POST("/api/web_fetch", s.FetchHandler)
 
 	// Inference (OpenAI compatibility)
 	// TODO(cloud-stage-a): apply Modelfile overlay deltas for local models with cloud
