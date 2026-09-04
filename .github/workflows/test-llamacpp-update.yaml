@@ -1,13 +1,23 @@
 name: test-llamacpp-update
 
-# PR validation artifacts from this workflow are intentionally unsigned and not
-# notarized. They are for llama.cpp update testing only and must not be
+# This workflow only emits disposable build payloads. A newer commit
+# supersedes an older build, so cancelling stale validation is safe.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+# Build-only payload artifacts from this workflow are intentionally unsigned and
+# not notarized. They are for llama.cpp update validation and must not be
 # published as release artifacts.
 
 on:
+  push:
+    paths:
+      - 'LLAMA_CPP_VERSION'
   pull_request:
     paths:
       - 'LLAMA_CPP_VERSION'
+  workflow_dispatch:
 
 permissions:
   contents: read
