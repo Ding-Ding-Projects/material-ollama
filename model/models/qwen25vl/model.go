@@ -28,8 +28,8 @@ var _ model.MultimodalProcessor = (*Model)(nil)
 func New(c fs.Config) (model.Model, error) {
 	m := &Model{
 		TextModel:      NewTextModel(c),
-		VisionModel:    newVisionModel(c),
-		ImageProcessor: newImageProcessor(c),
+		VisionModel:    NewVisionModel(c),
+		ImageProcessor: NewImageProcessor(c),
 	}
 
 	m.Cache = kvcache.NewCausalCache(m.Shift)
