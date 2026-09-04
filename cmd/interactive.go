@@ -143,7 +143,6 @@ func generateInteractive(cmd *cobra.Command, opts runOptions) error {
 	defer fmt.Printf(readline.EndBracketedPaste)
 
 	var sb strings.Builder
-	var multiline MultilineState
 	var thinkExplicitlySet bool = opts.Think != nil
 
 	for {
@@ -377,41 +376,19 @@ func generateInteractive(cmd *cobra.Command, opts runOptions) error {
 					opts.Options[args[2]] = fp[args[2]]
 				case "system":
 					if len(args) < 3 {
-						usageSet()
+						fmt.Println("Usage: /set system <message>")
 						continue
 					}
 
-					multiline = MultilineSystem
-
-					line := strings.Join(args[2:], " ")
-					line, ok := strings.CutPrefix(line, `"""`)
-					if !ok {
-						multiline = MultilineNone
-					} else {
-						// only cut suffix if the line is multiline
-						line, ok = strings.CutSuffix(line, `"""`)
-						if ok {
-							multiline = MultilineNone
-						}
-					}
-
-					sb.WriteString(line)
-					if multiline != MultilineNone {
-						scanner.Prompt.UseAlt = true
-						continue
-					}
-
-					opts.System = sb.String() // for display in modelfile
-					newMessage := api.Message{Role: "system", Content: sb.String()}
+					opts.System = strings.Join(args[2:], " ")
+					newMessage := api.Message{Role: "system", Content: opts.System}
 					// Check if the slice is not empty and the last message is from 'system'
 					if len(opts.Messages) > 0 && opts.Messages[len(opts.Messages)-1].Role == "system" {
-						// Replace the last message
 						opts.Messages[len(opts.Messages)-1] = newMessage
 					} else {
 						opts.Messages = append(opts.Messages, newMessage)
 					}
 					fmt.Println("Set system message.")
-					sb.Reset()
 					continue
 				default:
 					fmt.Printf("Unknown command '/set %s'. Type /? for help\n", args[1])
