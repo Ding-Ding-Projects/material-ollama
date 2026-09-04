@@ -6,10 +6,12 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net/url"
 	"os"
 	"os/signal"
 	"strings"
 	"syscall"
+	"time"
 
 	"github.com/spf13/cobra"
 	"golang.org/x/term"
@@ -21,6 +23,132 @@ import (
 	"github.com/ollama/ollama/x/agent"
 	"github.com/ollama/ollama/x/tools"
 )
+
+// Tool output capping constants
+const (
+	// localModelTokenLimit is the token limit for local models (smaller context).
+	localModelTokenLimit = 4000
+
+	// defaultTokenLimit is the token limit for cloud/remote models.
+	defaultTokenLimit = 10000
+
+	// charsPerToken is a rough estimate of characters per token.
+	// TODO: Estimate tokens more accurately using tokenizer if available
+	charsPerToken = 4
+)
+
+// suggestedCloudModels are the models suggested to users after signing in.
+// TODO(parthsareen): Dynamically recommend models based on user context instead of hardcoding
+var suggestedCloudModels = []agent.CloudModelOption{
+	{Name: "glm-4.7:cloud", Description: "GLM 4.7 Cloud"},
+	{Name: "qwen3-coder:480b-cloud", Description: "Qwen3 Coder 480B"},
+}
+
+// CloudModelSwitchRequest signals that the user wants to switch to a different model.
+type CloudModelSwitchRequest struct {
+	Model string
+}
+
+func (c *CloudModelSwitchRequest) Error() string {
+	return fmt.Sprintf("switch to model: %s", c.Model)
+}
+
+// isLocalModel checks if the model is running locally (not a cloud model).
+// TODO: Improve local/cloud model identification - could check model metadata
+func isLocalModel(modelName string) bool {
+	return !strings.HasSuffix(modelName, "-cloud")
+}
+
+// isLocalServer checks if connecting to a local Ollama server.
+// TODO: Could also check other indicators of local vs cloud server
+func isLocalServer() bool {
+	host := os.Getenv("OLLAMA_HOST")
+	if host == "" {
+		return true // Default is localhost:11434
+	}
+
+	// Parse the URL to check host
+	parsed, err := url.Parse(host)
+	if err != nil {
+		return true // If can't parse, assume local
+	}
+
+	hostname := parsed.Hostname()
+	return hostname == "localhost" || hostname == "127.0.0.1" || strings.Contains(parsed.Host, ":11434")
+}
+
+// truncateToolOutput truncates tool output to prevent context overflow.
+// Uses a smaller limit (4k tokens) for local models, larger (10k) for cloud/remote.
+func truncateToolOutput(output, modelName string) string {
+	var tokenLimit int
+	if isLocalModel(modelName) && isLocalServer() {
+		tokenLimit = localModelTokenLimit
+	} else {
+		tokenLimit = defaultTokenLimit
+	}
+
+	maxChars := tokenLimit * charsPerToken
+	if len(output) > maxChars {
+		return output[:maxChars] + "\n... (output truncated)"
+	}
+	return output
+}
+
+// waitForOllamaSignin shows the signin URL and polls until authentication completes.
+func waitForOllamaSignin(ctx context.Context) error {
+	client, err := api.ClientFromEnvironment()
+	if err != nil {
+		return err
+	}
+
+	// Get signin URL from initial Whoami call
+	_, err = client.Whoami(ctx)
+	if err != nil {
+		var aErr api.AuthorizationError
+		if errors.As(err, &aErr) && aErr.SigninURL != "" {
+			fmt.Fprintf(os.Stderr, "\n  To sign in, navigate to:\n")
+			fmt.Fprintf(os.Stderr, "      \033[36m%s\033[0m\n\n", aErr.SigninURL)
+			fmt.Fprintf(os.Stderr, "  \033[90mWaiting for sign in to complete...\033[0m")
+
+			// Poll until auth succeeds
+			ticker := time.NewTicker(2 * time.Second)
+			defer ticker.Stop()
+
+			for {
+				select {
+				case <-ctx.Done():
+					fmt.Fprintf(os.Stderr, "\n")
+					return ctx.Err()
+				case <-ticker.C:
+					user, whoamiErr := client.Whoami(ctx)
+					if whoamiErr == nil && user != nil && user.Name != "" {
+						fmt.Fprintf(os.Stderr, "\r\033[K  \033[32mSigned in as %s\033[0m\n", user.Name)
+						return nil
+					}
+					// Still waiting, show dot
+					fmt.Fprintf(os.Stderr, ".")
+				}
+			}
+		}
+		return err
+	}
+	return nil
+}
+
+// promptCloudModelSuggestion shows cloud model suggestions after successful sign-in.
+// Returns the selected model name, or empty string if user declines.
+func promptCloudModelSuggestion() string {
+	fmt.Fprintf(os.Stderr, "\n")
+	fmt.Fprintf(os.Stderr, "\033[1;36mTry cloud models for free!\033[0m\n")
+	fmt.Fprintf(os.Stderr, "\033[90mCloud models offer powerful capabilities without local hardware requirements.\033[0m\n")
+	fmt.Fprintf(os.Stderr, "\n")
+
+	selectedModel, err := agent.PromptModelChoice("Try a cloud model now?", suggestedCloudModels)
+	if err != nil || selectedModel == "" {
+		return ""
+	}
+	return selectedModel
+}
 
 // RunOptions contains options for running an interactive agent session.
 type RunOptions struct {
@@ -37,6 +165,50 @@ type RunOptions struct {
 	// Agent fields (managed externally for session persistence)
 	Tools    *tools.Registry
 	Approval *agent.ApprovalManager
+
+	// YoloMode skips all tool approval prompts
+	YoloMode bool
+
+	// LastToolOutput stores the full output of the last tool execution
+	// for Ctrl+O expansion. Updated by Chat(), read by caller.
+	LastToolOutput *string
+
+	// LastToolOutputTruncated stores the truncated version shown inline
+	LastToolOutputTruncated *string
+
+	// ActiveModel points to the current model name - can be updated mid-turn
+	// for model switching. If nil, opts.Model is used.
+	ActiveModel *string
+}
+
+// getActiveModel returns the current model name, checking ActiveModel pointer first.
+func getActiveModel(opts *RunOptions) string {
+	if opts.ActiveModel != nil && *opts.ActiveModel != "" {
+		return *opts.ActiveModel
+	}
+	return opts.Model
+}
+
+// showModelConnection displays "Connecting to X on ollama.com" for cloud models.
+func showModelConnection(ctx context.Context, modelName string) error {
+	client, err := api.ClientFromEnvironment()
+	if err != nil {
+		return err
+	}
+
+	info, err := client.Show(ctx, &api.ShowRequest{Model: modelName})
+	if err != nil {
+		return err
+	}
+
+	if info.RemoteHost != "" {
+		if strings.HasPrefix(info.RemoteHost, "https://ollama.com") {
+			fmt.Fprintf(os.Stderr, "Connecting to '%s' on 'ollama.com' ⚡\n", info.RemoteModel)
+		} else {
+			fmt.Fprintf(os.Stderr, "Connecting to '%s' on '%s'\n", info.RemoteModel, info.RemoteHost)
+		}
+	}
+	return nil
 }
 
 // Chat runs an agent chat loop with tool support.
@@ -77,6 +249,7 @@ func Chat(ctx context.Context, opts RunOptions) (*api.Message, error) {
 	var thinkTagOpened bool = false
 	var thinkTagClosed bool = false
 	var pendingToolCalls []api.ToolCall
+	var consecutiveErrors int // Track consecutive 500 errors for retry limit
 
 	role := "assistant"
 	messages := opts.Messages
@@ -135,7 +308,7 @@ func Chat(ctx context.Context, opts RunOptions) (*api.Message, error) {
 	// Agentic loop: continue until no more tool calls
 	for {
 		req := &api.ChatRequest{
-			Model:    opts.Model,
+			Model:    getActiveModel(&opts),
 			Messages: messages,
 			Format:   json.RawMessage(opts.Format),
 			Options:  opts.Options,
@@ -159,6 +332,61 @@ func Chat(ctx context.Context, opts RunOptions) (*api.Message, error) {
 				return nil, nil
 			}
 
+			var authErr api.AuthorizationError
+			if errors.As(err, &authErr) {
+				p.StopAndClear()
+				fmt.Fprintf(os.Stderr, "\033[33mAuthentication required to use this cloud model.\033[0m\n")
+				result, promptErr := agent.PromptYesNo("Sign in to Ollama?")
+				if promptErr == nil && result {
+					if signinErr := waitForOllamaSignin(ctx); signinErr == nil {
+						suggestedModel := promptCloudModelSuggestion()
+						if suggestedModel != "" {
+							return nil, &CloudModelSwitchRequest{Model: suggestedModel}
+						}
+
+						fmt.Fprintf(os.Stderr, "\033[90mRetrying...\033[0m\n")
+						continue
+					}
+				}
+				return nil, fmt.Errorf("authentication required - run 'ollama signin' to authenticate")
+			}
+
+			// Check for 500 errors (often tool parsing failures) - inform the model
+			var statusErr api.StatusError
+			if errors.As(err, &statusErr) && statusErr.StatusCode >= 500 {
+				consecutiveErrors++
+				p.StopAndClear()
+
+				if consecutiveErrors >= 3 {
+					fmt.Fprintf(os.Stderr, "\033[31m✗ Too many consecutive errors, giving up\033[0m\n")
+					return nil, fmt.Errorf("too many consecutive server errors: %s", statusErr.ErrorMessage)
+				}
+
+				fmt.Fprintf(os.Stderr, "\033[33m⚠ Server error (attempt %d/3): %s\033[0m\n", consecutiveErrors, statusErr.ErrorMessage)
+
+				// Include both the model's response and the error so it can learn
+				assistantContent := fullResponse.String()
+				if assistantContent == "" {
+					assistantContent = "(empty response)"
+				}
+				errorMsg := fmt.Sprintf("Your previous response caused an error: %s\n\nYour response was:\n%s\n\nPlease try again with a valid response.", statusErr.ErrorMessage, assistantContent)
+				messages = append(messages,
+					api.Message{Role: "user", Content: errorMsg},
+				)
+
+				// Reset state and retry
+				fullResponse.Reset()
+				thinkingContent.Reset()
+				thinkTagOpened = false
+				thinkTagClosed = false
+				pendingToolCalls = nil
+				state = &displayResponseState{}
+				p = progress.NewProgress(os.Stderr)
+				spinner = progress.NewSpinner("")
+				p.Add("", spinner)
+				continue
+			}
+
 			if strings.Contains(err.Error(), "upstream error") {
 				p.StopAndClear()
 				fmt.Println("An error occurred while processing your message. Please try again.")
@@ -167,6 +395,9 @@ func Chat(ctx context.Context, opts RunOptions) (*api.Message, error) {
 			}
 			return nil, err
 		}
+
+		// Reset consecutive error counter on success
+		consecutiveErrors = 0
 
 		// If no tool calls, we're done
 		if len(pendingToolCalls) == 0 || toolRegistry == nil {
@@ -216,7 +447,12 @@ func Chat(ctx context.Context, opts RunOptions) (*api.Message, error) {
 			}
 
 			// Check approval (uses prefix matching for bash commands)
-			if !skipApproval && !approval.IsAllowed(toolName, args) {
+			// In yolo mode, skip all approval prompts
+			if opts.YoloMode {
+				if !skipApproval {
+					fmt.Fprintf(os.Stderr, "\033[90m▶ Running: %s\033[0m\n", formatToolShort(toolName, args))
+				}
+			} else if !skipApproval && !approval.IsAllowed(toolName, args) {
 				result, err := approval.RequestApproval(toolName, args)
 				if err != nil {
 					fmt.Fprintf(os.Stderr, "Error requesting approval: %v\n", err)
@@ -247,9 +483,27 @@ func Chat(ctx context.Context, opts RunOptions) (*api.Message, error) {
 				fmt.Fprintf(os.Stderr, "\033[90m▶ Running: %s\033[0m\n", formatToolShort(toolName, args))
 			}
 
-			// Execute the tool
 			toolResult, err := toolRegistry.Execute(call)
 			if err != nil {
+				if errors.Is(err, tools.ErrWebSearchAuthRequired) {
+					fmt.Fprintf(os.Stderr, "\033[33m  Web search requires authentication.\033[0m\n")
+					result, promptErr := agent.PromptYesNo("Sign in to Ollama?")
+					if promptErr == nil && result {
+						if signinErr := waitForOllamaSignin(ctx); signinErr == nil {
+							suggestedModel := promptCloudModelSuggestion()
+							if suggestedModel != "" && opts.ActiveModel != nil {
+								*opts.ActiveModel = suggestedModel
+								showModelConnection(ctx, suggestedModel)
+							}
+
+							fmt.Fprintf(os.Stderr, "\033[90mRetrying web search...\033[0m\n")
+							toolResult, err = toolRegistry.Execute(call)
+							if err == nil {
+								goto toolSuccess
+							}
+						}
+					}
+				}
 				fmt.Fprintf(os.Stderr, "\033[31m  Error: %v\033[0m\n", err)
 				toolResults = append(toolResults, api.Message{
 					Role:       "tool",
@@ -258,20 +512,34 @@ func Chat(ctx context.Context, opts RunOptions) (*api.Message, error) {
 				})
 				continue
 			}
+		toolSuccess:
 
 			// Display tool output (truncated for display)
+			truncatedOutput := ""
 			if toolResult != "" {
 				output := toolResult
 				if len(output) > 300 {
-					output = output[:300] + "... (truncated)"
+					output = output[:300] + "... (truncated, press Ctrl+O to expand)"
 				}
+				truncatedOutput = output
 				// Show result in grey, indented
 				fmt.Fprintf(os.Stderr, "\033[90m  %s\033[0m\n", strings.ReplaceAll(output, "\n", "\n  "))
 			}
 
+			// Store full and truncated output for Ctrl+O toggle
+			if opts.LastToolOutput != nil {
+				*opts.LastToolOutput = toolResult
+			}
+			if opts.LastToolOutputTruncated != nil {
+				*opts.LastToolOutputTruncated = truncatedOutput
+			}
+
+			// Truncate output to prevent context overflow
+			toolResultForLLM := truncateToolOutput(toolResult, getActiveModel(&opts))
+
 			toolResults = append(toolResults, api.Message{
 				Role:       "tool",
-				Content:    toolResult,
+				Content:    toolResultForLLM,
 				ToolCallID: call.ID,
 			})
 		}
@@ -426,30 +694,34 @@ func renderToolCalls(toolCalls []api.ToolCall, plainText bool) string {
 	return out
 }
 
-// checkModelCapabilities checks if the model supports tools.
-func checkModelCapabilities(ctx context.Context, modelName string) (supportsTools bool, err error) {
+// checkModelCapabilities checks if the model supports tools and thinking.
+func checkModelCapabilities(ctx context.Context, modelName string) (supportsTools bool, supportsThinking bool, err error) {
 	client, err := api.ClientFromEnvironment()
 	if err != nil {
-		return false, err
+		return false, false, err
 	}
 
 	resp, err := client.Show(ctx, &api.ShowRequest{Model: modelName})
 	if err != nil {
-		return false, err
+		return false, false, err
 	}
 
 	for _, cap := range resp.Capabilities {
 		if cap == model.CapabilityTools {
-			return true, nil
+			supportsTools = true
+		}
+		if cap == model.CapabilityThinking {
+			supportsThinking = true
 		}
 	}
 
-	return false, nil
+	return supportsTools, supportsThinking, nil
 }
 
 // GenerateInteractive runs an interactive agent session.
 // This is called from cmd.go when --experimental flag is set.
-func GenerateInteractive(cmd *cobra.Command, modelName string, wordWrap bool, options map[string]any, think *api.ThinkValue, hideThinking bool, keepAlive *api.Duration) error {
+// If yoloMode is true, all tool approvals are skipped.
+func GenerateInteractive(cmd *cobra.Command, modelName string, wordWrap bool, options map[string]any, think *api.ThinkValue, hideThinking bool, keepAlive *api.Duration, yoloMode bool) error {
 	scanner, err := readline.New(readline.Prompt{
 		Prompt:         ">>> ",
 		AltPrompt:      "... ",
@@ -463,12 +735,16 @@ func GenerateInteractive(cmd *cobra.Command, modelName string, wordWrap bool, op
 	fmt.Print(readline.StartBracketedPaste)
 	defer fmt.Printf(readline.EndBracketedPaste)
 
-	// Check if model supports tools
-	supportsTools, err := checkModelCapabilities(cmd.Context(), modelName)
+	// Check if model supports tools and thinking
+	supportsTools, supportsThinking, err := checkModelCapabilities(cmd.Context(), modelName)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "\033[33mWarning: Could not check model capabilities: %v\033[0m\n", err)
 		supportsTools = false
+		supportsThinking = false
 	}
+
+	// Track if session is using thinking mode
+	usingThinking := think != nil && supportsThinking
 
 	// Create tool registry only if model supports tools
 	var toolRegistry *tools.Registry
@@ -499,6 +775,11 @@ func GenerateInteractive(cmd *cobra.Command, modelName string, wordWrap bool, op
 	var messages []api.Message
 	var sb strings.Builder
 
+	// Track last tool output for Ctrl+O toggle
+	var lastToolOutput string
+	var lastToolOutputTruncated string
+	var toolOutputExpanded bool
+
 	for {
 		line, err := scanner.Readline()
 		switch {
@@ -510,6 +791,20 @@ func GenerateInteractive(cmd *cobra.Command, modelName string, wordWrap bool, op
 				fmt.Println("\nUse Ctrl + d or /bye to exit.")
 			}
 			sb.Reset()
+			continue
+		case errors.Is(err, readline.ErrExpandOutput):
+			// Ctrl+O pressed - toggle between expanded and collapsed tool output
+			if lastToolOutput == "" {
+				fmt.Fprintf(os.Stderr, "\033[90mNo tool output to expand\033[0m\n")
+			} else if toolOutputExpanded {
+				// Currently expanded, show truncated
+				fmt.Fprintf(os.Stderr, "\033[90m  %s\033[0m\n", strings.ReplaceAll(lastToolOutputTruncated, "\n", "\n  "))
+				toolOutputExpanded = false
+			} else {
+				// Currently collapsed, show full
+				fmt.Fprintf(os.Stderr, "\033[90m  %s\033[0m\n", strings.ReplaceAll(lastToolOutput, "\n", "\n  "))
+				toolOutputExpanded = true
+			}
 			continue
 		case err != nil:
 			return err
@@ -566,30 +861,95 @@ func GenerateInteractive(cmd *cobra.Command, modelName string, wordWrap bool, op
 		if sb.Len() > 0 {
 			newMessage := api.Message{Role: "user", Content: sb.String()}
 			messages = append(messages, newMessage)
+			toolOutputExpanded = false
 
-			opts := RunOptions{
-				Model:        modelName,
-				Messages:     messages,
-				WordWrap:     wordWrap,
-				Options:      options,
-				Think:        think,
-				HideThinking: hideThinking,
-				KeepAlive:    keepAlive,
-				Tools:        toolRegistry,
-				Approval:     approval,
-			}
+		retryChat:
+			for {
+				opts := RunOptions{
+					Model:                   modelName,
+					Messages:                messages,
+					WordWrap:                wordWrap,
+					Options:                 options,
+					Think:                   think,
+					HideThinking:            hideThinking,
+					KeepAlive:               keepAlive,
+					Tools:                   toolRegistry,
+					Approval:                approval,
+					YoloMode:                yoloMode,
+					LastToolOutput:          &lastToolOutput,
+					LastToolOutputTruncated: &lastToolOutputTruncated,
+					ActiveModel:             &modelName,
+				}
 
-			assistant, err := Chat(cmd.Context(), opts)
-			if err != nil {
-				return err
-			}
-			if assistant != nil {
-				messages = append(messages, *assistant)
+				assistant, err := Chat(cmd.Context(), opts)
+				if err != nil {
+					var switchReq *CloudModelSwitchRequest
+					if errors.As(err, &switchReq) {
+						newModel := switchReq.Model
+						if err := switchToModel(cmd.Context(), newModel, &modelName, &supportsTools, &supportsThinking, &toolRegistry, usingThinking); err != nil {
+							fmt.Fprintf(os.Stderr, "\033[33m%v\033[0m\n", err)
+							fmt.Fprintf(os.Stderr, "\033[90mContinuing with %s...\033[0m\n", modelName)
+						}
+						continue retryChat
+					}
+					return err
+				}
+
+				if assistant != nil {
+					messages = append(messages, *assistant)
+				}
+				break retryChat
 			}
 
 			sb.Reset()
 		}
 	}
+}
+
+// switchToModel handles model switching with capability checks and UI updates.
+func switchToModel(ctx context.Context, newModel string, modelName *string, supportsTools, supportsThinking *bool, toolRegistry **tools.Registry, usingThinking bool) error {
+	client, err := api.ClientFromEnvironment()
+	if err != nil {
+		return fmt.Errorf("could not create client: %w", err)
+	}
+
+	newSupportsTools, newSupportsThinking, capErr := checkModelCapabilities(ctx, newModel)
+	if capErr != nil {
+		return fmt.Errorf("could not check model capabilities: %w", capErr)
+	}
+
+	// TODO(parthsareen): Handle thinking -> non-thinking model switch gracefully
+	if usingThinking && !newSupportsThinking {
+		return fmt.Errorf("%s does not support thinking mode", newModel)
+	}
+
+	// Show "Connecting to X on ollama.com" for cloud models
+	info, err := client.Show(ctx, &api.ShowRequest{Model: newModel})
+	if err == nil && info.RemoteHost != "" {
+		if strings.HasPrefix(info.RemoteHost, "https://ollama.com") {
+			fmt.Fprintf(os.Stderr, "Connecting to '%s' on 'ollama.com' ⚡\n", info.RemoteModel)
+		} else {
+			fmt.Fprintf(os.Stderr, "Connecting to '%s' on '%s'\n", info.RemoteModel, info.RemoteHost)
+		}
+	}
+
+	*modelName = newModel
+	*supportsTools = newSupportsTools
+	*supportsThinking = newSupportsThinking
+
+	if *supportsTools {
+		if *toolRegistry == nil {
+			*toolRegistry = tools.DefaultRegistry()
+		}
+		if (*toolRegistry).Count() > 0 {
+			fmt.Fprintf(os.Stderr, "\033[90mTools available: %s\033[0m\n", strings.Join((*toolRegistry).Names(), ", "))
+		}
+	} else {
+		*toolRegistry = nil
+		fmt.Fprintf(os.Stderr, "\033[33mNote: Model does not support tools - running in chat-only mode\033[0m\n")
+	}
+
+	return nil
 }
 
 // showToolsStatus displays the current tools and approval status.
