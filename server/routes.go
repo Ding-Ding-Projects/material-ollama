@@ -2164,6 +2164,11 @@ func (s *Server) CreateBlobHandler(c *gin.Context) {
 		c.Status(http.StatusOK)
 		return
 	}
+	if c.GetHeader("X-Redirect-Create") == "1" && s.isLocal(c) {
+		c.Header("LocalLocation", path)
+		c.Status(http.StatusTemporaryRedirect)
+		return
+	}
 
 	layer, err := manifest.NewLayer(c.Request.Body, "")
 	if err != nil {
