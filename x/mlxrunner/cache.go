@@ -69,6 +69,7 @@ func (s Runner) FindNearestCache(tokens []int32) ([]cache.Cache, []int32) {
 		slog.Info("Cache hit", "type", "prefix", "total", len(tokens), "cached", prefix, "left", len(tokens[prefix:]), "trimmed", trim)
 		return caches, tokens[prefix:]
 	}
+	ensureCaches()
 
 	slog.Info("Cache miss", "left", len(tokens))
 	return nil, tokens

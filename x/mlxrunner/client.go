@@ -238,6 +238,25 @@ func (c *Client) ApplyChatTemplate(ctx context.Context, req llm.ChatRequest) (st
 	return "", errors.New("MLX runner does not support native llama-server chat templates")
 }
 
+func hasExplicitOption(explicit map[string]struct{}, key string) bool {
+	_, ok := explicit[key]
+	return ok
+}
+
+func float32Ptr(v float32, ok bool) *float32 {
+	if !ok {
+		return nil
+	}
+	return &v
+}
+
+func intPtr(v int, ok bool) *int {
+	if !ok {
+		return nil
+	}
+	return &v
+}
+
 func (c *Client) ContextLength() int {
 	return int(c.contextLength.Load())
 }

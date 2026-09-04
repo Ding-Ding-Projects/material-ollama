@@ -101,6 +101,12 @@ func (t *Array) Divide(other *Array) *Array {
 	return out
 }
 
+func (t *Array) Cumsum(axis int, reverse, inclusive bool) *Array {
+	out := New("CUMSUM")
+	C.mlx_cumsum(&out.ctx, t.ctx, C.int(axis), C.bool(reverse), C.bool(inclusive), DefaultStream().ctx)
+	return out
+}
+
 func (t *Array) ExpandDims(axis int) *Array {
 	out := New("EXPAND_DIMS")
 	C.mlx_expand_dims(&out.ctx, t.ctx, C.int(axis), DefaultStream().ctx)
@@ -164,6 +170,18 @@ func (t *Array) LessEqual(other *Array) *Array {
 func (t *Array) MaxAxis(axis int, keepDims bool) *Array {
 	out := New("MAX_AXIS")
 	C.mlx_max_axis(&out.ctx, t.ctx, C.int(axis), C.bool(keepDims), DefaultStream().ctx)
+	return out
+}
+
+func (t *Array) Less(other *Array) *Array {
+	out := New("LESS")
+	C.mlx_less(&out.ctx, t.ctx, other.ctx, DefaultStream().ctx)
+	return out
+}
+
+func (t *Array) LogicalOr(other *Array) *Array {
+	out := New("LOGICAL_OR")
+	C.mlx_logical_or(&out.ctx, t.ctx, other.ctx, DefaultStream().ctx)
 	return out
 }
 
