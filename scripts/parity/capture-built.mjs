@@ -119,7 +119,16 @@ async function captureState(state, { cliPath, runId, index, outDir, artifactSha 
     }
 
     for (const step of state.steps) {
-      const result = await cdpEvaluate(client, step.expression)
+      // A step that reports a "..._YET" sentinel is waiting on something that
+      // has not mounted, not failing. Retry it briefly rather than treating a
+      // slow render as a missing control -- the tab strip in particular is not
+      // always up by the time the document reports complete.
+      let result = await cdpEvaluate(client, step.expression)
+      const deadline = Date.now() + 10_000
+      while (String(result).endsWith('_YET') && Date.now() < deadline) {
+        await sleep(300)
+        result = await cdpEvaluate(client, step.expression)
+      }
       if (result !== 'OK') {
         throw new Error(`${state.id}: step "${step.label}" returned ${JSON.stringify(result)}, expected "OK"`)
       }
