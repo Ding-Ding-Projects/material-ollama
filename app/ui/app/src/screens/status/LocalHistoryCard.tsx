@@ -1,9 +1,8 @@
 import { useQuery } from "@tanstack/react-query"
 import { useMemo, useState } from "react"
 import { getSettings } from "@/api"
-import { Button, Select, Surface, useSnackbar } from "@/components/md3"
+import { Button, Select, Surface, TextField, useSnackbar } from "@/components/md3"
 import { Icon } from "@/components/md3/Icon"
-import { FOCUS_RING_WITHIN } from "@/components/md3/tokens"
 import { Txt, fact, useT } from "@/uh"
 import { matchesDateRange, type DateRange } from "./dateRange"
 import { DateRangeFilter } from "./DateRangeFilter"
@@ -103,17 +102,13 @@ export function LocalHistoryCard() {
       </p>
 
       <div className="flex flex-col gap-2">
-        <label htmlFor="status-history-note" className="text-[11px] font-medium text-on-surface-variant">
-          {t("historyAddNoteLabel")}
-        </label>
-        <div className="flex gap-2">
-          <input
-            id="status-history-note"
+        <div className="flex items-end gap-2">
+          <TextField
+            label={t("historyAddNoteLabel")}
             value={note}
-            onChange={(event) => setNote(event.target.value)}
+            onChange={(next) => setNote(next.slice(0, 280))}
             placeholder={t("historyAddNotePlaceholder")}
-            maxLength={280}
-            className={`min-w-0 flex-1 rounded-[10px] border border-outline-variant bg-surface-low px-3 py-2 text-[12.5px] outline-none placeholder:text-on-surface-variant ${FOCUS_RING_WITHIN}`}
+            className="min-w-0 flex-1"
           />
           <Button
             variant="tonal"

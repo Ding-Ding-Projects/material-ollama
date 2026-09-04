@@ -4,6 +4,7 @@ import StreamingMarkdownContent from "./StreamingMarkdownContent";
 import { ImageThumbnail } from "./ImageThumbnail";
 import { isImageFile } from "@/utils/imageUtils";
 import CopyButton from "./CopyButton";
+import { Button } from "@/components/md3";
 import React, { useState, useMemo, useRef } from "react";
 
 const Message = React.memo(
@@ -856,9 +857,10 @@ function UserMessage({
           </div>
 
           {/* Edit button */}
-          <button
-            type="button"
-            className={`edit-button absolute -bottom-5 right-1 text-xs
+          <Button
+            variant="text"
+            size="sm"
+            className={`edit-button absolute -bottom-5 right-1 h-auto min-h-0 px-0 text-xs
                      ${
                        isFaded
                          ? "opacity-30"
@@ -867,7 +869,7 @@ function UserMessage({
             onClick={isFaded ? undefined : handleEdit}
           >
             edit
-          </button>
+          </Button>
         </div>
       </div>
     </div>

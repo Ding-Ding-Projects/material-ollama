@@ -48,9 +48,9 @@ export function AuthenticatorSection() {
       {error ? (
         <div className="flex items-center justify-between gap-2 rounded-lg bg-error-container px-3 py-2 text-[11.5px] text-on-error-container">
           <span>{fact(error, "user-input")}</span>
-          <button type="button" className="font-semibold underline" onClick={refresh}>
+          <Button variant="text" size="sm" onClick={refresh}>
             {t("errorRetry")}
-          </button>
+          </Button>
         </div>
       ) : null}
 

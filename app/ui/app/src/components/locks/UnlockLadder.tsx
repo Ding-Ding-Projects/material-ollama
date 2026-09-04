@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react"
-import { Button } from "@/components/md3"
+import { Button, TextField } from "@/components/md3"
 import { Txt, useT } from "@/uh"
 import "./locks.dict"
 import {
@@ -117,14 +117,15 @@ function DimsumRung({ onWrong, onCorrect }: { onWrong: () => void; onCorrect: ()
       </div>
       <div className="grid grid-cols-2 gap-1.5" role="group" aria-label={t("dimsumQuestionLabel")}>
         {challenge.choices.map((dishKey: DishKey, index) => (
-          <button
+          <Button
             key={`${challenge.nonce}-${dishKey}`}
-            type="button"
+            variant="outlined"
+            size="sm"
+            shape="token"
             onClick={() => choose(index)}
-            className="rounded-[10px] border border-outline-variant bg-surface-low px-2.5 py-2 text-[12.5px] hover:bg-surface-high"
           >
             <Txt ns="locks" k={dishKey} />
-          </button>
+          </Button>
         ))}
       </div>
       {feedback ? (
@@ -166,23 +167,18 @@ function SumsRung({ onWrong, onCorrect }: { onWrong: () => void; onCorrect: () =
         {challenge.problems.map((problem, index) => {
           const inputId = `sum-${challenge.nonce}-${index}`
           return (
-            <label key={inputId} htmlFor={inputId} className="flex items-center gap-1.5 text-[12.5px]">
-              <span className="font-mono">
-                {problem.a} {problem.op} {problem.b} =
-              </span>
-              <input
-                id={inputId}
-                type="number"
-                inputMode="numeric"
-                value={answers[index]}
-                onChange={(event) => {
-                  const next = [...answers]
-                  next[index] = event.target.value
-                  setAnswers(next)
-                }}
-                className="w-14 rounded-md border border-outline-variant bg-surface-low px-1.5 py-1 text-[12.5px] outline-none"
-              />
-            </label>
+            <TextField
+              key={inputId}
+              label={`${problem.a} ${problem.op} ${problem.b} =`}
+              type="number"
+              mono
+              value={answers[index]}
+              onChange={(value) => {
+                const next = [...answers]
+                next[index] = value
+                setAnswers(next)
+              }}
+            />
           )
         })}
       </div>
@@ -259,18 +255,17 @@ function MoleRung({ onFail, onCorrect }: { onFail: () => void; onCorrect: () => 
           const visible =
             elapsedMs >= mole.atMs && elapsedMs <= mole.atMs + challenge.visibleMs && !alreadyHit.has(mole.moleId)
           return (
-            <button
+            <Button
               key={mole.moleId}
-              type="button"
+              variant={visible ? "filled" : "outlined"}
+              shape="token"
               disabled={!visible}
               onClick={() => whack(mole.moleId)}
               aria-label={mole.moleId}
-              className={
-                visible
-                  ? "h-11 rounded-[10px] bg-primary text-on-primary"
-                  : "h-11 rounded-[10px] border border-outline-variant bg-surface-low opacity-60"
-              }
-            />
+              className="h-11 w-full"
+            >
+              {null}
+            </Button>
           )
         })}
       </div>

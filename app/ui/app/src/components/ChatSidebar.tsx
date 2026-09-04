@@ -4,6 +4,7 @@ import { useDeleteChat } from "@/hooks/useDeleteChat";
 import { useQueryClient } from "@tanstack/react-query";
 import { getChat } from "@/api";
 import { Link } from "@/components/ui/link";
+import { TextField } from "@/components/md3";
 import { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import { ChatsResponse } from "@/gotypes";
 import {
@@ -349,31 +350,29 @@ export function ChatSidebar({ currentChatId }: ChatSidebarProps) {
                   }
                 >
                   {editingChatId === chat.id ? (
-                    <div className="flex-1 flex items-center min-w-0 px-2 py-2 bg-neutral-100 text-black dark:bg-neutral-800 rounded-lg">
-                      <span className="truncate font-sans text-sm w-full">
-                        <input
-                          ref={inputRef}
-                          type="text"
-                          value={editValue}
-                          onChange={(e) => setEditValue(e.target.value)}
-                          onKeyDown={(e) => {
-                            if (e.key === "Enter") {
-                              e.preventDefault();
-                              saveRename();
-                            } else if (e.key === "Escape") {
-                              setEditingChatId(null);
-                              setEditValue("");
-                            }
-                          }}
-                          className="bg-transparent border-0 focus:outline-none w-full dark:text-white"
-                          style={{
-                            font: "inherit",
-                            lineHeight: "inherit",
-                            padding: 0,
-                            margin: 0,
-                          }}
-                        />
-                      </span>
+                    <div className="flex-1 flex items-center min-w-0">
+                      {/* Was a raw <input> with hardcoded neutral-100/800 and
+                          inline styles, which ignored the seed colour and the
+                          user's corner radius. It kept the ref, the Enter
+                          commit and the Escape cancel, so it could only move to
+                          TextField once TextField could carry all three. */}
+                      <TextField
+                        className="w-full"
+                        variant="filled"
+                        inputRef={inputRef}
+                        value={editValue}
+                        ariaLabel="Rename chat"
+                        onChange={setEditValue}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") {
+                            e.preventDefault();
+                            saveRename();
+                          } else if (e.key === "Escape") {
+                            setEditingChatId(null);
+                            setEditValue("");
+                          }
+                        }}
+                      />
                     </div>
                   ) : (
                     <Link

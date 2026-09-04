@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react"
-import { Button, ConfirmDialog } from "@/components/md3"
+import { Button, Checkbox, ConfirmDialog } from "@/components/md3"
 import { fact, useT } from "@/uh"
 import type { ConvertJob } from "./convertApi"
 import { ConvertJobRow } from "./ConvertJobRow"
@@ -79,16 +79,10 @@ export function ConvertJobQueue({ jobs, busyIds, onCancel, onDelete, onRetry }: 
   return (
     <div className="flex flex-col gap-2.5">
       <div className="flex flex-wrap items-center gap-2.5">
-        <label className="flex items-center gap-1.5 text-[11.5px] text-on-surface-variant">
-          <input
-            type="checkbox"
-            checked={allSelected}
-            onChange={toggleSelectAll}
-            aria-label={t("selectAll")}
-            className="h-4 w-4 accent-[var(--p)]"
-          />
+        <div className="flex items-center gap-1.5 text-[11.5px] text-on-surface-variant">
+          <Checkbox checked={allSelected} onChange={toggleSelectAll} label={t("selectAll")} />
           {t("selectAll")}
-        </label>
+        </div>
         {selected.size > 0 ? <span className="text-[11.5px] text-on-surface-variant">{countText}</span> : null}
         <div className="ml-auto flex gap-2">
           {selectedCancelable.length > 0 ? (

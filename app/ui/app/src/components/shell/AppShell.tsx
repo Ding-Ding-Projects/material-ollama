@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type ReactNode } from "react"
 import {
   AppMark,
+  Button,
   IconButton,
   Menu,
   NavigationRail,
@@ -319,19 +320,22 @@ export function AppShell({ children }: { children: ReactNode }) {
           <IconButton label={tShell("bulkClose")} icon="tab_close" size="sm" onClick={() => setBulkCloseOpen(true)} />
           <IconButton label={tShell("manageGroups")} icon="folder" size="sm" onClick={() => setGroupsPanelOpen(true)} />
           <IconButton label={tShell("searchAllTabs")} icon="search" size="sm" onClick={() => setTabSearchOpen(true)} />
-          <button
-            type="button"
+          <Button
+            variant="text"
+            size="sm"
+            icon="search"
             onClick={() => setPaletteOpen(true)}
             title={searchTitle}
             aria-label={searchTitle}
-            className="flex shrink-0 items-center gap-1.5 rounded-full bg-surface-highest px-3 py-1.5 text-xs text-on-surface-variant hover:bg-surface-high"
+            className="h-auto shrink-0 gap-1.5 bg-surface-highest px-3 py-1.5 text-xs text-on-surface-variant hover:bg-surface-high"
           >
-            <Icon name="search" size={16} />
-            <Txt ns="app" k="palette" channel="copy" />
-            <span className="font-mono text-[10px] text-outline">
-              <Txt channel="fact" value="⇧⌘F" kind="command" />
+            <span className="flex items-center gap-1.5">
+              <Txt ns="app" k="palette" channel="copy" />
+              <span className="font-mono text-[10px] text-outline">
+                <Txt channel="fact" value="⇧⌘F" kind="command" />
+              </span>
             </span>
-          </button>
+          </Button>
           <NotificationCenter events={events.events} hasUnread={events.hasUnread} onClearAll={events.clearAll} />
         </div>
 

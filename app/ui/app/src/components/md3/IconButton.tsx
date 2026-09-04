@@ -1,5 +1,5 @@
 import clsx from "clsx"
-import type { ButtonHTMLAttributes } from "react"
+import type { ButtonHTMLAttributes, Ref } from "react"
 import { Icon, type SymbolName } from "./Icon"
 import {
   FOCUS_RING,
@@ -28,6 +28,10 @@ export interface IconButtonProps
    * icon button. */
   danger?: boolean
   className?: string
+  /** A roving-focus group needs to move focus onto the real element. Without
+   * this a call site that manages focus has to stay a raw <button>, which is
+   * how the chat composer's submit control kept its own. */
+  buttonRef?: Ref<HTMLButtonElement>
 }
 
 export function IconButton({
@@ -39,12 +43,14 @@ export function IconButton({
   danger = false,
   className,
   disabled,
+  buttonRef,
   ...rest
 }: IconButtonProps) {
   const sizing = ICON_BUTTON_SIZE_CLASSES[size]
 
   return (
     <button
+      ref={buttonRef}
       type="button"
       aria-label={label}
       title={label}

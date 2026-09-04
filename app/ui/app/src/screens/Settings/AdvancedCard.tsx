@@ -1,5 +1,5 @@
-import { useId, useState } from "react"
-import { Badge, Button, IconButton, Select, Surface } from "@/components/md3"
+import { useState } from "react"
+import { Badge, Button, IconButton, Select, Surface, TextField } from "@/components/md3"
 import { fact, useT, type TFunction } from "@/uh"
 import { SettingRow } from "./SettingRow"
 import type { ScheduleRule, UIPreferences } from "./types"
@@ -25,13 +25,13 @@ const SCHEDULE_KIND_KEY = {
 type ScheduleKind = keyof typeof SCHEDULE_KIND_KEY
 
 /**
- * Scheduled settings (native `<input type="time">` plus an action picker,
+ * Scheduled settings (an MD3 TextField in the platform's native `time`
+ * mode, plus an action picker,
  * persisted through the real Schedules field) and a read-only view of the
  * configured Ollama-compatible endpoints already tracked in preferences.
  */
 export function AdvancedCard({ preferences, patchPreferences, preferencesLoading }: AdvancedCardProps) {
   const t = useT("settingsUi")
-  const timeInputId = useId()
   const [draftTime, setDraftTime] = useState("18:00")
   const [draftKind, setDraftKind] = useState<ScheduleKind>("dark")
 
@@ -101,18 +101,12 @@ export function AdvancedCard({ preferences, patchPreferences, preferencesLoading
           )}
 
           <div className="flex flex-wrap items-end gap-2">
-            <div className="flex flex-col gap-1">
-              <label htmlFor={timeInputId} className="text-xs font-medium">
-                {t("scheduleTimeLabel")}
-              </label>
-              <input
-                id={timeInputId}
-                type="time"
-                value={draftTime}
-                onChange={(event) => setDraftTime(event.target.value)}
-                className="rounded-[10px] border border-outline-variant bg-surface-low px-3 py-2 text-[12.5px] outline-none"
-              />
-            </div>
+            <TextField
+              type="time"
+              label={t("scheduleTimeLabel")}
+              value={draftTime}
+              onChange={setDraftTime}
+            />
             <Select
               value={draftKind}
               onChange={(value) => setDraftKind(value as ScheduleKind)}

@@ -1,5 +1,5 @@
 import { useState } from "react"
-import { ConfirmDialog, IconButton, ProgressBar, Surface } from "@/components/md3"
+import { Button, ConfirmDialog, IconButton, ProgressBar, Surface } from "@/components/md3"
 import { Icon } from "@/components/md3/Icon"
 import { Txt, fact, useT } from "@/uh"
 import type { TotpAccount, TotpCodeEntry } from "./totpApi"
@@ -92,9 +92,9 @@ export function TotpAccountRow({ account, code, onDelete, deleting }: TotpAccoun
       {error ? (
         <div className="flex items-center justify-between gap-2 rounded-lg bg-error-container px-3 py-2 text-[11.5px] text-on-error-container">
           <span>{fact(error, "user-input")}</span>
-          <button type="button" className="font-semibold underline" onClick={handleDelete}>
+          <Button variant="text" size="sm" onClick={handleDelete}>
             {t("errorRetry")}
-          </button>
+          </Button>
         </div>
       ) : null}
 

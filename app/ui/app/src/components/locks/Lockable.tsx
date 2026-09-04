@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type MouseEvent, type ReactNode } from "react"
-import { ContextMenu, type MenuItemDef } from "@/components/md3"
+import { ContextMenu, ListItem, type MenuItemDef } from "@/components/md3"
 import { Icon } from "@/components/md3/Icon"
 import { Txt, useT } from "@/uh"
 import "./locks.dict"
@@ -140,20 +140,13 @@ export function Lockable({ id, label, children, className }: LockableProps) {
 
 function LockedPlaceholder({ label, onUnlock }: { label: string; onUnlock: () => void }) {
   return (
-    <button
-      type="button"
+    <ListItem
+      shape="rounded"
       onClick={onUnlock}
-      className="flex w-full items-center gap-2 rounded-[10px] border border-dashed border-outline-variant bg-surface-low px-3 py-2.5 text-left hover:bg-surface-high"
-    >
-      <Icon name="lock" size={18} className="shrink-0 text-on-surface-variant" />
-      <span className="flex min-w-0 flex-1 flex-col">
-        <span className="truncate text-[12.5px] font-medium">
-          <Txt channel="fact" value={label} kind="tag" />
-        </span>
-        <span className="text-[11px] text-on-surface-variant">
-          <Txt ns="locks" k="lockedBadge" />
-        </span>
-      </span>
-    </button>
+      className="border border-dashed border-outline-variant bg-surface-low"
+      leading={<Icon name="lock" size={18} className="text-on-surface-variant" />}
+      title={<Txt channel="fact" value={label} kind="tag" />}
+      supporting={<Txt ns="locks" k="lockedBadge" />}
+    />
   )
 }

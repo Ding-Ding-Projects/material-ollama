@@ -2105,7 +2105,7 @@
       "surfaces": {
         "desktop-app": {
           "status": "verified",
-          "implementation": "app/ui/app/src/routes/c.$chatId.tsx#L1-L161,app/ui/app/src/components/Chat.tsx#L1-L298,app/ui/app/src/components/ChatSidebar.tsx#L1-L408",
+          "implementation": "app/ui/app/src/routes/c.$chatId.tsx#L1-L161,app/ui/app/src/components/Chat.tsx#L1-L298,app/ui/app/src/components/ChatSidebar.tsx#L1-L407",
           "documentation": "docs/features/uh-completeness/articles/local-chat-sessions.md#behaviour",
           "localizedCopy": "no-copy: Chat.tsx, ChatForm.tsx, ChatSidebar.tsx and routes/c.$chatId.tsx render plain hardcoded English strings (e.g. the composer placeholder Send a message visible in c-new.png) -- none of them import useT/Txt or a chat.dict.ts namespace, so there is no localized copy to cite yet.",
           "persistence": "app/store/database.go",
@@ -2413,7 +2413,7 @@
       "surfaces": {
         "desktop-app": {
           "status": "in-progress",
-          "implementation": "app/ui/app/src/screens/status/LocalHistoryCard.tsx#L1-L198,app/ui/app/src/screens/status/useHistoryEvents.ts#L1-L31",
+          "implementation": "app/ui/app/src/screens/status/LocalHistoryCard.tsx#L1-L193,app/ui/app/src/screens/status/useHistoryEvents.ts#L1-L31",
           "documentation": "docs/features/uh-completeness/articles/local-version-history.md#behaviour",
           "localizedCopy": "app/ui/app/src/screens/status/LocalHistoryCard.tsx#historyHeading",
           "persistence": "app/store/database.go",
@@ -2553,7 +2553,7 @@
       "surfaces": {
         "desktop-app": {
           "status": "in-progress",
-          "implementation": "app/ui/app/src/components/locks/Lockable.tsx#L1-L159,app/ui/app/src/components/locks/LockManager.tsx#L1-L200,app/ui/app/src/uh/locksStore.ts#L1-L200,app/ui/app/src/uh/locksCrypto.ts#L1-L100",
+          "implementation": "app/ui/app/src/components/locks/Lockable.tsx#L1-L152,app/ui/app/src/components/locks/LockManager.tsx#L1-L200,app/ui/app/src/uh/locksStore.ts#L1-L200,app/ui/app/src/uh/locksCrypto.ts#L1-L100",
           "documentation": "docs/features/uh-completeness/articles/toy-locks.md#behaviour",
           "localizedCopy": "app/ui/app/src/components/locks/Lockable.tsx#lockThisElement",
           "persistence": "not-persisted: a lock's credential and metadata live in this renderer's own localStorage, disclosed as a placeholder for a real OS-credential-vault-backed store this lane's frontend-only allowed paths could not add.",
@@ -2917,7 +2917,7 @@
       "surfaces": {
         "desktop-app": {
           "status": "in-progress",
-          "implementation": "app/ui/app/src/screens/toolbox/ConvertJobRow.tsx#L1-L116,app/ui/app/src/screens/toolbox/ConvertJobQueue.tsx#L1-L138",
+          "implementation": "app/ui/app/src/screens/toolbox/ConvertJobRow.tsx#L1-L115,app/ui/app/src/screens/toolbox/ConvertJobQueue.tsx#L1-L132",
           "documentation": "docs/features/uh-completeness/articles/long-operation-progress.md#behaviour",
           "localizedCopy": "app/ui/app/src/screens/toolbox/ConvertJobRow.tsx#retryJob",
           "persistence": "app/ui/convert.go",
@@ -3029,7 +3029,7 @@
       "surfaces": {
         "desktop-app": {
           "status": "in-progress",
-          "implementation": "app/ui/app/src/components/locks/LockWizard.tsx#L1-L226",
+          "implementation": "app/ui/app/src/components/locks/LockWizard.tsx#L1-L221",
           "documentation": "docs/features/uh-completeness/articles/blank-slate-presets.md#behaviour",
           "localizedCopy": "app/ui/app/src/components/locks/LockWizard.tsx#presetsHeading",
           "persistence": "not-persisted: applying a preset only sets the wizard's own draft method/duration state; nothing is written until the wizard's own Confirm step runs.",

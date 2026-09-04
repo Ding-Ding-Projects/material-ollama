@@ -1,4 +1,10 @@
 import clsx from "clsx"
+import type {
+  FocusEventHandler,
+  InputHTMLAttributes,
+  KeyboardEventHandler,
+  Ref,
+} from "react"
 import { useId } from "react"
 import { Icon, type SymbolName } from "./Icon"
 import { FOCUS_RING_WITHIN } from "./tokens"
@@ -19,6 +25,28 @@ export interface TextFieldProps {
   placeholder?: string
   disabled?: boolean
   className?: string
+  /**
+   * Everything below exists because a text field that cannot be focused
+   * imperatively, cannot see a key press and cannot report a blur is not a
+   * replacement for a raw <input> -- it is a smaller one. Three real call
+   * sites (an inline rename that commits on Enter and cancels on Escape, a
+   * numeric answer field, a filter that focuses on open) had to stay raw
+   * for want of exactly these, so converting them would have silently
+   * deleted their behaviour.
+   */
+  inputRef?: Ref<HTMLInputElement>
+  onKeyDown?: KeyboardEventHandler<HTMLInputElement>
+  onBlur?: FocusEventHandler<HTMLInputElement>
+  onFocus?: FocusEventHandler<HTMLInputElement>
+  /** Numeric keypads on touch. `type="number"` alone does not get there on
+   * every platform, and losing it is invisible on a desktop test run. */
+  inputMode?: InputHTMLAttributes<HTMLInputElement>["inputMode"]
+  autoFocus?: boolean
+  maxLength?: number
+  /** For a field with no visible label -- an inline rename, say -- which
+   * still needs an accessible name. Never a substitute for `label` when a
+   * visible one belongs there. */
+  ariaLabel?: string
 }
 
 /**
@@ -43,6 +71,14 @@ export function TextField({
   placeholder,
   disabled = false,
   className,
+  inputRef,
+  onKeyDown,
+  onBlur,
+  onFocus,
+  inputMode,
+  autoFocus,
+  maxLength,
+  ariaLabel,
 }: TextFieldProps) {
   const id = useId()
   const helperId = useId()
@@ -71,13 +107,21 @@ export function TextField({
         ) : null}
         <input
           id={id}
+          ref={inputRef}
           type={type}
           value={value}
           placeholder={placeholder}
           disabled={disabled}
+          inputMode={inputMode}
+          autoFocus={autoFocus}
+          maxLength={maxLength}
+          aria-label={label ? undefined : ariaLabel}
           aria-invalid={hasError || undefined}
           aria-describedby={helper || error ? helperId : undefined}
           onChange={(event) => onChange(event.target.value)}
+          onKeyDown={onKeyDown}
+          onBlur={onBlur}
+          onFocus={onFocus}
           className={clsx(
             "min-w-0 flex-1 bg-transparent text-sm outline-none placeholder:text-on-surface-variant",
             mono && "font-mono",

@@ -22,6 +22,7 @@ ensureIconSprite()
 
 // AUTO-GENERATED ICON_NAMES START -- see scripts/build-icon-sprite.mjs
 export const ICON_NAMES = [
+  'add',
   'arrow_drop_down',
   'arrow_range',
   'arrow_upward',
@@ -46,6 +47,7 @@ export const ICON_NAMES = [
   'delete_sweep',
   'deployed_code',
   'dictionary',
+  'dock_to_left',
   'download',
   'download_2',
   'download_done',
@@ -59,6 +61,7 @@ export const ICON_NAMES = [
   'home_repair_service',
   'keep',
   'language',
+  'left_panel_close',
   'light_mode',
   'lightbulb',
   'lock',

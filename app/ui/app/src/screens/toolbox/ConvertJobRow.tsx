@@ -1,4 +1,4 @@
-import { IconButton, ProgressBar, Surface } from "@/components/md3"
+import { Checkbox, IconButton, ProgressBar, Surface } from "@/components/md3"
 import { Icon } from "@/components/md3/Icon"
 import { fact, useT } from "@/uh"
 import type { ConvertJob } from "./convertApi"
@@ -42,12 +42,11 @@ export function ConvertJobRow({ job, selected, onToggleSelect, onCancel, onDelet
   return (
     <Surface outlined radius="lg" className="flex flex-col gap-1.5 p-3.5">
       <div className="flex items-center gap-3">
-        <input
-          type="checkbox"
+        <Checkbox
           checked={selected}
           onChange={() => onToggleSelect(job.id)}
-          aria-label={fact(`Select ${job.inputFilename}`, "user-input")}
-          className="h-4 w-4 shrink-0 accent-[var(--p)]"
+          label={fact(`Select ${job.inputFilename}`, "user-input")}
+          className="-my-1.5"
         />
         <div className="min-w-0 flex-1">
           <p className="truncate text-[12.5px] font-medium text-on-surface" title={job.inputFilename}>

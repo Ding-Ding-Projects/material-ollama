@@ -1,5 +1,5 @@
 import { useState } from "react"
-import { Badge, Dialog } from "@/components/md3"
+import { Badge, Chip, Dialog } from "@/components/md3"
 import { Txt, fact, useT } from "@/uh"
 import type { FitVerdict, FitVerdictKind } from "./types"
 import "./modelsUi.dict"
@@ -49,14 +49,18 @@ export function FitBadge({ fit, modelLabel }: FitBadgeProps) {
 
   return (
     <>
-      <button
-        type="button"
+      <Chip
+        selected
+        tone={TONE_BY_VERDICT[fit.verdict]}
         onClick={() => setOpen(true)}
         aria-label={fact(`${t("fitDetailsTitle")} — ${modelLabel}`, "user-input")}
-        className="rounded-full focus:outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--p)]"
+        // A Chip is MD3's interactive pill, but this one opens a dialog
+        // rather than toggling a filter, so its default aria-pressed is
+        // cleared instead of falsely announcing a toggle state.
+        aria-pressed={undefined}
       >
-        {pill}
-      </button>
+        <Txt ns="modelsUi" k={LABEL_KEY_BY_VERDICT[fit.verdict]} />
+      </Chip>
       <Dialog open={open} onClose={() => setOpen(false)} icon="memory" title={t("fitDetailsTitle")} size="sm">
         <div className="flex flex-col gap-3 text-[12.5px]">
           {fit.evidence?.length ? (

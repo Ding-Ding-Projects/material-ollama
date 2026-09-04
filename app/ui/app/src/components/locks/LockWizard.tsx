@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react"
-import { Button, SegmentedControl, Select, TextField } from "@/components/md3"
+import { Button, ListItem, SegmentedControl, Select, TextField } from "@/components/md3"
 import { Txt, useT } from "@/uh"
 import "./locks.dict"
 import { AnchoredPanel } from "./AnchoredPanel"
@@ -152,19 +152,14 @@ export function LockWizard({ open, anchorEl, onClose, elementId, label, onCreate
           <Txt ns="locks" k="presetsHeading" />
         </div>
         {PRESETS.map((preset) => (
-          <button
+          <ListItem
             key={preset.key}
-            type="button"
+            shape="rounded"
             onClick={() => applyPreset(preset)}
-            className="rounded-[10px] border border-outline-variant bg-surface-low px-2.5 py-2 text-left hover:bg-surface-high"
-          >
-            <div className="text-[12.5px] font-medium">
-              <Txt ns="locks" k={preset.key} />
-            </div>
-            <div className="text-[11px] text-on-surface-variant">
-              <Txt ns="locks" k={preset.detailKey} />
-            </div>
-          </button>
+            className="border border-outline-variant bg-surface-low"
+            title={<Txt ns="locks" k={preset.key} />}
+            supporting={<Txt ns="locks" k={preset.detailKey} />}
+          />
         ))}
       </div>
 

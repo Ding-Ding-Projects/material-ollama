@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react"
-import { Button, ConfirmDialog, SearchField } from "@/components/md3"
+import { Button, Checkbox, ConfirmDialog, SearchField } from "@/components/md3"
 import { RegexBuilder } from "@/components/md3/RegexBuilder"
 import { Txt, useT } from "@/uh"
 import "./locks.dict"
@@ -185,11 +185,11 @@ export function LockManager({ className }: { className?: string }) {
         <>
           <div className="mt-3 flex items-center justify-between">
             <label className="flex items-center gap-2 text-[12.5px]">
-              <input
-                type="checkbox"
+              <Checkbox
                 checked={allRemovableSelected}
                 onChange={toggleSelectAll}
                 disabled={removableIds.length === 0}
+                label={t("selectAllLabel")}
               />
               <Txt ns="locks" k="selectAllLabel" />
             </label>
@@ -223,11 +223,11 @@ export function LockManager({ className }: { className?: string }) {
               {filtered.map(({ lock, status }) => (
                 <tr key={lock.id} className="border-t border-outline-variant">
                   <td>
-                    <input
-                      type="checkbox"
+                    <Checkbox
                       checked={selected.has(lock.id)}
                       disabled={status !== "unlocked"}
                       onChange={() => toggleSelected(lock.id)}
+                      label={lock.label}
                     />
                   </td>
                   <td className="py-1.5">
@@ -244,13 +244,9 @@ export function LockManager({ className }: { className?: string }) {
                   </td>
                   <td className="text-right">
                     {status === "unlocked" ? (
-                      <button
-                        type="button"
-                        onClick={() => confirmRemove([lock.id])}
-                        className="text-[11.5px] font-medium text-error hover:underline"
-                      >
+                      <Button variant="text" size="sm" onClick={() => confirmRemove([lock.id])}>
                         <Txt ns="locks" k="removeOneButton" />
-                      </button>
+                      </Button>
                     ) : null}
                   </td>
                 </tr>

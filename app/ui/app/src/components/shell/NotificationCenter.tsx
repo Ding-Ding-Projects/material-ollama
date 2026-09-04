@@ -1,4 +1,4 @@
-import { Badge, Popover } from "@/components/md3"
+import { Badge, Button, Popover } from "@/components/md3"
 import { Icon } from "@/components/md3/Icon"
 import { Txt, useT } from "@/uh"
 import type { ShellEvent } from "./useShellEvents"
@@ -48,9 +48,14 @@ export function NotificationCenter({ events, hasUnread, onClearAll }: Notificati
         <span className="flex-1 text-sm font-semibold">
           <Txt ns="app" k="notifications" channel="copy" />
         </span>
-        <button type="button" onClick={onClearAll} className="text-xs font-medium text-primary">
+        <Button
+          variant="text"
+          size="sm"
+          onClick={onClearAll}
+          className="h-auto min-h-0 px-0 text-xs font-medium text-primary"
+        >
           <Txt ns="app" k="clearAll" channel="copy" />
-        </button>
+        </Button>
       </div>
       <div className="flex flex-col gap-1 overflow-y-auto p-2">
         {events.length === 0 ? (

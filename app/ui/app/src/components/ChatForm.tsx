@@ -1,3 +1,4 @@
+import { IconButton } from "@/components/md3";
 import Logo from "@/components/Logo";
 import { ModelPicker } from "@/components/ModelPicker";
 import { WebSearchButton } from "@/components/WebSearchButton";
@@ -30,7 +31,6 @@ import { ThinkButton } from "./ThinkButton";
 import { ErrorMessage } from "./ErrorMessage";
 import { processFiles } from "@/utils/fileValidation";
 import type { ImageData } from "@/types/webview";
-import { PlusIcon } from "@heroicons/react/24/outline";
 
 export type ThinkingLevel = "low" | "medium" | "high";
 
@@ -783,26 +783,13 @@ function ChatForm({
                     </span>
                   )}
                 </div>
-                <button
-                  type="button"
+                <IconButton
+                  size="sm"
+                  icon="close"
+                  label={`Remove ${attachment.filename}`}
                   onClick={() => removeFile(index)}
-                  className="opacity-0 group-hover:opacity-100 transition-opacity text-neutral-400 hover:text-neutral-600 dark:text-neutral-500 dark:hover:text-neutral-300 -mr-1 cursor-pointer"
-                  aria-label={`Remove ${attachment.filename}`}
-                >
-                  <svg
-                    className="w-4 h-4"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M6 18L18 6M6 6l12 12"
-                    />
-                  </svg>
-                </button>
+                  className="opacity-0 group-hover:opacity-100 transition-opacity -mr-1 cursor-pointer"
+                />
               </div>
               );
             })}
@@ -830,26 +817,14 @@ function ChatForm({
                 <span className="text-xs text-red-600 dark:text-red-400 opacity-75">
                   • {fileError.error}
                 </span>
-                <button
-                  type="button"
+                <IconButton
+                  size="sm"
+                  icon="close"
+                  danger
+                  label={`Remove ${fileError.filename}`}
                   onClick={() => removeFileError(index)}
-                  className="opacity-0 group-hover:opacity-100 transition-opacity text-red-400 hover:text-red-600 dark:text-red-500 dark:hover:text-red-300 -mr-1 ml-auto"
-                  aria-label={`Remove ${fileError.filename}`}
-                >
-                  <svg
-                    className="w-4 h-4"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M6 18L18 6M6 6l12 12"
-                    />
-                  </svg>
-                </button>
+                  className="opacity-0 group-hover:opacity-100 transition-opacity -mr-1 ml-auto"
+                />
               </div>
             ))}
           </div>
@@ -879,14 +854,13 @@ function ChatForm({
             <div className="flex-1 flex justify-end items-center gap-2">
               <div className={`flex gap-2`}>
                 {/* File Upload Buttons */}
-                <button
-                  type="button"
+                <IconButton
+                  size="sm"
+                  icon="add"
+                  label="Upload multiple files"
                   onClick={handleFilesUpload}
-                  className="flex h-9 w-9 items-center justify-center rounded-full bg-white dark:bg-neutral-700 focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer border border-transparent"
-                  title="Upload multiple files"
-                >
-                  <PlusIcon className="w-4.5 h-4.5 stroke-2 text-neutral-500 dark:text-neutral-400" />
-                </button>
+                  className="bg-white dark:bg-neutral-700 cursor-pointer border border-transparent"
+                />
                 {/* Thinking Level Button */}
                 {modelSupportsThinkingLevels && (
                   <>
@@ -958,8 +932,18 @@ function ChatForm({
               isDisabled={isDisabled}
               onDropdownToggle={handleModelPickerDropdownToggle}
             />
-            <button
-              ref={submitButtonRef}
+            {/* Was a raw <button> with two bespoke inline SVGs and hardcoded
+                bg-black/bg-white plus a focus:ring-blue-500 that belongs to no
+                palette in this app. It stayed raw only because IconButton could
+                not take a ref, and this ref is load-bearing for the composer's
+                Tab / Shift-Tab roving focus. */}
+            <IconButton
+              buttonRef={submitButtonRef}
+              variant="filled"
+              icon={isStreaming || isDownloading ? "stop" : "arrow_upward"}
+              label={
+                isStreaming || isDownloading ? "Stop generating" : "Send message"
+              }
               onClick={
                 isStreaming || isDownloading ? handleCancel : handleSubmit
               }
@@ -971,28 +955,7 @@ function ChatForm({
                   (cloudDisabled && selectedModel?.isCloud()) ||
                   message.fileErrors.length > 0)
               }
-              className={`flex items-center justify-center h-9 w-9 rounded-full disabled:cursor-default cursor-pointer bg-black text-white dark:bg-white dark:text-black disabled:opacity-10 focus:outline-none focus:ring-2 focus:ring-blue-500`}
-            >
-              {isStreaming || isDownloading ? (
-                <svg
-                  className="h-3 w-3 fill-current"
-                  viewBox="0 0 15 15"
-                  fill="none"
-                  xmlns="http://www.w3.org/2000/svg"
-                >
-                  <path d="M0 12.3838C0 13.6055 0.738281 14.3262 1.96875 14.3262H12.3486C13.5879 14.3262 14.3174 13.6055 14.3174 12.3838V1.94238C14.3174 0.720703 13.5879 0 12.3486 0H1.96875C0.738281 0 0 0.720703 0 1.94238V12.3838Z" />
-                </svg>
-              ) : (
-                <svg
-                  className="h-3.5 w-3.5 fill-current"
-                  viewBox="0 0 14 17"
-                  fill="none"
-                  xmlns="http://www.w3.org/2000/svg"
-                >
-                  <path d="M0.918802 7.73542C1.19144 7.73542 1.43401 7.63188 1.60065 7.45804L3.59348 5.48929L6.7957 1.89614L10.0107 5.48929L12.0067 7.45804C12.179 7.63188 12.416 7.73542 12.6886 7.73542C13.2182 7.73542 13.6074 7.33974 13.6074 6.80466C13.6074 6.54785 13.5149 6.3174 13.3131 6.10998L7.51833 0.306385C7.32603 0.106874 7.06851 0 6.8029 0C6.5373 0 6.2782 0.106874 6.08748 0.306385L0.299881 6.10998C0.0996671 6.3174 0 6.54785 0 6.80466C0 7.33974 0.389177 7.73542 0.918802 7.73542ZM6.8029 16.6848C7.36909 16.6848 7.76073 16.2909 7.76073 15.7136V4.79494L7.65544 1.93059C7.65544 1.40993 7.31091 1.06066 6.8029 1.06066C6.29332 1.06066 5.94879 1.40993 5.94879 1.93059L5.8435 4.79494V15.7136C5.8435 16.2909 6.23672 16.6848 6.8029 16.6848Z" />
-                </svg>
-              )}
-            </button>
+            />
           </div>
         </div>
       </div>
