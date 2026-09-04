@@ -6,6 +6,7 @@ import (
 	"crypto/ed25519"
 	"crypto/rand"
 	"encoding/base64"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -17,7 +18,17 @@ import (
 	"golang.org/x/crypto/ssh"
 )
 
-const defaultPrivateKey = "id_ed25519"
+const (
+	defaultPrivateKey = "id_ed25519"
+	signInStateFile   = "signin.json"
+)
+
+// SignInState represents the locally cached sign-in state
+type SignInState struct {
+	Name     string    `json:"name"`
+	Email    string    `json:"email"`
+	CachedAt time.Time `json:"cached_at"`
+}
 
 func GetPublicKey() (string, error) {
 	home, err := os.UserHomeDir()

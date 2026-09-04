@@ -2541,6 +2541,14 @@ func (s *Server) webExperimentalProxyHandler(c *gin.Context, proxyPath, disabled
 }
 
 func (s *Server) WhoamiHandler(c *gin.Context) {
+	// Check local cache first
+	state, err := auth.GetSignInState()
+	if err == nil && state.Name != "" {
+		c.JSON(http.StatusOK, &api.UserResponse{Name: state.Name, Email: state.Email})
+		return
+	}
+
+	// No local cache - try network
 	// todo allow other hosts
 	u, err := url.Parse("https://ollama.com")
 	if err != nil {
@@ -2626,6 +2634,11 @@ func (s *Server) SignoutHandler(c *gin.Context) {
 		}
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "there was an error signing out"})
 		return
+	}
+
+	// Clear local sign-in cache
+	if err := auth.ClearSignInState(); err != nil {
+		slog.Warn("failed to clear local sign-in state", "error", err)
 	}
 
 	c.JSON(http.StatusOK, nil)
