@@ -1,0 +1,47 @@
+{
+  "schemaVersion": 1,
+  "platform": "windows",
+  "dependencyManifest": "scripts/release-dependencies.json",
+  "prerequisiteManifest": "scripts/root-prerequisites.json",
+  "buildScript": "scripts/build_windows.ps1",
+  "defaultSteps": [
+    "cpu",
+    "cpuArm64",
+    "ollama",
+    "ollamaArm64",
+    "app",
+    "appArm64",
+    "deps"
+  ],
+  "allowedSteps": [
+    "cpu",
+    "cpuArm64",
+    "ollama",
+    "ollamaArm64",
+    "app",
+    "appArm64",
+    "deps",
+    "cuda12",
+    "cuda13",
+    "cuda13Arm64IfAvailable",
+    "rocm7",
+    "vulkan",
+    "mlxCuda13",
+    "installer",
+    "zip"
+  ],
+  "payloadReceipt": "dist/payload-receipt.json",
+  "launchReceipt": "dist/root-build-receipt.json",
+  "targets": {
+    "amd64": {
+      "workingDirectory": ".",
+      "executable": "dist/windows-ollama-app-amd64.exe",
+      "server": "dist/windows-amd64/ollama.exe"
+    },
+    "arm64": {
+      "workingDirectory": ".",
+      "executable": "dist/windows-ollama-app-arm64.exe",
+      "server": "dist/windows-arm64/ollama.exe"
+    }
+  }
+}

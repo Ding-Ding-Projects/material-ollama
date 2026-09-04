@@ -5,6 +5,7 @@ import { afterEach, describe, expect, it, vi } from "vitest"
 import { SnackbarProvider } from "@/components/md3"
 import { UhProvider } from "@/uh"
 import { AutomaticUpdatesCard } from "./AutomaticUpdatesCard"
+import { StreamingProvider } from "@/contexts/StreamingContext"
 
 const SETTINGS = {
   Expose: false,
@@ -32,6 +33,7 @@ function installFetchMock() {
     vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
       const url = String(input)
       const method = (init?.method ?? "GET").toUpperCase()
+      if (url.endsWith("/api/v1/update")) return Response.json({ state: "idle", unsignedWarning: true, canRestart: false, canLater: false, generation: 0, updatedAt: "2026-09-04T00:00:00Z" })
       if (url.includes("/api/v1/settings") && method === "GET") {
         return { ok: true, json: async () => ({ settings: state }) } as Response
       }
@@ -52,7 +54,7 @@ function renderCard() {
     <QueryClientProvider client={queryClient}>
       <UhProvider>
         <SnackbarProvider>
-          <AutomaticUpdatesCard />
+          <StreamingProvider><AutomaticUpdatesCard /></StreamingProvider>
         </SnackbarProvider>
       </UhProvider>
     </QueryClientProvider>,

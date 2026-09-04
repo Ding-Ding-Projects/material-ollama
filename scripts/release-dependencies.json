@@ -83,22 +83,22 @@
       "purpose": "Windows native and ARM64 cross-compilers"
     },
     {
-      "name": "Inno Setup",
-      "version": "6.7.1",
+      "name": "Squirrel.Windows",
+      "version": "2.0.1",
       "machine": {
-        "provider": "Chocolatey package",
-        "package": "InnoSetup"
+        "provider": "NuGet package",
+        "package": "squirrel.windows"
       },
       "user": {
-        "provider": "JRSoftware Inno Setup release asset",
-        "url": "https://github.com/jrsoftware/issrc/releases/download/is-6_7_1/innosetup-6.7.1.exe",
-        "sha256": "4d11e8050b6185e0d49bd9e8cc661a7a59f44959a621d31d11033124c4e8a7b0",
-        "installer": "exe",
-        "directory": "InnoSetup-6.7.1",
-        "relativeExecutable": "ISCC.exe",
+        "provider": "NuGet squirrel.windows release package",
+        "url": "https://api.nuget.org/v3-flatcontainer/squirrel.windows/2.0.1/squirrel.windows.2.0.1.nupkg",
+        "sha256": "923e18abb4fd50b5a4878a39bdcd042ed3f7eb68fc0f82c0955cd5380c921ac7",
+        "archive": "zip",
+        "directory": "squirrel.windows-2.0.1",
+        "relativeExecutable": "tools/Squirrel.exe",
         "scope": "user"
       },
-      "purpose": "Unsigned Windows installer generation"
+      "purpose": "Pinned unsigned Squirrel.Windows packaging and release generation"
     },
     {
       "name": "7-Zip",

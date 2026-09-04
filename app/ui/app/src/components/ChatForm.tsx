@@ -31,6 +31,7 @@ import { ThinkButton } from "./ThinkButton";
 import { ErrorMessage } from "./ErrorMessage";
 import { processFiles } from "@/utils/fileValidation";
 import type { ImageData } from "@/types/webview";
+import { setComposerUnsavedWork } from "@/lib/unsavedWork";
 
 export type ThinkingLevel = "low" | "medium" | "high";
 
@@ -98,6 +99,14 @@ function ChatForm({
     fileErrors: [],
   });
   const [isEditing, setIsEditing] = useState<boolean>(false);
+  const unsavedOwner = useRef(Symbol("composer"));
+  useLayoutEffect(() => {
+    setComposerUnsavedWork(unsavedOwner.current, message.content.length > 0 || message.attachments.length > 0);
+  }, [message.content, message.attachments.length]);
+  useLayoutEffect(() => {
+    const owner = unsavedOwner.current;
+    return () => setComposerUnsavedWork(owner, false);
+  }, []);
   const compositionEndTimeoutRef = useRef<number | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);

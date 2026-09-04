@@ -3,6 +3,7 @@ import { render, screen } from "@testing-library/react"
 import { afterEach, describe, expect, it, vi } from "vitest"
 import { SnackbarProvider } from "@/components/md3"
 import { UhProvider } from "@/uh"
+import { StreamingProvider } from "@/contexts/StreamingContext"
 import { StatusScreen } from "./StatusScreen"
 import type { ReleaseInfo } from "./types"
 
@@ -67,6 +68,8 @@ function installFetchMock() {
       const url = String(input)
       const method = (init?.method ?? "GET").toUpperCase()
 
+      if (url.endsWith("/api/v1/update")) return { ok:true, json:async()=>({ state:"idle",unsignedWarning:true,canRestart:false,canLater:false,generation:0,updatedAt:"2026-09-04T00:00:00Z" }) } as Response
+
       if (url.includes("/api/v1/release")) {
         return { ok: true, json: async () => REAL_RELEASE } as Response
       }
@@ -97,7 +100,7 @@ function renderStatusScreen() {
     <QueryClientProvider client={queryClient}>
       <UhProvider>
         <SnackbarProvider>
-          <StatusScreen />
+          <StreamingProvider><StatusScreen /></StreamingProvider>
         </SnackbarProvider>
       </UhProvider>
     </QueryClientProvider>,

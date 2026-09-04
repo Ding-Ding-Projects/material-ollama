@@ -53,31 +53,6 @@ function Get-ToolVersion {
     return $null
 }
 
-function Test-InnoSetupVersion {
-    param(
-        [Parameter(Mandatory)][string]$Path,
-        [Parameter(Mandatory)][string]$ExpectedVersion
-    )
-
-    if (-not (Test-Path -LiteralPath $Path -PathType Leaf)) {
-        return $false
-    }
-    $directory = Split-Path -Parent $Path
-    if ($directory -notmatch [regex]::Escape($ExpectedVersion)) {
-        return $false
-    }
-    $oldErrorActionPreference = $ErrorActionPreference
-    try {
-        # ISCC writes its usage text to stderr and returns 1 for /?. Keep the
-        # probe non-terminating while still requiring its identifying banner.
-        $ErrorActionPreference = 'Continue'
-        $output = @(& $Path '/?' 2>&1)
-    } finally {
-        $ErrorActionPreference = $oldErrorActionPreference
-    }
-    return (($output -join [Environment]::NewLine) -match 'Inno Setup 6 Command-Line Compiler')
-}
-
 function Find-MachineExecutable {
     param(
         [Parameter(Mandatory)][string]$Name,
@@ -91,17 +66,7 @@ function Find-MachineExecutable {
         'Ninja' {
             return (Get-Command -Name 'ninja.exe' -ErrorAction SilentlyContinue | Select-Object -First 1).Path
         }
-        'Inno Setup' {
-            $roots = @($env:ProgramFiles, ${env:ProgramFiles(x86)}) | Where-Object { $_ }
-            foreach ($root in $roots) {
-                $candidate = Get-ChildItem -Path (Join-Path $root 'Inno Setup*\ISCC.exe') -File -ErrorAction SilentlyContinue |
-                    Select-Object -First 1
-                if ($candidate) {
-                    return $candidate.FullName
-                }
-            }
-            return (Get-Command -Name 'ISCC.exe' -ErrorAction SilentlyContinue | Select-Object -First 1).Path
-        }
+        'Squirrel.Windows' { return $null }
         'llvm-mingw' {
             $candidate = (Get-Command -Name 'x86_64-w64-mingw32-gcc.exe' -ErrorAction SilentlyContinue | Select-Object -First 1).Path
             if ($candidate -and $candidate -match [regex]::Escape([string]$Dependency.version)) {
@@ -143,7 +108,7 @@ function Test-MachineTool {
     switch ($Name) {
         'CMake' { return (Get-ToolVersion -Path $Path -Kind CMake) -eq [string]$Dependency.version }
         'Ninja' { return (Get-ToolVersion -Path $Path -Kind Ninja) -eq [string]$Dependency.version }
-        'Inno Setup' { return Test-InnoSetupVersion -Path $Path -ExpectedVersion ([string]$Dependency.version) }
+        'Squirrel.Windows' { return $false }
         'llvm-mingw' { return $Path -match [regex]::Escape([string]$Dependency.version) }
         default { return $false }
     }
@@ -209,10 +174,6 @@ function Get-ToolMarker {
     if ($Dependency.name -eq 'Ninja' -and (Get-ToolVersion -Path $expectedExecutable -Kind Ninja) -ne [string]$Dependency.version) {
         throw "User-scoped Ninja at '$expectedExecutable' failed its version check."
     }
-    if ($Dependency.name -eq 'Inno Setup' -and -not (Test-InnoSetupVersion -Path $expectedExecutable -ExpectedVersion ([string]$Dependency.version))) {
-        throw "User-scoped Inno Setup at '$expectedExecutable' failed its version check."
-    }
-
     return [pscustomobject]@{
         Root = $candidateRoot
         Executable = $expectedExecutable
@@ -345,10 +306,6 @@ function Install-UserTool {
         if ($Dependency.name -eq 'Ninja' -and (Get-ToolVersion -Path $expectedExecutable -Kind Ninja) -ne [string]$Dependency.version) {
             throw "Staged Ninja at '$expectedExecutable' failed its version check."
         }
-        if ($Dependency.name -eq 'Inno Setup' -and -not (Test-InnoSetupVersion -Path $expectedExecutable -ExpectedVersion ([string]$Dependency.version))) {
-            throw "Staged Inno Setup at '$expectedExecutable' failed its version check."
-        }
-
         $marker = [ordered]@{
             schemaVersion = 1
             name = [string]$Dependency.name
@@ -416,7 +373,7 @@ if ($env:GITHUB_ENV) {
     "OLLAMA_TOOLCHAIN_ROOT=$toolRoot" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
 }
 
-foreach ($name in @('CMake', 'Ninja', 'llvm-mingw', 'Inno Setup')) {
+foreach ($name in @('CMake', 'Ninja', 'llvm-mingw', 'Squirrel.Windows')) {
     $dependency = Get-ManifestDependency -Manifest $manifest -Name $name
     $machinePath = Find-MachineExecutable -Name $name -Dependency $dependency
     if ($machinePath -and (Test-MachineTool -Name $name -Dependency $dependency -Path $machinePath)) {

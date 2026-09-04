@@ -1,29 +1,34 @@
-# Automatic Updates
+# Automatic updates
 
-## Behaviour
+The Status screen uses the same updater instance as the desktop background service. It checks the latest published stable release of `Ding-Ding-Projects/material-ollama` at startup and hourly. `AutoUpdateEnabled` controls automatic downloading, not checking. Manual Check for updates and Download remain available. This implementation is for the unsigned Windows Squirrel installer.
 
-The Status screen's Automatic Updates card (`app/ui/app/src/screens/status/AutomaticUpdatesCard.tsx`) reads and writes the real `AutoUpdateEnabled` field through the same `GET`/`POST /api/v1/settings` endpoints the pre-existing `Settings.tsx` toggle already used -- a genuinely second control surface for one real setting, not a fork of it, matching the "prefer the real control over a printout of it" rule. `AutomaticUpdatesCard.dom.test.tsx`'s "reflects the real AutoUpdateEnabled setting and can toggle it" proves the switch reads and writes the live value, and "always states that updates are unsigned too" proves the unsigned-by-policy disclosure renders unconditionally alongside it.
+## Feed and package contract
 
-The backend half this card's switch drives is independently, thoroughly tested: `app/updater/updater_test.go`'s `TestAutoUpdateDisabledSkipsDownload` and `TestAutoUpdateReenabledDownloadsUpdate` prove the setting genuinely gates whether a background check downloads an update, not merely whether a UI element is greyed out; `TestBackgroundCheckerSkipsAlreadyStagedETagDownload`, `TestDownloadNewReleaseRejectsUnsafeHeaderFilename`, `TestDownloadNewReleaseDoesNotUseRawETagAsPathComponent`, `TestCancelOngoingDownload`, and `TestTriggerImmediateCheck` cover staging safety, path-injection rejection, cancellation, and a manual "check now" path.
+The release must contain `material-ollama-update.json` with schema version 1, a numeric `version`, `sourceCommit`, and `architectures.x64` or `architectures.arm64`. Each architecture records its package identity, setup asset, RELEASES asset, and full/delta package inventory with exact names, sizes, and SHA-256 hashes. Package records additionally carry SHA-1 and kind. The updater resolves names only from that same release. An older release without this manifest reports an unavailable feed.
 
-Permanent no-signing policy is honored throughout: the card's own unsigned-note copy is unconditional, and nothing in `updater_test.go` claims or checks a signature. This card does not itself render the fuller persistent "ready to restart" banner with version/release-note link/Restart-Later actions the canonical contract also describes -- that machinery, if it exists, was not found wired to this specific card in this pass.
+The installed `package-version.json` binds the running numeric version to its architecture, package identity, source commit, entry point, and `app-<version>` directory. Development builds with no valid numeric provenance report unavailable rather than guessing a version. A release at or below the installed version is a normal up-to-date result.
 
-## Configuration
+Metadata reads are bounded. Network requests require allowlisted HTTPS GitHub hosts; at most four redirects may reach the GitHub release-asset hosts. Credentials in URLs, public HTTP, unrelated hosts, unsafe names and malformed inventories are refused. A numeric loopback HTTP origin is reserved for local fixtures. Metadata requests have a 90-second deadline. Package requests have a two-hour deadline, 45-second inactivity limit, bounded headers, and an 8 GiB package limit.
 
-TODO(automatic-updates): describe how a user or operator configures this feature -- the settings surface, its defaults, and where the choice persists.
+## Download and restart
 
-## Failure modes
+The package streams to a unique staging directory with byte count, rate and estimated remaining time. Cancellation invalidates the request generation. SHA-1, SHA-256, exact byte count, safe NuGet paths, native PE architecture, NuGet identity and embedded version/source provenance must match before readiness. A local `RELEASES` file contains exactly the selected full package. Saved readiness is revalidated after restart and again before installation. State persistence failures remain visible.
 
-TODO(automatic-updates): describe what happens when this feature cannot do its job -- a missing dependency, offline operation, invalid input -- and what the user sees.
+Ready and Later states retain the exact version, release-note link and unsigned warning. Restart requires explicit confirmation, no composer draft or attachments, no active chat generation and no active HTTP mutation. The backend rejects malformed or missing consent. It runs installed `Update.exe --update <local-stage>`, then starts a separate `Update.exe --processStartAndWait "ollama app.exe"` and follows the normal graceful shutdown path. Startup and tray actions never silently install. The tray opens Status.
 
-## Security considerations
+Installation errors keep the current process alive and report an error. They do not claim rollback, because Squirrel does not provide an automatic rollback guarantee. No signer, certificate discovery or authenticity claim is involved. SHA hashes provide transport/package integrity and do not authenticate an unsigned publisher.
 
-TODO(automatic-updates): describe what this feature must never expose or allow, and the exact mechanism that enforces it.
+## Local API and privacy
 
-## Verification
+`GET /api/v1/update` returns status without starting work. `POST /api/v1/update/check` and `/download` start bounded asynchronous work. `/cancel` cancels, `/later` defers readiness, and `/restart` requires `{ "confirmed": true, "unsavedWork": false }`. The status card polls progress while operations run. Backend receipts stay in the stable Ollama application-data directory. HTTP status exposes no staging paths, package payloads or provider error bodies.
 
-TODO(automatic-updates): name the focused test(s), the built-artifact interaction proof, and the real capture evidence that back this feature.
+## Verification status
+
+Focused tests are implemented in `app/updater/feed_test.go`, `app/updater/updater_windows_test.go`, `AutomaticUpdatesCard.dom.test.tsx`, and `UpdateFlow.dom.test.tsx`. They target real fixture HTTP/file boundaries and mounted UI interactions. The current ultra-speed delivery pass did not run the completed tests or capture the packaged runtime. Successful compilation is not runtime or installation evidence. Legacy updater tests cover the older archive implementation and do not prove this Squirrel path.
 
 ## Suggested articles
 
-TODO(automatic-updates): link the related features, the prerequisites, and the natural next article a reader should open.
+- [Release metadata](release-metadata.md)
+- [Local version history](local-version-history.md)
+- [Unsigned release policy](unsigned-release-policy.md)
+

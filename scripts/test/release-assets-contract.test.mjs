@@ -8,6 +8,13 @@ import { fileURLToPath } from 'node:url'
 import { assertNestedArchiveCoverage, assertReleaseAssetNames } from '../check-release-assets.mjs'
 
 const REPO_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..')
+const completeAssetNames = [
+  'MaterialOllama-arm64-Setup.exe', 'MaterialOllama-x64-Setup.exe',
+  'MaterialOllama-arm64-RELEASES', 'MaterialOllama-x64-RELEASES',
+  'material-ollama-update.json',
+  'MaterialOllamaArm64-1.100.0-full.nupkg',
+  'MaterialOllamaX64-1.100.0-full.nupkg',
+]
 
 // Small stored ZIP writer for contract fixtures. It deliberately uses the same
 // central-directory fields the release checker reads; no archive package is needed.
@@ -57,29 +64,30 @@ async function fixture() {
   return root
 }
 
-test('release publishes exactly one asset: the installer, and nothing else', () => {
+test('release publishes one collision-free installer asset per architecture', () => {
   const tag = 'v0.0.0-build.19'
-  assert.doesNotThrow(() => assertReleaseAssetNames(['OllamaSetup.exe'], tag))
-  assert.throws(() => assertReleaseAssetNames(['OllamaSetup.exe', 'material-ollama-extras-v0.0.0-build.19.zip'], tag), /exactly one/)
-  assert.throws(() => assertReleaseAssetNames(['OllamaSetup.exe', 'install.ps1'], tag), /exactly one/)
-  assert.throws(() => assertReleaseAssetNames([], tag), /exactly one/)
-  assert.throws(() => assertReleaseAssetNames(['Setup.exe'], tag), /Unexpected release asset/)
-  assert.throws(() => assertReleaseAssetNames(['OllamaSetup.exe', 'OllamaSetup.exe'], tag), /duplicate/i)
+  const complete = completeAssetNames
+  assert.doesNotThrow(() => assertReleaseAssetNames(complete, tag))
+  assert.throws(() => assertReleaseAssetNames(complete.slice(0, 6), tag), /full Squirrel package|architecture/)
+  assert.throws(() => assertReleaseAssetNames([...complete, 'install.ps1'], tag), /Unexpected|full Squirrel package/)
+  assert.throws(() => assertReleaseAssetNames([], tag), /Squirrel|architecture/)
+  assert.throws(() => assertReleaseAssetNames(['Setup.exe'], tag), /Squirrel|architecture/)
+  assert.throws(() => assertReleaseAssetNames([...complete, 'MaterialOllama-x64-Setup.exe'], tag), /duplicate/i)
   // The old 57-asset shape must stay impossible.
-  assert.throws(() => assertReleaseAssetNames(['windows-amd64__lib__ollama__ggml.dll--dc5ce0c5649e'], tag), /Unexpected|flattened|hash/)
-  assert.throws(() => assertReleaseAssetNames(['OllamaSetup.exe--0123456789ab'], tag), /Unexpected|flattened|hash/)
+  assert.throws(() => assertReleaseAssetNames(['windows-amd64__lib__ollama__ggml.dll--dc5ce0c5649e'], tag), /Unexpected|flattened|hash|architecture|Squirrel setup/)
+  assert.throws(() => assertReleaseAssetNames([...complete.filter(name => !name.includes('x64-Setup')), 'MaterialOllama-x64-Setup.exe--0123456789ab'], tag), /Unexpected|flattened|hash|architecture|Squirrel setup/)
   // A malformed tag is refused before any name is considered.
-  assert.throws(() => assertReleaseAssetNames(['OllamaSetup.exe'], 'v0.0.0/build.19'), /Invalid release tag/)
+  assert.throws(() => assertReleaseAssetNames(complete, 'v0.0.0/build.19'), /Invalid release tag/)
 })
 
 test('asset-name CLI mode does not require a dist directory, while explicit coverage still does', async () => {
   const root = await mkdtemp(path.join(os.tmpdir(), 'material-ollama-cli-modes-'))
   try {
     const checker = path.join(REPO_ROOT, 'scripts', 'check-release-assets.mjs')
-    const namesOnly = spawnSync(process.execPath, [checker, '--tag', 'v0.0.0-build.19', '--asset-names', 'OllamaSetup.exe'], { cwd: root, encoding: 'utf8' })
+    const namesOnly = spawnSync(process.execPath, [checker, '--tag', 'v0.0.0-build.19', '--asset-names', ...completeAssetNames], { cwd: root, encoding: 'utf8' })
     assert.equal(namesOnly.status, 0, namesOnly.stderr)
     const bothModes = await fixture()
-    const both = spawnSync(process.execPath, [checker, '--tag', 'v0.0.0-build.19', '--asset-names', 'OllamaSetup.exe', '--dist', bothModes], { cwd: REPO_ROOT, encoding: 'utf8' })
+    const both = spawnSync(process.execPath, [checker, '--tag', 'v0.0.0-build.19', '--asset-names', ...completeAssetNames, '--dist', bothModes], { cwd: REPO_ROOT, encoding: 'utf8' })
     assert.equal(both.status, 0, both.stderr)
     assert.match(both.stdout, /Release asset names verified/)
     assert.match(both.stdout, /Release archive coverage verified/)
@@ -134,7 +142,7 @@ test('install helper verifies the published digest and never requires Authentico
   assert.match(helper, /published SHA-256/i)
 })
 
-test('release workflow uses a recoverable draft transaction, the real upload host, and one asset', async () => {
+test('release workflow uses a recoverable draft transaction, the real upload host, and two architecture assets', async () => {
   const workflow = await readFile(path.join(REPO_ROOT, '.github', 'workflows', 'release.yaml'), 'utf8')
   assert.match(workflow, /gh api --method POST "repos\/\$env:GITHUB_REPOSITORY\/releases"[\s\S]*-F draft=true/)
   assert.match(workflow, /gh api "repos\/\$env:GITHUB_REPOSITORY\/releases\/\$releaseId"/)
@@ -152,9 +160,9 @@ test('release workflow uses a recoverable draft transaction, the real upload hos
   assert.match(workflow, /^\s*\$uploaded = gh api --method POST "\$\{uploadBase\}\?name=\$assetName"/m)
   assert.doesNotMatch(workflow, /releases\/\$releaseId\/assets\?name=/)
 
-  // One release, one download.
-  assert.match(workflow, /^\s*\$assetNames = @\('OllamaSetup\.exe'\)$/m)
-  assert.match(workflow, /^\s*if \(\$assetNames\.Count -ne 1\)/m)
+  // One release, two collision-free architecture downloads.
+  assert.match(workflow, /material-ollama-update\.json/)
+  assert.doesNotMatch(workflow, /^\s*if \(\$assetNames\.Count -ne 1\)/m)
   assert.doesNotMatch(workflow, /extras/i)
 
   // A push to a side branch must not mint a release.
