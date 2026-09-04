@@ -409,11 +409,11 @@ func TestTruncateInputLineUsesDisplayWidth(t *testing.T) {
 	}
 }
 
-func TestRenderInputBoxTruncationUsesSingleContinuationMarker(t *testing.T) {
+func TestRenderInputBoxTruncationAlignsContinuation(t *testing.T) {
 	lines := renderInputBoxLines("one two three four five six seven", len("one two three four five six seven"), 16, 1, "")
 	rendered := strings.Join(lines, "\n")
-	if strings.Contains(rendered, "... ...") {
-		t.Fatalf("input rendered duplicate continuation marker: %q", rendered)
+	if strings.Contains(rendered, "...") {
+		t.Fatalf("input should not render continuation ellipses: %q", rendered)
 	}
 	if strings.Contains(rendered, "one two") {
 		t.Fatalf("input should keep the latest truncated line: %q", rendered)

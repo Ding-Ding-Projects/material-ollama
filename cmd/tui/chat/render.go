@@ -88,13 +88,15 @@ func (m chatModel) toolStartedAt(toolID string) time.Time {
 func entryHasExpandableOutput(entry chatEntry) bool {
 	return (entry.role == "tool" && (len(entry.args) > 0 || strings.TrimSpace(entry.content) != "")) ||
 		(entry.role == "tool_group" && len(entry.tools) > 0) ||
-		(entry.role == "compaction_summary" && strings.TrimSpace(entry.content) != "")
+		(entry.role == "compaction_summary" && strings.TrimSpace(entry.content) != "") ||
+		(entry.role == "thinking" && strings.TrimSpace(entry.content) != "")
 }
 
 func entryHasToolOutputMode(entry chatEntry) bool {
 	return (entry.role == "tool" && (isToolActiveStatus(entry.status) || isToolResultStatus(entry.status) || entry.content != "")) ||
 		(entry.role == "tool_group" && len(entry.tools) > 0) ||
-		(entry.role == "compaction_summary" && strings.TrimSpace(entry.content) != "")
+		(entry.role == "compaction_summary" && strings.TrimSpace(entry.content) != "") ||
+		(entry.role == "thinking" && strings.TrimSpace(entry.content) != "")
 }
 
 func (m *chatModel) applyToolOutputMode() {
@@ -675,6 +677,16 @@ func renderCompactionSummaryLines(entry chatEntry, width int) []string {
 	return lines
 }
 
+func renderThinkingLines(entry chatEntry, width int) []string {
+	if !entry.expanded || strings.TrimSpace(entry.content) == "" {
+		return nil
+	}
+	lines := wrapChatText(thinkingStatusLine(entry), width)
+	lines = append(lines, "")
+	lines = append(lines, indentLines(splitRenderedBody(renderMarkdownForView(entry.content, width-2)), "  ")...)
+	return lines
+}
+
 func compactionSummaryStatusLine(entry chatEntry) string {
 	segment := toolStatusStyle(entry.status).Render(toolStatusLabel(entry))
 	if segment == "" {
@@ -1158,6 +1170,150 @@ func toolActionPhrase(action string, count int) string {
 			return fmt.Sprintf("Loaded %d skills", count)
 		}
 		return "Loaded a skill"
+	default:
+		if plural {
+			return fmt.Sprintf("Used %d tools", count)
+		}
+		return "Used a tool"
+	}
+}
+
+func joinToolActionPhrases(phrases []string) string {
+	switch len(phrases) {
+	case 0:
+		return "Used tools"
+	case 1:
+		return phrases[0]
+	case 2:
+		return phrases[0] + " and " + lowerInitial(phrases[1])
+	default:
+		for i := 1; i < len(phrases); i++ {
+			phrases[i] = lowerInitial(phrases[i])
+		}
+		return strings.Join(phrases[:len(phrases)-1], ", ") + ", and " + phrases[len(phrases)-1]
+	}
+}
+
+func lowerInitial(s string) string {
+	if s == "" {
+		return s
+	}
+	runes := []rune(s)
+	runes[0] = []rune(strings.ToLower(string(runes[0])))[0]
+	return string(runes)
+}
+
+func toolGroupSummary(tools []chatEntry) string {
+	if len(tools) == 0 {
+		return "Used tools"
+	}
+
+	type actionCount struct {
+		action string
+		count  int
+	}
+
+	var counts []actionCount
+	indexes := map[string]int{}
+	for _, tool := range tools {
+		action := toolAction(tool.detail)
+		if action == "" {
+			action = toolAction(tool.label)
+		}
+		if action == "" {
+			action = "tool"
+		}
+		if index, ok := indexes[action]; ok {
+			counts[index].count++
+			continue
+		}
+		indexes[action] = len(counts)
+		counts = append(counts, actionCount{action: action, count: 1})
+	}
+
+	phrases := make([]string, 0, len(counts))
+	for _, count := range counts {
+		phrases = append(phrases, toolActionPhrase(count.action, count.count))
+	}
+	return joinToolActionPhrases(phrases)
+}
+
+func toolAction(name string) string {
+	name = strings.TrimSpace(strings.ToLower(name))
+	switch {
+	case coreagent.IsShellToolName(name):
+		return "command"
+	case strings.Contains(name, "bash") || strings.Contains(name, "powershell"):
+		return "command"
+	case strings.HasPrefix(name, "edit("):
+		return "edit"
+	case strings.HasPrefix(name, "read("):
+		return "read"
+	case strings.HasPrefix(name, "list("):
+		return "list"
+	case strings.HasPrefix(name, "web search("):
+		return "search"
+	case strings.HasPrefix(name, "web fetch("):
+		return "fetch"
+	case strings.HasPrefix(name, "skill("):
+		return "skill"
+	}
+	switch name {
+	case "edit":
+		return "edit"
+	case "read":
+		return "read"
+	case "list":
+		return "list"
+	case "web_search":
+		return "search"
+	case "web_fetch":
+		return "fetch"
+	case "skill":
+		return "skill"
+	default:
+		return "tool"
+	}
+}
+
+func toolActionPhrase(action string, count int) string {
+	plural := count != 1
+	switch action {
+	case "command":
+		if plural {
+			return fmt.Sprintf("Ran %d commands", count)
+		}
+		return "Ran a command"
+	case "edit":
+		if plural {
+			return fmt.Sprintf("Edited %d files", count)
+		}
+		return "Edited a file"
+	case "read":
+		if plural {
+			return fmt.Sprintf("Read %d files", count)
+		}
+		return "Read a file"
+	case "list":
+		if plural {
+			return fmt.Sprintf("Listed files %d times", count)
+		}
+		return "Listed files"
+	case "search":
+		if plural {
+			return fmt.Sprintf("Searched the web %d times", count)
+		}
+		return "Searched the web"
+	case "fetch":
+		if plural {
+			return fmt.Sprintf("Fetched %d URLs", count)
+		}
+		return "Fetched a URL"
+	case "skill":
+		if plural {
+			return fmt.Sprintf("Ran %d skills", count)
+		}
+		return "Ran a skill"
 	default:
 		if plural {
 			return fmt.Sprintf("Used %d tools", count)

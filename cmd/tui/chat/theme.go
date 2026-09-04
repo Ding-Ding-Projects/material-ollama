@@ -54,10 +54,10 @@ var (
 				Faint(true)
 
 	chatToolRunningStyle = lipgloss.NewStyle().
-				Foreground(lipgloss.Color(chatAnsiYellow))
+				Foreground(lipgloss.Color(chatAnsiMuted))
 
 	chatToolDoneStyle = lipgloss.NewStyle().
-				Foreground(lipgloss.Color(chatAnsiGreen))
+				Foreground(lipgloss.Color(chatAnsiMuted))
 
 	// chatToolMixedStyle marks a tool group with both succeeded and failed
 	// calls (partial success). Amber/orange is distinct from green (success),

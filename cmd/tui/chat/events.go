@@ -196,7 +196,8 @@ func (m *chatModel) applyAgentEvent(event coreagent.Event) {
 	case coreagent.EventError:
 		m.resetRunState()
 		m.eventErrorRendered = true
-		m.entries = append(m.entries, newChatEntry(chatEntry{role: "error", content: event.Error, err: event.Error}))
+		message := displayChatError(event.Error)
+		m.entries = append(m.entries, newChatEntry(chatEntry{role: "error", content: message, err: event.Error}))
 	}
 
 	if contextChanged {
