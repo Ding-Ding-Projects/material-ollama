@@ -1568,7 +1568,7 @@ func ShowHandler(cmd *cobra.Command, args []string) error {
 		case "modelfile":
 			fmt.Println(resp.Modelfile)
 		case "parameters":
-			fmt.Println(resp.Parameters)
+			fmt.Println(formatParams(resp.Parameters, false))
 		case "system":
 			fmt.Print(resp.System)
 		case "template":
