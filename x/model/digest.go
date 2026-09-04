@@ -88,8 +88,11 @@ func (d Digest) Value() (driver.Value, error) {
 // Digest.
 func ParseDigest(s string) Digest {
 	typ, digest, ok := strings.Cut(s, "-")
+	if !ok {
+		typ, digest, ok = strings.Cut(s, ":")
+	}
 	if ok && isValidDigestType(typ) && isValidHex(digest) {
-		return Digest{s: s}
+		return Digest{s: fmt.Sprintf("%s-%s", typ, digest)}
 	}
 	return Digest{}
 }

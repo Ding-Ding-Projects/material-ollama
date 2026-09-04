@@ -289,6 +289,13 @@ func TestParseNameFromFilepath(t *testing.T) {
 	}
 }
 
+func TestDisplayLongest(t *testing.T) {
+	g := ParseName("example.com/library/mistral:latest+Q4_0", FillNothing).DisplayLongest()
+	if g != "example.com/library/mistral:latest" {
+		t.Errorf("got = %q; want %q", g, "example.com/library/mistral:latest")
+	}
+}
+
 func TestDisplayShortest(t *testing.T) {
 	cases := map[string]string{
 		"registry.ollama.ai/library/model:latest": "model:latest",
