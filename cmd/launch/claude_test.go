@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"runtime"
 	"slices"
@@ -574,4 +575,30 @@ func TestClaudeModelEnvVars(t *testing.T) {
 			t.Errorf("AUTO_COMPACT_WINDOW = %q, want empty", got["CLAUDE_CODE_AUTO_COMPACT_WINDOW"])
 		}
 	})
+}
+
+func resetClaudeTestHooks(t *testing.T) {
+	t.Helper()
+	oldLookPath := claudeLookPath
+	oldCommand := claudeCommand
+	oldGOOS := claudeGOOS
+	t.Cleanup(func() {
+		claudeLookPath = oldLookPath
+		claudeCommand = oldCommand
+		claudeGOOS = oldGOOS
+	})
+}
+
+func claudeTestCommand(t *testing.T) *exec.Cmd {
+	t.Helper()
+	cmd := exec.Command(os.Args[0], "-test.run=TestClaudeCommandHelper", "--")
+	cmd.Env = append(os.Environ(), "GO_WANT_CLAUDE_COMMAND_HELPER=1")
+	return cmd
+}
+
+func TestClaudeCommandHelper(t *testing.T) {
+	if os.Getenv("GO_WANT_CLAUDE_COMMAND_HELPER") != "1" {
+		return
+	}
+	os.Exit(0)
 }
