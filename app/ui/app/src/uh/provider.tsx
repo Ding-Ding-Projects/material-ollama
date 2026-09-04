@@ -29,6 +29,14 @@ export interface Voice {
   readonly emoji: boolean
   readonly schoolOn: boolean
   readonly vocab: readonly VocabRule[]
+  /**
+   * The user's chosen display name for the app, or "" when they have not
+   * set one. Display only: it never reaches the data directory, the package
+   * identifiers, the update feed, or anything else that identifies this
+   * installation. School mode does not clear it -- a renamed app is not a
+   * language or funny-level setting.
+   */
+  readonly appName: string
 }
 
 /**
@@ -51,6 +59,7 @@ interface StoredPreferencesShape {
   readonly emoji?: unknown
   readonly school?: { readonly on?: unknown } | unknown
   readonly vocab?: unknown
+  readonly appName?: unknown
 }
 
 const EMPTY_VOCAB: readonly VocabRule[] = Object.freeze([])
@@ -62,6 +71,7 @@ const SCHOOL_VOICE: Voice = Object.freeze({
   emoji: false,
   schoolOn: true,
   vocab: EMPTY_VOCAB,
+  appName: "",
 })
 
 const DEFAULT_VOICE: Voice = Object.freeze({
@@ -71,7 +81,12 @@ const DEFAULT_VOICE: Voice = Object.freeze({
   emoji: false,
   schoolOn: false,
   vocab: EMPTY_VOCAB,
+  appName: "",
 })
+
+function sanitizeAppName(value: unknown): string {
+  return typeof value === "string" ? value.trim() : ""
+}
 
 function clampFunnyLevel(value: unknown): FunnyLevel {
   const n = typeof value === "number" && Number.isFinite(value) ? Math.trunc(value) : 0
@@ -122,7 +137,12 @@ function readStoredPreferences(): StoredPreferencesShape {
  */
 function buildVoice(): Voice {
   const raw = readStoredPreferences()
-  if (isSchoolOn(raw.school)) return SCHOOL_VOICE
+  // The chosen app name survives School mode. School mode suppresses the
+  // language, funny-level, vocabulary and dim-sum capabilities; a rename is
+  // none of those, and clearing it would rename the user's app out from
+  // under them for reasons School mode never claimed.
+  const appName = sanitizeAppName(raw.appName)
+  if (isSchoolOn(raw.school)) return Object.freeze({ ...SCHOOL_VOICE, appName })
   return Object.freeze({
     langMode: sanitizeLangMode(raw.langMode),
     funnyEn: clampFunnyLevel(raw.funnyEn),
@@ -130,6 +150,7 @@ function buildVoice(): Voice {
     emoji: Boolean(raw.emoji),
     schoolOn: false,
     vocab: sanitizeVocab(raw.vocab),
+    appName,
   })
 }
 

@@ -155,22 +155,35 @@ func TestLaunchRun_RejectsUnknownIntegration(t *testing.T) {
 // resolve (i.e. this is testing the allow-list check, not a registry
 // miss) before asserting on the specific rejection reason.
 func TestLaunchRun_RejectsRegisteredIntegrationOutsideGUIAllowList(t *testing.T) {
-	spec, err := launch.LookupIntegrationSpec("cline")
-	if err != nil {
-		t.Skipf("cmd/launch registry no longer registers %q (%v); this test's premise no longer holds", "cline", err)
+	// Find a real registry entry that this screen deliberately does not offer,
+	// rather than naming one. The previous version hardcoded "cline" and
+	// skipped itself once "cline" moved into the allow-list, which meant the
+	// only negative-path coverage for this endpoint quietly stopped running
+	// while the suite stayed green.
+	var subject string
+	for _, spec := range launch.ListVisibleIntegrationSpecs() {
+		if _, ok := resolveGUIHomeView(&spec); !ok {
+			subject = spec.Name
+			break
+		}
 	}
-	if _, ok := resolveGUIHomeView(spec); ok {
-		t.Skip("cline is now in guiLaunchableHomeViews; this negative-path test no longer applies -- update it alongside that map")
+	if subject == "" {
+		// Fail rather than skip. The registry does contain integrations this
+		// screen does not offer, so finding none means the allow-list check
+		// itself has stopped discriminating -- which is precisely the defect
+		// this test exists to catch. A skip here would report green for it.
+		t.Fatal("no registered integration falls outside guiLaunchableHomeViews; " +
+			"either the registry lost its non-GUI entries or resolveGUIHomeView now accepts everything")
 	}
 
 	s := &Server{}
-	body := strings.NewReader(`{"integration":"cline"}`)
+	body := strings.NewReader(`{"integration":"` + subject + `"}`)
 	req := httptest.NewRequest(http.MethodPost, "/api/v1/launch/run", body)
 	rec := httptest.NewRecorder()
 
-	err = s.launchRun(rec, req)
+	err := s.launchRun(rec, req)
 	if err == nil {
-		t.Fatal("launchRun launched (or claimed to launch) an integration outside the GUI allow-list")
+		t.Fatalf("launchRun launched (or claimed to launch) %q, which is outside the GUI allow-list", subject)
 	}
 	if !strings.Contains(err.Error(), "cannot be launched from the desktop app") {
 		t.Fatalf("error = %q, want it to say the integration cannot be launched from the desktop app", err.Error())

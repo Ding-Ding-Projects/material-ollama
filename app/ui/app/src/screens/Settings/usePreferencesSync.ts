@@ -33,6 +33,10 @@ function mirrorToLiveVoice(prefs: UIPreferences): void {
     // mismatch here is this hook's job, not provider.tsx's (out of this
     // lane's allowed paths) or the server's (a shipped JSON contract).
     vocab: (prefs.vocab ?? []).map((rule) => ({ find: rule.find, replace: rule.repl })),
+    // The chosen display name, so the title bar and anywhere else that
+    // introduces the app picks a rename up live. Without this line the
+    // setting saves, reloads, and changes nothing anybody can see.
+    appName: prefs.appearance.appName,
   }
   try {
     window.localStorage.setItem(PREFERENCES_STORAGE_KEY, JSON.stringify(shape))

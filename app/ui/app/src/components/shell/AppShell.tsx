@@ -68,6 +68,10 @@ export function AppShell({ children }: { children: ReactNode }) {
   const t = useT("app")
   const tShell = useT("shell")
   const voice = useUh()
+  // The user's chosen name if they set one, otherwise the shipped name.
+  // Display only -- APP_NAME remains the identity anything diagnostic
+  // should report, so a renamed install is still recognisable in a log.
+  const displayName = voice.appName || APP_NAME
   const tabs = useShellTabs()
   const events = useShellEvents()
 
@@ -283,10 +287,10 @@ export function AppShell({ children }: { children: ReactNode }) {
     <SnackbarProvider>
       <div className="flex h-screen flex-col overflow-hidden bg-background text-sm text-on-surface">
         <div className="flex h-11 flex-none items-center gap-2.5 bg-surface-low pr-3 pl-4">
-          <AppMark size={20} className="shrink-0" title={APP_NAME} />
+          <AppMark size={20} className="shrink-0" title={displayName} />
           <span className="text-sm font-semibold tracking-[.1px]">
             <Txt channel="content" as="span">
-              {APP_NAME}
+              {displayName}
             </Txt>
           </span>
           <span

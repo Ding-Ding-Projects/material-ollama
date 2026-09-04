@@ -143,3 +143,50 @@ func TestShortCommit(t *testing.T) {
 		})
 	}
 }
+
+// TestReleaseInfo_BothBranchesRunUnderAnyBuild drives releaseInfo's dev and
+// release branches by setting version.Version directly, restoring it after.
+//
+// The sibling dev-build test skips itself when the binary was built with
+// -X ldflags, which is correct for what it asserts but leaves the release
+// branch with no coverage at all on exactly the builds that ship. A test that
+// never runs where it matters is not coverage; it is a green tick.
+func TestReleaseInfo_BothBranchesRunUnderAnyBuild(t *testing.T) {
+	original := version.Version
+	t.Cleanup(func() { version.Version = original })
+
+	for _, tc := range []struct {
+		name    string
+		version string
+		wantDev bool
+	}{
+		{"unbuilt default", "0.0.0", true},
+		{"empty version", "", true},
+		{"released build", "0.12.7", false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			version.Version = tc.version
+
+			s := &Server{}
+			req := httptest.NewRequest(http.MethodGet, "/api/v1/release", nil)
+			rec := httptest.NewRecorder()
+			if err := s.releaseInfo(rec, req); err != nil {
+				t.Fatalf("releaseInfo: %v", err)
+			}
+			if rec.Code != http.StatusOK {
+				t.Fatalf("status = %d, want %d", rec.Code, http.StatusOK)
+			}
+
+			var got ReleaseInfo
+			if err := json.Unmarshal(rec.Body.Bytes(), &got); err != nil {
+				t.Fatalf("decode response: %v (body: %s)", err, rec.Body.String())
+			}
+			if got.IsDevBuild != tc.wantDev {
+				t.Fatalf("IsDevBuild = %v for version %q, want %v", got.IsDevBuild, tc.version, tc.wantDev)
+			}
+			if got.Version != tc.version {
+				t.Fatalf("Version = %q, want %q reported verbatim", got.Version, tc.version)
+			}
+		})
+	}
+}
