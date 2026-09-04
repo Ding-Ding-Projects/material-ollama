@@ -5,6 +5,7 @@ import (
 	"context"
 	"crypto/ed25519"
 	"crypto/rand"
+	_ "embed"
 	"encoding/json"
 	"encoding/pem"
 	"errors"
@@ -2688,11 +2689,12 @@ func NewCLI() *cobra.Command {
 	rootCmd.Flags().Bool("nowordwrap", false, "Don't wrap words to the next line automatically")
 
 	createCmd := &cobra.Command{
-		Use:     "create MODEL",
-		Short:   "Create a model",
-		Args:    cobra.ExactArgs(1),
-		PreRunE: checkServerHeartbeat,
-		RunE:    CreateHandler,
+		Use:         "create MODEL",
+		Short:       "Create a model",
+		Args:        cobra.ExactArgs(1),
+		PreRunE:     checkServerHeartbeat,
+		RunE:        CreateHandler,
+		Annotations: envconfig.Usage("OLLAMA_HOST"),
 	}
 
 	createCmd.Flags().StringP("file", "f", "", "Name of the Modelfile (default \"Modelfile\")")
@@ -2701,11 +2703,12 @@ func NewCLI() *cobra.Command {
 	createCmd.Flags().Bool("experimental", false, "Enable experimental safetensors model creation")
 
 	showCmd := &cobra.Command{
-		Use:     "show MODEL",
-		Short:   "Show information for a model",
-		Args:    cobra.ExactArgs(1),
-		PreRunE: checkServerHeartbeat,
-		RunE:    ShowHandler,
+		Use:         "show MODEL",
+		Short:       "Show information for a model",
+		Args:        cobra.ExactArgs(1),
+		PreRunE:     checkServerHeartbeat,
+		RunE:        ShowHandler,
+		Annotations: envconfig.Usage("OLLAMA_HOST"),
 	}
 
 	showCmd.Flags().Bool("license", false, "Show license of a model")
@@ -2716,11 +2719,12 @@ func NewCLI() *cobra.Command {
 	showCmd.Flags().BoolP("verbose", "v", false, "Show detailed model information")
 
 	runCmd := &cobra.Command{
-		Use:     "run MODEL [PROMPT]",
-		Short:   "Run a model",
-		Args:    cobra.MinimumNArgs(1),
-		PreRunE: checkServerHeartbeat,
-		RunE:    RunHandler,
+		Use:         "run MODEL [PROMPT]",
+		Short:       "Run a model",
+		Args:        cobra.MinimumNArgs(1),
+		PreRunE:     checkServerHeartbeat,
+		RunE:        RunHandler,
+		Annotations: envconfig.Usage("OLLAMA_HOST", "OLLAMA_NOHISTORY"),
 	}
 
 	runCmd.Flags().Bool("speech", false, "Speech to text mode")
@@ -2736,11 +2740,12 @@ func NewCLI() *cobra.Command {
 	runCmd.Flags().Int("dimensions", 0, "Truncate output embeddings to specified dimension (embedding models only)")
 
 	stopCmd := &cobra.Command{
-		Use:     "stop MODEL",
-		Short:   "Stop a running model",
-		Args:    cobra.ExactArgs(1),
-		PreRunE: checkServerHeartbeat,
-		RunE:    StopHandler,
+		Use:         "stop MODEL",
+		Short:       "Stop a running model",
+		Args:        cobra.ExactArgs(1),
+		PreRunE:     checkServerHeartbeat,
+		RunE:        StopHandler,
+		Annotations: envconfig.Usage("OLLAMA_HOST"),
 	}
 
 	serveCmd := &cobra.Command{
@@ -2749,24 +2754,44 @@ func NewCLI() *cobra.Command {
 		Short:   "Start Ollama",
 		Args:    cobra.ExactArgs(0),
 		RunE:    RunServer,
+		Annotations: envconfig.Usage(
+			"OLLAMA_DEBUG",
+			"OLLAMA_HOST",
+			"OLLAMA_CONTEXT_LENGTH",
+			"OLLAMA_KEEP_ALIVE",
+			"OLLAMA_MAX_LOADED_MODELS",
+			"OLLAMA_MAX_QUEUE",
+			"OLLAMA_MODELS",
+			"OLLAMA_NUM_PARALLEL",
+			"OLLAMA_NOPRUNE",
+			"OLLAMA_ORIGINS",
+			"OLLAMA_SCHED_SPREAD",
+			"OLLAMA_FLASH_ATTENTION",
+			"OLLAMA_KV_CACHE_TYPE",
+			"OLLAMA_LLM_LIBRARY",
+			"OLLAMA_GPU_OVERHEAD",
+			"OLLAMA_LOAD_TIMEOUT",
+		),
 	}
 
 	pullCmd := &cobra.Command{
-		Use:     "pull MODEL",
-		Short:   "Pull a model from a registry",
-		Args:    cobra.ExactArgs(1),
-		PreRunE: checkServerHeartbeat,
-		RunE:    PullHandler,
+		Use:         "pull MODEL",
+		Short:       "Pull a model from a registry",
+		Args:        cobra.ExactArgs(1),
+		PreRunE:     checkServerHeartbeat,
+		RunE:        PullHandler,
+		Annotations: envconfig.Usage("OLLAMA_HOST"),
 	}
 
 	pullCmd.Flags().Bool("insecure", false, "Use an insecure registry")
 
 	pushCmd := &cobra.Command{
-		Use:     "push MODEL",
-		Short:   "Push a model to a registry",
-		Args:    cobra.ExactArgs(1),
-		PreRunE: checkServerHeartbeat,
-		RunE:    PushHandler,
+		Use:         "push MODEL",
+		Short:       "Push a model to a registry",
+		Args:        cobra.ExactArgs(1),
+		PreRunE:     checkServerHeartbeat,
+		RunE:        PushHandler,
+		Annotations: envconfig.Usage("OLLAMA_HOST"),
 	}
 
 	pushCmd.Flags().Bool("insecure", false, "Use an insecure registry")
@@ -2814,33 +2839,37 @@ func NewCLI() *cobra.Command {
 	}
 
 	listCmd := &cobra.Command{
-		Use:     "list",
-		Aliases: []string{"ls"},
-		Short:   "List models",
-		PreRunE: checkServerHeartbeat,
-		RunE:    ListHandler,
+		Use:         "list",
+		Aliases:     []string{"ls"},
+		Short:       "List models",
+		PreRunE:     checkServerHeartbeat,
+		RunE:        ListHandler,
+		Annotations: envconfig.Usage("OLLAMA_HOST"),
 	}
 
 	psCmd := &cobra.Command{
-		Use:     "ps",
-		Short:   "List running models",
-		PreRunE: checkServerHeartbeat,
-		RunE:    ListRunningHandler,
+		Use:         "ps",
+		Short:       "List running models",
+		PreRunE:     checkServerHeartbeat,
+		RunE:        ListRunningHandler,
+		Annotations: envconfig.Usage("OLLAMA_HOST"),
 	}
 	copyCmd := &cobra.Command{
-		Use:     "cp SOURCE DESTINATION",
-		Short:   "Copy a model",
-		Args:    cobra.ExactArgs(2),
-		PreRunE: checkServerHeartbeat,
-		RunE:    CopyHandler,
+		Use:         "cp SOURCE DESTINATION",
+		Short:       "Copy a model",
+		Args:        cobra.ExactArgs(2),
+		PreRunE:     checkServerHeartbeat,
+		RunE:        CopyHandler,
+		Annotations: envconfig.Usage("OLLAMA_HOST"),
 	}
 
 	deleteCmd := &cobra.Command{
-		Use:     "rm MODEL [MODEL...]",
-		Short:   "Remove a model",
-		Args:    cobra.MinimumNArgs(1),
-		PreRunE: checkServerHeartbeat,
-		RunE:    DeleteHandler,
+		Use:         "rm MODEL [MODEL...]",
+		Short:       "Remove a model",
+		Args:        cobra.MinimumNArgs(1),
+		PreRunE:     checkServerHeartbeat,
+		RunE:        DeleteHandler,
+		Annotations: envconfig.Usage("OLLAMA_HOST"),
 	}
 
 	runnerCmd := &cobra.Command{
@@ -2950,6 +2979,7 @@ func NewCLI() *cobra.Command {
 		launch.LaunchCmd(checkServerHeartbeat, runInteractiveTUI),
 	)
 
+	rootCmd.SetUsageTemplate(usageTemplate)
 	return rootCmd
 }
 
