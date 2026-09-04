@@ -1,115 +1,134 @@
 # Windows release workflow
 
-The repository publishes one Windows release for each push and for each manual `workflow_dispatch` run. The workflow is intentionally limited to the Windows application and its installable package.
+The project publishes a Windows release for each push and each manual
+`workflow_dispatch` run. The active delivery path builds the native Go desktop
+payload and packages each supported architecture with genuine unsigned
+Squirrel.Windows.
 
 ## Build path
 
-The workflow bootstraps the pinned toolchain described by [`scripts/release-dependencies.json`](../scripts/release-dependencies.json), then runs the supported build script:
+The supported local commands are:
 
 ```powershell
-.\scripts\build_windows.ps1 cpu cpuArm64 ollama ollamaArm64 app appArm64 deps sign installer zip
+.\build.bat /s
+.\build-installer.bat /s
 ```
 
-`scripts/bootstrap_windows_tools.ps1` first reuses an exact-version machine installation when
-one is available. If CMake 4.4.2, Ninja 1.13.2, LLVM-MinGW 20260616 UCRT x86_64, or Inno Setup
-6.7.1 is absent, it downloads only the pinned official release asset, checks its SHA-256 digest,
-and installs it below the user-scoped `%LOCALAPPDATA%\MaterialOllama\tools` directory. The
-bootstrap writes a provenance marker beside each extracted tool; `build_windows.ps1` requires
-that marker for newly bootstrapped tools and otherwise accepts only the explicitly named,
-versioned legacy user-tool paths. No PATH entry or arbitrary download URL is trusted by itself.
-Archive installs stage under a unique hidden sibling of that validated tool root and publish only
-after the declared executable, version, and provenance marker pass; an incomplete cold-cache
-attempt leaves no candidate directory that can block a retry. The root batch entrypoints invoke
-the installed Windows PowerShell 5.1 path explicitly, so a child PATH cannot replace its hashing
-and packaging cmdlets with an incompatible shell. Hashing helpers import the utility module from
-their own `$PSHOME` manifest, and the unsigned probe imports the security module the same way, so
-`-NoProfile` does not depend on implicit module discovery or a shadow module earlier in `PSModulePath`.
+The root `build-installer.bat` builds the required CPU, CLI, desktop and offline
+runtime payloads for both architectures in one invocation, then runs
+`scripts/verify-squirrel-build.ps1`. It never publishes a release.
 
-Large ZIP tool archives are path-validated through `System.IO.Compression` and extracted in-process;
-the slow built-in archive cmdlet is not used for the cold-cache tool path.
+`scripts/bootstrap_windows_tools.ps1` reuses a verified compatible machine
+tool where allowed, then installs missing tools into the user-scoped
+`%LOCALAPPDATA%\MaterialOllama\tools-v2` location. CMake 4.4.2, Ninja 1.13.2,
+LLVM-MinGW 20260616 UCRT x86_64, and Squirrel.Windows 2.0.1 are pinned in
+[`scripts/release-dependencies.json`](../scripts/release-dependencies.json).
+The Squirrel.Windows package is fetched from the NuGet flat-container URL and
+its SHA-256 is checked before extraction. No PATH-only or arbitrary download
+is trusted. Every extracted tool carries a version-1 provenance marker.
 
-`deps` also downloads two pinned Microsoft WebView2 Evergreen Standalone Installers (version
-151.0.4129.101, x64 and ARM64) from the official `msedge.sf.dl.delivery.mp.microsoft.com` source. Each payload is
-checked against its manifest SHA-256 before it is copied into `dist\webview2\` and embedded in
-`OllamaSetup.exe`; installation probes the stable-channel HKCU/HKLM records and runs the matching
-embedded installer with `/silent /install` only when the runtime is missing or too old. A fresh
-machine never needs a network connection during product installation.
+`deps` downloads the two pinned Microsoft WebView2 Evergreen Standalone
+Installers and verifies each SHA-256 before it enters the architecture payload.
+The matching Squirrel package carries the offline installer under
+`lib/net45/webview2/`.
 
-The copied `install.ps1` helper keeps unsigned delivery intact while verifying the downloaded
-installer against the published release SHA-256. It first resolves the exact Material Ollama
-release, downloads that release's own `browser_download_url`, and then checks the digest. It
-accepts a documented `-ExpectedSha256` value as an optional cross-check; it never downloads an
-upstream Ollama installer and never checks for an Authenticode signer.
+The permanent no-signing policy is active. Signing inputs are cleared before
+releasify and no `--signWithParams` argument is supplied. The generated setup
+executable is required to report Authenticode `NotSigned`; an unknown-publisher
+or SmartScreen warning on install is expected.
 
-The 7-Zip bootstrap treats the manifest version as a minimum. It parses the actual `7z.exe`
-banner and reuses only an equal or newer installed version than the pinned `26.2.0` level after
-verifying that `7z.exe` is usable on `PATH`. A missing, unparseable, or older package receives the pinned
-installation request. If the install or either package probe cannot produce a usable package,
-the workflow fails with the observed versions, exit codes, and command output rather than
-silently continuing with an unverified archive tool.
+## Squirrel.Windows packaging
 
-The root bootstrap accepts Node.js `>=22.13.0`, matching the release workflow's pinned `22.13.0`
-floor without downgrading a compatible installed release. Go is checked against the
-repository's declared `1.26` line. Both checks refresh the current process PATH after installation.
+[`scripts/package-squirrel.ps1`](../scripts/package-squirrel.ps1) creates one
+NuGet package for each architecture with stable package IDs `MaterialOllamaX64`
+and `MaterialOllamaArm64`. The
+existing installed identities remain stable: `ollama app.exe` is the desktop
+entry point and `ollama.exe` is the server and CLI. The output directories are:
 
-The package is unsigned by project policy. The workflow fails if signing inputs are present and verifies that `OllamaSetup.exe` has Authenticode status `NotSigned`. Windows may show an unknown-publisher or SmartScreen warning.
+```text
+dist/squirrel-windows/x64/
+dist/squirrel-windows/arm64/
+```
 
-## Why Inno Setup rather than Squirrel.Windows
+Each directory contains `Setup.exe`, `RELEASES`, a full
+`MaterialOllamaX64-<version>-full.nupkg` or
+`MaterialOllamaArm64-<version>-full.nupkg`, and a delta package only when a valid
+prior full package and matching `RELEASES` row are available. The first package
+has no delta. Candidates are built in a unique sibling directory. Existing output
+is moved to a uniquely named backup only after the candidate passes verification;
+promotion failure restores that backup. Previous output and failed candidates remain
+recoverable. Output roots are restricted to the architecture's directory beneath
+`dist/squirrel-windows`, and reparse paths are rejected.
 
-The shared agent instructions require every Windows installer to use
-Squirrel.Windows. This project does not, and the reason is recorded here so the
-gap reads as a decision rather than an oversight.
+`scripts/squirrel-contract.ps1` owns the numeric package version. The default is
+`1.<first-parent commit count>.<sequence>`. A local build uses sequence zero;
+Actions uses `run_number * 10 + run_attempt`, allowing attempts 1 through 9.
+Every numeric component must be at most 65534. `PACKAGE_VERSION` can pin an
+explicit numeric version for a coordinated manual build; both root scripts must
+inherit that same value. A validated prior package must have a strictly lower
+version. This starts a new Squirrel lineage and does not compare old upstream
+prerelease labels as package versions.
 
-Squirrel.Windows packages one architecture per installer. Material Ollama ships
-a single `OllamaSetup.exe` that carries both the x64 and the ARM64 payload and
-selects between them at install time (`app/ollama.iss`, gated on `IsArm64()`),
-so a Squirrel migration would replace one universal download with two
-architecture-specific ones -- the opposite of the one-installer contract above,
-and the opposite of what a user asking for "one download" wants. The product is
-also a native Go application with a WebView2 host, not an Electron app, so the
-Squirrel tooling and its `Setup.exe` / `RELEASES` / `.nupkg` triplet have no
-natural fit here.
+The build records the unchanged source commit, source/index trees, dependency
+manifest hashes and payload SHA-256 values in `dist/payload-receipt.json`.
+Packaging refuses stale or unreceipted payload bytes. Generated build metadata
+lives under ignored `dist/` and is embedded using Go's compiler overlay, keeping
+the committed source unchanged. Each installed version carries
+`package-version.json` beside `ollama app.exe`. Squirrel installs beneath
+`%LOCALAPPDATA%/MaterialOllamaX64` or `%LOCALAPPDATA%/MaterialOllamaArm64`;
+the application's existing user data remains in `%LOCALAPPDATA%/Ollama`.
 
-What ships instead is the closest equivalent that keeps every property the rule
-protects: one installable artifact per release, produced by the project's own
-supported packaging path, verified to come from the intended commit, and
-verified unsigned. The permanent no-signing policy is unaffected either way --
-Squirrel would not have changed it.
-
-Automatic updates use the HTTPS feed, package hashes and rollback protections
-described above; they neither require nor claim a signature.
+The deterministic verifier,
+[`scripts/verify-squirrel-artifacts.ps1`](../scripts/verify-squirrel-artifacts.ps1),
+checks the version-1 provenance record, actual setup PE structure and unsigned status,
+every `RELEASES` row's package name, byte length and SHA-1, path traversal,
+unindexed packages, the full package manifest, architecture, source commit,
+and every packaged executable/DLL's actual architecture, plus required desktop,
+CLI, inference-server, icon, offline WebView2 and installed-version entries.
+It writes a machine-readable
+receipt beside the package set. A failed check is fatal and never becomes a
+release claim.
 
 ## Release evidence
 
-**The public release has exactly one download: `OllamaSetup.exe`.** It is the whole
-product -- the desktop app, the `ollama` server and CLI for x64 and ARM64, the
-llama.cpp runners and every ggml CPU variant, and the Microsoft Edge WebView2
-runtime, which it installs only when the machine does not already have it. There
-is nothing else for a user to fetch, and nothing else is permitted on the release
-page: [`scripts/check-release-assets.mjs`](../scripts/check-release-assets.mjs)
-refuses a second asset, an unexpected name, a duplicate, a flattened `__` path
-marker, and a `--<hash>` suffix.
+The public release carries two architecture-specific setup assets:
+`MaterialOllama-x64-Setup.exe` and `MaterialOllama-arm64-Setup.exe`. The release
+asset checker rejects missing architecture assets, unexpected names, duplicate
+names, flattened path markers, and hash-suffixed names. The public release also
+carries `MaterialOllama-x64-RELEASES`, `MaterialOllama-arm64-RELEASES`, both
+current full packages, any current delta packages, and one
+`material-ollama-update.json`. Package filenames retain Squirrel's native names.
+The updater stages each architecture's index as literal `RELEASES` locally.
 
-The same checker walks every `dist/windows-*` payload before publication and
-proves that matching `ollama-<platform>*.zip` archives cover every member,
-including zero-byte files and optional accelerator archives.
+The update manifest is limited to 64 KiB. Its schema is
+`{schemaVersion:1, version, sourceCommit, architectures:{x64,arm64}}`. Each
+architecture contains `packageId`, `setup:{name,sha256,size}`,
+`releases:{name,sha256,size}`, and `packages:[{name,sha256,sha1,size,kind}]`,
+where kind is `full` or `delta`. Index rows use exactly
+`SHA1 filename byteCount`. Every manifest member is checked against staged bytes;
+package hashing streams data rather than loading whole packages into memory.
+The shared verifier writes a unique release directory and its relative name into
+`dist/squirrel-windows/release-assets-path.txt` for the publisher.
 
-The supporting build evidence is retained, but as **workflow run artifacts**
-rather than release downloads. The `windows-release-evidence-<run_id>` artifact
-on each run carries the portable architecture and accelerator archives, the
-standalone desktop executables, the dependency-audit records, the recursive
-`SHA256SUMS.txt`, the line-count evidence, the release metadata, and the
-hash-verifying `install.ps1` helper.
+The supporting run artifact also carries architecture payloads, provenance and
+receipt JSON, dependency-audit records, `SHA256SUMS.txt`, line-count evidence,
+and release metadata. `scripts/count-lines.mjs` remains the source of the
+release line-count table, with dependencies, generated build output and other
+excluded trees named explicitly.
 
-The committed [`scripts/count-lines.mjs`](../scripts/count-lines.mjs) reports source, tests,
-styles/markup, generated, and other categories with total and non-blank lines, plus surviving-line
-attribution from `git blame`. Vendored trees, dependency directories, generated build output, and
-lockfiles are excluded explicitly.
+Release tags use the numeric package version, such as `v1.100.421`.
+The workflow refuses a reused tag, creates a numeric-ID
+recoverable draft, uploads the complete package set, reads sizes and hashes back,
+and only then publishes the release. Workflow timing, source commit, unsigned
+status, asset hashes, and dim-sum catalog metadata are recorded in the notes.
 
-[`scripts/release-metadata.mjs`](../scripts/release-metadata.mjs) resolves one unused code name from the public dim-sum catalog and a published `catalog-v1` image URL. The release records that metadata without copying catalog images into this repository.
+GitHub Actions does not run tests, lint, or static-analysis jobs. Those checks
+remain local project commands and their actual results are reported separately
+from release publication. A published installer is not presented as a test
+verdict.
 
-The published release notes expand the metadata into the code name, dish ID, English and Traditional Chinese names, source catalog release URL, and authoritative public image URL. They also state the no-copy boundary explicitly: the consumer project does not download, vendor, or attach a duplicate image asset.
-
-Release tags use the source version plus the monotonic workflow run number, for example `v0.0.0-build.42`. The workflow refuses to reuse an existing tag, creates a numeric-ID draft release against the exact triggering commit, uploads through that ID, reads the draft's actual assets back, and only then changes that same ID to non-draft. A failed upload or validation leaves a recoverable draft and never strands a misleading public partial release. The workflow rejects any second, flattened, or hash-suffixed asset name, uploads exactly the installer, and downloads it again to verify its published size and SHA-256. Asset uploads go to the upload host taken from the release response's own `upload_url`; a bare `gh api` path resolves against the API host and returns 404.
-
-GitHub Actions does not run tests, lint, or static-analysis jobs. Those checks remain available as local project scripts and are reported separately from release publication; an artifact publication is not presented as a test verdict.
+The current accelerated packaging repair did not run tests or UI captures after
+the workflow switched to accelerated delivery. Controlled package/PE fixtures
+test verifier behavior only and are not proof that the real application installs
+or runs. Real installation, WebView2 provisioning, shortcuts and update restart
+remain separate runtime evidence requirements.

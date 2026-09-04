@@ -11,8 +11,10 @@
 import { readdir, readFile, stat } from 'node:fs/promises'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { createHash } from 'node:crypto'
+import { createReadStream } from 'node:fs'
 
-export const INSTALLER_NAME = 'OllamaSetup.exe'
+export const INSTALLER_NAMES = ['MaterialOllama-arm64-Setup.exe', 'MaterialOllama-x64-Setup.exe']
 
 export function assertReleaseTag(tag) {
   if (typeof tag !== 'string' || !/^v[^/\\]+$/.test(tag)) {
@@ -22,29 +24,90 @@ export function assertReleaseTag(tag) {
 }
 
 /**
- * One release, one download. The installer is a self-contained universal
- * bundle -- desktop app, server and CLI for both architectures, the llama.cpp
- * runners, and the WebView2 runtime -- so nothing else belongs on the release
- * page. Portable archives, dependency audits, checksums and the line-count
- * table stay reachable as workflow run artifacts.
+ * The release carries one Squirrel bootstrapper per supported architecture.
+ * Portable archives, dependency audits, checksums and the line-count table
+ * stay reachable as workflow run artifacts.
  */
 export function assertReleaseAssetNames(names, tag) {
   assertReleaseTag(tag)
-  const expected = new Set([INSTALLER_NAME])
   const actual = [...names]
   const duplicateNames = actual.filter((name, index) => actual.indexOf(name) !== index)
   if (duplicateNames.length > 0) throw new Error(`Release contains duplicate asset names: ${[...new Set(duplicateNames)].join(', ')}`)
-  if (actual.length !== expected.size) {
-    throw new Error(`Release must contain exactly one asset (${[...expected].join(', ')}); found ${actual.length}.`)
+  const setupNames = actual.filter(name => /^MaterialOllama-(x64|arm64)-Setup\.exe$/i.test(name))
+  const releaseNames = actual.filter(name => /^MaterialOllama-(x64|arm64)-RELEASES$/i.test(name))
+  const feedNames = actual.filter(name => name === 'material-ollama-update.json')
+  const packageNames = actual.filter(name => /^MaterialOllama(?:X64|Arm64)-\d+\.\d+\.\d+-(?:full|delta)\.nupkg$/.test(name))
+  if (setupNames.length !== 2 || !setupNames.includes(INSTALLER_NAMES[0]) || !setupNames.includes(INSTALLER_NAMES[1])) {
+    throw new Error(`Release must contain exactly one x64 and one arm64 Squirrel setup asset; found ${setupNames.join(', ')}`)
+  }
+  if (releaseNames.length !== 2 || !releaseNames.includes('MaterialOllama-x64-RELEASES') || !releaseNames.includes('MaterialOllama-arm64-RELEASES')) {
+    throw new Error('Release must contain one collision-free Squirrel RELEASES asset per architecture')
+  }
+  if (feedNames.length !== 1) {
+    throw new Error('Release must contain one bounded update manifest')
+  }
+  if (packageNames.length < 2) throw new Error('Release must contain at least one full Squirrel package per architecture')
+  for (const architecture of ['x64', 'arm64']) {
+    const id = architecture === 'x64' ? 'MaterialOllamaX64' : 'MaterialOllamaArm64'
+    const archPackages = packageNames.filter(name => name.startsWith(`${id}-`))
+    if (archPackages.filter(name => /-full\.nupkg$/.test(name)).length !== 1) throw new Error(`Release must contain exactly one current ${architecture} full Squirrel package`)
+    if (archPackages.filter(name => /-delta\.nupkg$/.test(name)).length > 1) throw new Error(`Release contains multiple ${architecture} delta packages`)
+    if (archPackages.some(name => /-delta\.nupkg$/i.test(name)) && !archPackages.some(name => /-full\.nupkg$/i.test(name))) throw new Error(`Release has a ${architecture} delta without a full package`)
+  }
+  if (actual.length !== setupNames.length + releaseNames.length + feedNames.length + packageNames.length) {
+    const known = new Set([...setupNames, ...releaseNames, ...feedNames, ...packageNames])
+    throw new Error(`Unexpected release asset: ${actual.find(name => !known.has(name))}`)
   }
   for (const name of actual) {
-    if (!expected.has(name)) throw new Error(`Unexpected release asset: ${name}`)
     if (name.includes('__')) throw new Error(`Release asset contains a flattened path marker: ${name}`)
-    if (/--[0-9a-f]{12}$/i.test(name.replace(/\.zip$/i, ''))) {
+    if (/--[0-9a-f]{12}(?:\.nupkg|\.exe)?$/i.test(name)) {
       throw new Error(`Release asset contains a path hash suffix: ${name}`)
     }
   }
   return true
+}
+
+export async function assertUpdateDirectory(directory, expectedCommit) {
+  const manifestPath = path.join(directory, 'material-ollama-update.json')
+  if ((await stat(manifestPath)).size > 65536) throw new Error('Update manifest exceeds 64 KiB')
+  const manifest = JSON.parse(await readFile(manifestPath, 'utf8'))
+  if (manifest.schemaVersion !== 1 || !/^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$/.test(manifest.version)) throw new Error('Invalid update manifest version')
+  if (!/^[0-9a-f]{40}$/.test(manifest.sourceCommit) || (expectedCommit && manifest.sourceCommit !== expectedCommit)) throw new Error('Update source commit mismatch')
+  if (Object.keys(manifest.architectures ?? {}).sort().join(',') !== 'arm64,x64') throw new Error('Update architectures must be exactly x64 and arm64')
+  const names = ['material-ollama-update.json']
+  async function verify(record, expectedName) {
+    if (!record || record.name !== expectedName || path.basename(record.name) !== record.name || !Number.isSafeInteger(record.size) || record.size <= 0 || !/^[0-9a-f]{64}$/.test(record.sha256)) throw new Error('Invalid update asset metadata')
+    const file = path.join(directory, record.name)
+    const sha256 = createHash('sha256')
+    const sha1 = createHash('sha1')
+    let size = 0
+    for await (const chunk of createReadStream(file)) { size += chunk.length; sha256.update(chunk); sha1.update(chunk) }
+    if (size !== record.size || sha256.digest('hex') !== record.sha256) throw new Error('Update asset bytes mismatch')
+    names.push(record.name)
+    return { sha1: sha1.digest('hex'), file, size }
+  }
+  for (const architecture of ['x64', 'arm64']) {
+    const value = manifest.architectures[architecture]
+    const id = architecture === 'x64' ? 'MaterialOllamaX64' : 'MaterialOllamaArm64'
+    if (value.packageId !== id || !Array.isArray(value.packages) || value.packages.length < 1 || value.packages.length > 2) throw new Error('Invalid update package inventory')
+    await verify(value.setup, `MaterialOllama-${architecture}-Setup.exe`)
+    const releases = await verify(value.releases, `MaterialOllama-${architecture}-RELEASES`)
+    const rows = []
+    const kinds = new Set()
+    for (const pkg of value.packages) {
+      if (!['full', 'delta'].includes(pkg.kind) || kinds.has(pkg.kind) || !/^[0-9a-f]{40}$/.test(pkg.sha1)) throw new Error('Invalid update package kind or SHA-1')
+      kinds.add(pkg.kind)
+      const checked = await verify(pkg, `${id}-${manifest.version}-${pkg.kind}.nupkg`)
+      if (checked.sha1 !== pkg.sha1) throw new Error('Update package SHA-1 mismatch')
+      rows.push(`${pkg.sha1} ${pkg.name} ${pkg.size}`)
+    }
+    if (!kinds.has('full')) throw new Error('Current full package is required')
+    if (releases.size > 65536 || (await readFile(releases.file, 'utf8')).trim().split(/\r?\n/).sort().join('\n') !== rows.sort().join('\n')) throw new Error('RELEASES does not match update manifest packages')
+  }
+  assertReleaseAssetNames(names, 'v' + manifest.version)
+  const actual = (await readdir(directory)).sort()
+  if (actual.join('\n') !== names.sort().join('\n')) throw new Error('Unlisted release files')
+  return manifest
 }
 
 function normaliseMemberName(name) {
@@ -166,6 +229,11 @@ export async function assertNestedArchiveCoverage(distRoot) {
 
 async function main() {
   const args = process.argv.slice(2)
+  if (args[0] === '--squirrel-dir') {
+    await assertUpdateDirectory(path.resolve(args[1]), args[2])
+    process.stdout.write('Squirrel update manifest and asset bytes verified.\n')
+    return
+  }
   const distIndex = args.indexOf('--dist')
   const namesIndex = args.indexOf('--asset-names')
   const hasAssetNames = namesIndex >= 0
