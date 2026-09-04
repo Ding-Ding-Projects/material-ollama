@@ -1,5 +1,5 @@
 import { API_BASE } from "@/lib/config"
-import type { AppEvent, HistoryEventsResponse, ReleaseInfo } from "./types"
+import type { AppEvent, HistoryEventsResponse, ReleaseInfo, UpdateStatus } from "./types"
 
 /**
  * Local fetch wrappers for this lane's two real backends. Kept here rather
@@ -41,4 +41,47 @@ export async function appendHistoryEvent(req: AppendHistoryRequest): Promise<App
     throw new Error(text || `Failed to record history event: ${response.status}`)
   }
   return (await response.json()) as AppEvent
+}
+
+export class UpdateRequestError extends Error {
+  readonly status: UpdateStatus
+  constructor(status: UpdateStatus) {
+    super("Update request could not be completed")
+    this.status = status
+  }
+}
+
+async function updateRequest(path: string, init?: RequestInit): Promise<UpdateStatus> {
+  const response = await fetch(`${API_BASE}${path}`, { ...init, signal: AbortSignal.timeout(path.endsWith("/restart") ? 11 * 60 * 1000 : 15000) })
+  const data = (await response.json()) as UpdateStatus
+  if (!response.ok) throw new UpdateRequestError(data)
+  return data
+}
+
+export function getUpdateStatus(): Promise<UpdateStatus> {
+  return updateRequest("/api/v1/update")
+}
+
+export function checkForUpdates(): Promise<UpdateStatus> {
+  return updateRequest("/api/v1/update/check", { method: "POST" })
+}
+
+export function downloadUpdate(): Promise<UpdateStatus> {
+  return updateRequest("/api/v1/update/download", { method: "POST" })
+}
+
+export function cancelUpdate(): Promise<UpdateStatus> {
+  return updateRequest("/api/v1/update/cancel", { method: "POST" })
+}
+
+export function deferUpdate(): Promise<UpdateStatus> {
+  return updateRequest("/api/v1/update/later", { method: "POST" })
+}
+
+export function restartToInstall(unsavedWork: boolean): Promise<UpdateStatus> {
+  return updateRequest("/api/v1/update/restart", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ confirmed: true, unsavedWork }),
+  })
 }

@@ -1,0 +1,76 @@
+{
+  "schemaVersion": 1,
+  "platform": "windows",
+  "dependencies": [
+    {
+      "name": "Node.js",
+      "version": "22.13.0",
+      "command": "node.exe",
+      "architectures": {
+        "amd64": {
+          "url": "https://nodejs.org/dist/v22.13.0/node-v22.13.0-win-x64.zip",
+          "sha256": "b0feb09ebf41328628e7383f7a092fb7342ce1e05c867a90cf8f1379205a8429",
+          "archive": "zip",
+          "archiveRoot": "node-v22.13.0-win-x64",
+          "relativeExecutable": "node.exe"
+        },
+        "arm64": {
+          "url": "https://nodejs.org/dist/v22.13.0/node-v22.13.0-win-arm64.zip",
+          "sha256": "8ca2c90ae0373d69e13301293306c31ea9afca2780b8325b6ca059319479e560",
+          "archive": "zip",
+          "archiveRoot": "node-v22.13.0-win-arm64",
+          "relativeExecutable": "node.exe"
+        }
+      },
+      "digestSource": "https://nodejs.org/dist/v22.13.0/SHASUMS256.txt"
+    },
+    {
+      "name": "Go",
+      "version": "1.26.0",
+      "command": "go.exe",
+      "architectures": {
+        "amd64": {
+          "url": "https://go.dev/dl/go1.26.0.windows-amd64.zip",
+          "sha256": "9bbe0fc64236b2b51f6255c05c4232532b8ecc0e6d2e00950bd3021d8a4d07d4",
+          "archive": "zip",
+          "archiveRoot": "go",
+          "relativeExecutable": "bin/go.exe"
+        },
+        "arm64": {
+          "url": "https://go.dev/dl/go1.26.0.windows-arm64.zip",
+          "sha256": "73bdbb9f64aa152758024485c5243a1098182bb741fcc603b6fb664ee5e0fe35",
+          "archive": "zip",
+          "archiveRoot": "go",
+          "relativeExecutable": "bin/go.exe"
+        }
+      },
+      "digestSource": "https://go.dev/dl/?mode=json&include=all"
+    },
+    {
+      "name": "7-Zip",
+      "version": "26.2.0",
+      "command": "7z.exe",
+      "architectures": {
+        "amd64": {
+          "url": "https://github.com/ip7z/7zip/releases/download/26.02/7z2602-extra.7z",
+          "sha256": "081df9e9311dfd9c9e0e98c1c80180b99bb51e4cb24156b5f3057fe3c259d70a",
+          "archive": "7z",
+          "archiveRoot": "",
+          "relativeExecutable": "x64/7za.exe"
+        },
+        "arm64": {
+          "url": "https://github.com/ip7z/7zip/releases/download/26.02/7z2602-extra.7z",
+          "sha256": "081df9e9311dfd9c9e0e98c1c80180b99bb51e4cb24156b5f3057fe3c259d70a",
+          "archive": "7z",
+          "archiveRoot": "",
+          "relativeExecutable": "arm64/7za.exe"
+        }
+      },
+      "digestSource": "https://api.github.com/repos/ip7z/7zip/releases/tags/26.02"
+    }
+  ],
+  "extractor": {
+    "url": "https://github.com/ip7z/7zip/releases/download/26.02/7zr.exe",
+    "sha256": "56b8cc9f4971cef253644fafe54063ed7fdca551d4dee0f8c6baa81b855acd72"
+  }
+}

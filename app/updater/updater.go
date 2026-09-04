@@ -40,6 +40,9 @@ var (
 	UpgradeMarkerFile string
 	Installer         string
 	UserAgentOS       string
+	// UpdateStateFile is a small local receipt for the current updater state.
+	// It is never uploaded and is intentionally separate from package bytes.
+	UpdateStateFile string
 
 	VerifyDownload func() error
 )
@@ -328,10 +331,15 @@ type Updater struct {
 	cancelDownload     context.CancelFunc
 	cancelDownloadLock sync.Mutex
 	checkNow           chan struct{}
+	machineState       *updateMachine
+	machineMu          sync.Mutex
 }
 
 // CancelOngoingDownload cancels any currently running download
 func (u *Updater) CancelOngoingDownload() {
+	if runtime.GOOS == "windows" {
+		u.CancelUpdate()
+	}
 	u.cancelDownloadLock.Lock()
 	defer u.cancelDownloadLock.Unlock()
 	if u.cancelDownload != nil {
@@ -343,6 +351,12 @@ func (u *Updater) CancelOngoingDownload() {
 
 // TriggerImmediateCheck signals the background checker to check for updates immediately
 func (u *Updater) TriggerImmediateCheck() {
+	if runtime.GOOS == "windows" {
+		select {
+		case u.machine().checkNow <- struct{}{}:
+		default:
+		}
+	}
 	if u.checkNow != nil {
 		select {
 		case u.checkNow <- struct{}{}:

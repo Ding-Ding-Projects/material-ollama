@@ -63,7 +63,7 @@ export default defineConfig(() => ({
     TanStackRouterVite({ target: "react" }),
     react(),
     tailwindcss(),
-    tsconfigPaths(),
+    tsconfigPaths({ root: __dirname, projects: [resolve(__dirname, "tsconfig.app.json")] }),
     themeBoot(),
   ],
 

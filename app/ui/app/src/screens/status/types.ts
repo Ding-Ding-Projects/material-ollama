@@ -77,3 +77,30 @@ export interface AppEvent {
 export interface HistoryEventsResponse {
   events: AppEvent[]
 }
+
+export type UpdateState =
+  | "idle" | "checking" | "available" | "downloading" | "ready-to-restart"
+  | "deferred" | "installing" | "restarting" | "up-to-date" | "unavailable" | "cancelled" | "offline" | "invalid-metadata"
+  | "hash-mismatch" | "corrupt-package" | "rollback" | "error"
+
+export interface UpdateStatus {
+  state: UpdateState
+  currentVersion?: string
+  errorCode?: string
+  persistenceError?: string
+  version?: string
+  packageId?: string
+  architecture?: string
+  bytesDownloaded?: number
+  bytesTotal?: number
+  rateBytesPerSecond?: number
+  etaSeconds?: number
+  releaseNotesUrl?: string
+  packagePath?: string
+  unsignedWarning: boolean
+  canRestart: boolean
+  canLater: boolean
+  error?: string
+  generation: number
+  updatedAt: string
+}
