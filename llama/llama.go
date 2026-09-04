@@ -262,6 +262,18 @@ type Model struct {
 	c *C.struct_llama_model
 }
 
+func (m *Model) Detokenize(tokens []int) (string, error) {
+	var text string
+	for _, token := range tokens {
+		piece := m.TokenToPiece(token)
+		if piece == "" {
+			return "", fmt.Errorf("failed to convert token %d to piece", token)
+		}
+		text += piece
+	}
+	return text, nil
+}
+
 func (m *Model) TokenToPiece(token int) string {
 	buf := make([]byte, 12)
 	C.llama_token_to_piece(
