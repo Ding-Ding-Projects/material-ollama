@@ -20,6 +20,7 @@ import (
 	"net/url"
 	"os"
 	"os/signal"
+	"runtime"
 	"slices"
 	"strings"
 	"sync/atomic"
@@ -1912,7 +1913,7 @@ func (s *Server) GenerateRoutes() (http.Handler, error) {
 }
 
 func (s *Server) ModelRecommendationsExperimentalHandler(c *gin.Context) {
-	recs := defaultModelRecommendations
+	recs := applyPlatformTags(defaultModelRecommendations, runtime.GOOS, runtime.GOARCH)
 	source := "default"
 	if s.modelCaches != nil && s.modelCaches.recommendations != nil {
 		ctx := context.Background()

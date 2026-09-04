@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"sync"
 	"time"
@@ -43,12 +44,16 @@ type modelRecommendationsCache struct {
 	nextReadRefreshAfter time.Time
 	once                 sync.Once
 	client               *http.Client
+	goos                 string
+	goarch               string
 }
 
 func newModelRecommendationsCache() *modelRecommendationsCache {
 	return &modelRecommendationsCache{
 		recommendations: cloneModelRecommendations(defaultModelRecommendations),
 		client:          http.DefaultClient,
+		goos:            runtime.GOOS,
+		goarch:          runtime.GOARCH,
 	}
 }
 
@@ -65,8 +70,12 @@ func (c *modelRecommendationsCache) Start(ctx context.Context) {
 
 func (c *modelRecommendationsCache) Get() []api.ModelRecommendation {
 	c.mu.RLock()
-	defer c.mu.RUnlock()
-	return cloneModelRecommendations(c.recommendations)
+	recs := cloneModelRecommendations(c.recommendations)
+	goos := c.goos
+	goarch := c.goarch
+	c.mu.RUnlock()
+
+	return applyPlatformTags(recs, goos, goarch)
 }
 
 func (c *modelRecommendationsCache) GetSWR(ctx context.Context) []api.ModelRecommendation {
@@ -362,6 +371,51 @@ func cloneModelRecommendations(in []api.ModelRecommendation) []api.ModelRecommen
 	out := make([]api.ModelRecommendation, len(in))
 	copy(out, in)
 	return out
+}
+
+var darwinArm64RecommendationReplacements = map[string]api.ModelRecommendation{
+	"gemma4": {
+		Model:       "gemma4:e4b-mlx",
+		Description: "MLX-optimized reasoning and code generation locally",
+		VRAMBytes:   96 * format.GigaByte / 10,
+	},
+	"qwen3.5": {
+		Model:       "qwen3.5:9b-mlx",
+		Description: "MLX-optimized reasoning and coding locally",
+		VRAMBytes:   89 * format.GigaByte / 10,
+	},
+	"qwen3.6": {
+		Model:       "qwen3.6:35b-mlx",
+		Description: "MLX-optimized coding and reasoning locally",
+		VRAMBytes:   22 * format.GigaByte,
+	},
+}
+
+func applyPlatformTags(recs []api.ModelRecommendation, goos, goarch string) []api.ModelRecommendation {
+	out := make([]api.ModelRecommendation, 0, len(recs))
+	seen := make(map[string]struct{}, len(recs))
+	for _, rec := range recs {
+		rec = applyPlatformTag(rec, goos, goarch)
+		if _, ok := seen[rec.Model]; ok {
+			continue
+		}
+		seen[rec.Model] = struct{}{}
+		out = append(out, rec)
+	}
+	return out
+}
+
+func applyPlatformTag(rec api.ModelRecommendation, goos, goarch string) api.ModelRecommendation {
+	if goos != "darwin" || goarch != "arm64" {
+		return rec
+	}
+
+	replacement, ok := darwinArm64RecommendationReplacements[rec.Model]
+	if !ok {
+		return rec
+	}
+
+	return replacement
 }
 
 var defaultModelRecommendations = []api.ModelRecommendation{
