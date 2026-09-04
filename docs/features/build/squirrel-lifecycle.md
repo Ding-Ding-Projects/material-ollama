@@ -18,6 +18,8 @@ The shortcut operation uses the executable's installation directory to resolve `
 
 The native PE version resource must contain `SquirrelAwareVersion=1`. Handling arguments in Go without producing that resource is incomplete: Squirrel must recognize the executable as lifecycle-aware. This follows the upstream [non-C# integration contract](https://github.com/Squirrel/Squirrel.Windows/blob/develop/docs/using/custom-squirrel-events-non-cs.md).
 
+`app/ollama.rc` supplies that version-resource string and embeds `app/ollama.exe.manifest` as resource 1 of type 24 (`RT_MANIFEST`). The manifest explicitly requests `asInvoker` with `uiAccess=false`, so normal startup and lifecycle callbacks request no elevation. The existing architecture-specific `windres` command resolves the manifest through its `app/` include directory and produces `ollama_windows_<arch>.syso` beside the Go entry package. The build must not silently omit these resources if the resource compiler is unavailable. No generated `.syso` is committed, and the resource additions do not change package IDs or the user-data directory.
+
 ## Runtime readiness on normal startup
 
 `ensureBundledWebView2(ctx)` checks the 32-bit registry view, inspecting machine registration (`HKLM`) before current-user registration (`HKCU`). A usable candidate needs a valid registered `pv` version, the corresponding `ClientState` `EBWebView` location, and an actual runtime DLL for the desktop process architecture. A registration string by itself is not proof that the runtime is usable.

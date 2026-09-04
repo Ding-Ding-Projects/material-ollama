@@ -13,7 +13,6 @@
 // the compiled executable, so anything added below this line does not
 // change which icon ships.
 //
-// NOTE for whoever wires this into the build: as of this change nothing in
 // scripts\build_windows.ps1's buildApp step compiles this script with the
 // architecture-matched windres into app\cmd\app\ollama_windows_<arch>.syso
 // immediately before the `go build ... ./app/cmd/app/` line, and Go's linker
@@ -27,6 +26,11 @@
 //
 // No .syso is committed: it is build output generated from this file.
 IDI_APPICON ICON "assets\\app.ico"
+
+// Resource 1, RT_MANIFEST: explicitly request ordinary user privileges. Without
+// it, Windows' legacy installer-name heuristic can require elevation before
+// a native lifecycle process reaches its own argument handler.
+1 24 "ollama.exe.manifest"
 
 VS_VERSION_INFO VERSIONINFO
  FILEFLAGSMASK 0x3fL
@@ -47,6 +51,9 @@ BEGIN
             VALUE "InternalName", "Ollama"
             VALUE "OriginalFilename", "ollama app.exe"
             VALUE "ProductName", "Ollama"
+            // Squirrel's native detection reads this version-resource string
+            // before deciding whether to deliver its lifecycle callbacks.
+            VALUE "SquirrelAwareVersion", "1"
         END
     END
 
