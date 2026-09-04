@@ -35,7 +35,6 @@ import (
 	"golang.org/x/sync/errgroup"
 
 	"github.com/ollama/ollama/api"
-	"github.com/ollama/ollama/auth"
 	"github.com/ollama/ollama/discover"
 	"github.com/ollama/ollama/envconfig"
 	"github.com/ollama/ollama/format"
