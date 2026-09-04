@@ -14,8 +14,8 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/d4l3k/go-bfloat16"
-	"github.com/x448/float16"
+	"github.com/ollama/ollama/convert/bfloat16"
+	"github.com/ollama/ollama/convert/float16"
 )
 
 type safetensorMetadata struct {
@@ -237,14 +237,11 @@ func (st safetensor) WriteTo(w io.Writer) (int64, error) {
 			return 0, err
 		}
 
-		f32s = make([]float32, len(u16s))
-		for i := range u16s {
-			f32s[i] = float16.Frombits(u16s[i]).Float32()
-		}
+		f32s = float16.Float32s(u16s)
 
 	case "BF16":
-		u8s := make([]uint8, st.size)
-		if err = binary.Read(br, binary.LittleEndian, u8s); err != nil {
+		u16s := make([]uint16, st.size/2)
+		if err = binary.Read(br, binary.LittleEndian, u16s); err != nil {
 			return 0, err
 		}
 
