@@ -1,7 +1,6 @@
 package tools
 
 import (
-	"strings"
 	"testing"
 	"text/template"
 
@@ -1159,7 +1158,7 @@ func TestFindArguments(t *testing.T) {
 		},
 		{
 			name:   "deepseek",
-			buffer: []byte(`"arguments": {"location": "Tokyo"}}</tool_call>`),
+			buffer: []byte(`", "arguments": {"location": "Tokyo"}}</tool_call>`),
 			want: map[string]any{
 				"location": "Tokyo",
 			},
