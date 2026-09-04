@@ -28,7 +28,7 @@ export function LocalHistoryCard() {
   const snackbar = useSnackbar()
   const history = useHistoryEvents()
   const appendEvent = useAppendHistoryEvent()
-  // Shares the ["settings"] cache key with components/Settings.tsx and
+  // Shares the ["settings"] cache key with the settings screen and
   // AutomaticUpdatesCard -- react-query dedupes this against whichever of
   // those already fetched it, so the export rarely costs an extra
   // request of its own.

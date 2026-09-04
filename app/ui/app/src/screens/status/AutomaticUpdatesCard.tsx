@@ -9,7 +9,7 @@ import "./status.dict"
 /**
  * The automatic-updates card: reads and writes the real `AutoUpdateEnabled`
  * setting through the same GET/POST /api/v1/settings endpoints
- * components/Settings.tsx's own toggle already uses (see the auto-update
+ * the settings screen's own toggle already uses (see the auto-update
  * handling in app/ui/ui.go around its settings handler, which cancels or
  * triggers a real update check on the same field). This is a second
  * control surface for one real setting, not a fork of it -- exactly the
