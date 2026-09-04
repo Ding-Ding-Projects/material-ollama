@@ -10,11 +10,13 @@ const WORKFLOW_INVENTORY = Object.freeze([
     relativePath: '.github/workflows/test.yaml',
     name: 'build-only',
     jobs: ['windows'],
+    uploadCount: 1,
   }),
   Object.freeze({
     relativePath: '.github/workflows/test-llamacpp-update.yaml',
     name: 'llamacpp-build-only',
     jobs: ['setup-environment', 'windows-depends', 'windows-build', 'windows-package'],
+    uploadCount: 7,
   }),
 ])
 
@@ -66,6 +68,45 @@ function parseNeeds(workflow) {
   return references
 }
 
+function extractUploadBlocks(workflow) {
+  const lines = workflow.split(/\r?\n/)
+  const blocks = []
+  for (let start = 0; start < lines.length; start += 1) {
+    if (!/^      - /.test(lines[start])) continue
+    let end = start + 1
+    while (end < lines.length && !/^      - /.test(lines[end])) end += 1
+    if (lines.slice(start, end).some((line) => /uses:\s*actions\/upload-artifact@/i.test(line))) {
+      blocks.push({ start, end, lines: lines.slice(start, end) })
+    }
+    start = end - 1
+  }
+  return blocks
+}
+
+function assertUploadContract(workflow, expected) {
+  const uploads = extractUploadBlocks(workflow)
+  assert.equal(uploads.length, expected.uploadCount, `${expected.relativePath} upload inventory changed`)
+  for (const upload of uploads) {
+    const block = upload.lines.join('\n')
+    assert.match(block, /^(?:      - if|        if):\s+\$\{\{\s*always\(\)\s*\}\}\s*$/m, `${expected.relativePath} uploads must run after earlier failure`)
+    assert.match(block, /^        continue-on-error:\s+true\s*$/m, `${expected.relativePath} uploads must not mask the original failure`)
+    assert.match(block, /^          if-no-files-found:\s+warn\s*$/m, `${expected.relativePath} uploads must warn when output is absent`)
+    const retention = /^          retention-days:\s+(\d+)\s*$/m.exec(block)
+    assert.ok(retention, `${expected.relativePath} uploads must have bounded retention`)
+    assert.ok(Number(retention[1]) >= 1 && Number(retention[1]) <= 30, `${expected.relativePath} upload retention must be bounded`)
+    assert.doesNotMatch(block, /(?:^|[\\/])(?:\.git|node_modules|credentials?|secrets?|cache|src)(?:[\\/]|$)/im, `${expected.relativePath} uploads must exclude source, caches, credentials, and See Futs`)
+  }
+}
+
+function mutateUploadBlock(workflow, index, mutation) {
+  const lines = workflow.split(/\r?\n/)
+  const uploads = extractUploadBlocks(workflow)
+  assert.ok(uploads[index], `upload ${index} must exist for mutation coverage`)
+  const upload = uploads[index]
+  const block = mutation(upload.lines.join('\n'))
+  return [...lines.slice(0, upload.start), ...block.split('\n'), ...lines.slice(upload.end)].join('\n')
+}
+
 function extractMatrixOsValues(workflow) {
   const values = []
   for (const match of workflow.matchAll(/^\s+os:\s*(?:\[([^\]]*)\]|([A-Za-z0-9_-]+))\s*$/gm)) {
@@ -100,8 +141,11 @@ function assertBuildOnlyWorkflow(workflow, expected) {
   }
 
   for (const reference of parseNeeds(workflow)) {
+    assert.equal(expected.jobs.includes(reference), true, `${expected.relativePath} needs unknown job ${reference}`)
     assert.equal(DISALLOWED_JOB_IDS.includes(reference), false, `${expected.relativePath} has a quality-gate needs dependency on ${reference}`)
   }
+
+  assertUploadContract(workflow, expected)
 }
 
 function expectPolicyFailure(workflow, expected) {
@@ -143,6 +187,22 @@ test('adding push path filters turns the every-push policy red', () => {
   expectPolicyFailure(base.replace(/^  push:\r?\n/m, "  push:\n    paths:\n      - '**/*'\n"), entry)
 })
 
+test('removing each required upload field turns failure-evidence policy red', () => {
+  const fields = [
+    /^(?:      - if|        if):.*\n/m,
+    /^        continue-on-error:.*\n/m,
+    /^          if-no-files-found:.*\n/m,
+    /^          retention-days:.*\n/m,
+  ]
+  for (const entry of WORKFLOW_INVENTORY) {
+    const base = readWorkflow(entry.relativePath)
+    const uploadIndex = entry.uploadCount - 1
+    for (const field of fields) {
+      expectPolicyFailure(mutateUploadBlock(base, uploadIndex, (block) => block.replace(field, '')), entry)
+    }
+  }
+})
+
 test('reintroducing each disallowed quality command turns the policy red', () => {
   const entry = WORKFLOW_INVENTORY[0]
   const base = readWorkflow(entry.relativePath)
@@ -175,4 +235,10 @@ test('adding a quality job to a needs chain turns the policy red', () => {
   const entry = WORKFLOW_INVENTORY[0]
   const base = readWorkflow(entry.relativePath)
   expectPolicyFailure(base.replace(/^  windows:\r?\n/m, '  windows:\n    needs: [test]\n'), entry)
+})
+
+test('referencing an unknown job in needs turns the workflow graph policy red', () => {
+  const entry = WORKFLOW_INVENTORY[1]
+  const base = readWorkflow(entry.relativePath)
+  expectPolicyFailure(base.replace(/^  windows-depends:\r?\n/m, '  windows-depends:\n    needs: [missing-job]\n'), entry)
 })

@@ -202,3 +202,14 @@ jobs:
           if (!(Test-Path "$installPrefix\lib\ollama\llama-quantize.exe")) {
             throw "missing installed llama-quantize.exe"
           }
+      - name: Collect Windows build outputs
+        if: ${{ always() }}
+        continue-on-error: true
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-only-windows-${{ matrix.preset }}
+          path: |
+            ${{ matrix.superbuild_dir }}\lib\ollama\**
+            ollama.exe
+          if-no-files-found: warn
+          retention-days: 7

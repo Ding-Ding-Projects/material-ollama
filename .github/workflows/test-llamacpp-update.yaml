@@ -222,11 +222,15 @@ jobs:
           do
             [ -f "$payload" ] || { echo "missing $payload"; exit 1; }
           done
-      - uses: actions/upload-artifact@v4
+      - if: ${{ always() }}
+        continue-on-error: true
+        uses: actions/upload-artifact@v4
         with:
           name: depends-${{ matrix.os }}-${{ matrix.arch }}-${{ matrix.preset }}
           path: dist\*
           compression-level: 0
+          if-no-files-found: warn
+          retention-days: 7
 
   windows-build:
     runs-on: windows
@@ -285,11 +289,15 @@ jobs:
       - name: Log build results
         run: |
           gci -path .\dist -Recurse -File | ForEach-Object { get-filehash -path $_.FullName -Algorithm SHA256 } | format-list
-      - uses: actions/upload-artifact@v4
+      - if: ${{ always() }}
+        continue-on-error: true
+        uses: actions/upload-artifact@v4
         with:
           name: build-windows-amd64
           path: dist\*
           compression-level: 0
+          if-no-files-found: warn
+          retention-days: 7
 
   windows-package:
     runs-on: windows
@@ -361,28 +369,48 @@ jobs:
           do
             [ -f "$payload" ] || { echo "missing $payload"; exit 1; }
           done
-      - uses: actions/upload-artifact@v4
+      - if: ${{ always() }}
+        continue-on-error: true
+        uses: actions/upload-artifact@v4
         with:
           name: ollama-windows-amd64.zip
           path: dist/ollama-windows-amd64.zip
           compression-level: 0
-      - uses: actions/upload-artifact@v4
+          if-no-files-found: warn
+          retention-days: 7
+      - if: ${{ always() }}
+        continue-on-error: true
+        uses: actions/upload-artifact@v4
         with:
           name: ollama-windows-arm64.zip
           path: dist/ollama-windows-arm64.zip
           compression-level: 0
-      - uses: actions/upload-artifact@v4
+          if-no-files-found: warn
+          retention-days: 7
+      - if: ${{ always() }}
+        continue-on-error: true
+        uses: actions/upload-artifact@v4
         with:
           name: ollama-windows-amd64-rocm.zip
           path: dist/ollama-windows-amd64-rocm.zip
           compression-level: 0
-      - uses: actions/upload-artifact@v4
+          if-no-files-found: warn
+          retention-days: 7
+      - if: ${{ always() }}
+        continue-on-error: true
+        uses: actions/upload-artifact@v4
         with:
           name: OllamaSetup.exe
           path: dist/OllamaSetup.exe
           compression-level: 0
-      - uses: actions/upload-artifact@v4
+          if-no-files-found: warn
+          retention-days: 7
+      - if: ${{ always() }}
+        continue-on-error: true
+        uses: actions/upload-artifact@v4
         with:
           name: install.ps1
           path: dist/install.ps1
           compression-level: 0
+          if-no-files-found: warn
+          retention-days: 7
