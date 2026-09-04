@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/google/go-cmp/cmp"
+	"github.com/google/go-cmp/cmp/cmpopts"
 
 	"github.com/ollama/ollama/api"
 	"github.com/ollama/ollama/fs/ggml"
@@ -1186,8 +1187,8 @@ func TestGenerateChat(t *testing.T) {
 							"location": {
 								Type:        api.PropertyType{"string"},
 								Description: "The city and state",
-							},
-							"unit": {
+							})
+							props.Set("unit", api.ToolProperty{
 								Type: api.PropertyType{"string"},
 								Enum: []any{"celsius", "fahrenheit"},
 							},
@@ -1280,8 +1281,8 @@ func TestGenerateChat(t *testing.T) {
 							"location": {
 								Type:        api.PropertyType{"string"},
 								Description: "The city and state",
-							},
-							"unit": {
+							})
+							props.Set("unit", api.ToolProperty{
 								Type: api.PropertyType{"string"},
 								Enum: []any{"celsius", "fahrenheit"},
 							},

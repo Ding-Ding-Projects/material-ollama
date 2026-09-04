@@ -104,8 +104,22 @@ func (r *Qwen3CoderRenderer) Render(messages []api.Message, tools []api.Tool, _ 
 					sb.WriteString("\n<parameter>")
 					sb.WriteString("\n<name>" + name + "</name>")
 
-					if len(prop.Type) > 0 {
-						sb.WriteString("\n<type>" + formatToolDefinitionType(prop.Type) + "</type>")
+						if len(prop.Type) > 0 {
+							sb.WriteString("\n<type>" + formatToolDefinitionType(prop.Type) + "</type>")
+						}
+
+						if prop.Description != "" {
+							sb.WriteString("\n<description>" + prop.Description + "</description>")
+						}
+
+						// Render any additional keys not already handled
+						handledKeys := map[string]bool{
+							"type":        true,
+							"description": true,
+						}
+						sb.WriteString(renderAdditionalKeys(prop, handledKeys))
+
+						sb.WriteString("\n</parameter>")
 					}
 
 					if prop.Description != "" {

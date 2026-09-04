@@ -15,6 +15,17 @@ func tool(name string, props map[string]api.ToolProperty) api.Tool {
 	return t
 }
 
+// Helper function to create ordered arguments for tests
+func makeArgs(pairs ...any) api.ToolCallFunctionArguments {
+	args := api.NewToolCallFunctionArguments()
+	for i := 0; i < len(pairs); i += 2 {
+		key := pairs[i].(string)
+		value := pairs[i+1]
+		args.Set(key, value)
+	}
+	return args
+}
+
 func TestQwenParserStreaming(t *testing.T) {
 	type step struct {
 		input      string

@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	orderedmap "github.com/wk8/go-ordered-map/v2"
 
 	"github.com/ollama/ollama/envconfig"
 	"github.com/ollama/ollama/internal/orderedmap"
@@ -488,6 +489,65 @@ func mapToTypeScriptType(jsonType string) string {
 	}
 }
 
+type ToolProperties struct {
+	om *orderedmap.OrderedMap[string, ToolProperty]
+}
+
+func NewToolProperties() *ToolProperties {
+	return &ToolProperties{
+		om: orderedmap.New[string, ToolProperty](),
+	}
+}
+
+func (t *ToolProperties) Get(key string) (ToolProperty, bool) {
+	if t == nil || t.om == nil {
+		return ToolProperty{}, false
+	}
+	return t.om.Get(key)
+}
+
+func (t *ToolProperties) Set(key string, value ToolProperty) {
+	if t == nil {
+		return
+	}
+	if t.om == nil {
+		t.om = orderedmap.New[string, ToolProperty]()
+	}
+	t.om.Set(key, value)
+}
+
+func (t *ToolProperties) Len() int {
+	if t == nil || t.om == nil {
+		return 0
+	}
+	return t.om.Len()
+}
+
+func (t *ToolProperties) All() iter.Seq2[string, ToolProperty] {
+	return func(yield func(string, ToolProperty) bool) {
+		if t == nil || t.om == nil {
+			return
+		}
+		for pair := t.om.Oldest(); pair != nil; pair = pair.Next() {
+			if !yield(pair.Key, pair.Value) {
+				return
+			}
+		}
+	}
+}
+
+func (t *ToolProperties) MarshalJSON() ([]byte, error) {
+	if t == nil || t.om == nil {
+		return []byte("null"), nil
+	}
+	return json.Marshal(t.om)
+}
+
+func (t *ToolProperties) UnmarshalJSON(data []byte) error {
+	t.om = orderedmap.New[string, ToolProperty]()
+	return json.Unmarshal(data, &t.om)
+}
+
 type ToolFunctionParameters struct {
 	Type       string             `json:"type"`
 	Defs       any                `json:"$defs,omitempty"`
@@ -499,6 +559,38 @@ type ToolFunctionParameters struct {
 func (t *ToolFunctionParameters) String() string {
 	bts, _ := json.Marshal(t)
 	return string(bts)
+}
+
+func (t *ToolFunctionParameters) MarshalJSON() ([]byte, error) {
+	type Alias ToolFunctionParameters
+	return json.Marshal(&struct {
+		Type       string          `json:"type"`
+		Defs       any             `json:"$defs,omitempty"`
+		Items      any             `json:"items,omitempty"`
+		Required   []string        `json:"required"`
+		Properties *ToolProperties `json:"properties"`
+	}{
+		Type:       t.Type,
+		Defs:       t.Defs,
+		Items:      t.Items,
+		Required:   t.Required,
+		Properties: t.properties,
+	})
+}
+
+func (t *ToolFunctionParameters) UnmarshalJSON(data []byte) error {
+	type Alias ToolFunctionParameters
+	aux := &struct {
+		Properties *ToolProperties `json:"properties"`
+		*Alias
+	}{
+		Alias: (*Alias)(t),
+	}
+	if err := json.Unmarshal(data, aux); err != nil {
+		return err
+	}
+	t.properties = aux.Properties
+	return nil
 }
 
 type ToolFunction struct {

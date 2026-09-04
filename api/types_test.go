@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"math"
+	"strings"
 	"testing"
 	"time"
 
@@ -710,9 +711,9 @@ func TestToolFunctionParameters_String(t *testing.T) {
 		},
 		{
 			name: "marshal failure returns empty string",
-			params: ToolFunctionParameters{
-				Type: "object",
-				Defs: func() any {
+			params: func() ToolFunctionParameters {
+				p := NewToolFunctionParametersWithProps("object", nil, NewToolProperties())
+				p.Defs = func() any {
 					// Create a cycle that will cause json.Marshal to fail
 					type selfRef struct {
 						Self *selfRef

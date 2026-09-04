@@ -64,6 +64,16 @@ var (
 	True  = true
 )
 
+func makeArgs(pairs ...any) api.ToolCallFunctionArguments {
+	args := api.NewToolCallFunctionArguments()
+	for i := 0; i < len(pairs); i += 2 {
+		key := pairs[i].(string)
+		value := pairs[i+1]
+		args.Set(key, value)
+	}
+	return args
+}
+
 func captureRequestMiddleware(capturedRequest any) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		bodyBytes, _ := io.ReadAll(c.Request.Body)
@@ -1268,8 +1278,8 @@ func TestChatMiddleware(t *testing.T) {
 									"location": {
 										Type:        api.PropertyType{"string"},
 										Description: "The city and state",
-									},
-									"unit": {
+									})
+									props.Set("unit", api.ToolProperty{
 										Type: api.PropertyType{"string"},
 										Enum: []any{"celsius", "fahrenheit"},
 									},

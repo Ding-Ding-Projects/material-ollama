@@ -5,6 +5,8 @@ import (
 	"text/template"
 
 	"github.com/google/go-cmp/cmp"
+	"github.com/google/go-cmp/cmp/cmpopts"
+
 	"github.com/ollama/ollama/api"
 )
 
@@ -71,8 +73,8 @@ func TestParser(t *testing.T) {
 							Type:        api.PropertyType{"string"},
 							Description: "The format to return the temperature in",
 							Enum:        []any{"fahrenheit", "celsius"},
-						},
-						"city": {
+						})
+						props.Set("city", api.ToolProperty{
 							Type:        api.PropertyType{"string"},
 							Description: "The city to get the temperature for",
 						},
@@ -137,8 +139,8 @@ func TestParser(t *testing.T) {
 						"a": {
 							Type:        api.PropertyType{"string"},
 							Description: "The first number to add",
-						},
-						"b": {
+						})
+						props.Set("b", api.ToolProperty{
 							Type:        api.PropertyType{"string"},
 							Description: "The second number to add",
 						},

@@ -151,6 +151,10 @@ func Parse(s string) (*Template, error) {
 		return nil, err
 	}
 
+	// Rewrite .Function.Parameters.Properties to .Function.Parameters.HasProperties
+	// in if/with conditions for backward compatibility with templates
+	rewritePropertiesCheck(tmpl)
+
 	t := Template{Template: tmpl, raw: s}
 	vars, err := t.Vars()
 	if err != nil {
