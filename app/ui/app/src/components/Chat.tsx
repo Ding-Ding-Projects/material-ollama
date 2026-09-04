@@ -18,6 +18,7 @@ import {
   useChatError,
   useShouldShowStaleDisplay,
   useDismissStaleModel,
+  useUpdateChatMessage,
 } from "@/hooks/useChats";
 import { useHealth } from "@/hooks/useHealth";
 import { useState, useEffect, useRef, useCallback } from "react";
@@ -95,9 +96,14 @@ export default function Chat({ chatId }: { chatId: string }) {
   // Clear editing state when navigating to a different chat
   useEffect(() => {
     setEditingMessage(null);
+    setEditingAssistantIndex(null);
+    setAssistantEditError(null);
   }, [chatId]);
 
   const sendMessageMutation = useSendMessage(chatId);
+  const updateAssistantMessageMutation = useUpdateChatMessage(
+    chatId === "new" ? "" : chatId,
+  );
 
   const latestMessageRef = useRef<HTMLDivElement>(null);
 
@@ -158,6 +164,44 @@ export default function Chat({ chatId }: { chatId: string }) {
     setEditingMessage(null);
     if (chatError) {
       clearChatError();
+    }
+  };
+
+  const handleAssistantEditStart = (index: number) => {
+    setAssistantEditError(null);
+    setEditingAssistantIndex(index);
+  };
+
+  const handleAssistantEditCancel = () => {
+    if (updateAssistantMessageMutation.isPending) {
+      return;
+    }
+    setAssistantEditError(null);
+    setEditingAssistantIndex(null);
+  };
+
+  const handleAssistantEditSave = async (index: number, content: string) => {
+    if (updateAssistantMessageMutation.isPending) {
+      return;
+    }
+
+    const trimmedContent = content.trim();
+    if (!trimmedContent) {
+      setAssistantEditError("Response cannot be empty.");
+      return;
+    }
+
+    try {
+      setAssistantEditError(null);
+      await updateAssistantMessageMutation.mutateAsync({
+        index,
+        content: trimmedContent,
+      });
+      setEditingAssistantIndex(null);
+    } catch (error) {
+      setAssistantEditError(
+        error instanceof Error ? error.message : "Failed to update message.",
+      );
     }
   };
 

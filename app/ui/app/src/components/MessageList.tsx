@@ -108,6 +108,12 @@ export default function MessageList({
               }
               browserToolResult={browserToolResult}
               lastToolQuery={lastToolQuery}
+              onAssistantEditStart={onAssistantEditStart}
+              onAssistantEditSave={onAssistantEditSave}
+              onAssistantEditCancel={onAssistantEditCancel}
+              assistantEditingIndex={assistantEditingIndex}
+              assistantEditIsSaving={assistantEditIsSaving}
+              assistantEditError={assistantEditError}
             />
           </div>
         );
