@@ -98,7 +98,11 @@ func (p *blobDownloadPart) UnmarshalJSON(b []byte) error {
 }
 
 const (
-	numDownloadParts          = 16
+	// numDownloadParts is the default number of concurrent download parts for standard downloads
+	numDownloadParts = 16
+	// numHFDownloadParts is the reduced number of concurrent download parts for HuggingFace
+	// downloads to avoid triggering rate limits (HTTP 429 errors). See GitHub issue #13297.
+	numHFDownloadParts        = 4
 	minDownloadPartSize int64 = 100 * format.MegaByte
 	maxDownloadPartSize int64 = 1000 * format.MegaByte
 )
@@ -276,7 +280,11 @@ func (b *blobDownload) run(ctx context.Context, requestURL *url.URL, opts *regis
 	}
 
 	g, inner := errgroup.WithContext(ctx)
-	g.SetLimit(numDownloadParts)
+	concurrency := getNumDownloadParts(directURL)
+	if concurrency != numDownloadParts {
+		slog.Info(fmt.Sprintf("using reduced concurrency (%d) for HuggingFace download", concurrency))
+	}
+	g.SetLimit(concurrency)
 	for i := range b.Parts {
 		part := b.Parts[i]
 		if part.Completed.Load() == part.Size {
