@@ -397,6 +397,10 @@ func (s *Server) GenerateHandler(c *gin.Context) {
 		c.Header("Content-Type", contentType)
 
 		fn := func(resp api.GenerateResponse) error {
+			if resp.Done {
+				s.usage.Record(origModel, resp.PromptEvalCount, resp.EvalCount)
+			}
+
 			resp.Model = origModel
 			resp.RemoteModel = m.Config.RemoteModel
 			resp.RemoteHost = m.Config.RemoteHost
@@ -752,6 +756,8 @@ func (s *Server) GenerateHandler(c *gin.Context) {
 					}
 					res.Context = tokens
 				}
+
+				s.usage.Record(req.Model, cr.PromptEvalCount, cr.EvalCount)
 			}
 
 			if builtinParser != nil {
@@ -2076,6 +2082,8 @@ func (s *Server) GenerateRoutes() (http.Handler, error) {
 	r.POST("/api/experimental/web_fetch", s.WebFetchExperimentalHandler)
 	r.GET("/api/experimental/model-recommendations", s.ModelRecommendationsExperimentalHandler)
 
+	r.GET("/api/usage", s.UsageHandler)
+
 	// Inference
 	r.GET("/api/ps", s.PsHandler)
 	r.POST("/api/generate", s.withInferenceRequestLogging("/api/generate", s.GenerateHandler)...)
@@ -2477,6 +2485,10 @@ func (s *Server) SignoutHandler(c *gin.Context) {
 	c.JSON(http.StatusOK, nil)
 }
 
+func (s *Server) UsageHandler(c *gin.Context) {
+	c.JSON(http.StatusOK, s.usage.Stats())
+}
+
 func (s *Server) PsHandler(c *gin.Context) {
 	models := []api.ProcessModelResponse{}
 
@@ -2773,6 +2785,10 @@ func (s *Server) ChatHandler(c *gin.Context) {
 		c.Header("Content-Type", contentType)
 
 		fn := func(resp api.ChatResponse) error {
+			if resp.Done {
+				s.usage.Record(origModel, resp.PromptEvalCount, resp.EvalCount)
+			}
+
 			resp.Model = origModel
 			resp.RemoteModel = m.Config.RemoteModel
 			resp.RemoteHost = m.Config.RemoteHost
@@ -3010,6 +3026,8 @@ func (s *Server) ChatHandler(c *gin.Context) {
 					res.DoneReason = r.DoneReason.String()
 					res.TotalDuration = time.Since(checkpointStart)
 					res.LoadDuration = checkpointLoaded.Sub(checkpointStart)
+
+					s.usage.Record(req.Model, r.PromptEvalCount, r.EvalCount)
 				}
 
 				if builtinParser != nil {

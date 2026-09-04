@@ -34,6 +34,7 @@ func TestGenerateWithBuiltinRenderer(t *testing.T) {
 	}
 
 	s := Server{
+		usage: NewUsageTracker(),
 		sched: &Scheduler{
 			pendingReqCh:    make(chan *LlmRequest, 1),
 			finishedReqCh:   make(chan *LlmRequest, 1),
@@ -219,6 +220,7 @@ func TestGenerateWithDebugRenderOnly(t *testing.T) {
 	}
 
 	s := Server{
+		usage: NewUsageTracker(),
 		sched: &Scheduler{
 			pendingReqCh:    make(chan *LlmRequest, 1),
 			finishedReqCh:   make(chan *LlmRequest, 1),

@@ -252,6 +252,7 @@ func TestChatHarmonyParserStreamingRealtime(t *testing.T) {
 			}
 
 			s := Server{
+				usage: NewUsageTracker(),
 				sched: &Scheduler{
 					pendingReqCh:    make(chan *LlmRequest, 1),
 					finishedReqCh:   make(chan *LlmRequest, 1),
@@ -401,6 +402,7 @@ func TestChatHarmonyParserStreamingSimple(t *testing.T) {
 	}
 
 	s := Server{
+		usage: NewUsageTracker(),
 		sched: &Scheduler{
 			pendingReqCh:    make(chan *LlmRequest, 1),
 			finishedReqCh:   make(chan *LlmRequest, 1),
@@ -581,6 +583,7 @@ func TestChatHarmonyParserStreaming(t *testing.T) {
 			}
 
 			s := Server{
+				usage: NewUsageTracker(),
 				sched: &Scheduler{
 					pendingReqCh:    make(chan *LlmRequest, 1),
 					finishedReqCh:   make(chan *LlmRequest, 1),
