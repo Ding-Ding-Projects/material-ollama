@@ -41,7 +41,6 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 	"golang.org/x/crypto/ssh"
-	"golang.org/x/sync/errgroup"
 	"golang.org/x/term"
 	"gonum.org/v1/gonum/mat"
 	"gonum.org/v1/gonum/stat"

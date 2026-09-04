@@ -19,8 +19,6 @@ import (
 	"golang.org/x/mod/semver"
 	"golang.org/x/text/encoding/unicode"
 	"golang.org/x/text/transform"
-
-	"github.com/ollama/ollama/api"
 )
 
 var ErrModelNotFound = errors.New("no Modelfile or safetensors files found")
@@ -465,7 +463,7 @@ type state int
 
 const (
 	stateNil state = iota
-	stateName
+	stateKey
 	stateValue
 	stateParameter
 	stateMessage
@@ -527,7 +525,7 @@ func ParseFile(r io.Reader) (*Modelfile, error) {
 		// process the state transition, some transitions need to be intercepted and redirected
 		if next != curr {
 			switch curr {
-			case stateName:
+			case stateKey:
 				if !isValidCommand(b.String()) {
 					return nil, &ParserError{
 						LineNumber: currLine,
@@ -703,12 +701,12 @@ func parseRuneForState(r rune, cs state) (state, rune, error) {
 		case isSpace(r), isNewline(r):
 			return stateNil, 0, nil
 		default:
-			return stateName, r, nil
+			return stateKey, r, nil
 		}
-	case stateName:
+	case stateKey:
 		switch {
 		case isAlpha(r):
-			return stateName, r, nil
+			return stateKey, r, nil
 		case isSpace(r):
 			return stateValue, 0, nil
 		default:

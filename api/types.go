@@ -831,13 +831,13 @@ type CreateRequest struct {
 	RemoteHost string `json:"remote_host,omitempty"`
 
 	// Files is a map of files include when creating the model.
-	Files map[string]string `json:"files,omitempty"`
+	Files Files `json:"files,omitempty"`
 
 	// DraftFiles is a map of draft model files to include when creating the model.
 	DraftFiles map[string]string `json:"draft_files,omitempty"`
 
 	// Adapters is a map of LoRA adapters to include when creating the model.
-	Adapters map[string]string `json:"adapters,omitempty"`
+	Adapters Files `json:"adapters,omitempty"`
 
 	// Template is the template used when constructing a request to the model.
 	Template string `json:"template,omitempty"`
@@ -870,6 +870,31 @@ type CreateRequest struct {
 	Name string `json:"name"`
 	// Deprecated: use Quantize instead
 	Quantization string `json:"quantization,omitempty"`
+}
+
+type Files []File
+
+func (f Files) MarshalJSON() ([]byte, error) {
+	m := make(map[string]string, len(f))
+	for _, file := range f {
+		m[file.Name] = file.Digest
+	}
+	return json.Marshal(m)
+}
+
+func (f *Files) UnmarshalJSON(data []byte) error {
+	m := make(map[string]string)
+	if err := json.Unmarshal(data, &m); err != nil {
+		return err
+	}
+	for name, digest := range m {
+		*f = append(*f, File{Name: name, Digest: digest})
+	}
+	return nil
+}
+
+type File struct {
+	Name, Path, Digest string
 }
 
 // DeleteRequest is the request passed to [Client.Delete].

@@ -893,7 +893,7 @@ func TestGenerateChat(t *testing.T) {
 
 	w := createRequest(t, s.CreateHandler, api.CreateRequest{
 		Model: "test",
-		Files: map[string]string{"file.gguf": digest},
+		Files: []api.File{{Name: "file.gguf", Digest: digest}},
 		Template: `
 {{- if .Tools }}
 {{ .Tools }}
@@ -1617,7 +1617,7 @@ func TestGenerate(t *testing.T) {
 
 	w := createRequest(t, s.CreateHandler, api.CreateRequest{
 		Model: "test",
-		Files: map[string]string{"file.gguf": digest},
+		Files: []api.File{{Name: "file.gguf", Digest: digest}},
 		Template: `
 {{- if .System }}System: {{ .System }} {{ end }}
 {{- if .Prompt }}User: {{ .Prompt }} {{ end }}
@@ -2513,7 +2513,7 @@ func TestChatWithPromptEndingInThinkTag(t *testing.T) {
 		// Create model with thinking template that adds <think> at the end
 		w := createRequest(t, s.CreateHandler, api.CreateRequest{
 			Model: "test-thinking",
-			Files: map[string]string{"file.gguf": digest},
+			Files: []api.File{{Name: "file.gguf", Digest: digest}},
 			Template: `{{- range .Messages }}
 {{- if eq .Role "user" }}user: {{ .Content }}
 {{ else if eq .Role "assistant" }}assistant: {{ if .Thinking }}<think>{{ .Thinking }}</think>{{ end }}{{ .Content }}

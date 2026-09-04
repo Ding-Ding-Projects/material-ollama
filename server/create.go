@@ -494,7 +494,7 @@ func detectModelTypeFromFiles(files map[string]string) string {
 	for fn := range files {
 		if strings.HasSuffix(fn, ".safetensors") {
 			return "safetensors"
-		} else if strings.HasSuffix(fn, ".gguf") {
+		} else if strings.HasSuffix(fn.Name, ".gguf") {
 			return "gguf"
 		} else {
 			// try to see if we can find a gguf file even without the file extension
@@ -541,11 +541,11 @@ func convertFromSafetensors(files map[string]string, baseLayers []*layerGGML, is
 	}
 	defer root.Close()
 
-	for fp, digest := range files {
-		if !fs.ValidPath(fp) {
-			return nil, fmt.Errorf("%w: %s", errFilePath, fp)
+	for _, fn := range files {
+		if !fs.ValidPath(fn.Name) {
+			return nil, fmt.Errorf("%w: %s", errFilePath, fn)
 		}
-		if _, err := root.Stat(fp); err != nil && !errors.Is(err, fs.ErrNotExist) {
+		if _, err := root.Stat(fn.Name); err != nil && !errors.Is(err, fs.ErrNotExist) {
 			// Path is likely outside the root
 			return nil, fmt.Errorf("%w: %w: %s", errFilePath, err, fp)
 		}
@@ -554,7 +554,7 @@ func convertFromSafetensors(files map[string]string, baseLayers []*layerGGML, is
 		if err != nil {
 			return nil, err
 		}
-		if err := createLink(blobPath, filepath.Join(tmpDir, fp)); err != nil {
+		if err := createLink(blobPath, filepath.Join(tmpDir, fn.Name)); err != nil {
 			return nil, err
 		}
 	}

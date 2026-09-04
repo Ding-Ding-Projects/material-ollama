@@ -16,7 +16,7 @@ func TestDelete(t *testing.T) {
 	_, digest := createBinFile(t, nil, nil)
 	w := createRequest(t, s.CreateHandler, api.CreateRequest{
 		Name:  "test",
-		Files: map[string]string{"test.gguf": digest},
+		Files: []api.File{{Name: "test.gguf", Digest: digest}},
 	})
 
 	if w.Code != http.StatusOK {
@@ -25,7 +25,7 @@ func TestDelete(t *testing.T) {
 
 	w = createRequest(t, s.CreateHandler, api.CreateRequest{
 		Name:     "test2",
-		Files:    map[string]string{"test.gguf": digest},
+		Files:    []api.File{{Name: "test.gguf", Digest: digest}},
 		Template: "{{ .System }} {{ .Prompt }}",
 	})
 

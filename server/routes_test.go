@@ -120,7 +120,7 @@ func TestRoutes(t *testing.T) {
 
 		r := api.CreateRequest{
 			Name:  name,
-			Files: map[string]string{"test.gguf": digest},
+			Files: []api.File{{Name: "test.gguf", Digest: digest}},
 			Parameters: map[string]any{
 				"seed":  42,
 				"top_p": 0.9,
@@ -1004,7 +1004,7 @@ func TestShow(t *testing.T) {
 
 	createRequest(t, s.CreateHandler, api.CreateRequest{
 		Name:  "show-model",
-		Files: map[string]string{"model.gguf": digest1, "projector.gguf": digest2},
+		Files: []api.File{{Name: "model.gguf", Digest: digest1}, {Name: "projector.gguf", Digest: digest2}},
 	})
 
 	w := createRequest(t, s.ShowHandler, api.ShowRequest{
