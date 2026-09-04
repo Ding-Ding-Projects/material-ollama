@@ -349,6 +349,28 @@ func CreateHandler(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
+	// Check if this is a tensor model (image generation) and handle it directly
+	quantize, _ := cmd.Flags().GetString("quantize")
+	modelDir := filepath.Dir(filename)
+	for _, cmd := range modelfile.Commands {
+		if cmd.Name == "model" {
+			if filepath.IsAbs(cmd.Args) {
+				modelDir = cmd.Args
+			} else {
+				modelDir = filepath.Join(filepath.Dir(filename), cmd.Args)
+			}
+			break
+		}
+	}
+	if create.IsTensorModelDir(modelDir) {
+		return xcreateclient.CreateModel(xcreateclient.CreateOptions{
+			ModelName: modelName,
+			ModelDir:  modelDir,
+			Quantize:  quantize,
+			Modelfile: xcreateclient.ExtractModelfileConfig(modelfile),
+		}, p)
+	}
+
 	status := "gathering model components"
 	spinner := progress.NewSpinner(status)
 	p.Add(status, spinner)
@@ -360,7 +382,6 @@ func CreateHandler(cmd *cobra.Command, args []string) error {
 	spinner.Stop()
 
 	req.Model = modelName
-	quantize, _ := cmd.Flags().GetString("quantize")
 	if quantize != "" {
 		req.Quantize = quantize
 	}
@@ -2667,17 +2688,11 @@ func NewCLI() *cobra.Command {
 	rootCmd.Flags().Bool("nowordwrap", false, "Don't wrap words to the next line automatically")
 
 	createCmd := &cobra.Command{
-		Use:   "create MODEL",
-		Short: "Create a model",
-		Args:  cobra.ExactArgs(1),
-		PreRunE: func(cmd *cobra.Command, args []string) error {
-			// Skip server check for experimental mode (writes directly to disk)
-			if experimental, _ := cmd.Flags().GetBool("experimental"); experimental {
-				return nil
-			}
-			return checkServerHeartbeat(cmd, args)
-		},
-		RunE: CreateHandler,
+		Use:     "create MODEL",
+		Short:   "Create a model",
+		Args:    cobra.ExactArgs(1),
+		PreRunE: checkServerHeartbeat,
+		RunE:    CreateHandler,
 	}
 
 	createCmd.Flags().StringP("file", "f", "", "Name of the Modelfile (default \"Modelfile\")")
