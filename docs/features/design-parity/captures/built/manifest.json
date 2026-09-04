@@ -13,21 +13,21 @@
     "tabDock": "top"
   },
   "frozenTime": "2026-01-01T00:00:00Z",
-  "capturedAt": "2026-09-04T02:25:33.053Z",
+  "capturedAt": "2026-09-04T02:30:59.624Z",
   "builtArtifact": "dist/windows-ollama-app-amd64.exe",
   "builtArtifactSha256": "ac2c28c842bdf8af52ba8bc0d6777ca204361c1c45057f1a3473cf7026ed1e36",
   "captured": 1,
   "failed": 0,
   "records": [
     {
-      "id": "overlay-context-menu",
+      "id": "overlay-notification-center",
       "kind": "overlay",
-      "screen": "Overlay: context menu",
+      "screen": "Overlay: notification center",
       "resolvedBuiltRoute": "/models",
-      "builtInteraction": "right-click the active tab in the tab strip",
-      "path": "docs/features/design-parity/captures/built/overlay-context-menu.png",
-      "sha256": "f3d81080b4e3e1b9c48cc40290ece282b826b7dbdcc01f19e00d5ac71c0dac01",
-      "bytes": 82528,
+      "builtInteraction": "click the notifications control in the title bar",
+      "path": "docs/features/design-parity/captures/built/overlay-notification-center.png",
+      "sha256": "d5af797794d498006e683dad1eee880777e42c1fc7a0a173cff9fba584df6917",
+      "bytes": 85792,
       "width": 816,
       "height": 639,
       "builtArtifactSha256": "ac2c28c842bdf8af52ba8bc0d6777ca204361c1c45057f1a3473cf7026ed1e36"

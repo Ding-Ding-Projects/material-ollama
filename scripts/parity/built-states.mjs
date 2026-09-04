@@ -122,8 +122,16 @@ export const BUILT_STATES = [
     screenName: 'Overlay: notification center',
     resolvedRoute: '/models',
     builtInteraction: 'click the notifications control in the title bar',
-    steps: [{ label: 'open the notification center', expression: clickByLabel('Notifications') }],
-    expect: { label: 'the notification center is open', expression: ANY_OVERLAY_OPEN, atLeast: 1 },
+    steps: [{ label: 'open the notification center', expression: clickByLabelPrefix('Notifications') }],
+    // The notification centre is a Popover, and Popover carries no dialog
+    // role, so the generic overlay assertion could never match it -- it failed
+    // a panel that was open and correct. Assert on the panel's own clear
+    // action, which exists only once it is showing.
+    expect: {
+      label: 'the notification panel is showing its clear action',
+      expression: `/Clear all|全部清走/i.test(document.body.innerText) ? 1 : 0`,
+      atLeast: 1,
+    },
   },
   {
     id: 'overlay-regex-builder',
@@ -166,6 +174,12 @@ export const BUILT_STATES = [
     builtInteraction: 'attempt to leave School mode, which demands the credential',
     steps: [],
     expect: { label: 'the School-mode unlock control is on screen', expression: count('[aria-label^="What does this do? — Unlock PIN"]'), atLeast: 1 },
+    // Shares a frame with the settings screen, because in the built app there
+    // is no separate unlock overlay to photograph -- the control lives inline
+    // in the School-mode section. The uniqueness guard caught this by finding
+    // byte-identical captures, and being caught is the finding: the reference
+    // specifies an overlay here and the built app does not have one.
+    sharesFrameWith: 'settings',
     // GAP: this captures the School-mode section at rest, not the unlock
     // prompt. Turning the mode on and off again inside a capture would write
     // a credential into the isolated profile and leave the app in a locked
@@ -185,6 +199,11 @@ export const BUILT_STATES = [
     // is no dedicated capture marker on this card; asserting on one that does
     // not exist failed a row whose content was on screen the whole time.
     expect: { label: 'the dim-sum surface is on screen', expression: `/dim sum/i.test(document.body.innerText) ? 1 : 0`, atLeast: 1 },
+    // Shares a frame with the status screen for the same reason: the built app
+    // renders DimSumSurpriseCard inline on Status while the reference shows it
+    // as an overlay. Declared so the audit reads it as the structural
+    // divergence it is, rather than as a capture that missed.
+    sharesFrameWith: 'status',
     note:
       'Structural divergence from the reference, which shows this as an overlay. The built app renders DimSumSurpriseCard inline on Status. Recorded so the audit reads it as a real difference to resolve, not as a capture that missed.',
   },
