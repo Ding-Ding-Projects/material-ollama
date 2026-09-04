@@ -4,7 +4,6 @@ package tools
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"net/url"
 	"regexp"
@@ -131,7 +130,7 @@ func (b *BrowserSearch) Schema() map[string]any {
 func (b *BrowserSearch) Execute(ctx context.Context, args map[string]any) (any, string, error) {
 	query, ok := args["query"].(string)
 	if !ok {
-		return nil, "", errors.New("query parameter is required")
+		return nil, "", fmt.Errorf("query parameter is required")
 	}
 
 	topn, ok := args["topn"].(int)
@@ -151,7 +150,7 @@ func (b *BrowserSearch) Execute(ctx context.Context, args map[string]any) (any, 
 
 	searchResponse, ok := result.(*WebSearchResponse)
 	if !ok {
-		return nil, "", errors.New("invalid search results format")
+		return nil, "", fmt.Errorf("invalid search results format")
 	}
 
 	// Build main search results page that contains all search results
@@ -384,9 +383,15 @@ func wrapLines(text string, width int) []string {
 			wrapped = append(wrapped, "")
 		} else if len(line) <= width {
 			wrapped = append(wrapped, line)
-		} else if words := strings.Fields(line); len(words) == 0 {
-			wrapped = append(wrapped, line)
 		} else {
+			// Word wrapping while preserving whitespace structure
+			words := strings.Fields(line)
+			if len(words) == 0 {
+				// Line with only whitespace
+				wrapped = append(wrapped, line)
+				continue
+			}
+
 			currentLine := ""
 			for _, word := range words {
 				// Check if adding this word would exceed width
@@ -531,13 +536,15 @@ func (b *BrowserOpen) Execute(ctx context.Context, args map[string]any) (any, st
 		if err != nil {
 			return nil, "", fmt.Errorf("page not found for cursor %d: %w", cursor, err)
 		}
-	} else if len(b.state.Data.PageStack) != 0 {
+	} else {
 		// get last page
-		pageURL := b.state.Data.PageStack[len(b.state.Data.PageStack)-1]
-		var err error
-		page, err = b.getPageFromStack(pageURL)
-		if err != nil {
-			return nil, "", fmt.Errorf("page not found for cursor %d: %w", cursor, err)
+		if len(b.state.Data.PageStack) != 0 {
+			pageURL := b.state.Data.PageStack[len(b.state.Data.PageStack)-1]
+			var err error
+			page, err = b.getPageFromStack(pageURL)
+			if err != nil {
+				return nil, "", fmt.Errorf("page not found for cursor %d: %w", cursor, err)
+			}
 		}
 	}
 
@@ -591,7 +598,7 @@ func (b *BrowserOpen) Execute(ctx context.Context, args map[string]any) (any, st
 	// Try to get id as integer (link ID from current page)
 	if id, ok := args["id"].(float64); ok {
 		if page == nil {
-			return nil, "", errors.New("no current page to resolve link from")
+			return nil, "", fmt.Errorf("no current page to resolve link from")
 		}
 		idInt := int(id)
 		pageURL, ok := page.Links[idInt]
@@ -634,7 +641,7 @@ func (b *BrowserOpen) Execute(ctx context.Context, args map[string]any) (any, st
 
 	// If no id provided, just display current page
 	if page == nil {
-		return nil, "", errors.New("no current page to display")
+		return nil, "", fmt.Errorf("no current page to display")
 	}
 	// Only add to PageStack without updating URLToPage
 	b.state.Data.PageStack = append(b.state.Data.PageStack, page.URL)
@@ -739,7 +746,7 @@ func (b *BrowserFind) Schema() map[string]any {
 func (b *BrowserFind) Execute(ctx context.Context, args map[string]any) (any, string, error) {
 	pattern, ok := args["pattern"].(string)
 	if !ok {
-		return nil, "", errors.New("pattern parameter is required")
+		return nil, "", fmt.Errorf("pattern parameter is required")
 	}
 
 	// Get cursor parameter if provided, default to current page
@@ -753,7 +760,7 @@ func (b *BrowserFind) Execute(ctx context.Context, args map[string]any) (any, st
 	if cursor == -1 {
 		// Use current page
 		if len(b.state.Data.PageStack) == 0 {
-			return nil, "", errors.New("no pages to search in")
+			return nil, "", fmt.Errorf("no pages to search in")
 		}
 		var err error
 		page, err = b.getPageFromStack(b.state.Data.PageStack[len(b.state.Data.PageStack)-1])
@@ -773,7 +780,7 @@ func (b *BrowserFind) Execute(ctx context.Context, args map[string]any) (any, st
 	}
 
 	if page == nil {
-		return nil, "", errors.New("page not found")
+		return nil, "", fmt.Errorf("page not found")
 	}
 
 	// Create find results page

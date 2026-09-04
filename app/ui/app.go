@@ -7,22 +7,13 @@ import (
 	"embed"
 	"errors"
 	"io/fs"
-	"mime"
 	"net/http"
-	"path/filepath"
 	"strings"
 	"time"
 )
 
 //go:embed app/dist
 var appFS embed.FS
-
-func init() {
-	mime.AddExtensionType(".js", "application/javascript; charset=utf-8")
-	mime.AddExtensionType(".css", "text/css; charset=utf-8")
-	mime.AddExtensionType(".woff2", "font/woff2")
-	mime.AddExtensionType(".svg", "image/svg+xml")
-}
 
 // appHandler returns an HTTP handler that serves the React SPA.
 // It tries to serve real files first, then falls back to index.html for React Router.
@@ -33,34 +24,21 @@ func (s *Server) appHandler() http.Handler {
 
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		p := strings.TrimPrefix(r.URL.Path, "/")
-
-		if file, err := fsys.Open(p); err == nil {
-			file.Close()
-
-			// Ensure proper Content-Type headers
-			if contentType := mime.TypeByExtension(filepath.Ext(p)); contentType != "" {
-				w.Header().Set("Content-Type", contentType)
-			}
-
+		if _, err := fsys.Open(p); err == nil {
+			// Serve the file directly
 			fileServer.ServeHTTP(w, r)
 			return
 		}
-
 		// Fallback – serve index.html for unknown paths so React Router works
 		data, err := fs.ReadFile(fsys, "index.html")
 		if err != nil {
 			if errors.Is(err, fs.ErrNotExist) {
-				// Development mode: UI not built
-				w.Header().Set("Content-Type", "text/plain")
-				w.WriteHeader(http.StatusNotFound)
-				w.Write([]byte("UI not built. Run 'npm run build' in app/ui/app directory."))
+				http.NotFound(w, r)
 			} else {
 				http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 			}
 			return
 		}
-
-		w.Header().Set("Content-Type", "text/html; charset=utf-8")
 		http.ServeContent(w, r, "index.html", time.Time{}, bytes.NewReader(data))
 	})
 }

@@ -6,7 +6,6 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -46,7 +45,7 @@ func (w *WebSearch) Prompt() string {
 	return ""
 }
 
-func (w *WebSearch) Schema() map[string]any {
+func (g *WebSearch) Schema() map[string]any {
 	schemaBytes := []byte(`{
 		"type": "object",
 		"properties": {
@@ -72,12 +71,12 @@ func (w *WebSearch) Schema() map[string]any {
 func (w *WebSearch) Execute(ctx context.Context, args map[string]any) (any, string, error) {
 	rawQuery, ok := args["query"]
 	if !ok {
-		return nil, "", errors.New("query parameter is required")
+		return nil, "", fmt.Errorf("query parameter is required")
 	}
 
 	queryStr, ok := rawQuery.(string)
 	if !ok || strings.TrimSpace(queryStr) == "" {
-		return nil, "", errors.New("query must be a non-empty string")
+		return nil, "", fmt.Errorf("query must be a non-empty string")
 	}
 
 	maxResults := 5

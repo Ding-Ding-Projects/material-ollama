@@ -107,10 +107,8 @@ type Chat struct {
 	ID           string          `json:"id"`
 	Messages     []Message       `json:"messages"`
 	Title        string          `json:"title"`
-	Model        string          `json:"model,omitempty"`
 	CreatedAt    time.Time       `json:"created_at"`
 	BrowserState json.RawMessage `json:"browser_state,omitempty" ts_type:"BrowserStateData"`
-	Draft        string          `json:"draft,omitempty"`
 }
 
 // AppEvent is one row of the Status screen's append-only local version
@@ -186,11 +184,17 @@ type Settings struct {
 	// SidebarOpen indicates if the chat sidebar is open
 	SidebarOpen bool
 
-	// LastHomeView stores the preferred home route target ("chat" or integration name)
+	// LastHomeView is retained for settings compatibility and resolves to chat.
 	LastHomeView string
+
+	// OnboardingVersion stores the latest onboarding flow the user has completed.
+	OnboardingVersion int
 
 	// AutoUpdateEnabled indicates if automatic updates should be downloaded
 	AutoUpdateEnabled bool
+
+	// ClaudeDesktopUsed records whether Claude Desktop has ever been connected through Ollama.
+	ClaudeDesktopUsed bool
 
 	// UIPreferences holds the desktop UI's own preferences (language mode,
 	// funny-level sliders, appearance, narration, and the rest). It is
@@ -359,6 +363,9 @@ func DefaultUIPreferences() UIPreferences {
 	}
 }
 
+// Keep in sync with CURRENT_ONBOARDING_VERSION in app/ui/app/src/lib/onboarding.ts.
+const CurrentOnboardingVersion = 1
+
 type Store struct {
 	// DBPath allows overriding the default database path (mainly for testing)
 	DBPath string
@@ -377,7 +384,7 @@ var defaultDBPath = func() string {
 	default:
 		return filepath.Join(os.Getenv("HOME"), ".ollama", "db.sqlite")
 	}
-}
+}()
 
 // legacyConfigPath is the path to the old config.json file
 var legacyConfigPath = func() string {
@@ -414,7 +421,7 @@ func (s *Store) ensureDB() error {
 
 	dbPath := s.DBPath
 	if dbPath == "" {
-		dbPath = defaultDBPath()
+		dbPath = defaultDBPath
 	}
 
 	// Ensure directory exists
@@ -519,6 +526,16 @@ func (s *Store) migrateFromConfig(database *database) error {
 	if err := database.setHasCompletedFirstRun(hasCompleted); err != nil {
 		return fmt.Errorf("migrate first time run: %w", err)
 	}
+	if hasCompleted {
+		settings, err := database.getSettings()
+		if err != nil {
+			return fmt.Errorf("read settings for onboarding migration: %w", err)
+		}
+		settings.OnboardingVersion = CurrentOnboardingVersion
+		if err := database.setSettings(settings); err != nil {
+			return fmt.Errorf("migrate onboarding completion: %w", err)
+		}
+	}
 	slog.Info("migrated first run status from config.json", "hasCompleted", hasCompleted)
 
 	// Mark as migrated
@@ -578,7 +595,7 @@ func (s *Store) Settings() (Settings, error) {
 	}
 
 	if settings.LastHomeView == "" {
-		settings.LastHomeView = "launch"
+		settings.LastHomeView = "chat"
 	}
 
 	return settings, nil
@@ -701,22 +718,6 @@ func (s *Store) AppendMessage(chatID string, message Message) error {
 	}
 
 	return s.db.appendMessage(chatID, message)
-}
-
-func (s *Store) UpdateChatDraft(chatID string, draft string) error {
-	if err := s.ensureDB(); err != nil {
-		return err
-	}
-
-	return s.db.updateChatDraft(chatID, draft)
-}
-
-func (s *Store) ClearAllDrafts() error {
-	if err := s.ensureDB(); err != nil {
-		return err
-	}
-
-	return s.db.clearAllDrafts()
 }
 
 func (s *Store) UpdateChatBrowserState(chatID string, state json.RawMessage) error {

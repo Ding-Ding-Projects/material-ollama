@@ -39,7 +39,6 @@ type chatEntry struct {
 	version     int
 	renderKey   chatEntryRenderKey
 	renderLines []string
-	codeBlocks  map[markdownCodeBlockCacheKey]string
 }
 
 const (
@@ -88,15 +87,13 @@ func (m chatModel) toolStartedAt(toolID string) time.Time {
 func entryHasExpandableOutput(entry chatEntry) bool {
 	return (entry.role == "tool" && (len(entry.args) > 0 || strings.TrimSpace(entry.content) != "")) ||
 		(entry.role == "tool_group" && len(entry.tools) > 0) ||
-		(entry.role == "compaction_summary" && strings.TrimSpace(entry.content) != "") ||
-		(entry.role == "thinking" && strings.TrimSpace(entry.content) != "")
+		(entry.role == "compaction_summary" && strings.TrimSpace(entry.content) != "")
 }
 
 func entryHasToolOutputMode(entry chatEntry) bool {
 	return (entry.role == "tool" && (isToolActiveStatus(entry.status) || isToolResultStatus(entry.status) || entry.content != "")) ||
 		(entry.role == "tool_group" && len(entry.tools) > 0) ||
-		(entry.role == "compaction_summary" && strings.TrimSpace(entry.content) != "") ||
-		(entry.role == "thinking" && strings.TrimSpace(entry.content) != "")
+		(entry.role == "compaction_summary" && strings.TrimSpace(entry.content) != "")
 }
 
 func (m *chatModel) applyToolOutputMode() {
@@ -208,11 +205,7 @@ func (m chatModel) renderEntryLinesCached(index int, entry chatEntry, body strin
 		}
 	}
 
-	var codeCache *map[markdownCodeBlockCacheKey]string
-	if index >= 0 && index < len(m.entries) {
-		codeCache = &m.entries[index].codeBlocks
-	}
-	lines := m.renderEntryLines(entry, body, width, codeCache)
+	lines := m.renderEntryLines(entry, body, width)
 	if index >= 0 && index < len(m.entries) {
 		m.entries[index].renderKey = key
 		m.entries[index].renderLines = slices.Clone(lines)
@@ -265,13 +258,6 @@ func (m chatModel) viewSize() (int, int) {
 	return defaultSize(m.width, m.height)
 }
 
-func (m chatModel) viewHeight() int {
-	if m.height > 0 {
-		return m.height
-	}
-	return 24
-}
-
 func (m chatModel) transcriptHeight() int {
 	width, height := m.viewSize()
 	lineCount := len(m.transcriptLines(width))
@@ -303,9 +289,7 @@ func (m chatModel) maxScroll() int {
 
 func (m chatModel) bottomLines(width, maxHeight int) []string {
 	var lines []string
-	if m.resumePicker != nil {
-		lines = append(lines, m.renderInlineResumePicker(width)...)
-	} else if m.modelPicker != nil {
+	if m.modelPicker != nil {
 		lines = append(lines, m.renderInlineModelPicker(width)...)
 	} else {
 		lines = append(lines, m.completionLines(width)...)
@@ -519,20 +503,20 @@ func (m chatModel) renderEntry(entry chatEntry) (string, string) {
 	}
 }
 
-func (m chatModel) renderEntryLines(entry chatEntry, body string, width int, codeCache *map[markdownCodeBlockCacheKey]string) []string {
+func (m chatModel) renderEntryLines(entry chatEntry, body string, width int) []string {
 	if width < 20 {
 		width = 20
 	}
 	switch entry.role {
 	case "assistant":
 		innerWidth := max(1, width-lipgloss.Width(chatMessageIndent))
-		lines := indentLines(splitRenderedBody(renderMarkdownForViewWithCodeCache(body, innerWidth, codeCache)), chatMessageIndent)
+		lines := indentLines(splitRenderedBody(renderMarkdownForView(body, innerWidth)), chatMessageIndent)
 		lines = append(lines, indentLines(renderMetricsLines(entry.metrics, innerWidth), chatMessageIndent)...)
 		return lines
 	case "thinking":
 		return renderThinkingLines(entry, width)
 	case "system", "slash":
-		return splitRenderedBody(renderMarkdownForViewWithCodeCache(body, width, codeCache))
+		return splitRenderedBody(renderMarkdownForView(body, width))
 	case "user":
 		return renderUserMessageLines(body, width)
 	case "compaction_summary":
@@ -598,9 +582,17 @@ func metricsSummaryLines(metrics *api.Metrics) []string {
 	if metrics.PromptEvalCount > 0 {
 		lines = append(lines, fmt.Sprintf("prompt eval count:    %d token(s)", metrics.PromptEvalCount))
 	}
+	cached := 0
+	if metrics.PromptEvalCachedCount != nil {
+		cached = *metrics.PromptEvalCachedCount
+	}
+	if cached > 0 {
+		lines = append(lines, fmt.Sprintf("prompt eval cached:   %d token(s)", cached))
+	}
 	if metrics.PromptEvalDuration > 0 {
 		lines = append(lines, fmt.Sprintf("prompt eval duration: %s", metrics.PromptEvalDuration))
-		lines = append(lines, fmt.Sprintf("prompt eval rate:     %.2f tokens/s", float64(metrics.PromptEvalCount)/metrics.PromptEvalDuration.Seconds()))
+		uncached := max(0, metrics.PromptEvalCount-cached)
+		lines = append(lines, fmt.Sprintf("prompt eval rate:     %.2f tokens/s", float64(uncached)/metrics.PromptEvalDuration.Seconds()))
 	}
 	if metrics.EvalCount > 0 {
 		lines = append(lines, fmt.Sprintf("eval count:           %d token(s)", metrics.EvalCount))
@@ -613,9 +605,14 @@ func metricsSummaryLines(metrics *api.Metrics) []string {
 }
 
 func metricsEmpty(metrics api.Metrics) bool {
+	cached := 0
+	if metrics.PromptEvalCachedCount != nil {
+		cached = *metrics.PromptEvalCachedCount
+	}
 	return metrics.TotalDuration <= 0 &&
 		metrics.LoadDuration <= 0 &&
 		metrics.PromptEvalCount <= 0 &&
+		cached <= 0 &&
 		metrics.PromptEvalDuration <= 0 &&
 		metrics.EvalCount <= 0 &&
 		metrics.EvalDuration <= 0
@@ -681,16 +678,6 @@ func renderCompactionSummaryLines(entry chatEntry, width int) []string {
 	if !entry.expanded || strings.TrimSpace(entry.content) == "" {
 		return lines
 	}
-	lines = append(lines, "")
-	lines = append(lines, indentLines(splitRenderedBody(renderMarkdownForView(entry.content, width-2)), "  ")...)
-	return lines
-}
-
-func renderThinkingLines(entry chatEntry, width int) []string {
-	if !entry.expanded || strings.TrimSpace(entry.content) == "" {
-		return nil
-	}
-	lines := wrapChatText(thinkingStatusLine(entry), width)
 	lines = append(lines, "")
 	lines = append(lines, indentLines(splitRenderedBody(renderMarkdownForView(entry.content, width-2)), "  ")...)
 	return lines
@@ -1212,150 +1199,6 @@ func lowerInitial(s string) string {
 	return string(runes)
 }
 
-func toolGroupSummary(tools []chatEntry) string {
-	if len(tools) == 0 {
-		return "Used tools"
-	}
-
-	type actionCount struct {
-		action string
-		count  int
-	}
-
-	var counts []actionCount
-	indexes := map[string]int{}
-	for _, tool := range tools {
-		action := toolAction(tool.detail)
-		if action == "" {
-			action = toolAction(tool.label)
-		}
-		if action == "" {
-			action = "tool"
-		}
-		if index, ok := indexes[action]; ok {
-			counts[index].count++
-			continue
-		}
-		indexes[action] = len(counts)
-		counts = append(counts, actionCount{action: action, count: 1})
-	}
-
-	phrases := make([]string, 0, len(counts))
-	for _, count := range counts {
-		phrases = append(phrases, toolActionPhrase(count.action, count.count))
-	}
-	return joinToolActionPhrases(phrases)
-}
-
-func toolAction(name string) string {
-	name = strings.TrimSpace(strings.ToLower(name))
-	switch {
-	case coreagent.IsShellToolName(name):
-		return "command"
-	case strings.Contains(name, "bash") || strings.Contains(name, "powershell"):
-		return "command"
-	case strings.HasPrefix(name, "edit("):
-		return "edit"
-	case strings.HasPrefix(name, "read("):
-		return "read"
-	case strings.HasPrefix(name, "list("):
-		return "list"
-	case strings.HasPrefix(name, "web search("):
-		return "search"
-	case strings.HasPrefix(name, "web fetch("):
-		return "fetch"
-	case strings.HasPrefix(name, "skill("):
-		return "skill"
-	}
-	switch name {
-	case "edit":
-		return "edit"
-	case "read":
-		return "read"
-	case "list":
-		return "list"
-	case "web_search":
-		return "search"
-	case "web_fetch":
-		return "fetch"
-	case "skill":
-		return "skill"
-	default:
-		return "tool"
-	}
-}
-
-func toolActionPhrase(action string, count int) string {
-	plural := count != 1
-	switch action {
-	case "command":
-		if plural {
-			return fmt.Sprintf("Ran %d commands", count)
-		}
-		return "Ran a command"
-	case "edit":
-		if plural {
-			return fmt.Sprintf("Edited %d files", count)
-		}
-		return "Edited a file"
-	case "read":
-		if plural {
-			return fmt.Sprintf("Read %d files", count)
-		}
-		return "Read a file"
-	case "list":
-		if plural {
-			return fmt.Sprintf("Listed files %d times", count)
-		}
-		return "Listed files"
-	case "search":
-		if plural {
-			return fmt.Sprintf("Searched the web %d times", count)
-		}
-		return "Searched the web"
-	case "fetch":
-		if plural {
-			return fmt.Sprintf("Fetched %d URLs", count)
-		}
-		return "Fetched a URL"
-	case "skill":
-		if plural {
-			return fmt.Sprintf("Ran %d skills", count)
-		}
-		return "Ran a skill"
-	default:
-		if plural {
-			return fmt.Sprintf("Used %d tools", count)
-		}
-		return "Used a tool"
-	}
-}
-
-func joinToolActionPhrases(phrases []string) string {
-	switch len(phrases) {
-	case 0:
-		return "Used tools"
-	case 1:
-		return phrases[0]
-	case 2:
-		return phrases[0] + " and " + lowerInitial(phrases[1])
-	default:
-		for i := 1; i < len(phrases); i++ {
-			phrases[i] = lowerInitial(phrases[i])
-		}
-		return strings.Join(phrases[:len(phrases)-1], ", ") + ", and " + phrases[len(phrases)-1]
-	}
-}
-
-func lowerInitial(s string) string {
-	if s == "" {
-		return s
-	}
-	runes := []rune(s)
-	runes[0] = []rune(strings.ToLower(string(runes[0])))[0]
-	return string(runes)
-}
-
 func toolGroupPrefixStyle(entry chatEntry) lipgloss.Style {
 	succeeded, failed, denied := toolGroupResultCounts(entry.tools)
 	switch {
@@ -1643,15 +1486,6 @@ func (m chatModel) permissionModeNotice() string {
 		return "full access enabled"
 	}
 	return ""
-}
-
-func (m chatModel) permissionModeNotice() string {
-	switch strings.TrimSpace(m.status) {
-	case "full access enabled", "review mode enabled":
-		return strings.TrimSpace(m.status)
-	default:
-		return ""
-	}
 }
 
 func (m *chatModel) refreshContextWindowTokens(modelName string) {

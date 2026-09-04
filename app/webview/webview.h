@@ -345,7 +345,7 @@ WEBVIEW_API void webview_unbind(webview_t w, const char *name);
  * @param seq The sequence number of the binding call. Pass along the value
  *            received in the binding handler (see webview_bind()).
  * @param status A status of zero tells the JS side that the binding call was
- *               succesful; any other value indicates an error.
+ *               successful; any other value indicates an error.
  * @param result The result of the binding call to be returned to the JS side.
  *               This must either be a valid JSON value or an empty string for
  *               the primitive JS value @c undefined.
@@ -2978,12 +2978,7 @@ public:
                 }
             }
             
-            // Safely encode the path for JavaScript using JSON encoding
-            // This handles all special characters: quotes, newlines, backslashes, etc.
-            // json_escape adds quotes around the string and escapes all special chars
-            std::string path_json = detail::json_escape(path, true);
-            
-            std::string js = "history.pushState({}, '', " + path_json + "); window.dispatchEvent(new PopStateEvent('popstate'));";
+            std::string js = "history.pushState({}, '', '" + path + "'); window.dispatchEvent(new PopStateEvent('popstate'));";
             std::wstring wjs = widen_string(js);
             sender->ExecuteScript(wjs.c_str(), nullptr);
         } else {

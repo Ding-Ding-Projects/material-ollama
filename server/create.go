@@ -66,10 +66,6 @@ func (s *Server) CreateHandler(c *gin.Context) {
 	config.Renderer = r.Renderer
 	config.Parser = r.Parser
 	config.Requires = r.Requires
-	config.Skills = r.Skills
-	config.MCPs = r.MCPs
-	config.AgentType = r.AgentType
-	config.Entrypoint = r.Entrypoint
 
 	for v, digest := range r.Files {
 		if !fs.ValidPath(v) {
@@ -123,24 +119,7 @@ func (s *Server) CreateHandler(c *gin.Context) {
 			ch <- resp
 		}
 
-		oldManifestDigests, _ := manifest.ReferencedBlobDigestsForName(name)
-
-		if len(r.List) > 0 {
-			if err := createManifestList(r, name, fn); err != nil {
-				ch <- gin.H{"error": err.Error()}
-				return
-			}
-
-			if !envconfig.NoPrune() && len(oldManifestDigests) > 0 {
-				if _, err := manifest.RemoveUnreferencedBlobs(oldManifestDigests...); err != nil {
-					ch <- gin.H{"error": err.Error()}
-					return
-				}
-			}
-
-			ch <- api.ProgressResponse{Status: "success"}
-			return
-		}
+		oldManifest, _ := manifest.ParseNamedManifest(name)
 
 		var baseLayers []*layerGGML
 		var err error
@@ -221,9 +200,6 @@ func (s *Server) CreateHandler(c *gin.Context) {
 				ch <- gin.H{"error": err.Error()}
 				return
 			}
-		} else if r.Entrypoint != "" {
-			// Entrypoint-only agent: no base model needed
-			slog.Debug("create entrypoint-only agent", "entrypoint", r.Entrypoint)
 		} else {
 			ch <- gin.H{"error": errNeitherFromOrFiles.Error(), "status": http.StatusBadRequest}
 			return
@@ -360,8 +336,8 @@ func (s *Server) CreateHandler(c *gin.Context) {
 			return
 		}
 
-		if !envconfig.NoPrune() && len(oldManifestDigests) > 0 {
-			if _, err := manifest.RemoveUnreferencedBlobs(oldManifestDigests...); err != nil {
+		if !envconfig.NoPrune() && oldManifest != nil {
+			if err := oldManifest.RemoveLayers(); err != nil {
 				ch <- gin.H{"error": err.Error()}
 			}
 		}
@@ -371,7 +347,7 @@ func (s *Server) CreateHandler(c *gin.Context) {
 		ch <- api.ProgressResponse{Status: "success"}
 	}()
 
-	if !r.Stream.Value(true) {
+	if r.Stream != nil && !*r.Stream {
 		waitForStream(c, ch)
 		return
 	}
@@ -501,7 +477,7 @@ func detectModelTypeFromFiles(files map[string]string) string {
 	for fn := range files {
 		if strings.HasSuffix(fn, ".safetensors") {
 			return "safetensors"
-		} else if strings.HasSuffix(fn.Name, ".gguf") {
+		} else if strings.HasSuffix(fn, ".gguf") {
 			return "gguf"
 		} else {
 			// try to see if we can find a gguf file even without the file extension
@@ -548,20 +524,20 @@ func convertFromSafetensors(files map[string]string, baseLayers []*layerGGML, is
 	}
 	defer root.Close()
 
-	for _, fn := range files {
-		if !fs.ValidPath(fn.Name) {
-			return nil, fmt.Errorf("%w: %s", errFilePath, fn)
+	for fp, digest := range files {
+		if !fs.ValidPath(fp) {
+			return nil, fmt.Errorf("%w: %s", errFilePath, fp)
 		}
-		if _, err := root.Stat(fn.Name); err != nil && !errors.Is(err, fs.ErrNotExist) {
+		if _, err := root.Stat(fp); err != nil && !errors.Is(err, fs.ErrNotExist) {
 			// Path is likely outside the root
-			return nil, fmt.Errorf("%w: %w: %s", errFilePath, err, fp)
+			return nil, fmt.Errorf("%w: %s: %s", errFilePath, err, fp)
 		}
 
 		blobPath, err := manifest.BlobsPath(digest)
 		if err != nil {
 			return nil, err
 		}
-		if err := createLink(blobPath, filepath.Join(tmpDir, fn.Name)); err != nil {
+		if err := createLink(blobPath, filepath.Join(tmpDir, fp)); err != nil {
 			return nil, err
 		}
 	}
@@ -626,7 +602,6 @@ func convertFromSafetensors(files map[string]string, baseLayers []*layerGGML, is
 	}
 	layers := []*layerGGML{{Layer: layer, GGML: f, rewriteForCreate: true}}
 
-	// Check if the projector file has content (multimodal model)
 	if !isAdapter {
 		projSize, err := projFile.Seek(0, io.SeekEnd)
 		if err != nil {
@@ -743,7 +718,7 @@ func kvFromLayers(baseLayers []*layerGGML) (ofs.Config, error) {
 			return l.KV(), nil
 		}
 	}
-	return ggml.KV{}, errors.New("no base model was found")
+	return ggml.KV{}, fmt.Errorf("no base model was found")
 }
 
 func createModel(r api.CreateRequest, name model.Name, baseLayers []*layerGGML, config *model.ConfigV2, fn func(resp api.ProgressResponse)) (err error) {
@@ -845,14 +820,9 @@ func createModel(r api.CreateRequest, name model.Name, baseLayers []*layerGGML, 
 					ModelFormat:  layer.GGML.Name(),
 					Architecture: layer.GGML.KV().Architecture(),
 				}
-			case manifest.MediaTypeImageDraft:
-				config.Draft = &model.Draft{
-					ModelFormat:  layer.GGML.Name(),
-					Architecture: layer.GGML.KV().Architecture(),
-				}
 			}
 		}
-		layers[i] = layer.Layer
+		layers = append(layers, layer.Layer)
 	}
 
 	if r.Template != "" {
@@ -917,8 +887,7 @@ func createModel(r api.CreateRequest, name model.Name, baseLayers []*layerGGML, 
 	}
 
 	fn(api.ProgressResponse{Status: "writing manifest"})
-	runner, format := manifestMetadataForConfig(*config)
-	if err := manifest.WriteManifestWithMetadata(name, *configLayer, layers, runner, format); err != nil {
+	if err := manifest.WriteManifest(name, *configLayer, layers); err != nil {
 		return err
 	}
 
@@ -1344,7 +1313,7 @@ func removeLayer(layers []manifest.Layer, mediatype string) []manifest.Layer {
 func setTemplate(layers []manifest.Layer, t string) ([]manifest.Layer, error) {
 	layers = removeLayer(layers, "application/vnd.ollama.image.template")
 	if _, err := template.Parse(t); err != nil {
-		return nil, fmt.Errorf("%w: %w", errBadTemplate, err)
+		return nil, fmt.Errorf("%w: %s", errBadTemplate, err)
 	}
 
 	blob := strings.NewReader(t)

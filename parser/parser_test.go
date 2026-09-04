@@ -2,21 +2,19 @@ package parser
 
 import (
 	"bytes"
+	"crypto/sha256"
 	"encoding/binary"
 	"errors"
 	"fmt"
 	"io"
 	"maps"
 	"os"
-	"os/user"
 	"path/filepath"
-	"runtime"
 	"strings"
 	"testing"
 	"unicode/utf16"
 
 	"github.com/google/go-cmp/cmp"
-	"github.com/google/go-cmp/cmp/cmpopts"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"golang.org/x/text/encoding"
@@ -52,8 +50,8 @@ TEMPLATE """{{ if .System }}<|start_header_id|>system<|end_header_id|>
 		{Name: "model", Args: "model1"},
 		{Name: "adapter", Args: "adapter1"},
 		{Name: "license", Args: "MIT"},
-		{Name: "parameter", Args: &Parameter{"param1", "value1"}},
-		{Name: "parameter", Args: &Parameter{"param2", "value2"}},
+		{Name: "param1", Args: "value1"},
+		{Name: "param2", Args: "value2"},
 		{Name: "template", Args: "{{ if .System }}<|start_header_id|>system<|end_header_id|>\n\n{{ .System }}<|eot_id|>{{ end }}{{ if .Prompt }}<|start_header_id|>user<|end_header_id|>\n\n{{ .Prompt }}<|eot_id|>{{ end }}<|start_header_id|>assistant<|end_header_id|>\n\n{{ .Response }}<|eot_id|>"},
 	}
 
@@ -147,8 +145,8 @@ TEMPLATE """   {{ if .System }}<|start_header_id|>system<|end_header_id|>
 		{Name: "model", Args: "     model 1"},
 		{Name: "adapter", Args: "adapter3"},
 		{Name: "license", Args: "MIT       "},
-		{Name: "parameter", Args: &Parameter{"param1", "value1"}},
-		{Name: "parameter", Args: &Parameter{"param2", "value2"}},
+		{Name: "param1", Args: "value1"},
+		{Name: "param2", Args: "value2"},
 		{Name: "template", Args: "   {{ if .System }}<|start_header_id|>system<|end_header_id|>\n\n{{ .System }}<|eot_id|>{{ end }}{{ if .Prompt }}<|start_header_id|>user<|end_header_id|>\n\n{{ .Prompt }}<|eot_id|>{{ end }}<|start_header_id|>assistant<|end_header_id|>\n\n{{ .Response }}<|eot_id|>   "},
 	}
 
@@ -168,7 +166,7 @@ func TestParseFileFrom(t *testing.T) {
 		},
 		{
 			"FROM \"FOO BAR\"\nPARAMETER param1 value1",
-			[]Command{{Name: "model", Args: "FOO BAR"}, {Name: "parameter", Args: &Parameter{"param1", "value1"}}},
+			[]Command{{Name: "model", Args: "FOO BAR"}, {Name: "param1", Args: "value1"}},
 			nil,
 		},
 		{
@@ -216,12 +214,12 @@ func TestParseFileFrom(t *testing.T) {
 		},
 		{
 			"PARAMETER param1 value1\nFROM foo",
-			[]Command{{Name: "parameter", Args: &Parameter{"param1", "value1"}}, {Name: "model", Args: "foo"}},
+			[]Command{{Name: "param1", Args: "value1"}, {Name: "model", Args: "foo"}},
 			nil,
 		},
 		{
 			"PARAMETER what the \nFROM lemons make lemonade ",
-			[]Command{{Name: "parameter", Args: &Parameter{"what", "the"}}, {Name: "model", Args: "lemons make lemonade"}},
+			[]Command{{Name: "what", Args: "the"}, {Name: "model", Args: "lemons make lemonade"}},
 			nil,
 		},
 	}
@@ -306,7 +304,7 @@ MESSAGE system You are a file parser. Always parse things.
 `,
 			[]Command{
 				{Name: "model", Args: "foo"},
-				{Name: "message", Args: &Message{"system", "You are a file parser. Always parse things."}},
+				{Name: "message", Args: "system: You are a file parser. Always parse things."},
 			},
 			nil,
 		},
@@ -316,7 +314,7 @@ FROM foo
 MESSAGE system You are a file parser. Always parse things.`,
 			[]Command{
 				{Name: "model", Args: "foo"},
-				{Name: "message", Args: &Message{"system", "You are a file parser. Always parse things."}},
+				{Name: "message", Args: "system: You are a file parser. Always parse things."},
 			},
 			nil,
 		},
@@ -329,9 +327,9 @@ MESSAGE assistant Hello, I want to parse all the things!
 `,
 			[]Command{
 				{Name: "model", Args: "foo"},
-				{Name: "message", Args: &Message{"system", "You are a file parser. Always parse things."}},
-				{Name: "message", Args: &Message{"user", "Hey there!"}},
-				{Name: "message", Args: &Message{"assistant", "Hello, I want to parse all the things!"}},
+				{Name: "message", Args: "system: You are a file parser. Always parse things."},
+				{Name: "message", Args: "user: Hey there!"},
+				{Name: "message", Args: "assistant: Hello, I want to parse all the things!"},
 			},
 			nil,
 		},
@@ -339,12 +337,12 @@ MESSAGE assistant Hello, I want to parse all the things!
 			`
 FROM foo
 MESSAGE system """
-You are a multiline file "parser". Always parse things.
+You are a multiline file parser. Always parse things.
 """
 			`,
 			[]Command{
 				{Name: "model", Args: "foo"},
-				{Name: "message", Args: &Message{"system", "\nYou are a multiline file \"parser\". Always parse things.\n"}},
+				{Name: "message", Args: "system: \nYou are a multiline file parser. Always parse things.\n"},
 			},
 			nil,
 		},
@@ -391,10 +389,16 @@ MESSAGE system`,
 				return
 			}
 
+			switch tt.err.(type) {
+			case *ParserError:
+				var pErr *ParserError
+				if errors.As(err, &pErr) {
+					// got the correct type of error
+					return
+				}
+			}
+
 			if errors.Is(err, tt.err) {
-				return
-			} else if pErr := (*ParserError)(nil); errors.As(err, &pErr) {
-				// got the correct type of error
 				return
 			}
 
@@ -603,7 +607,7 @@ func TestParseFileParameters(t *testing.T) {
 
 			assert.Equal(t, []Command{
 				{Name: "model", Args: "foo"},
-				{Name: "parameter", Args: &Parameter{v.name, v.value}},
+				{Name: v.name, Args: v.value},
 			}, modelfile.Commands)
 		})
 	}
@@ -706,8 +710,8 @@ SYSTEM You are a utf16 file.
 
 	expected := []Command{
 		{Name: "model", Args: "bob"},
-		{Name: "parameter", Args: &Parameter{"param1", "1"}},
-		{Name: "parameter", Args: &Parameter{"param2", "4096"}},
+		{Name: "param1", Args: "1"},
+		{Name: "param2", Args: "4096"},
 		{Name: "system", Args: "You are a utf16 file."},
 	}
 
@@ -833,13 +837,25 @@ MESSAGE assistant Hi! How are you?
 			t.Error(err)
 		}
 
-		if diff := cmp.Diff(actual, c.expected, cmpopts.EquateEmpty()); diff != "" {
+		if diff := cmp.Diff(actual, c.expected); diff != "" {
 			t.Errorf("mismatch (-got +want):\n%s", diff)
 		}
 	}
 }
 
-func createBinFile(t *testing.T, kv map[string]any, ti []*ggml.Tensor) string {
+func getSHA256Digest(t *testing.T, r io.Reader) (string, int64) {
+	t.Helper()
+
+	h := sha256.New()
+	n, err := io.Copy(h, r)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	return fmt.Sprintf("sha256:%x", h.Sum(nil)), n
+}
+
+func createBinFile(t *testing.T, kv map[string]any, ti []*ggml.Tensor) (string, string) {
 	t.Helper()
 
 	f, err := os.CreateTemp(t.TempDir(), "testbin.*.gguf")
@@ -854,12 +870,19 @@ func createBinFile(t *testing.T, kv map[string]any, ti []*ggml.Tensor) string {
 	if err := ggml.WriteGGUF(f, base, ti); err != nil {
 		t.Fatal(err)
 	}
-	return f.Name()
+	// Calculate sha256 of file
+	if _, err := f.Seek(0, 0); err != nil {
+		t.Fatal(err)
+	}
+
+	digest, _ := getSHA256Digest(t, f)
+
+	return f.Name(), digest
 }
 
 func TestCreateRequestFiles(t *testing.T) {
-	n1 := createBinFile(t, nil, nil)
-	n2 := createBinFile(t, map[string]any{"foo": "bar"}, nil)
+	n1, d1 := createBinFile(t, nil, nil)
+	n2, d2 := createBinFile(t, map[string]any{"foo": "bar"}, nil)
 
 	cases := []struct {
 		input    string
@@ -867,20 +890,11 @@ func TestCreateRequestFiles(t *testing.T) {
 	}{
 		{
 			fmt.Sprintf("FROM %s", n1),
-			&api.CreateRequest{
-				Files: map[string]string{
-					filepath.Base(n1): "abs:" + n1,
-				},
-			},
+			&api.CreateRequest{Files: map[string]string{n1: d1}},
 		},
 		{
 			fmt.Sprintf("FROM %s\nFROM %s", n1, n2),
-			&api.CreateRequest{
-				Files: map[string]string{
-					filepath.Base(n1): "abs:" + n1,
-					filepath.Base(n2): "abs:" + n2,
-				},
-			},
+			&api.CreateRequest{Files: map[string]string{n1: d1, n2: d2}},
 		},
 	}
 
@@ -900,7 +914,7 @@ func TestCreateRequestFiles(t *testing.T) {
 			t.Error(err)
 		}
 
-		if diff := cmp.Diff(actual, c.expected, cmpopts.EquateEmpty()); diff != "" {
+		if diff := cmp.Diff(actual, c.expected); diff != "" {
 			t.Errorf("mismatch (-got +want):\n%s", diff)
 		}
 	}
@@ -908,15 +922,15 @@ func TestCreateRequestFiles(t *testing.T) {
 
 func TestFilesForModel(t *testing.T) {
 	tests := []struct {
-		name    string
-		setup   func(*testing.T, *os.Root)
-		want    []string
-		wantErr error
+		name          string
+		setup         func(string) error
+		wantFiles     []string
+		wantErr       bool
+		expectErrType error
 	}{
 		{
 			name: "safetensors model files",
-			setup: func(t *testing.T, root *os.Root) {
-				t.Helper()
+			setup: func(dir string) error {
 				files := []string{
 					"model-00001-of-00002.safetensors",
 					"model-00002-of-00002.safetensors",
@@ -925,12 +939,13 @@ func TestFilesForModel(t *testing.T) {
 					"chat_template.jinja",
 				}
 				for _, file := range files {
-					if err := root.WriteFile(file, []byte("test content"), 0o644); err != nil {
-						t.Fatal(err)
+					if err := os.WriteFile(filepath.Join(dir, file), []byte("test content"), 0o644); err != nil {
+						return err
 					}
 				}
+				return nil
 			},
-			want: []string{
+			wantFiles: []string{
 				"model-00001-of-00002.safetensors",
 				"model-00002-of-00002.safetensors",
 				"config.json",
@@ -940,7 +955,7 @@ func TestFilesForModel(t *testing.T) {
 		},
 		{
 			name: "safetensors with both tokenizer.json and tokenizer.model",
-			setup: func(t *testing.T, root *os.Root) {
+			setup: func(dir string) error {
 				// Create binary content for tokenizer.model (application/octet-stream)
 				binaryContent := make([]byte, 512)
 				for i := range binaryContent {
@@ -952,16 +967,17 @@ func TestFilesForModel(t *testing.T) {
 					"tokenizer.json",
 				}
 				for _, file := range files {
-					if err := root.WriteFile(file, []byte("test content"), 0o644); err != nil {
-						t.Fatal(err)
+					if err := os.WriteFile(filepath.Join(dir, file), []byte("test content"), 0o644); err != nil {
+						return err
 					}
 				}
 				// Write tokenizer.model as binary
-				if err := root.WriteFile("tokenizer.model", binaryContent, 0o644); err != nil {
-					t.Fatal(err)
+				if err := os.WriteFile(filepath.Join(dir, "tokenizer.model"), binaryContent, 0o644); err != nil {
+					return err
 				}
+				return nil
 			},
-			want: []string{
+			wantFiles: []string{
 				"model-00001-of-00001.safetensors",
 				"config.json",
 				"tokenizer.json",
@@ -1002,44 +1018,46 @@ func TestFilesForModel(t *testing.T) {
 		},
 		{
 			name: "safetensors with consolidated files - prefers model files",
-			setup: func(t *testing.T, root *os.Root) {
+			setup: func(dir string) error {
 				files := []string{
 					"model-00001-of-00001.safetensors",
 					"consolidated.safetensors",
 					"config.json",
 				}
 				for _, file := range files {
-					if err := root.WriteFile(file, []byte("test content"), 0o644); err != nil {
-						t.Fatal(err)
+					if err := os.WriteFile(filepath.Join(dir, file), []byte("test content"), 0o644); err != nil {
+						return err
 					}
 				}
+				return nil
 			},
-			want: []string{
+			wantFiles: []string{
 				"model-00001-of-00001.safetensors", // consolidated files should be excluded
 				"config.json",
 			},
 		},
 		{
 			name: "safetensors without model-.safetensors files - uses consolidated",
-			setup: func(t *testing.T, root *os.Root) {
+			setup: func(dir string) error {
 				files := []string{
 					"consolidated.safetensors",
 					"config.json",
 				}
 				for _, file := range files {
-					if err := root.WriteFile(file, []byte("test content"), 0o644); err != nil {
-						t.Fatal(err)
+					if err := os.WriteFile(filepath.Join(dir, file), []byte("test content"), 0o644); err != nil {
+						return err
 					}
 				}
+				return nil
 			},
-			want: []string{
+			wantFiles: []string{
 				"consolidated.safetensors",
 				"config.json",
 			},
 		},
 		{
 			name: "pytorch model files",
-			setup: func(t *testing.T, root *os.Root) {
+			setup: func(dir string) error {
 				// Create a file that will be detected as application/zip
 				zipHeader := []byte{0x50, 0x4B, 0x03, 0x04} // PK zip header
 				files := []string{
@@ -1052,12 +1070,13 @@ func TestFilesForModel(t *testing.T) {
 					if file == "config.json" {
 						content = []byte(`{"config": true}`)
 					}
-					if err := root.WriteFile(file, content, 0o644); err != nil {
-						t.Fatal(err)
+					if err := os.WriteFile(filepath.Join(dir, file), content, 0o644); err != nil {
+						return err
 					}
 				}
+				return nil
 			},
-			want: []string{
+			wantFiles: []string{
 				"pytorch_model-00001-of-00002.bin",
 				"pytorch_model-00002-of-00002.bin",
 				"config.json",
@@ -1065,7 +1084,7 @@ func TestFilesForModel(t *testing.T) {
 		},
 		{
 			name: "consolidated pth files",
-			setup: func(t *testing.T, root *os.Root) {
+			setup: func(dir string) error {
 				zipHeader := []byte{0x50, 0x4B, 0x03, 0x04}
 				files := []string{
 					"consolidated.00.pth",
@@ -1077,12 +1096,13 @@ func TestFilesForModel(t *testing.T) {
 					if file == "config.json" {
 						content = []byte(`{"config": true}`)
 					}
-					if err := root.WriteFile(file, content, 0o644); err != nil {
-						t.Fatal(err)
+					if err := os.WriteFile(filepath.Join(dir, file), content, 0o644); err != nil {
+						return err
 					}
 				}
+				return nil
 			},
-			want: []string{
+			wantFiles: []string{
 				"consolidated.00.pth",
 				"consolidated.01.pth",
 				"config.json",
@@ -1090,7 +1110,7 @@ func TestFilesForModel(t *testing.T) {
 		},
 		{
 			name: "gguf files",
-			setup: func(t *testing.T, root *os.Root) {
+			setup: func(dir string) error {
 				// Create binary content that will be detected as application/octet-stream
 				binaryContent := make([]byte, 512)
 				for i := range binaryContent {
@@ -1105,19 +1125,20 @@ func TestFilesForModel(t *testing.T) {
 					if file == "config.json" {
 						content = []byte(`{"config": true}`)
 					}
-					if err := root.WriteFile(file, content, 0o644); err != nil {
-						t.Fatal(err)
+					if err := os.WriteFile(filepath.Join(dir, file), content, 0o644); err != nil {
+						return err
 					}
 				}
+				return nil
 			},
-			want: []string{
+			wantFiles: []string{
 				"model.gguf",
 				"config.json",
 			},
 		},
 		{
 			name: "bin files as gguf",
-			setup: func(t *testing.T, root *os.Root) {
+			setup: func(dir string) error {
 				binaryContent := make([]byte, 512)
 				for i := range binaryContent {
 					binaryContent[i] = byte(i % 256)
@@ -1131,32 +1152,35 @@ func TestFilesForModel(t *testing.T) {
 					if file == "config.json" {
 						content = []byte(`{"config": true}`)
 					}
-					if err := root.WriteFile(file, content, 0o644); err != nil {
-						t.Fatal(err)
+					if err := os.WriteFile(filepath.Join(dir, file), content, 0o644); err != nil {
+						return err
 					}
 				}
+				return nil
 			},
-			want: []string{
+			wantFiles: []string{
 				"model.bin",
 				"config.json",
 			},
 		},
 		{
 			name: "no model files found",
-			setup: func(t *testing.T, root *os.Root) {
+			setup: func(dir string) error {
 				// Only create non-model files
 				files := []string{"README.md", "config.json"}
 				for _, file := range files {
-					if err := root.WriteFile(file, []byte("content"), 0o644); err != nil {
-						t.Fatal(err)
+					if err := os.WriteFile(filepath.Join(dir, file), []byte("content"), 0o644); err != nil {
+						return err
 					}
 				}
+				return nil
 			},
-			wantErr: ErrModelNotFound,
+			wantErr:       true,
+			expectErrType: ErrModelNotFound,
 		},
 		{
 			name: "invalid content type for pytorch model",
-			setup: func(t *testing.T, root *os.Root) {
+			setup: func(dir string) error {
 				// Create pytorch model file with wrong content type (text instead of zip)
 				files := []string{
 					"pytorch_model.bin",
@@ -1164,91 +1188,68 @@ func TestFilesForModel(t *testing.T) {
 				}
 				for _, file := range files {
 					content := []byte("plain text content")
-					if err := root.WriteFile(file, content, 0o644); err != nil {
-						t.Fatal(err)
+					if err := os.WriteFile(filepath.Join(dir, file), content, 0o644); err != nil {
+						return err
 					}
 				}
+				return nil
 			},
-			wantErr: ErrModelNotFound,
+			wantErr: true,
 		},
 	}
 
+	tmpDir := t.TempDir()
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			root, err := os.OpenRoot(t.TempDir())
+			testDir := filepath.Join(tmpDir, tt.name)
+			if err := os.MkdirAll(testDir, 0o755); err != nil {
+				t.Fatalf("Failed to create test directory: %v", err)
+			}
+
+			if err := tt.setup(testDir); err != nil {
+				t.Fatalf("Setup failed: %v", err)
+			}
+
+			files, err := filesForModel(testDir)
+
+			if tt.wantErr {
+				if err == nil {
+					t.Error("Expected error, but got none")
+				}
+				if tt.expectErrType != nil && err != tt.expectErrType {
+					t.Errorf("Expected error type %v, got %v", tt.expectErrType, err)
+				}
+				return
+			}
+
 			if err != nil {
-				t.Fatalf("Failed to open root: %v", err)
-			}
-			defer root.Close()
-
-			tt.setup(t, root)
-
-			files, err := filesForModel(root)
-			if !errors.Is(err, tt.wantErr) {
-				t.Fatalf("want %v error, got %v", tt.wantErr, err)
+				t.Errorf("Unexpected error: %v", err)
+				return
 			}
 
-			if diff := cmp.Diff(tt.want, files); diff != "" {
-				t.Errorf("filesForModel() mismatch (-want +got):\n%s", diff)
-			}
-		})
-	}
-}
-
-func TestExpandPath(t *testing.T) {
-	home := t.TempDir()
-	t.Setenv("HOME", home)
-	t.Setenv("USERPROFILE", home)
-
-	cwd, err := os.Getwd()
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	u, err := user.Current()
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	volume := ""
-	if runtime.GOOS == "windows" {
-		volume = "D:"
-	}
-
-	cases := []struct {
-		input,
-		dir,
-		want string
-		err error
-	}{
-		{"~", "", home, nil},
-		{"~/path/to/file", "", filepath.Join(home, filepath.ToSlash("path/to/file")), nil},
-		{"~" + u.Username + "/path/to/file", "", filepath.Join(u.HomeDir, filepath.ToSlash("path/to/file")), nil},
-		{"~nonexistentuser/path/to/file", "", "", user.UnknownUserError("nonexistentuser")},
-		{"relative/path/to/file", "", filepath.Join(cwd, filepath.ToSlash("relative/path/to/file")), nil},
-		{volume + "/absolute/path/to/file", "", filepath.ToSlash(volume + "/absolute/path/to/file"), nil},
-		{volume + "/absolute/path/to/file", filepath.ToSlash("another/path"), filepath.ToSlash(volume + "/absolute/path/to/file"), nil},
-		{".", cwd, cwd, nil},
-		{".", "", cwd, nil},
-		{"", cwd, cwd, nil},
-		{"", "", cwd, nil},
-		{"file", "path/to", filepath.Join(cwd, filepath.ToSlash("path/to/file")), nil},
-	}
-
-	for _, tt := range cases {
-		t.Run(tt.input, func(t *testing.T) {
-			got, err := expandPath(tt.input, tt.dir)
-			// On Windows, user.Lookup does not map syscall errors to user.UnknownUserError
-			// so we special case the test to just check for an error.
-			// See https://cs.opensource.google/go/go/+/refs/tags/go1.25.1:src/os/user/lookup_windows.go;l=455
-			if runtime.GOOS != "windows" && !errors.Is(err, tt.err) {
-				t.Fatalf("expandPath(%q) error = %v, wantErr %v", tt.input, err, tt.err)
-			} else if tt.err != nil && err == nil {
-				t.Fatal("test case expected to fail on windows")
+			var relativeFiles []string
+			for _, file := range files {
+				rel, err := filepath.Rel(testDir, file)
+				if err != nil {
+					t.Fatalf("Failed to get relative path: %v", err)
+				}
+				relativeFiles = append(relativeFiles, rel)
 			}
 
-			if got != tt.want {
-				t.Errorf("expandPath(%q) = %v, want %v", tt.input, got, tt.want)
+			if len(relativeFiles) != len(tt.wantFiles) {
+				t.Errorf("Expected %d files, got %d: %v", len(tt.wantFiles), len(relativeFiles), relativeFiles)
+			}
+
+			fileSet := make(map[string]bool)
+			for _, file := range relativeFiles {
+				fileSet[file] = true
+			}
+
+			for _, wantFile := range tt.wantFiles {
+				if !fileSet[wantFile] {
+					t.Errorf("Missing expected file: %s", wantFile)
+				}
 			}
 		})
 	}

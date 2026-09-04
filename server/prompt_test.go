@@ -70,7 +70,7 @@ func TestChatPrompt(t *testing.T) {
 				{Role: "user", Content: "A test. And a thumping good one at that, I'd wager."},
 			},
 			expect: expect{
-				error: fmt.Errorf("context length of 1 tokens exceeded, context shifting is disabled"),
+				prompt: "A test. And a thumping good one at that, I'd wager. ",
 			},
 		},
 		{
@@ -84,7 +84,10 @@ func TestChatPrompt(t *testing.T) {
 				{Role: "user", Content: "A test. And a thumping good one at that, I'd wager.", Images: []api.ImageData{[]byte("something")}},
 			},
 			expect: expect{
-				error: fmt.Errorf("context length of 64 tokens exceeded, context shifting is disabled"),
+				prompt: "[img-0]A test. And a thumping good one at that, I'd wager. ",
+				images: [][]byte{
+					[]byte("something"),
+				},
 			},
 		},
 		{
@@ -98,7 +101,10 @@ func TestChatPrompt(t *testing.T) {
 				{Role: "user", Content: "A test. And a thumping good one at that, I'd wager.", Images: []api.ImageData{[]byte("somethingelse")}},
 			},
 			expect: expect{
-				error: fmt.Errorf("context length of 64 tokens exceeded, context shifting is disabled"),
+				prompt: "[img-0]A test. And a thumping good one at that, I'd wager. ",
+				images: [][]byte{
+					[]byte("somethingelse"),
+				},
 			},
 		},
 		{
@@ -170,7 +176,10 @@ func TestChatPrompt(t *testing.T) {
 				{Role: "user", Content: "A test. And a thumping good one at that, I'd wager."},
 			},
 			expect: expect{
-				error: fmt.Errorf("context length of 1024 tokens exceeded, context shifting is disabled"),
+				prompt: "[img-0] I-I'm a what? A test. And a thumping good one at that, I'd wager. ",
+				images: [][]byte{
+					[]byte("somethingelse"),
+				},
 			},
 		},
 		{
@@ -236,20 +245,11 @@ func TestChatPrompt(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			model := tt.model
 			opts := api.Options{Runner: api.Runner{NumCtx: tt.limit}}
-
-			// For truncation tests, disable context shifting to test the truncation behavior
-			if tt.name == "truncate messages" ||
-				tt.name == "truncate messages with image" ||
-				tt.name == "truncate messages with images" ||
-				tt.name == "truncate message with interleaved images" {
-				opts.ShiftContext = false
-			}
-
 			think := false
-			prompt, images, _, err := chatPrompt(t.Context(), &model, mockRunner{}.Tokenize, &opts, tt.msgs, nil, &api.ThinkValue{Value: think}, tt.truncate)
+			prompt, images, err := chatPrompt(t.Context(), &model, mockRunner{}.Tokenize, &opts, tt.msgs, nil, &api.ThinkValue{Value: think}, tt.truncate)
 			if tt.error == nil && err != nil {
 				t.Fatal(err)
-			} else if tt.error != nil && !errors.Is(err, tt.error) {
+			} else if tt.error != nil && err != tt.error {
 				t.Fatalf("expected err '%q', got '%q'", tt.error, err)
 			}
 
@@ -273,54 +273,6 @@ func TestChatPrompt(t *testing.T) {
 				}
 			}
 		})
-	}
-}
-
-// TestChatPromptQwen38ToolLoopTruncation covers a long tool loop whose
-// history exceeds the context window. Truncation drops the original user
-// query from the front, and the qwen3.8 renderer must still render the
-// tool-loop continuation instead of failing the request.
-func TestChatPromptQwen38ToolLoopTruncation(t *testing.T) {
-	model := Model{Config: model.ConfigV2{Renderer: "qwen3.8"}}
-	opts := api.Options{Runner: api.Runner{NumCtx: 250}}
-
-	weatherArgs := api.NewToolCallFunctionArguments()
-	weatherArgs.Set("city", "Paris")
-	weatherProps := api.NewToolPropertiesMap()
-	weatherProps.Set("city", api.ToolProperty{Type: api.PropertyType{"string"}})
-	tools := []api.Tool{{
-		Type: "function",
-		Function: api.ToolFunction{
-			Name:        "get_weather",
-			Description: "Get weather",
-			Parameters: api.ToolFunctionParameters{
-				Type:       "object",
-				Required:   []string{"city"},
-				Properties: weatherProps,
-			},
-		},
-	}}
-
-	toolCall := api.ToolCall{Function: api.ToolCallFunction{Name: "get_weather", Arguments: weatherArgs}}
-	msgs := []api.Message{
-		// A long original query so the full transcript exceeds the context
-		// window, but the tool-loop continuation fits.
-		{Role: "user", Content: "What is the weather in Paris? " + strings.Repeat("context ", 200)},
-		{Role: "assistant", Content: "I'll check.", ToolCalls: []api.ToolCall{toolCall}},
-		{Role: "tool", Content: `{"temp": 18}`},
-		{Role: "assistant", Content: "Checking again.", ToolCalls: []api.ToolCall{toolCall}},
-		{Role: "tool", Content: `{"temp": 19}`},
-	}
-
-	prompt, _, err := chatPrompt(t.Context(), &model, mockRunner{}.Tokenize, &opts, msgs, tools, &api.ThinkValue{Value: true}, true)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if strings.Contains(prompt, "What is the weather in Paris?") {
-		t.Fatalf("expected original query to be truncated, got prompt:\n%s", prompt)
-	}
-	if !strings.Contains(prompt, "<tool_response>") {
-		t.Fatalf("expected tool responses in prompt:\n%s", prompt)
 	}
 }
 

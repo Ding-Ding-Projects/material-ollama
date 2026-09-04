@@ -72,7 +72,9 @@ func TestIsNewReleaseAvailable(t *testing.T) {
 	var server *httptest.Server
 	server = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path == "/update.json" {
-			fmt.Fprintf(w, `{"version": "9.9.9", "url": "%s"}`, server.URL+"/9.9.9/"+Installer)
+			w.Write([]byte(
+				fmt.Sprintf(`{"version": "9.9.9", "url": "%s"}`,
+					server.URL+"/9.9.9/"+Installer)))
 			// TODO - wire up the redirects to mimic real behavior
 		} else {
 			slog.Debug("unexpected request", "url", r.URL)
@@ -188,6 +190,20 @@ func TestDownloadNewReleaseDoesNotUseRawETagAsPathComponent(t *testing.T) {
 	}
 }
 
+// stopChecker cancels the background update checker and waits for its
+// goroutine to return. Tests must join it before returning: the goroutine
+// reads package-level knobs (UpdateCheckURLBase, UpdateCheckInterval, ...)
+// that the next test rewrites.
+func stopChecker(t *testing.T, cancel context.CancelFunc, done <-chan struct{}) {
+	t.Helper()
+	cancel()
+	select {
+	case <-done:
+	case <-time.After(10 * time.Second):
+		t.Error("background update checker did not stop")
+	}
+}
+
 // waitDownloadIdle blocks until no download is in flight, so staged-file
 // handles close before t.TempDir cleanup removes the stage directory. After
 // the context is cancelled a new download can't write (it aborts at the HEAD
@@ -287,11 +303,12 @@ func TestBackgroundCheckerSkipsAlreadyStagedETagDownload(t *testing.T) {
 	defer cancel()
 
 	callbacks := make(chan string, 4)
-	updater.StartBackgroundUpdaterChecker(ctx, func(ver string) error {
+	checkerDone := updater.startBackgroundUpdaterChecker(ctx, func(ver string) error {
 		callbacks <- ver
 		return nil
 	})
-	t.Cleanup(updater.waitDownloadIdle)
+	defer updater.waitDownloadIdle()
+	defer stopChecker(t, cancel, checkerDone)
 
 	for range 2 {
 		select {
@@ -330,39 +347,43 @@ func TestBackgroundCheckerSkipsAlreadyStagedETagDownload(t *testing.T) {
 
 func TestBackgoundChecker(t *testing.T) {
 	UpdateStageDir = t.TempDir()
-	haveUpdate := atomic.Bool{}
-	verified := atomic.Bool{}
-	updateDone := make(chan struct{}, 1)
+	haveUpdate := false
+	verified := false
+	// Buffered + non-blocking send: the checker keeps calling cb every
+	// UpdateCheckInterval, and a blocking send would wedge its goroutine once
+	// the test stops receiving.
+	done := make(chan int, 1)
 	cb := func(ver string) error {
-		haveUpdate.Store(true)
+		haveUpdate = true
 		select {
-		case updateDone <- struct{}{}:
+		case done <- 0:
 		default:
 		}
 		return nil
 	}
 	stallTimer := time.NewTimer(5 * time.Second)
-	defer stallTimer.Stop()
 	ctx, cancel := context.WithCancel(t.Context())
+	defer cancel()
 	UpdateCheckInitialDelay = 5 * time.Millisecond
 	UpdateCheckInterval = 5 * time.Millisecond
-	setVerifyDownload(t, func() error {
-		verified.Store(true)
+	VerifyDownload = func() error {
+		verified = true
 		return nil
-	})
+	}
 
 	var server *httptest.Server
 	server = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		switch r.URL.Path {
-		case "/update.json":
-			fmt.Fprintf(w, `{"version": "9.9.9", "url": "%s"}`, server.URL+"/9.9.9/"+Installer)
+		if r.URL.Path == "/update.json" {
+			w.Write([]byte(
+				fmt.Sprintf(`{"version": "9.9.9", "url": "%s"}`,
+					server.URL+"/9.9.9/"+Installer)))
 			// TODO - wire up the redirects to mimic real behavior
-		case "/9.9.9/" + Installer:
+		} else if r.URL.Path == "/9.9.9/"+Installer {
 			buf := &bytes.Buffer{}
 			zw := zip.NewWriter(buf)
 			zw.Close()
 			io.Copy(w, buf)
-		default:
+		} else {
 			slog.Debug("unexpected request", "url", r.URL)
 		}
 	}))
@@ -381,16 +402,17 @@ func TestBackgoundChecker(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	updater.StartBackgroundUpdaterChecker(ctx, cb)
-	t.Cleanup(updater.waitDownloadIdle)
+	checkerDone := updater.startBackgroundUpdaterChecker(ctx, cb)
+	defer updater.waitDownloadIdle()
+	defer stopChecker(t, cancel, checkerDone)
 	select {
 	case <-stallTimer.C:
 		t.Fatal("stalled")
-	case <-updateDone:
-		if !haveUpdate.Load() {
+	case <-done:
+		if !haveUpdate {
 			t.Fatal("no update received")
 		}
-		if !verified.Load() {
+		if !verified {
 			t.Fatal("unverified")
 		}
 	}
@@ -399,14 +421,15 @@ func TestBackgoundChecker(t *testing.T) {
 func TestAutoUpdateDisabledSkipsDownload(t *testing.T) {
 	UpdateStageDir = t.TempDir()
 	var downloadAttempted atomic.Bool
-	var callbackCalled atomic.Bool
+	done := make(chan struct{})
 
 	ctx, cancel := context.WithCancel(t.Context())
+	defer cancel()
 	UpdateCheckInitialDelay = 5 * time.Millisecond
 	UpdateCheckInterval = 5 * time.Millisecond
-	setVerifyDownload(t, func() error {
+	VerifyDownload = func() error {
 		return nil
-	})
+	}
 
 	var server *httptest.Server
 	server = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -439,22 +462,20 @@ func TestAutoUpdateDisabledSkipsDownload(t *testing.T) {
 	}
 
 	cb := func(ver string) error {
-		callbackCalled.Store(true)
+		t.Error("callback should not be called when auto-update is disabled")
 		return nil
 	}
 
-	updater.StartBackgroundUpdaterChecker(ctx, cb)
-	t.Cleanup(updater.waitDownloadIdle)
+	checkerDone := updater.startBackgroundUpdaterChecker(ctx, cb)
+	defer updater.waitDownloadIdle()
+	defer stopChecker(t, cancel, checkerDone)
 
 	// Wait enough time for multiple check cycles
 	time.Sleep(50 * time.Millisecond)
-	waitForBackgroundUpdater(t, cancel, stopped)
+	close(done)
 
 	if downloadAttempted.Load() {
 		t.Fatal("download should not be attempted when auto-update is disabled")
-	}
-	if callbackCalled.Load() {
-		t.Fatal("callback should not be called when auto-update is disabled")
 	}
 }
 
@@ -464,11 +485,12 @@ func TestAutoUpdateReenabledDownloadsUpdate(t *testing.T) {
 	callbackCalled := make(chan struct{}, 1)
 
 	ctx, cancel := context.WithCancel(t.Context())
+	defer cancel()
 	UpdateCheckInitialDelay = 5 * time.Millisecond
 	UpdateCheckInterval = 5 * time.Millisecond
-	setVerifyDownload(t, func() error {
+	VerifyDownload = func() error {
 		return nil
-	})
+	}
 
 	var server *httptest.Server
 	server = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -508,8 +530,9 @@ func TestAutoUpdateReenabledDownloadsUpdate(t *testing.T) {
 		return nil
 	}
 
-	upd.StartBackgroundUpdaterChecker(ctx, cb)
-	t.Cleanup(upd.waitDownloadIdle)
+	checkerDone := upd.startBackgroundUpdaterChecker(ctx, cb)
+	defer upd.waitDownloadIdle()
+	defer stopChecker(t, cancel, checkerDone)
 
 	// Wait for a few cycles with auto-update disabled - no download should happen
 	time.Sleep(50 * time.Millisecond)
@@ -541,9 +564,9 @@ func TestCancelOngoingDownload(t *testing.T) {
 	downloadCancelled := make(chan struct{})
 
 	ctx := t.Context()
-	setVerifyDownload(t, func() error {
+	VerifyDownload = func() error {
 		return nil
-	})
+	}
 
 	var server *httptest.Server
 	server = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -613,12 +636,13 @@ func TestTriggerImmediateCheck(t *testing.T) {
 	checkDone := make(chan struct{}, 10)
 
 	ctx, cancel := context.WithCancel(t.Context())
+	defer cancel()
 	// Set a very long interval so only TriggerImmediateCheck causes checks
 	UpdateCheckInitialDelay = 1 * time.Millisecond
 	UpdateCheckInterval = 1 * time.Hour
-	setVerifyDownload(t, func() error {
+	VerifyDownload = func() error {
 		return nil
-	})
+	}
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path == "/update.json" {
@@ -641,8 +665,9 @@ func TestTriggerImmediateCheck(t *testing.T) {
 		return nil
 	}
 
-	updater.StartBackgroundUpdaterChecker(ctx, cb)
-	t.Cleanup(updater.waitDownloadIdle)
+	checkerDone := updater.startBackgroundUpdaterChecker(ctx, cb)
+	defer updater.waitDownloadIdle()
+	defer stopChecker(t, cancel, checkerDone)
 
 	// Wait for the initial check that fires after the initial delay
 	select {
@@ -667,23 +692,4 @@ func TestTriggerImmediateCheck(t *testing.T) {
 	if finalCount <= initialCount {
 		t.Fatalf("TriggerImmediateCheck did not cause additional check: initial=%d, final=%d", initialCount, finalCount)
 	}
-}
-
-func waitForBackgroundUpdater(t *testing.T, cancel context.CancelFunc, stopped <-chan struct{}) {
-	t.Helper()
-	cancel()
-	select {
-	case <-stopped:
-	case <-time.After(2 * time.Second):
-		t.Fatal("background updater did not stop")
-	}
-}
-
-func setVerifyDownload(t *testing.T, fn func() error) {
-	t.Helper()
-	old := VerifyDownload
-	VerifyDownload = fn
-	t.Cleanup(func() {
-		VerifyDownload = old
-	})
 }

@@ -121,11 +121,9 @@
               "/capabilities/thinking",
               "/capabilities/structured-outputs",
               "/capabilities/vision",
-              "/capabilities/image-generation",
               "/capabilities/embeddings",
               "/capabilities/tool-calling",
-              "/capabilities/web-search",
-              "/capabilities/image-generation"
+              "/capabilities/web-search"
             ]
           },
           {
@@ -160,6 +158,7 @@
             "group": "Assistants",
             "expanded": true,
             "pages": [
+              "/integrations/claude-desktop",
               "/integrations/openclaw",
               "/integrations/hermes",
               "/integrations/hermes-desktop"

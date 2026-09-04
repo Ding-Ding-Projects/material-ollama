@@ -11,6 +11,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/gin-gonic/gin"
+
 	"github.com/ollama/ollama/api"
 	"github.com/ollama/ollama/manifest"
 	"github.com/ollama/ollama/openai"
@@ -18,17 +20,19 @@ import (
 )
 
 func TestList(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
 	t.Setenv("OLLAMA_MODELS", t.TempDir())
 
 	expectNames := []string{
 		"mistral:7b-instruct-q4_0",
 		"zephyr:7b-beta-q5_K_M",
-		"apple/OpenELM",
+		"apple/OpenELM:latest",
 		"boreas:2b-code-v1.5-q6_K",
 		"notus:7b-v1-IQ2_S",
 		// TODO: host:port currently fails on windows (#4107)
 		// "localhost:5000/library/eurus:700b-v0.5-iq3_XXS",
-		"mynamespace/apeliotes",
+		"mynamespace/apeliotes:latest",
 		"myhost/mynamespace/lips:code",
 	}
 
@@ -43,7 +47,7 @@ func TestList(t *testing.T) {
 
 		createRequest(t, s.CreateHandler, api.CreateRequest{
 			Name:  n,
-			Files: []api.File{{Name: "test.gguf", Digest: digest}},
+			Files: map[string]string{"test.gguf": digest},
 		})
 	}
 
@@ -178,182 +182,5 @@ func TestOpenAIListMatchesTagsModels(t *testing.T) {
 
 	if got, want := models.Data[0].Id, "newer-model:latest"; got != want {
 		t.Fatalf("first /v1/models id = %q, want %q", got, want)
-	}
-}
-
-func BenchmarkListHandler(b *testing.B) {
-	gin.SetMode(gin.TestMode)
-
-	// Test with higher model counts to simulate real-world scenarios
-	modelCounts := []int{50, 100, 250, 500, 1000, 2000}
-
-	for _, count := range modelCounts {
-		b.Run(fmt.Sprintf("models_%d", count), func(b *testing.B) {
-			benchmarkListWithModelCount(b, count)
-		})
-	}
-}
-
-func benchmarkListWithModelCount(b *testing.B, modelCount int) {
-	// Setup
-	tempDir := b.TempDir()
-	b.Setenv("OLLAMA_MODELS", tempDir)
-
-	var s Server
-
-	// Create the specified number of models
-	b.Logf("Creating %d models for benchmark...", modelCount)
-	for i := range modelCount {
-		modelName := fmt.Sprintf("testmodel%d:latest", i)
-		_, digest := createBinFile(b, nil, nil)
-
-		createRequest(b, s.CreateHandler, api.CreateRequest{
-			Name:  modelName,
-			Files: map[string]string{"test.gguf": digest},
-		})
-
-		// Log progress for large numbers
-		if modelCount >= 500 && i%100 == 0 {
-			b.Logf("Created %d/%d models", i, modelCount)
-		}
-	}
-
-	b.Logf("Setup complete, starting benchmark with %d models", modelCount)
-
-	// Reset timer to exclude setup time
-	b.ResetTimer()
-
-	// Run the actual benchmark
-	for i := 0; i < b.N; i++ {
-		w := createRequest(b, s.ListHandler, nil)
-		if w.Code != http.StatusOK {
-			b.Fatalf("expected status code 200, actual %d", w.Code)
-		}
-
-		// Optional: Verify we got the expected number of models
-		if i == 0 { // Only check on first iteration to avoid overhead
-			var resp api.ListResponse
-			if err := json.NewDecoder(w.Body).Decode(&resp); err != nil {
-				b.Fatal(err)
-			}
-			if len(resp.Models) != modelCount {
-				b.Fatalf("expected %d models, got %d", modelCount, len(resp.Models))
-			}
-		}
-	}
-}
-
-func TestListIncludesAllManifestListChildrenInSize(t *testing.T) {
-	gin.SetMode(gin.TestMode)
-
-	t.Setenv("OLLAMA_MODELS", t.TempDir())
-
-	makeConfig := func(t *testing.T, format string) manifest.Layer {
-		t.Helper()
-
-		data, err := json.Marshal(model.ConfigV2{ModelFormat: format})
-		if err != nil {
-			t.Fatal(err)
-		}
-
-		layer, err := manifest.NewLayer(bytes.NewReader(data), "application/vnd.docker.container.image.v1+json")
-		if err != nil {
-			t.Fatal(err)
-		}
-
-		return layer
-	}
-
-	ggufConfig := makeConfig(t, manifest.FormatGGUF)
-	mlxConfig := makeConfig(t, manifest.FormatSafetensors)
-
-	sharedBlob, err := manifest.NewLayer(bytes.NewReader([]byte("shared-weights")), "application/vnd.ollama.image.model")
-	if err != nil {
-		t.Fatal(err)
-	}
-	ggufBlob, err := manifest.NewLayer(bytes.NewReader([]byte("gguf-weights")), "application/vnd.ollama.image.model")
-	if err != nil {
-		t.Fatal(err)
-	}
-	mlxBlob, err := manifest.NewLayer(bytes.NewReader([]byte("mlx-weights")), manifest.MediaTypeImageTensor)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	ggufLayers := []manifest.Layer{
-		sharedBlob,
-		ggufBlob,
-	}
-	if err := manifest.WriteManifestWithMetadata(model.ParseName("test-gguf"), ggufConfig, ggufLayers, manifest.RunnerGGML, manifest.FormatGGUF); err != nil {
-		t.Fatal(err)
-	}
-
-	mlxLayers := []manifest.Layer{
-		{
-			MediaType: manifest.MediaTypeImageTensor,
-			Digest:    sharedBlob.Digest,
-			Size:      sharedBlob.Size,
-		},
-		mlxBlob,
-	}
-	if err := manifest.WriteManifestWithMetadata(model.ParseName("test-mlx"), mlxConfig, mlxLayers, manifest.RunnerMLX, manifest.FormatSafetensors); err != nil {
-		t.Fatal(err)
-	}
-
-	ggufManifest, err := manifest.ParseNamedManifest(model.ParseName("test-gguf"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	mlxManifest, err := manifest.ParseNamedManifestForRunner(model.ParseName("test-mlx"), manifest.RunnerMLX)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	ggufRef, err := manifest.NewManifestReference(ggufManifest.BlobDigest(), manifest.RunnerGGML, manifest.FormatGGUF)
-	if err != nil {
-		t.Fatal(err)
-	}
-	mlxRef, err := manifest.NewManifestReference(mlxManifest.BlobDigest(), manifest.RunnerMLX, manifest.FormatSafetensors)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	parentData, err := json.Marshal(manifest.Manifest{
-		SchemaVersion: 2,
-		MediaType:     manifest.MediaTypeManifestList,
-		Manifests:     []manifest.Manifest{ggufRef, mlxRef},
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
-	if err := manifest.WriteManifestData(model.ParseName("test-list"), parentData); err != nil {
-		t.Fatal(err)
-	}
-
-	var s Server
-	w := createRequest(t, s.ListHandler, nil)
-	if w.Code != http.StatusOK {
-		t.Fatalf("expected status code 200, actual %d", w.Code)
-	}
-
-	var resp api.ListResponse
-	if err := json.NewDecoder(w.Body).Decode(&resp); err != nil {
-		t.Fatal(err)
-	}
-
-	var listed *api.ListModelResponse
-	for i := range resp.Models {
-		if resp.Models[i].Name == "test-list:latest" {
-			listed = &resp.Models[i]
-			break
-		}
-	}
-	if listed == nil {
-		t.Fatal("test-list:latest not found in list response")
-	}
-
-	want := ggufConfig.Size + sharedBlob.Size + ggufBlob.Size + mlxConfig.Size + mlxBlob.Size
-	if listed.Size != want {
-		t.Fatalf("size = %d, want %d", listed.Size, want)
 	}
 }

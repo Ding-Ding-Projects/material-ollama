@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/gin-gonic/gin"
 	"github.com/ollama/ollama/api"
 	"github.com/ollama/ollama/fs/ggml"
 	"github.com/ollama/ollama/llm"
@@ -29,7 +30,6 @@ func TestGenerateDebugRenderOnly(t *testing.T) {
 	}
 
 	s := Server{
-		usage: NewUsageTracker(),
 		sched: &Scheduler{
 			pendingReqCh:    make(chan *LlmRequest, 1),
 			finishedReqCh:   make(chan *LlmRequest, 1),
@@ -54,6 +54,7 @@ func TestGenerateDebugRenderOnly(t *testing.T) {
 	go s.sched.Run(t.Context())
 
 	// Create a test model
+	stream := false
 	_, digest := createBinFile(t, ggml.KV{
 		"general.architecture":          "llama",
 		"llama.block_count":             uint32(1),
@@ -80,9 +81,9 @@ func TestGenerateDebugRenderOnly(t *testing.T) {
 
 	w := createRequest(t, s.CreateHandler, api.CreateRequest{
 		Model:    "test-model",
-		Files:    []api.File{{Name: "file.gguf", Digest: digest}},
+		Files:    map[string]string{"file.gguf": digest},
 		Template: "{{ .Prompt }}",
-		Stream:   streamFalse,
+		Stream:   &stream,
 	})
 
 	if w.Code != http.StatusOK {
@@ -172,7 +173,7 @@ func TestGenerateDebugRenderOnly(t *testing.T) {
 			}
 			t.Run(tt.name+streamSuffix, func(t *testing.T) {
 				req := tt.request
-				req.Stream = types.NullWithValue(stream)
+				req.Stream = &stream
 				w := createRequest(t, s.GenerateHandler, req)
 
 				if tt.expectDebug {
@@ -196,9 +197,11 @@ func TestGenerateDebugRenderOnly(t *testing.T) {
 					if tt.expectNumImages > 0 && response.DebugInfo.ImageCount != tt.expectNumImages {
 						t.Errorf("expected image count %d, got %d", tt.expectNumImages, response.DebugInfo.ImageCount)
 					}
-				} else if w.Code != http.StatusOK {
+				} else {
 					// When debug is disabled, it should attempt normal processing
-					t.Errorf("expected status %d, got %d", http.StatusOK, w.Code)
+					if w.Code != http.StatusOK {
+						t.Errorf("expected status %d, got %d", http.StatusOK, w.Code)
+					}
 				}
 			})
 		}
@@ -222,7 +225,6 @@ func TestChatDebugRenderOnly(t *testing.T) {
 	}
 
 	s := Server{
-		usage: NewUsageTracker(),
 		sched: &Scheduler{
 			pendingReqCh:    make(chan *LlmRequest, 1),
 			finishedReqCh:   make(chan *LlmRequest, 1),
@@ -247,6 +249,7 @@ func TestChatDebugRenderOnly(t *testing.T) {
 	go s.sched.Run(t.Context())
 
 	// Create a test model
+	stream := false
 	_, digest := createBinFile(t, ggml.KV{
 		"general.architecture":          "llama",
 		"llama.block_count":             uint32(1),
@@ -273,9 +276,9 @@ func TestChatDebugRenderOnly(t *testing.T) {
 
 	w := createRequest(t, s.CreateHandler, api.CreateRequest{
 		Model:    "test-model",
-		Files:    []api.File{{Name: "file.gguf", Digest: digest}},
+		Files:    map[string]string{"file.gguf": digest},
 		Template: "{{ if .Tools }}{{ .Tools }}{{ end }}{{ range .Messages }}{{ .Role }}: {{ .Content }}\n{{ end }}",
-		Stream:   streamFalse,
+		Stream:   &stream,
 	})
 
 	if w.Code != http.StatusOK {
@@ -377,7 +380,7 @@ func TestChatDebugRenderOnly(t *testing.T) {
 			}
 			t.Run(tt.name+streamSuffix, func(t *testing.T) {
 				req := tt.request
-				req.Stream = types.NullWithValue(stream)
+				req.Stream = &stream
 				w := createRequest(t, s.ChatHandler, req)
 
 				if tt.expectDebug {
@@ -401,9 +404,11 @@ func TestChatDebugRenderOnly(t *testing.T) {
 					if tt.expectNumImages > 0 && response.DebugInfo.ImageCount != tt.expectNumImages {
 						t.Errorf("expected image count %d, got %d", tt.expectNumImages, response.DebugInfo.ImageCount)
 					}
-				} else if w.Code != http.StatusOK {
+				} else {
 					// When debug is disabled, it should attempt normal processing
-					t.Errorf("expected status %d, got %d", http.StatusOK, w.Code)
+					if w.Code != http.StatusOK {
+						t.Errorf("expected status %d, got %d", http.StatusOK, w.Code)
+					}
 				}
 			})
 		}

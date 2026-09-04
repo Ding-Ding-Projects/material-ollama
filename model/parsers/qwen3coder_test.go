@@ -15,17 +15,6 @@ func tool(name string, props map[string]api.ToolProperty) api.Tool {
 	return t
 }
 
-// Helper function to create ordered arguments for tests
-func makeArgs(pairs ...any) api.ToolCallFunctionArguments {
-	args := api.NewToolCallFunctionArguments()
-	for i := 0; i < len(pairs); i += 2 {
-		key := pairs[i].(string)
-		value := pairs[i+1]
-		args.Set(key, value)
-	}
-	return args
-}
-
 func TestQwenParserStreaming(t *testing.T) {
 	type step struct {
 		input      string
@@ -373,23 +362,20 @@ func TestQwenParserStreaming(t *testing.T) {
 				},
 			},
 		},
-		// qwen3-coder:30b occasionally leaves off opening <tool_call> tags, but we
-		// want to parse it anyway
-		{
-			desc: "missing <tool_call> opening tag still parses",
-			steps: []step{
-				{
-					input: "before tool call<function=get_current_temperature>some tool content here</function></tool_call>",
-					wantEvents: []qwenEvent{
-						qwenEventContent{content: "before tool call"},
-						qwenEventRawToolCall{raw: "<function=get_current_temperature>some tool content here</function>"},
-					},
-				},
-			},
-		},
+	}
+
+	anyOnlies := false
+	for _, tc := range cases {
+		if tc.only {
+			anyOnlies = true
+		}
 	}
 
 	for _, tc := range cases {
+		if anyOnlies && !tc.only {
+			continue
+		}
+
 		t.Run(tc.desc, func(t *testing.T) {
 			parser := Qwen3CoderParser{}
 

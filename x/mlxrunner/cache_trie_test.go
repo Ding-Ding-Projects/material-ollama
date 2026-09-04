@@ -138,7 +138,7 @@ func TestSplitNodeWithSnapshots(t *testing.T) {
 
 	rc := &fakeRewindableCache{tracker: &snapshotTracker{}, tokens: []int32{1, 2, 3, 4, 5}}
 	child.snapshots = []cache.Snapshot{rc.Snapshot(0)}
-	child.restore = restorePointDurable
+	child.user = true
 
 	caches := []cache.Cache{rc}
 
@@ -147,14 +147,14 @@ func TestSplitNodeWithSnapshots(t *testing.T) {
 	if !newParent.hasSnapshots() {
 		t.Fatal("newParent should have snapshots after split")
 	}
-	if newParent.restore != restorePointNone {
-		t.Fatal("newParent should not be a restore point after splitNode")
+	if newParent.user {
+		t.Fatal("newParent should not be a user snapshot after splitNode")
 	}
 	if !child.hasSnapshots() {
 		t.Fatal("child should have snapshots after split")
 	}
-	if child.restore != restorePointDurable {
-		t.Fatal("child should remain a durable restore point")
+	if !child.user {
+		t.Fatal("child should remain a user snapshot")
 	}
 }
 
@@ -170,7 +170,7 @@ func TestFindSplitAppendSequence(t *testing.T) {
 	matchedInEdge := matched - lastNode.startOffset()
 	split := splitNode(lastNode, matchedInEdge, nil, nil)
 
-	split.appendTokens(root, []trieKey{6, 7}, 5)
+	split.appendChild([]trieKey{6, 7}, 5)
 
 	if len(root.children) != 1 {
 		t.Fatalf("root should have 1 child, got %d", len(root.children))
@@ -200,7 +200,7 @@ func TestFindSplitAppendSequence(t *testing.T) {
 func TestRepeatedBranching(t *testing.T) {
 	root := &trieNode{lastUsed: time.Now()}
 
-	root.appendTokens(root, []trieKey{1, 2, 3, 4, 5}, 5)
+	root.appendChild([]trieKey{1, 2, 3, 4, 5}, 5)
 
 	_, matchedB := findBestMatch(root, []trieKey{1, 2, 3, 6, 7})
 	if matchedB != 3 {
@@ -208,14 +208,14 @@ func TestRepeatedBranching(t *testing.T) {
 	}
 	nodeA := root.children[0]
 	split1 := splitNode(nodeA, 3, nil, nil)
-	split1.appendTokens(root, []trieKey{6, 7}, 5)
+	split1.appendChild([]trieKey{6, 7}, 5)
 
 	_, matchedC := findBestMatch(root, []trieKey{1, 2, 8, 9})
 	if matchedC != 2 {
 		t.Fatalf("C: expected 2 matched, got %d", matchedC)
 	}
 	split2 := splitNode(split1, 2, nil, nil)
-	split2.appendTokens(root, []trieKey{8, 9}, 4)
+	split2.appendChild([]trieKey{8, 9}, 4)
 
 	_, mA := findBestMatch(root, []trieKey{1, 2, 3, 4, 5})
 	if mA != 5 {
@@ -291,7 +291,7 @@ func TestMergeWithChild(t *testing.T) {
 		checkTrieInvariants(t, root)
 	})
 
-	t.Run("RestorePointKind", func(t *testing.T) {
+	t.Run("UserFlag", func(t *testing.T) {
 		root := &trieNode{lastUsed: time.Now()}
 		parent := &trieNode{
 			tokens: []trieKey{1, 2}, endOffset: 2, parent: root,
@@ -306,8 +306,8 @@ func TestMergeWithChild(t *testing.T) {
 
 		mergeWithChild(parent, nil, nil)
 
-		if parent.restore != restorePointEphemeral {
-			t.Fatal("merged node should inherit restore point from child")
+		if !parent.user {
+			t.Fatal("merged node should inherit user=true from child")
 		}
 	})
 

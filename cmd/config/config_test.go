@@ -1,7 +1,6 @@
 package config
 
 import (
-	"encoding/json"
 	"os"
 	"path/filepath"
 	"strings"
@@ -226,121 +225,66 @@ func TestSaveIntegration_EmptyAppName(t *testing.T) {
 	}
 }
 
-func TestOnboardingConfig(t *testing.T) {
+func TestSaveIntegrationAutoMode(t *testing.T) {
 	tmpDir := t.TempDir()
 	setTestHome(t, tmpDir)
 
-	completed, err := GetOnboardingCompleted(OnboardingSectionApp, OnboardingKeyTerminalPrompt)
-	if err != nil {
-		t.Fatalf("GetOnboardingCompleted() error = %v", err)
-	}
-	if completed {
-		t.Fatal("GetOnboardingCompleted() = true, want false for missing item")
-	}
-	if OnboardingCompleted(OnboardingSectionApp, OnboardingKeyTerminalPrompt) {
-		t.Fatal("OnboardingCompleted() = true, want false for missing item")
-	}
-	if completed, ok, err := LookupOnboardingCompleted(OnboardingSectionApp, OnboardingKeyTerminalPrompt); err != nil {
-		t.Fatalf("LookupOnboardingCompleted() error = %v", err)
-	} else if completed || ok {
-		t.Fatalf("LookupOnboardingCompleted() = %v, %v, want false, false", completed, ok)
-	}
+	t.Run("save and load round-trip", func(t *testing.T) {
+		if err := SaveIntegrationAutoMode("claude", true); err != nil {
+			t.Fatal(err)
+		}
+		config, err := LoadIntegration("claude")
+		if err != nil {
+			t.Fatal(err)
+		}
+		if config.AutoMode == nil || !*config.AutoMode {
+			t.Error("expected auto mode to be enabled")
+		}
+	})
 
-	if err := MarkOnboardingCompleted("App", "Terminal_Prompt"); err != nil {
-		t.Fatalf("MarkOnboardingCompleted() error = %v", err)
-	}
-	if !OnboardingCompleted(OnboardingSectionApp, OnboardingKeyTerminalPrompt) {
-		t.Fatal("OnboardingCompleted() = false, want true")
-	}
-	if completed, ok, err := LookupOnboardingCompleted(OnboardingSectionApp, OnboardingKeyTerminalPrompt); err != nil {
-		t.Fatalf("LookupOnboardingCompleted() after mark error = %v", err)
-	} else if !completed || !ok {
-		t.Fatalf("LookupOnboardingCompleted() = %v, %v, want true, true", completed, ok)
-	}
+	t.Run("saveIntegration preserves auto mode", func(t *testing.T) {
+		if err := SaveIntegration("claude", []string{"model-a"}); err != nil {
+			t.Fatal(err)
+		}
+		config, err := LoadIntegration("claude")
+		if err != nil {
+			t.Fatal(err)
+		}
+		if config.AutoMode == nil || !*config.AutoMode {
+			t.Error("expected auto mode to survive a model save")
+		}
+	})
 
-	loaded, err := load()
-	if err != nil {
-		t.Fatalf("load() error = %v", err)
-	}
-	if !loaded.Onboarding["app"]["terminal_prompt"] {
-		t.Fatalf("stored onboarding = %v, want true", loaded.Onboarding)
-	}
+	t.Run("auto mode preserves models", func(t *testing.T) {
+		if err := SaveAliases("claude", map[string]string{"fast": "model-a"}); err != nil {
+			t.Fatal(err)
+		}
+		if err := MarkIntegrationOnboarded("claude"); err != nil {
+			t.Fatal(err)
+		}
+		if err := SaveIntegrationAutoMode("claude", false); err != nil {
+			t.Fatal(err)
+		}
+		config, err := LoadIntegration("claude")
+		if err != nil {
+			t.Fatal(err)
+		}
+		if config.AutoMode == nil || *config.AutoMode {
+			t.Error("expected auto mode to be disabled")
+		}
+		if len(config.Models) != 1 || config.Models[0] != "model-a" {
+			t.Errorf("expected models to be preserved, got %v", config.Models)
+		}
+		if config.Aliases["fast"] != "model-a" || !config.Onboarded {
+			t.Errorf("expected aliases and onboarding state to be preserved, got %+v", config)
+		}
+	})
 
-	path, err := configPath()
-	if err != nil {
-		t.Fatalf("configPath() error = %v", err)
-	}
-	data, err := os.ReadFile(path)
-	if err != nil {
-		t.Fatalf("read config: %v", err)
-	}
-	var raw map[string]any
-	if err := json.Unmarshal(data, &raw); err != nil {
-		t.Fatalf("unmarshal config: %v", err)
-	}
-	onboarding, ok := raw["onboarding"].(map[string]any)
-	if !ok {
-		t.Fatalf("onboarding = %#v, want object", raw["onboarding"])
-	}
-	app, ok := onboarding["app"].(map[string]any)
-	if !ok {
-		t.Fatalf("onboarding.app = %#v, want object", onboarding["app"])
-	}
-	if app["terminal_prompt"] != true {
-		t.Fatalf("onboarding.app.terminal_prompt = %#v, want true", app["terminal_prompt"])
-	}
-}
-
-func TestSetOnboardingCompletedPreservesIntegrations(t *testing.T) {
-	tmpDir := t.TempDir()
-	setTestHome(t, tmpDir)
-
-	if err := SaveIntegration("claude", []string{"llama3.2"}); err != nil {
-		t.Fatalf("SaveIntegration() error = %v", err)
-	}
-	if err := SetOnboardingCompleted("cli", "launcher", true); err != nil {
-		t.Fatalf("SetOnboardingCompleted() error = %v", err)
-	}
-
-	integrationConfig, err := LoadIntegration("claude")
-	if err != nil {
-		t.Fatalf("LoadIntegration() error = %v", err)
-	}
-	if len(integrationConfig.Models) != 1 || integrationConfig.Models[0] != "llama3.2" {
-		t.Fatalf("models = %v, want [llama3.2]", integrationConfig.Models)
-	}
-	if !OnboardingCompleted("cli", "launcher") {
-		t.Fatal("OnboardingCompleted(cli launcher) = false, want true")
-	}
-}
-
-func TestOnboardingConfigEmptyPath(t *testing.T) {
-	tmpDir := t.TempDir()
-	setTestHome(t, tmpDir)
-
-	if err := MarkOnboardingCompleted(" ", "terminal_prompt"); err == nil {
-		t.Fatal("MarkOnboardingCompleted(empty section) error = nil, want error")
-	}
-	if err := MarkOnboardingCompleted("app", " "); err == nil {
-		t.Fatal("MarkOnboardingCompleted(empty key) error = nil, want error")
-	}
-}
-
-func TestOnboardingConfigMigratesFlatScope(t *testing.T) {
-	tmpDir := t.TempDir()
-	setTestHome(t, tmpDir)
-
-	configPath := filepath.Join(tmpDir, ".ollama", "config.json")
-	if err := os.MkdirAll(filepath.Dir(configPath), 0o755); err != nil {
-		t.Fatalf("mkdir config dir: %v", err)
-	}
-	if err := os.WriteFile(configPath, []byte(`{"integrations":{},"onboarding":{"app_terminal_prompt":true}}`), 0o644); err != nil {
-		t.Fatalf("write config: %v", err)
-	}
-
-	if !OnboardingCompleted(OnboardingSectionApp, OnboardingKeyTerminalPrompt) {
-		t.Fatal("OnboardingCompleted(app terminal_prompt) = false, want true")
-	}
+	t.Run("empty app name", func(t *testing.T) {
+		if err := SaveIntegrationAutoMode("", true); err == nil {
+			t.Error("expected error for empty app name, got nil")
+		}
+	})
 }
 
 func TestLoadIntegration_NonexistentIntegration(t *testing.T) {
@@ -418,36 +362,6 @@ func TestLoad(t *testing.T) {
 			t.Error("expected error for corrupted JSON")
 		}
 	})
-}
-
-func TestAgentSignInPromptSeen(t *testing.T) {
-	tmpDir := t.TempDir()
-	setTestHome(t, tmpDir)
-
-	if AgentSignInPromptSeen() {
-		t.Fatal("new config should not have agent sign-in onboarding marked seen")
-	}
-
-	if err := SetAgentSignInPromptSeen(true); err != nil {
-		t.Fatal(err)
-	}
-	if !AgentSignInPromptSeen() {
-		t.Fatal("agent sign-in onboarding seen state was not saved")
-	}
-
-	path, err := configPath()
-	if err != nil {
-		t.Fatal(err)
-	}
-	data, err := os.ReadFile(path)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if !strings.Contains(string(data), `"onboarding"`) ||
-		!strings.Contains(string(data), `"agent"`) ||
-		!strings.Contains(string(data), `"sign_in_prompt_seen": true`) {
-		t.Fatalf("config does not include onboarding state: %s", data)
-	}
 }
 
 func TestMigrateConfig(t *testing.T) {

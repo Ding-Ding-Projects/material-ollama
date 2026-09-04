@@ -1,11 +1,8 @@
 package launch
 
 import (
-	"context"
-	"errors"
 	"fmt"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"runtime"
 	"slices"
@@ -350,12 +347,13 @@ func TestClaudeEnvVars(t *testing.T) {
 		return m
 	}
 
-	got := envMap(c.envVars("llama3.2", 0))
+	got := envMap(c.envVars("llama3.2"))
 	for key, want := range map[string]string{
 		"ANTHROPIC_BASE_URL":                  envconfig.Host().String(),
 		"ANTHROPIC_API_KEY":                   "",
 		"ANTHROPIC_AUTH_TOKEN":                "ollama",
 		"CLAUDE_CODE_ATTRIBUTION_HEADER":      "0",
+		"CLAUDE_CODE_TOTAL_TOKENS_REMINDER":   "off",
 		"DISABLE_ERROR_REPORTING":             "1",
 		"DISABLE_FEEDBACK_COMMAND":            "1",
 		"CLAUDE_CODE_DISABLE_FEEDBACK_SURVEY": "1",
@@ -377,127 +375,6 @@ func TestClaudeEnvVars(t *testing.T) {
 	}
 }
 
-func TestClaudePrepareRunLaunchModelsWarnsForLowLocalContext(t *testing.T) {
-	client, _ := testLauncherClientWithStatus(t, 32*1024)
-
-	oldConfirm := DefaultConfirmPrompt
-	defer func() { DefaultConfirmPrompt = oldConfirm }()
-
-	var gotPrompt string
-	DefaultConfirmPrompt = func(prompt string, options ConfirmOptions) (bool, error) {
-		gotPrompt = prompt
-		if options.Default != ConfirmDefaultNo {
-			t.Fatal("expected warning prompt to default to no")
-		}
-		if options.YesLabel != "Launch anyway" || options.NoLabel != "Cancel" {
-			t.Fatalf("labels = %q/%q, want Launch anyway/Cancel", options.YesLabel, options.NoLabel)
-		}
-		return false, nil
-	}
-
-	_, err := client.prepareLaunchModelsForRun(context.Background(), &Claude{}, "llama3.2", []LaunchModel{{Name: "llama3.2"}})
-	if !errors.Is(err, ErrCancelled) {
-		t.Fatalf("error = %v, want ErrCancelled", err)
-	}
-	for _, want := range []string{
-		"Claude Code works best with at least 100k context. Current local context: 32k.",
-		"Launch Claude Code anyway?",
-	} {
-		if !strings.Contains(gotPrompt, want) {
-			t.Fatalf("prompt missing %q:\n%s", want, gotPrompt)
-		}
-	}
-}
-
-func TestClaudePrepareRunLaunchModelsSetsHighLocalContextWithoutWarning(t *testing.T) {
-	client, _ := testLauncherClientWithStatus(t, 128*1024)
-
-	oldConfirm := DefaultConfirmPrompt
-	defer func() { DefaultConfirmPrompt = oldConfirm }()
-	DefaultConfirmPrompt = func(prompt string, options ConfirmOptions) (bool, error) {
-		t.Fatalf("did not expect prompt, got %q", prompt)
-		return false, nil
-	}
-
-	models, err := client.prepareLaunchModelsForRun(context.Background(), &Claude{}, "llama3.2", []LaunchModel{{Name: "llama3.2"}})
-	if err != nil {
-		t.Fatalf("prepareLaunchModelsForRun error = %v", err)
-	}
-	if len(models) != 1 || models[0].ContextLength != 128*1024 {
-		t.Fatalf("models = %+v, want local context length set", models)
-	}
-}
-
-func TestClaudePrepareRunLaunchModelsMatchesLatestSuffix(t *testing.T) {
-	client, _ := testLauncherClientWithStatus(t, 128*1024)
-
-	models, err := client.prepareLaunchModelsForRun(context.Background(), &Claude{}, "gemma4", []LaunchModel{{Name: "gemma4:latest"}})
-	if err != nil {
-		t.Fatalf("prepareLaunchModelsForRun error = %v", err)
-	}
-	if len(models) != 1 {
-		t.Fatalf("models = %+v, want existing model updated without fallback", models)
-	}
-	if models[0].Name != "gemma4:latest" || models[0].ContextLength != 128*1024 {
-		t.Fatalf("model = %+v, want latest-suffixed model updated with context length", models[0])
-	}
-}
-
-func TestClaudePrepareRunLaunchModelsYesPrintsShortWarning(t *testing.T) {
-	client, _ := testLauncherClientWithStatus(t, 32*1024)
-
-	oldConfirm := DefaultConfirmPrompt
-	defer func() { DefaultConfirmPrompt = oldConfirm }()
-	DefaultConfirmPrompt = func(prompt string, options ConfirmOptions) (bool, error) {
-		t.Fatalf("did not expect prompt with --yes, got %q", prompt)
-		return false, nil
-	}
-
-	restoreConfirm := withLaunchConfirmPolicy(launchConfirmPolicy{yes: true})
-	defer restoreConfirm()
-
-	output := captureContextWarningStderr(t, func() {
-		models, err := client.prepareLaunchModelsForRun(context.Background(), &Claude{}, "llama3.2", []LaunchModel{{Name: "llama3.2"}})
-		if err != nil {
-			t.Fatalf("prepareLaunchModelsForRun error = %v", err)
-		}
-		if len(models) != 1 || models[0].ContextLength != 32*1024 {
-			t.Fatalf("models = %+v, want local context length set", models)
-		}
-	})
-
-	for _, want := range []string{
-		"Warning: Claude Code works best with at least 100k context; current local context is 32k.",
-		"Continuing because --yes was provided.",
-	} {
-		if !strings.Contains(output, want) {
-			t.Fatalf("stderr missing %q:\n%s", want, output)
-		}
-	}
-}
-
-func TestClaudePrepareRunLaunchModelsSkipsCloudModels(t *testing.T) {
-	client, statusCalls := testLauncherClientWithStatus(t, 32*1024)
-
-	oldConfirm := DefaultConfirmPrompt
-	defer func() { DefaultConfirmPrompt = oldConfirm }()
-	DefaultConfirmPrompt = func(prompt string, options ConfirmOptions) (bool, error) {
-		t.Fatalf("did not expect prompt, got %q", prompt)
-		return false, nil
-	}
-
-	models, err := client.prepareLaunchModelsForRun(context.Background(), &Claude{}, "glm-5:cloud", []LaunchModel{{Name: "glm-5:cloud", Remote: true}})
-	if err != nil {
-		t.Fatalf("prepareLaunchModelsForRun error = %v", err)
-	}
-	if *statusCalls != 0 {
-		t.Fatalf("status calls = %d, want 0", *statusCalls)
-	}
-	if len(models) != 1 || models[0].ContextLength != 0 {
-		t.Fatalf("models = %+v, want unchanged cloud model", models)
-	}
-}
-
 func TestClaudeModelEnvVars(t *testing.T) {
 	c := &Claude{}
 
@@ -511,7 +388,7 @@ func TestClaudeModelEnvVars(t *testing.T) {
 	}
 
 	t.Run("maps all Claude model env vars to the provided model", func(t *testing.T) {
-		got := envMap(c.modelEnvVars("llama3.2", 0))
+		got := envMap(c.modelEnvVars("llama3.2"))
 		if got["ANTHROPIC_DEFAULT_OPUS_MODEL"] != "llama3.2" {
 			t.Errorf("OPUS = %q, want llama3.2", got["ANTHROPIC_DEFAULT_OPUS_MODEL"])
 		}
@@ -530,7 +407,7 @@ func TestClaudeModelEnvVars(t *testing.T) {
 	})
 
 	t.Run("supports empty model", func(t *testing.T) {
-		got := envMap(c.modelEnvVars("", 0))
+		got := envMap(c.modelEnvVars(""))
 		if got["ANTHROPIC_DEFAULT_OPUS_MODEL"] != "" {
 			t.Errorf("OPUS = %q, want empty", got["ANTHROPIC_DEFAULT_OPUS_MODEL"])
 		}
@@ -549,56 +426,16 @@ func TestClaudeModelEnvVars(t *testing.T) {
 	})
 
 	t.Run("sets auto compact window for known cloud models", func(t *testing.T) {
-		got := envMap(c.modelEnvVars("glm-5:cloud", 0))
+		got := envMap(c.modelEnvVars("glm-5:cloud"))
 		if got["CLAUDE_CODE_AUTO_COMPACT_WINDOW"] != "202752" {
 			t.Errorf("AUTO_COMPACT_WINDOW = %q, want 202752", got["CLAUDE_CODE_AUTO_COMPACT_WINDOW"])
 		}
 	})
 
-	t.Run("sets auto compact window for local models at Claude minimum", func(t *testing.T) {
-		got := envMap(c.modelEnvVars("llama3.2", 131072))
-		if got["CLAUDE_CODE_AUTO_COMPACT_WINDOW"] != "131072" {
-			t.Errorf("AUTO_COMPACT_WINDOW = %q, want 131072", got["CLAUDE_CODE_AUTO_COMPACT_WINDOW"])
-		}
-	})
-
-	t.Run("does not set auto compact window for local models below Claude minimum", func(t *testing.T) {
-		got := envMap(c.modelEnvVars("llama3.2", 32768))
-		if got["CLAUDE_CODE_AUTO_COMPACT_WINDOW"] != "" {
-			t.Errorf("AUTO_COMPACT_WINDOW = %q, want empty", got["CLAUDE_CODE_AUTO_COMPACT_WINDOW"])
-		}
-	})
-
 	t.Run("does not set auto compact window for unknown cloud models", func(t *testing.T) {
-		got := envMap(c.modelEnvVars("unknown-model:cloud", 0))
+		got := envMap(c.modelEnvVars("unknown-model:cloud"))
 		if got["CLAUDE_CODE_AUTO_COMPACT_WINDOW"] != "" {
 			t.Errorf("AUTO_COMPACT_WINDOW = %q, want empty", got["CLAUDE_CODE_AUTO_COMPACT_WINDOW"])
 		}
 	})
-}
-
-func resetClaudeTestHooks(t *testing.T) {
-	t.Helper()
-	oldLookPath := claudeLookPath
-	oldCommand := claudeCommand
-	oldGOOS := claudeGOOS
-	t.Cleanup(func() {
-		claudeLookPath = oldLookPath
-		claudeCommand = oldCommand
-		claudeGOOS = oldGOOS
-	})
-}
-
-func claudeTestCommand(t *testing.T) *exec.Cmd {
-	t.Helper()
-	cmd := exec.Command(os.Args[0], "-test.run=TestClaudeCommandHelper", "--")
-	cmd.Env = append(os.Environ(), "GO_WANT_CLAUDE_COMMAND_HELPER=1")
-	return cmd
-}
-
-func TestClaudeCommandHelper(t *testing.T) {
-	if os.Getenv("GO_WANT_CLAUDE_COMMAND_HELPER") != "1" {
-		return
-	}
-	os.Exit(0)
 }

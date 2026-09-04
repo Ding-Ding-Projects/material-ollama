@@ -10,7 +10,6 @@ import (
 	"strings"
 
 	"github.com/ollama/ollama/api"
-	"github.com/ollama/ollama/envconfig"
 	"github.com/ollama/ollama/llm"
 	"github.com/ollama/ollama/model/renderers"
 	"github.com/ollama/ollama/template"
@@ -101,9 +100,8 @@ func imageTaggedMessages(m *Model, msgs []api.Message, start int, clearImages bo
 			return nil, nil, errors.New("this model only supports one image while more than one image requested")
 		}
 
-		var prefix strings.Builder
+		var prefix string
 		prompt := msg.Content
-		firstImageID := len(images)
 
 		for _, i := range msg.Images {
 			mediaData := llm.NewMediaData(len(media), i)
@@ -117,7 +115,7 @@ func imageTaggedMessages(m *Model, msgs []api.Message, start int, clearImages bo
 			// existing templates and llama-server media marker replacement.
 			imgTag := fmt.Sprintf("[img-%d]", mediaData.ID)
 			if !strings.Contains(prompt, "[img]") {
-				prefix.WriteString(imgTag)
+				prefix += imgTag
 			} else {
 				prompt = strings.Replace(prompt, "[img]", imgTag, 1)
 			}
@@ -134,28 +132,13 @@ func imageTaggedMessages(m *Model, msgs []api.Message, start int, clearImages bo
 	return renderMsgs, media, nil
 }
 
-func rewriteMessageWithImageTags(content string, firstImageID int, imageCount int) string {
-	var prefix strings.Builder
-	for i := range imageCount {
-		imgTag := fmt.Sprintf("[img-%d]", firstImageID+i)
-		if strings.Contains(content, "[img]") {
-			content = strings.Replace(content, "[img]", imgTag, 1)
-			continue
-		}
-		prefix.WriteString(imgTag)
-	}
-
-	return prefix.String() + content
-}
-
 func renderPrompt(m *Model, msgs []api.Message, tools []api.Tool, think *api.ThinkValue) (string, error) {
 	if m.Config.Renderer != "" {
 		rendererName := resolveRendererName(m)
 		rendered, err := renderers.RenderWithRenderer(rendererName, msgs, tools, think)
 		if err != nil {
-			return "", 0, err
+			return "", err
 		}
-		slog.Debug("rendered prompt", "renderer", m.Config.Renderer, "prompt", rendered)
 		return rendered, nil
 	}
 

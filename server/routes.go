@@ -12,7 +12,6 @@ import (
 	"io"
 	"io/fs"
 	"log/slog"
-	"maps"
 	"math"
 	"math/rand"
 	"net"
@@ -20,13 +19,9 @@ import (
 	"net/netip"
 	"net/url"
 	"os"
-	"os/exec"
 	"os/signal"
-	"runtime"
 	"slices"
-	"strconv"
 	"strings"
-	"sync"
 	"sync/atomic"
 	"syscall"
 	"time"
@@ -65,7 +60,6 @@ const (
 	cloudErrRemoteModelDetailsUnavailable = "remote model details are unavailable"
 	cloudErrWebSearchUnavailable          = "web search is unavailable"
 	cloudErrWebFetchUnavailable           = "web fetch is unavailable"
-	cloudErrUsageUnavailable              = "usage is unavailable"
 	copilotChatUserAgentPrefix            = "GitHubCopilotChat/"
 )
 
@@ -89,15 +83,6 @@ func shouldUseHarmony(model *Model) bool {
 		}
 	}
 
-	return false
-}
-
-func shouldForceThinking(model *Model) bool {
-	if model.Config.ModelFamily == "qwen3" && strings.Contains(model.Name, "thinking-2507") {
-		// Force thinking mode for the newer qwen3 thinking models otherwise they end up
-		// leaving the thinking trace in the return content w/ unmatched <think></think> tags
-		return true
-	}
 	return false
 }
 
@@ -132,38 +117,6 @@ func init() {
 	renderers.RenderImgTags = true
 }
 
-func loggedFormatter(param gin.LogFormatterParams) string {
-	var statusColor, methodColor, resetColor string
-	if param.IsOutputColor() {
-		statusColor = param.StatusCodeColor()
-		methodColor = param.MethodColor()
-		resetColor = param.ResetColor()
-	}
-
-	if param.Latency > time.Minute {
-		param.Latency = param.Latency.Truncate(time.Second)
-	}
-
-	username := "default"
-	if userVal, exists := param.Keys["username"]; exists {
-		if name, ok := userVal.(string); ok {
-			username = name
-		}
-	}
-
-	return fmt.Sprintf(
-		"[Ollama] %s |%s %3d %s| %13v | %15s | %-20s |%s %-7s %s %#v\n%s",
-		param.TimeStamp.Format("2006/01/02 - 15:04:05"),
-		statusColor, param.StatusCode, resetColor,
-		param.Latency,
-		param.ClientIP,
-		username,
-		methodColor, param.Method, resetColor,
-		param.Path,
-		param.ErrorMessage,
-	)
-}
-
 var (
 	errRequired    = errors.New("is required")
 	errBadTemplate = errors.New("template error")
@@ -185,6 +138,9 @@ func (s *Server) modelOptionsWithEmbeddingBatchDefault(model *Model, requestOpts
 	draftNumPredictSet := hasOption(requestOpts, "draft_num_predict")
 	if model != nil {
 		draftNumPredictSet = draftNumPredictSet || hasOption(model.Options, "draft_num_predict")
+		if err := opts.FromMap(model.GenerationDefaults); err != nil {
+			return api.Options{}, err
+		}
 		if err := opts.FromMap(model.Options); err != nil {
 			return api.Options{}, err
 		}
@@ -246,22 +202,17 @@ func usesAutomaticNumBatch(model *Model, requestOpts map[string]any) bool {
 
 // scheduleRunner schedules a runner after validating inputs such as capabilities and model options.
 // It returns the allocated runner, model instance, and consolidated options if successful and error otherwise.
-func (s *Server) scheduleRunner(ctx context.Context, name string, caps []model.Capability, requestOpts map[string]any, keepAlive *api.Duration, shift *bool) (llm.LlamaServer, *Model, *api.Options, error) {
-	if name == "" {
+func (s *Server) scheduleRunner(ctx context.Context, model *Model, caps []model.Capability, requestOpts map[string]any, keepAlive *api.Duration, shift *bool) (llm.LlamaServer, *Model, *api.Options, error) {
+	if model == nil || model.Name == "" {
 		return nil, nil, nil, fmt.Errorf("model %w", errRequired)
 	}
 
-	model, err := GetModelForRunner(name, selectedRunner)
-	if err != nil {
-		return nil, nil, nil, err
-	}
-
 	if slices.Contains(model.Config.ModelFamilies, "mllama") && len(model.ProjectorPaths) > 0 {
-		return nil, nil, nil, errors.New("'llama3.2-vision' is no longer compatible with your version of Ollama and has been replaced by a newer version. To re-download, run 'ollama pull llama3.2-vision'")
+		return nil, nil, nil, fmt.Errorf("'llama3.2-vision' is no longer compatible with your version of Ollama and has been replaced by a newer version. To re-download, run 'ollama pull llama3.2-vision'")
 	}
 
 	if err := model.CheckCapabilities(caps...); err != nil {
-		return nil, nil, nil, fmt.Errorf("%s %w", name, err)
+		return nil, nil, nil, fmt.Errorf("%s %w", model.Name, err)
 	}
 
 	numCtxAuto := usesAutomaticNumCtx(model, requestOpts)
@@ -278,16 +229,6 @@ func (s *Server) scheduleRunner(ctx context.Context, name string, caps []model.C
 	case runner = <-runnerCh:
 	case err = <-errCh:
 		return nil, nil, nil, err
-	}
-
-	// TODO(drifkin): `GetRunner` above changes opts, but we currently pass it by
-	// value.  The following line is a hack to fix this for the now dynaically
-	// calculated NumCtx, but we should fix this properly (which could have other
-	// side effects, since perhaps we were relying on the values not being stomped
-	// on, particularly when NumCtx sometimes represents a numParallel-adjusted
-	// number and sometimes not)
-	if opts.NumCtx == -1 {
-		opts.NumCtx = runner.Options.NumCtx / runner.numParallel
 	}
 
 	return runner.llama, model, &opts, nil
@@ -320,13 +261,6 @@ func (s *Server) GenerateHandler(c *gin.Context) {
 		return
 	}
 
-	if runner, err := normalizeRunner(req.Runner); err != nil {
-		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-		return
-	} else {
-		req.Runner = runner
-	}
-
 	modelRef, err := parseAndValidateModelRef(req.Model)
 	if err != nil {
 		writeModelRefParseError(c, err, http.StatusNotFound, fmt.Sprintf("model '%s' not found", req.Model))
@@ -351,13 +285,11 @@ func (s *Server) GenerateHandler(c *gin.Context) {
 		return
 	}
 
-	m, err := GetModelForRunner(name.String(), req.Runner)
+	m, err := s.getModel(name.String())
 	if err != nil {
 		switch {
 		case errors.Is(err, fs.ErrNotExist):
 			c.JSON(http.StatusNotFound, gin.H{"error": fmt.Sprintf("model '%s' not found", req.Model)})
-		case errors.Is(err, manifest.ErrNoCompatibleManifest):
-			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		case err.Error() == errtypes.InvalidModelNameErrMsg:
 			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		default:
@@ -387,6 +319,7 @@ func (s *Server) GenerateHandler(c *gin.Context) {
 		remoteURL, err := url.Parse(m.Config.RemoteHost)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
 		}
 
 		if !slices.Contains(envconfig.Remotes(), remoteURL.Hostname()) {
@@ -427,10 +360,6 @@ func (s *Server) GenerateHandler(c *gin.Context) {
 		c.Header("Content-Type", contentType)
 
 		fn := func(resp api.GenerateResponse) error {
-			if resp.Done {
-				s.usage.Record(origModel, resp.PromptEvalCount, resp.EvalCount)
-			}
-
 			resp.Model = origModel
 			resp.RemoteModel = m.Config.RemoteModel
 			resp.RemoteHost = m.Config.RemoteHost
@@ -530,17 +459,19 @@ func (s *Server) GenerateHandler(c *gin.Context) {
 		if req.Think == nil {
 			req.Think = &api.ThinkValue{Value: true}
 		}
-	} else if req.Think != nil && req.Think.Bool() {
-		c.JSON(http.StatusBadRequest, gin.H{"error": fmt.Sprintf("%q does not support thinking", req.Model)})
-		return
+	} else {
+		if req.Think != nil && req.Think.Bool() {
+			c.JSON(http.StatusBadRequest, gin.H{"error": fmt.Sprintf("%q does not support thinking", req.Model)})
+			return
+		}
 	}
 
-	r, m, opts, err := s.scheduleRunner(c.Request.Context(), name.String(), caps, req.Options, req.KeepAlive, req.Shift)
+	r, m, opts, err := s.scheduleRunner(c.Request.Context(), m, caps, req.Options, req.KeepAlive, req.Shift)
 	if errors.Is(err, errCapabilityCompletion) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": fmt.Sprintf("%q does not support generate", req.Model)})
 		return
 	} else if err != nil {
-		s.handleScheduleError(c, req.Model, err)
+		handleScheduleError(c, req.Model, err)
 		return
 	}
 
@@ -680,7 +611,6 @@ func (s *Server) GenerateHandler(c *gin.Context) {
 				}
 				leadingBOS = leadingBOSForModel(m)
 			}
-			leadingBOS = leadingBOSForModel(m)
 		} else {
 			// Direct template execution flow.
 			if err := tmpl.Execute(&b, values); err != nil {
@@ -724,7 +654,12 @@ func (s *Server) GenerateHandler(c *gin.Context) {
 		// TODO (jmorganca): avoid building the response twice both here and below
 		var sb strings.Builder
 		defer close(ch)
-		if err := r.Completion(c.Request.Context(), llm.CompletionRequest{
+
+		ctx, cancel := context.WithCancel(c.Request.Context())
+		defer cancel()
+		var parserErr error
+
+		if err := r.Completion(ctx, llm.CompletionRequest{
 			Prompt:          prompt,
 			Media:           media,
 			Format:          req.Format,
@@ -736,7 +671,6 @@ func (s *Server) GenerateHandler(c *gin.Context) {
 			PreservedTokens: preservedTokensForCompletion(builtinParser),
 			LeadingBOS:      leadingBOS,
 		}, func(cr llm.CompletionResponse) {
-			fmt.Printf("banana: %#v\n", cr)
 			res := api.GenerateResponse{
 				Model:     req.Model,
 				CreatedAt: time.Now().UTC(),
@@ -755,7 +689,8 @@ func (s *Server) GenerateHandler(c *gin.Context) {
 			if builtinParser != nil {
 				content, thinking, toolCalls, err := builtinParser.Add(cr.Content, cr.Done)
 				if err != nil {
-					ch <- gin.H{"error": err.Error()}
+					parserErr = err
+					cancel()
 					return
 				}
 				res.Response = content
@@ -768,13 +703,6 @@ func (s *Server) GenerateHandler(c *gin.Context) {
 				res.Thinking = thinking
 				res.Response = content
 			}
-			for _, p := range cr.LogProbs {
-				res.LogProbs = append(res.LogProbs, api.TokenProbs{
-					TokenID: p.TokenID,
-					LogProb: p.LogProb,
-					Token:   p.Token,
-				})
-			}
 
 			if _, err := sb.WriteString(cr.Content); err != nil {
 				ch <- gin.H{"error": err.Error()}
@@ -784,7 +712,6 @@ func (s *Server) GenerateHandler(c *gin.Context) {
 				res.DoneReason = cr.DoneReason.String()
 				res.TotalDuration = time.Since(checkpointStart)
 				res.LoadDuration = checkpointLoaded.Sub(checkpointStart)
-				s.usage(c, "generate", m.ShortName, m.Config.ModelFamily, cr.PromptEvalCount, cr.EvalCount, false)
 
 				if !req.Raw {
 					tokens, err := r.Tokenize(c.Request.Context(), prompt+sb.String())
@@ -794,8 +721,6 @@ func (s *Server) GenerateHandler(c *gin.Context) {
 					}
 					res.Context = tokens
 				}
-
-				s.usage.Record(req.Model, cr.PromptEvalCount, cr.EvalCount)
 			}
 
 			if builtinParser != nil {
@@ -811,17 +736,22 @@ func (s *Server) GenerateHandler(c *gin.Context) {
 
 			ch <- res
 		}); err != nil {
-			s.sched.expireRunnersForRuntimeOOM(m, err)
-			var serr api.StatusError
-			if errors.As(err, &serr) {
-				ch <- gin.H{"error": serr.ErrorMessage, "status": serr.StatusCode}
-			} else {
-				ch <- gin.H{"error": err.Error()}
+			if parserErr == nil {
+				s.sched.expireRunnersForRuntimeOOM(m, err)
+				var serr api.StatusError
+				if errors.As(err, &serr) {
+					ch <- gin.H{"error": serr.ErrorMessage, "status": serr.StatusCode}
+				} else {
+					ch <- gin.H{"error": err.Error()}
+				}
 			}
+		}
+		if parserErr != nil {
+			ch <- gin.H{"error": parserErr.Error()}
 		}
 	}()
 
-	if !req.Stream.Value(true) {
+	if req.Stream != nil && !*req.Stream {
 		var r api.GenerateResponse
 		var allLogprobs []api.Logprob
 		var sbThinking strings.Builder
@@ -848,15 +778,6 @@ func (s *Server) GenerateHandler(c *gin.Context) {
 				}
 
 				c.JSON(status, gin.H{"error": msg})
-				return
-			// TODO (jmorganca): remove use of gin.H here and instead expect
-			// api.StatusError to be send in the channel
-			case gin.H:
-				if msg, ok := t["error"].(string); ok {
-					c.JSON(http.StatusInternalServerError, gin.H{"error": msg})
-					return
-				}
-				c.JSON(http.StatusInternalServerError, gin.H{"error": "unexpected response"})
 				return
 			default:
 				c.JSON(http.StatusInternalServerError, gin.H{"error": "unexpected response"})
@@ -928,9 +849,15 @@ func (s *Server) EmbedHandler(c *gin.Context) {
 		return
 	}
 
-	r, m, opts, err := s.scheduleRunner(c.Request.Context(), name.String(), []model.Capability{}, req.Options, req.KeepAlive, nil)
+	m, err := s.getModel(name.String())
 	if err != nil {
-		s.handleScheduleError(c, req.Model, err)
+		handleScheduleError(c, req.Model, err)
+		return
+	}
+
+	r, m, opts, err := s.scheduleRunner(c.Request.Context(), m, []model.Capability{}, req.Options, req.KeepAlive, nil)
+	if err != nil {
+		handleScheduleError(c, req.Model, err)
 		return
 	}
 
@@ -941,12 +868,11 @@ func (s *Server) EmbedHandler(c *gin.Context) {
 		return
 	}
 
-	f, err := gguf.Open(m.ModelPath)
+	kvData, _, err := getModelData(m.ModelPath, false)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
-	defer f.Close()
 
 	ctx := c.Request.Context()
 
@@ -1098,7 +1024,6 @@ func (s *Server) EmbedHandler(c *gin.Context) {
 		LoadDuration:    checkpointLoaded.Sub(checkpointStart),
 		PromptEvalCount: int(totalTokens),
 	}
-	s.usage(c, "embed", m.ShortName, m.Config.ModelFamily, int(totalTokens), 0, false)
 	c.JSON(http.StatusOK, resp)
 }
 
@@ -1141,23 +1066,24 @@ func (s *Server) EmbeddingsHandler(c *gin.Context) {
 	}
 
 	name := modelRef.Name
-	name, _ = applyCompatRedirect(name)
 
-	r, m, _, err := s.scheduleRunner(c.Request.Context(), name.String(), []model.Capability{}, req.Options, req.KeepAlive, nil)
+	m, err := s.getModel(name.String())
 	if err != nil {
-		s.handleScheduleError(c, req.Model, err)
+		handleScheduleError(c, req.Model, err)
 		return
 	}
 
-	switch {
-	// single embedding
-	case len(req.Prompt) > 0:
-		embeddings, err := runner.llama.Embeddings(c.Request.Context(), []string{req.Prompt})
-		if err != nil {
-			slog.Info(fmt.Sprintf("embedding generation failed: %v", err))
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to generate embedding"})
-			return
-		}
+	r, m, _, err := s.scheduleRunner(c.Request.Context(), m, []model.Capability{}, req.Options, req.KeepAlive, nil)
+	if err != nil {
+		handleScheduleError(c, req.Model, err)
+		return
+	}
+
+	// an empty request loads the model
+	if req.Prompt == "" {
+		c.JSON(http.StatusOK, api.EmbeddingResponse{Embedding: []float64{}})
+		return
+	}
 
 	embedding, _, err := r.Embedding(c.Request.Context(), req.Prompt)
 	if err != nil {
@@ -1166,121 +1092,25 @@ func (s *Server) EmbeddingsHandler(c *gin.Context) {
 		return
 	}
 
-	e := make([]float64, len(embedding))
-	for i, v := range embedding {
-		e[i] = float64(v)
+	var e []float64
+	for _, v := range embedding {
+		e = append(e, float64(v))
 	}
 
 	resp := api.EmbeddingResponse{
 		Embedding: e,
 	}
-}
-
-func (s *Server) WebSearchHandler(c *gin.Context) {
-	var req api.WebSearchRequest
-	if err := c.ShouldBindJSON(&req); errors.Is(err, io.EOF) {
-		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"error": "missing request body"})
-		return
-	} else if err != nil {
-		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-		return
-	}
-
-	req.Query = strings.TrimSpace(req.Query)
-	if req.Query == "" {
-		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"error": "query is required"})
-		return
-	}
-
-	if req.MaxResults != 0 && (req.MaxResults < 1 || req.MaxResults > 10) {
-		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"error": "max_results must be between 1 and 10"})
-		return
-	}
-
-	webServiceClient := api.NewClient(s.webServiceBase(), http.DefaultClient)
-	resp, err := webServiceClient.WebSearch(c.Request.Context(), &req)
-	if err != nil {
-		var authError api.AuthorizationError
-		if errors.As(err, &authError) {
-			sURL, sErr := signinURL()
-			if sErr != nil {
-				slog.Error(sErr.Error())
-				c.JSON(http.StatusInternalServerError, gin.H{"error": "error getting authorization details"})
-				return
-			}
-
-			c.JSON(authError.StatusCode, gin.H{"error": "unauthorized", "signin_url": sURL})
-			return
-		}
-		var apiError api.StatusError
-		if errors.As(err, &apiError) {
-			c.JSON(apiError.StatusCode, apiError)
-			return
-		}
-		c.JSON(http.StatusBadGateway, gin.H{"error": err.Error()})
-		return
-	}
-
-	if resp == nil {
-		resp = &api.WebSearchResponse{}
-	}
-
-	c.JSON(http.StatusOK, resp)
-}
-
-func (s *Server) WebFetchHandler(c *gin.Context) {
-	var req api.WebFetchRequest
-	if err := c.ShouldBindJSON(&req); errors.Is(err, io.EOF) {
-		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"error": "missing request body"})
-		return
-	} else if err != nil {
-		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-		return
-	}
-
-	req.URL = strings.TrimSpace(req.URL)
-	if req.URL == "" {
-		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"error": "url is required"})
-		return
-	}
-
-	webServiceClient := api.NewClient(s.webServiceBase(), http.DefaultClient)
-	resp, err := webServiceClient.WebFetch(c.Request.Context(), &req)
-	if err != nil {
-		var authError api.AuthorizationError
-		if errors.As(err, &authError) {
-			sURL, sErr := signinURL()
-			if sErr != nil {
-				slog.Error(sErr.Error())
-				c.JSON(http.StatusInternalServerError, gin.H{"error": "error getting authorization details"})
-				return
-			}
-
-			c.JSON(authError.StatusCode, gin.H{"error": "unauthorized", "signin_url": sURL})
-			return
-		}
-		var apiError api.StatusError
-		if errors.As(err, &apiError) {
-			c.JSON(apiError.StatusCode, apiError)
-			return
-		}
-		c.JSON(http.StatusBadGateway, gin.H{"error": err.Error()})
-		return
-	}
-
-	if resp == nil {
-		resp = &api.WebFetchResponse{}
-	}
-
 	c.JSON(http.StatusOK, resp)
 }
 
 func (s *Server) PullHandler(c *gin.Context) {
-	var r api.PullRequest
-	if err := c.ShouldBindJSON(&r); errors.Is(err, io.EOF) {
+	var req api.PullRequest
+	err := c.ShouldBindJSON(&req)
+	switch {
+	case errors.Is(err, io.EOF):
 		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"error": "missing request body"})
 		return
-	} else if err != nil {
+	case err != nil:
 		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
@@ -1311,10 +1141,14 @@ func (s *Server) PullHandler(c *gin.Context) {
 			ch <- r
 		}
 
+		regOpts := &registryOptions{
+			Insecure: req.Insecure,
+		}
+
 		ctx, cancel := context.WithCancel(c.Request.Context())
 		defer cancel()
 
-		if err := PullModel(ctx, n, &registryOptions{Insecure: r.Insecure}, fn); err != nil {
+		if err := PullModel(ctx, name.DisplayShortest(), regOpts, fn); err != nil {
 			ch <- gin.H{"error": err.Error()}
 			return
 		}
@@ -1322,7 +1156,7 @@ func (s *Server) PullHandler(c *gin.Context) {
 		s.refreshModelListCache(name)
 	}()
 
-	if r.Stream != nil && !*r.Stream {
+	if req.Stream != nil && !*req.Stream {
 		waitForStream(c, ch)
 		return
 	}
@@ -1331,11 +1165,13 @@ func (s *Server) PullHandler(c *gin.Context) {
 }
 
 func (s *Server) PushHandler(c *gin.Context) {
-	var r api.PushRequest
-	if err := c.ShouldBindJSON(&r); errors.Is(err, io.EOF) {
+	var req api.PushRequest
+	err := c.ShouldBindJSON(&req)
+	switch {
+	case errors.Is(err, io.EOF):
 		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"error": "missing request body"})
 		return
-	} else if err != nil {
+	case err != nil:
 		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
@@ -1357,6 +1193,10 @@ func (s *Server) PushHandler(c *gin.Context) {
 			ch <- r
 		}
 
+		regOpts := &registryOptions{
+			Insecure: req.Insecure,
+		}
+
 		ctx, cancel := context.WithCancel(c.Request.Context())
 		defer cancel()
 
@@ -1371,7 +1211,7 @@ func (s *Server) PushHandler(c *gin.Context) {
 		}
 	}()
 
-	if r.Stream != nil && !*r.Stream {
+	if req.Stream != nil && !*req.Stream {
 		waitForStream(c, ch)
 		return
 	}
@@ -1396,9 +1236,6 @@ func getExistingName(n model.Name) (model.Name, error) {
 		}
 		if set.Namespace == "" && strings.EqualFold(e.Namespace, n.Namespace) {
 			n.Namespace = e.Namespace
-		}
-		if set.Kind == "" && strings.EqualFold(e.Kind, n.Kind) {
-			n.Kind = e.Kind
 		}
 		if set.Model == "" && strings.EqualFold(e.Model, n.Model) {
 			n.Model = e.Model
@@ -1440,7 +1277,8 @@ func (s *Server) DeleteHandler(c *gin.Context) {
 		return
 	}
 
-	if err := manifest.RemoveNamed(n); err != nil {
+	m, err := manifest.ParseNamedManifest(n)
+	if err != nil {
 		switch {
 		case os.IsNotExist(err):
 			c.JSON(http.StatusNotFound, gin.H{"error": fmt.Sprintf("model '%s' not found", cmp.Or(r.Model, r.Name))})
@@ -1449,28 +1287,10 @@ func (s *Server) DeleteHandler(c *gin.Context) {
 		}
 		return
 	}
-}
 
-func writeShowError(c *gin.Context, model string, err error) {
-	var statusErr api.StatusError
-	switch {
-	case os.IsNotExist(err):
-		c.JSON(http.StatusNotFound, gin.H{"error": fmt.Sprintf("model '%s' not found", model)})
-	case errors.Is(err, manifest.ErrNoCompatibleManifest):
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-	case errors.As(err, &statusErr):
-		c.JSON(statusErr.StatusCode, gin.H{"error": statusErr.ErrorMessage})
-	case err.Error() == errtypes.InvalidModelNameErrMsg:
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-	default:
+	if err := m.Remove(); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-	}
-}
-
-func readBlobData(digest string) ([]byte, error) {
-	blobPath, err := manifest.BlobsPath(digest)
-	if err != nil {
-		return nil, err
+		return
 	}
 
 	s.deleteModelListCache(n)
@@ -1479,54 +1299,6 @@ func readBlobData(digest string) ([]byte, error) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
-
-	resolved := child
-	if resolved.Config.Digest == "" && len(resolved.Layers) == 0 && resolved.Digest() != "" {
-		data, err := readBlobData(resolved.BlobDigest())
-		if err != nil {
-			return nil, err
-		}
-
-		if err := json.Unmarshal(data, &resolved); err != nil {
-			return nil, err
-		}
-		if resolved.Runner == "" {
-			resolved.Runner = child.Runner
-		}
-		if resolved.Format == "" {
-			resolved.Format = child.Format
-		}
-	}
-
-	return &resolved, nil
-}
-
-func collectManifestLicenseText(children []manifest.Manifest) (string, error) {
-	seen := make(map[string]struct{})
-	var licenses []string
-
-	for _, child := range children {
-		for _, layer := range child.Layers {
-			if layer.MediaType != "application/vnd.ollama.image.license" || layer.Digest == "" {
-				continue
-			}
-
-			digest := layer.Digest
-			if _, ok := seen[digest]; ok {
-				continue
-			}
-
-			data, err := readBlobData(digest)
-			if err != nil {
-				return "", err
-			}
-
-			seen[digest] = struct{}{}
-			licenses = append(licenses, string(data))
-		}
-	}
-
-	return strings.Join(licenses, "\n"), nil
 }
 
 func (s *Server) ShowHandler(c *gin.Context) {
@@ -1550,15 +1322,6 @@ func (s *Server) ShowHandler(c *gin.Context) {
 		return
 	}
 	requestedModel := req.Model
-
-	if req.Runner, err = normalizeRunner(req.Runner); err != nil {
-		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-		return
-	}
-	if req.AllManifests && req.Runner != "" {
-		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"error": "runner cannot be used with all_manifests"})
-		return
-	}
 
 	modelRef, err := parseAndValidateModelRef(req.Model)
 	if err != nil {
@@ -1602,7 +1365,17 @@ func (s *Server) ShowHandler(c *gin.Context) {
 		resp, err = GetModelInfo(req)
 	}
 	if err != nil {
-		writeShowError(c, req.Model, err)
+		var statusErr api.StatusError
+		switch {
+		case os.IsNotExist(err):
+			c.JSON(http.StatusNotFound, gin.H{"error": fmt.Sprintf("model '%s' not found", req.Model)})
+		case errors.As(err, &statusErr):
+			c.JSON(statusErr.StatusCode, gin.H{"error": statusErr.ErrorMessage})
+		case err.Error() == errtypes.InvalidModelNameErrMsg:
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		default:
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		}
 		return
 	}
 
@@ -1624,119 +1397,24 @@ func (s *Server) ShowHandler(c *gin.Context) {
 	c.JSON(http.StatusOK, resp)
 }
 
-func GetModelInfo(req api.ShowRequest) (*api.ShowResponse, *Model, error) {
-	name := model.ParseName(req.Model)
-	if !name.IsValid() {
-		return nil, nil, model.Unqualified(name)
-	}
-	name, err = getExistingName(name)
-	if err != nil {
-		return nil, err
-	}
-	req.Model = name.String()
-
-	data, err := manifest.ReadManifestData(name)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	var parent manifest.Manifest
-	if err := json.Unmarshal(data, &parent); err != nil {
-		return nil, err
-	}
-
-	if parent.MediaType != manifest.MediaTypeManifestList {
-		resp, err := GetModelInfo(req)
-		if err != nil {
-			return nil, err
-		}
-
-		mf, err := manifest.ParseNamedManifestForRunner(name, "")
-		if err != nil {
-			return nil, err
-		}
-
-		return &api.ShowManifestsResponse{
-			Manifests: []api.ShowManifest{{
-				Runner:       mf.Runner,
-				ShowResponse: *resp,
-			}},
-			License: resp.License,
-		}, nil
-	}
-
-	resolvedChildren := make([]manifest.Manifest, 0, len(parent.Manifests))
-	resp := &api.ShowManifestsResponse{
-		Manifests: make([]api.ShowManifest, 0, len(parent.Manifests)),
-	}
-	for _, child := range parent.Manifests {
-		resolved, err := resolveShowManifestChild(child)
-		if err != nil {
-			return nil, err
-		}
-		if resolved.Runner == "" {
-			return nil, fmt.Errorf("manifest list child %q is missing runner metadata", resolved.BlobDigest())
-		}
-		runner, err := normalizeRunner(resolved.Runner)
-		if err != nil {
-			return nil, err
-		}
-		resolved.Runner = runner
-
-		resolvedChildren = append(resolvedChildren, *resolved)
-
-		childResp, err := GetModelInfo(api.ShowRequest{
-			Model:   req.Model,
-			Runner:  resolved.Runner,
-			System:  req.System,
-			Verbose: req.Verbose,
-			Options: req.Options,
-		})
-		if err != nil {
-			return nil, err
-		}
-
-		resp.Manifests = append(resp.Manifests, api.ShowManifest{
-			Runner:       resolved.Runner,
-			ShowResponse: *childResp,
-		})
-	}
-
-	resp.License, err = collectManifestLicenseText(resolvedChildren)
-	if err != nil {
-		return nil, err
-	}
-
-	return resp, nil
-}
-
 func GetModelInfo(req api.ShowRequest) (*api.ShowResponse, error) {
-	runner, err := normalizeRunner(req.Runner)
-	if err != nil {
-		return nil, api.StatusError{
-			StatusCode:   http.StatusBadRequest,
-			ErrorMessage: err.Error(),
-		}
-	}
-	req.Runner = runner
-
 	name := model.ParseName(req.Model)
 	if !name.IsValid() {
 		return nil, model.Unqualified(name)
 	}
-	name, err = getExistingName(name)
+	name, err := getExistingName(name)
 	if err != nil {
 		return nil, err
 	}
 
-	m, err := GetModelForRunner(name.String(), req.Runner)
+	m, err := GetModel(name.String())
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 
 	if m.Config.RemoteHost != "" {
 		if disabled, _ := internalcloud.Status(); disabled {
-			return nil, nil, api.StatusError{
+			return nil, api.StatusError{
 				StatusCode:   http.StatusForbidden,
 				ErrorMessage: internalcloud.DisabledError(cloudErrRemoteModelDetailsUnavailable),
 			}
@@ -1754,7 +1432,7 @@ func GetModelInfo(req api.ShowRequest) (*api.ShowResponse, error) {
 
 	// For safetensors LLM models (experimental), populate details from config.json
 	if m.Config.ModelFormat == "safetensors" && slices.Contains(m.Config.Capabilities, "completion") {
-		if info, err := xserver.GetSafetensorsLLMInfoForRunner(name, req.Runner); err == nil {
+		if info, err := xserver.GetSafetensorsLLMInfo(name); err == nil {
 			if arch, ok := info["general.architecture"].(string); ok && arch != "" {
 				modelDetails.Family = arch
 			}
@@ -1764,7 +1442,7 @@ func GetModelInfo(req api.ShowRequest) (*api.ShowResponse, error) {
 		}
 		// Older manifests may not have file_type populated for safetensors models.
 		if modelDetails.QuantizationLevel == "" {
-			if dtype, err := xserver.GetSafetensorsDtypeForRunner(name, req.Runner); err == nil && dtype != "" {
+			if dtype, err := xserver.GetSafetensorsDtype(name); err == nil && dtype != "" {
 				modelDetails.QuantizationLevel = dtype
 			}
 		}
@@ -1779,9 +1457,9 @@ func GetModelInfo(req api.ShowRequest) (*api.ShowResponse, error) {
 		msgs[i] = api.Message{Role: msg.Role, Content: msg.Content}
 	}
 
-	mf, err := manifest.ParseNamedManifestForRunner(name, req.Runner)
+	mf, err := manifest.ParseNamedManifest(name)
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 
 	resp := &api.ShowResponse{
@@ -1838,7 +1516,9 @@ func GetModelInfo(req api.ShowRequest) (*api.ShowResponse, error) {
 		if m.Options == nil {
 			m.Options = make(map[string]any)
 		}
-		maps.Copy(m.Options, req.Options)
+		for k, v := range req.Options {
+			m.Options[k] = v
+		}
 	}
 
 	var sb strings.Builder
@@ -1856,20 +1536,23 @@ func GetModelInfo(req api.ShowRequest) (*api.ShowResponse, error) {
 	}
 	resp.Modelfile = sb.String()
 
-	// skip loading tensor information if this is a remote model or a skill
+	// skip loading tensor information if this is a remote model
 	if m.Config.RemoteHost != "" && m.Config.RemoteModel != "" {
-		return resp, m, nil
+		return resp, nil
 	}
 
 	// For safetensors LLM models (experimental), populate ModelInfo from config.json
 	if m.Config.ModelFormat == "safetensors" && slices.Contains(m.Config.Capabilities, "completion") {
-		if info, err := xserver.GetSafetensorsLLMInfoForRunner(name, req.Runner); err == nil {
+		if info, err := xserver.GetSafetensorsLLMInfo(name); err == nil {
 			resp.ModelInfo = info
 		}
-		if tensors, err := xserver.GetSafetensorsTensorInfoForRunner(name, req.Runner); err == nil {
-			resp.Tensors = tensors
+		// Populate tensor info if verbose
+		if req.Verbose {
+			if tensors, err := xserver.GetSafetensorsTensorInfo(name); err == nil {
+				resp.Tensors = tensors
+			}
 		}
-		return resp, m, nil
+		return resp, nil
 	}
 
 	// Image generation models are stored as safetensors tensor layers with no
@@ -1885,14 +1568,9 @@ func GetModelInfo(req api.ShowRequest) (*api.ShowResponse, error) {
 		return resp, nil
 	}
 
-	// Skills don't have model weights, skip tensor loading
-	if m.ModelPath == "" {
-		return resp, nil
-	}
-
 	kvData, tensors, err := getModelData(m.ModelPath, req.Verbose)
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 
 	resp.Template = selectedModelTemplate(m, kvData)
@@ -1901,68 +1579,49 @@ func GetModelInfo(req api.ShowRequest) (*api.ShowResponse, error) {
 			resp.Details.QuantizationLevel = fileType
 		}
 	}
-	defer f.Close()
 
-	resp.ModelInfo = make(map[string]any, f.NumKeyValues())
-	for _, keyValue := range f.KeyValues() {
-		if !slices.Contains([]string{"general.name", "tokenizer.chat_template"}, keyValue.Key) {
-			resp.ModelInfo[keyValue.Key] = keyValue.Value
-		}
-	}
+	delete(kvData, "general.name")
+	delete(kvData, "tokenizer.chat_template")
+	resp.ModelInfo = kvData
 
-	resp.Tensors = make([]api.Tensor, f.NumTensors())
-	for i, tensorInfo := range f.TensorInfos() {
-		resp.Tensors[i] = api.Tensor{
-			Name:  tensorInfo.Name,
-			Type:  tensorInfo.Type.String(),
-			Shape: tensorInfo.Shape,
-		}
+	tensorData := make([]api.Tensor, len(tensors.Items()))
+	for cnt, t := range tensors.Items() {
+		tensorData[cnt] = api.Tensor{Name: t.Name, Type: t.Type(), Shape: t.Shape}
 	}
-	resp.ModelInfo["general.parameter_count"] = f.NumValues()
+	resp.Tensors = tensorData
 
 	if len(m.ProjectorPaths) > 0 {
-		f, err := gguf.Open(m.ProjectorPaths[0])
+		projectorData, _, err := getModelData(m.ProjectorPaths[0], req.Verbose)
 		if err != nil {
-			return nil, nil, err
+			return nil, err
 		}
-		defer f.Close()
-
-		resp.ProjectorInfo = make(map[string]any, f.NumKeyValues())
-		for _, keyValue := range f.KeyValues() {
-			resp.ProjectorInfo[keyValue.Key] = keyValue.Value
-		}
+		resp.ProjectorInfo = projectorData
 	}
 
-	return resp, m, nil
+	return resp, nil
 }
 
-func getModelData(digest string, verbose bool) ([]gguf.KeyValue, []gguf.TensorInfo, error) {
-	f, err := gguf.Open(digest)
+func getModelData(digest string, verbose bool) (ggml.KV, ggml.Tensors, error) {
+	maxArraySize := 0
+	if verbose {
+		maxArraySize = -1
+	}
+	data, err := llm.LoadModel(digest, maxArraySize)
 	if err != nil {
-		return nil, nil, err
-	}
-	defer f.Close()
-
-	keyValues := make([]gguf.KeyValue, f.NumKeyValues())
-	for i, keyValue := range f.KeyValues() {
-		keyValues[i] = keyValue
+		return nil, ggml.Tensors{}, err
 	}
 
-	tensorInfos := make([]gguf.TensorInfo, f.NumTensors())
-	for i, info := range f.TensorInfos() {
-		tensorInfos[i] = info
-	}
+	kv := data.KV()
 
-	return keyValues, tensorInfos, nil
-}
-
-func selectedModelTemplate(m *Model, kv ggml.KV) string {
-	if m.HasChatTemplate && chatModeForModel(m) == chatExecutionModeNative {
-		if chatTemplate := kv.String("tokenizer.chat_template"); chatTemplate != "" {
-			return chatTemplate
+	if !verbose {
+		for k := range kv {
+			if t, ok := kv[k].([]any); len(t) > 5 && ok {
+				kv[k] = []any{}
+			}
 		}
 	}
-	return m.Template.String()
+
+	return kv, data.Tensors(), nil
 }
 
 func selectedModelTemplate(m *Model, kv ggml.KV) string {
@@ -2030,108 +1689,6 @@ func (s *Server) CopyHandler(c *gin.Context) {
 	}
 }
 
-func (s *Server) WebSearchHandler(c *gin.Context) {
-	var req api.SearchRequest
-	if err := c.ShouldBindJSON(&req); errors.Is(err, io.EOF) {
-		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"error": "missing request body"})
-		return
-	} else if err != nil {
-		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-		return
-	}
-
-	if req.Query == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "query is required"})
-		return
-	}
-
-	if req.MaxResults <= 0 {
-		req.MaxResults = 5
-	}
-
-	results, err := s.callWebSearchAPI(req.Query, req.MaxResults)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-		return
-	}
-
-	if len(results) > req.MaxResults {
-		results = results[:req.MaxResults]
-	}
-
-	resp := api.SearchResponse{
-		Results: results,
-	}
-
-	c.JSON(http.StatusOK, resp)
-}
-
-func (s *Server) callWebSearchAPI(query string, maxResults int) ([]api.SearchResult, error) {
-	searchReq := api.SearchRequest{
-		Query:      query,
-		MaxResults: maxResults,
-	}
-
-	client := api.NewClient(&url.URL{Scheme: "https", Host: "ollama.com"}, http.DefaultClient)
-
-	searchResp, err := client.WebSearch(context.Background(), &searchReq)
-	if err != nil {
-		return nil, err
-	}
-
-	return searchResp.Results, nil
-}
-
-func (s *Server) FetchHandler(c *gin.Context) {
-	var req api.FetchRequest
-	if err := c.ShouldBindJSON(&req); errors.Is(err, io.EOF) {
-		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"error": "missing request body"})
-		return
-	} else if err != nil {
-		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-		return
-	}
-
-	// Validate required fields
-	if req.URL == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "url is required"})
-		return
-	}
-
-	// Call the real web fetch API
-	content, title, err := s.callWebFetchAPI(req.URL)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-		return
-	}
-
-	resp := api.FetchResponse{
-		Content: content,
-		Title:   title,
-		URL:     req.URL,
-	}
-
-	c.JSON(http.StatusOK, resp)
-}
-
-func (s *Server) callWebFetchAPI(targetURL string) (string, string, error) {
-	// Create request to ollama.com web fetch API
-	fetchReq := api.FetchRequest{
-		URL: targetURL,
-	}
-
-	// Create client to call ollama.com
-	client := api.NewClient(&url.URL{Scheme: "https", Host: "ollama.com"}, http.DefaultClient)
-
-	// Call the web fetch API
-	fetchResp, err := client.Fetch(context.Background(), &fetchReq)
-	if err != nil {
-		return "", "", err
-	}
-
-	return fetchResp.Content, fetchResp.Title, nil
-}
-
 func (s *Server) HeadBlobHandler(c *gin.Context) {
 	path, err := manifest.BlobsPath(c.Param("digest"))
 	if err != nil {
@@ -2172,6 +1729,7 @@ func (s *Server) CreateBlobHandler(c *gin.Context) {
 		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
+
 	_, err = os.Stat(path)
 	switch {
 	case errors.Is(err, os.ErrNotExist):
@@ -2181,11 +1739,6 @@ func (s *Server) CreateBlobHandler(c *gin.Context) {
 		return
 	default:
 		c.Status(http.StatusOK)
-		return
-	}
-	if c.GetHeader("X-Redirect-Create") == "1" && s.isLocal(c) {
-		c.Header("LocalLocation", path)
-		c.Status(http.StatusTemporaryRedirect)
 		return
 	}
 
@@ -2201,54 +1754,6 @@ func (s *Server) CreateBlobHandler(c *gin.Context) {
 	}
 
 	c.Status(http.StatusCreated)
-}
-
-func (s *Server) IsLocal(c *gin.Context) bool {
-	if authz := c.GetHeader("Authorization"); authz != "" {
-		parts := strings.Split(authz, ":")
-		if len(parts) != 3 {
-			return false
-		}
-
-		clientPublicKey, _, _, _, err := ssh.ParseAuthorizedKey([]byte(fmt.Sprintf("ssh-ed25519 %s", parts[0])))
-		if err != nil {
-			return false
-		}
-
-		// partialRequestData is formatted as http.Method,http.requestURI,timestamp,nonce
-		requestData, err := base64.StdEncoding.DecodeString(parts[1])
-		if err != nil {
-			return false
-		}
-
-		partialRequestDataParts := strings.Split(string(requestData), ",")
-		if len(partialRequestDataParts) != 3 {
-			return false
-		}
-
-		signature, err := base64.StdEncoding.DecodeString(parts[2])
-		if err != nil {
-			return false
-		}
-
-		if err := clientPublicKey.Verify(requestData, &ssh.Signature{Format: clientPublicKey.Type(), Blob: signature}); err != nil {
-			return false
-		}
-
-		serverPublicKey, err := auth.GetPublicKey()
-		if err != nil {
-			log.Fatal(err)
-		}
-
-		if bytes.Equal(serverPublicKey.Marshal(), clientPublicKey.Marshal()) {
-			return true
-		}
-
-		c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
-		return false
-	}
-
-	return false
 }
 
 func isLocalIP(ip netip.Addr) bool {
@@ -2299,43 +1804,6 @@ func allowedHost(host string) bool {
 	return false
 }
 
-func allowedEndpointsMiddleware(perms *auth.APIPermissions) gin.HandlerFunc {
-	return func(c *gin.Context) {
-		if !envconfig.UseAuth() || (c.Request.Method == "HEAD" && c.Request.URL.Path == "/") {
-			c.Next()
-			return
-		}
-
-		token := strings.TrimPrefix(c.Request.Header.Get("Authorization"), "Bearer ")
-		if token == "" {
-			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
-			return
-		}
-
-		pubKey, err := auth.Authenticate(token, fmt.Sprintf("%s,%s", c.Request.Method, c.Request.RequestURI))
-		if err != nil {
-			slog.Error("authentication error", "error", err)
-			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
-			return
-		}
-
-		authorized, name, err := perms.Authorize(pubKey, c.Request.URL.Path)
-		c.Set("username", name)
-		if err != nil {
-			slog.Error("authorization error", "error", err)
-			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
-			return
-		}
-
-		if !authorized {
-			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
-			return
-		}
-
-		c.Next()
-	}
-}
-
 func allowedHostsMiddleware(addr net.Addr) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		if addr == nil {
@@ -2355,11 +1823,6 @@ func allowedHostsMiddleware(addr net.Addr) gin.HandlerFunc {
 
 		if addr, err := netip.ParseAddr(host); err == nil {
 			if addr.IsLoopback() || addr.IsPrivate() || addr.IsUnspecified() || isLocalIP(addr) {
-				if c.Request.Method == http.MethodOptions {
-					c.AbortWithStatus(http.StatusNoContent)
-					return
-				}
-
 				c.Next()
 				return
 			}
@@ -2407,13 +1870,10 @@ func (s *Server) GenerateRoutes() (http.Handler, error) {
 	}
 	corsConfig.AllowOrigins = envconfig.AllowedOrigins()
 
-	r := gin.New()
+	r := gin.Default()
 	r.HandleMethodNotAllowed = true
 	r.Use(
-		gin.LoggerWithFormatter(loggedFormatter),
-		gin.Recovery(),
 		cors.New(corsConfig),
-		allowedEndpointsMiddleware(s.perms),
 		allowedHostsMiddleware(s.addr),
 	)
 
@@ -2424,7 +1884,7 @@ func (s *Server) GenerateRoutes() (http.Handler, error) {
 	r.GET("/api/version", func(c *gin.Context) { c.JSON(http.StatusOK, gin.H{"version": version.Version}) })
 	r.GET("/api/status", s.StatusHandler)
 
-	// Local model cache management
+	// Local model cache management (new implementation is at end of function)
 	r.POST("/api/pull", s.PullHandler)
 	r.POST("/api/push", s.PushHandler)
 	r.HEAD("/api/tags", s.ListHandler)
@@ -2433,7 +1893,7 @@ func (s *Server) GenerateRoutes() (http.Handler, error) {
 	r.DELETE("/api/delete", s.DeleteHandler)
 
 	r.POST("/api/me", s.WhoamiHandler)
-	r.GET("/api/usage", s.UsageHandler)
+
 	r.POST("/api/signout", s.SignoutHandler)
 	// deprecated
 	r.DELETE("/api/user/keys/:encodedKey", s.SignoutHandler)
@@ -2447,16 +1907,12 @@ func (s *Server) GenerateRoutes() (http.Handler, error) {
 	r.POST("/api/experimental/web_fetch", s.WebFetchExperimentalHandler)
 	r.GET("/api/experimental/model-recommendations", s.ModelRecommendationsExperimentalHandler)
 
-	r.GET("/api/usage", s.UsageHandler)
-
 	// Inference
 	r.GET("/api/ps", s.PsHandler)
 	r.POST("/api/generate", s.withInferenceRequestLogging("/api/generate", s.GenerateHandler)...)
 	r.POST("/api/chat", s.withInferenceRequestLogging("/api/chat", s.ChatHandler)...)
 	r.POST("/api/embed", s.EmbedHandler)
 	r.POST("/api/embeddings", s.EmbeddingsHandler)
-	r.POST("/api/web_search", s.WebSearchHandler)
-	r.POST("/api/web_fetch", s.FetchHandler)
 
 	// Inference (OpenAI compatibility)
 	// TODO(cloud-stage-a): apply Modelfile overlay deltas for local models with cloud
@@ -2478,7 +1934,7 @@ func (s *Server) GenerateRoutes() (http.Handler, error) {
 }
 
 func (s *Server) ModelRecommendationsExperimentalHandler(c *gin.Context) {
-	recs := applyPlatformTags(defaultModelRecommendations, runtime.GOOS, runtime.GOARCH)
+	recs := defaultModelRecommendations
 	source := "default"
 	if s.modelCaches != nil && s.modelCaches.recommendations != nil {
 		ctx := context.Background()
@@ -2495,68 +1951,6 @@ func (s *Server) ModelRecommendationsExperimentalHandler(c *gin.Context) {
 	})
 }
 
-func CopyModelHandler(c *gin.Context) {
-	var req api.CopyRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-		return
-	}
-
-	if err := CopyModel(req.Source, req.Destination); err != nil {
-		if os.IsNotExist(err) {
-			c.JSON(http.StatusNotFound, gin.H{"error": fmt.Sprintf("model '%s' not found", req.Source)})
-		} else {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-		}
-		return
-	}
-}
-
-func list(c *gin.Context) {
-	var models []api.ListResponseModel
-	fp, err := GetManifestPath()
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-		return
-	}
-	err = filepath.Walk(fp, func(path string, info os.FileInfo, err error) error {
-		if err != nil {
-			return err
-		}
-		if !info.IsDir() {
-			fi, err := os.Stat(path)
-			if err != nil {
-				return err
-			}
-			path := path[len(fp)+1:]
-			slashIndex := strings.LastIndex(path, "/")
-			if slashIndex == -1 {
-				return nil
-			}
-			tag := path[:slashIndex] + ":" + path[slashIndex+1:]
-			mp := ParseModelPath(tag)
-			manifest, err := GetManifest(mp)
-			if err != nil {
-				log.Printf("couldn't get manifest: %v", err)
-				return err
-			}
-			model := api.ListResponseModel{
-				Name:       mp.GetShortTagname(),
-				Size:       manifest.GetTotalSize(),
-				ModifiedAt: fi.ModTime(),
-			}
-			models = append(models, model)
-		}
-		return nil
-	})
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-		return
-	}
-
-	c.JSON(http.StatusOK, api.ListResponse{models})
-}
-
 func Serve(ln net.Listener) error {
 	slog.SetDefault(logutil.NewLogger(os.Stderr, envconfig.LogLevel()))
 	slog.Info("server config", "env", envconfig.Values())
@@ -2570,13 +1964,6 @@ func Serve(ln net.Listener) error {
 	if err := fixBlobs(blobsDir); err != nil {
 		return err
 	}
-	manifestsDir, err := GetManifestPath()
-	if err != nil {
-		return err
-	}
-	if err := fixManifests(manifestsDir); err != nil {
-		return err
-	}
 
 	if !envconfig.NoPrune() {
 		if _, err := manifest.Manifests(false); err != nil {
@@ -2587,15 +1974,13 @@ func Serve(ln net.Listener) error {
 				return err
 			}
 
-			for _, rootFn := range []func() (string, error){manifest.Path, manifest.V2Path} {
-				manifestsPath, err := rootFn()
-				if err != nil {
-					return err
-				}
+			manifestsPath, err := manifest.Path()
+			if err != nil {
+				return err
+			}
 
-				if err := manifest.PruneDirectory(manifestsPath); err != nil && !os.IsNotExist(err) {
-					return err
-				}
+			if err := manifest.PruneDirectory(manifestsPath); err != nil {
+				return err
 			}
 		}
 	}
@@ -2620,7 +2005,6 @@ func Serve(ln net.Listener) error {
 	http.Handle("/", h)
 
 	ctx, done := context.WithCancel(context.Background())
-
 	schedCtx, schedDone := context.WithCancel(ctx)
 	sched := InitScheduler(schedCtx)
 	s.sched = sched
@@ -2644,9 +2028,6 @@ func Serve(ln net.Listener) error {
 	signal.Notify(signals, syscall.SIGINT, syscall.SIGTERM)
 	go func() {
 		<-signals
-		if s.stats != nil {
-			s.stats.Stop()
-		}
 		srvr.Close()
 		schedDone()
 		sched.unloadAllRunners()
@@ -2663,24 +2044,6 @@ func Serve(ln net.Listener) error {
 	// This will log warnings to the log in case we have problems with detected GPUs
 	gpus := discover.GPUDevices(ctx, nil)
 	discover.LogDetails(gpus)
-
-	// Set GPU info for usage reporting
-	if s.stats != nil {
-		usage.GPUInfoFunc = func() []usage.GPU {
-			var result []usage.GPU
-			for _, gpu := range gpus {
-				result = append(result, usage.GPU{
-					Name:         gpu.Name,
-					VRAMBytes:    gpu.TotalMemory,
-					ComputeMajor: gpu.ComputeMajor,
-					ComputeMinor: gpu.ComputeMinor,
-					DriverMajor:  gpu.DriverMajor,
-					DriverMinor:  gpu.DriverMinor,
-				})
-			}
-			return result
-		}
-	}
 
 	var totalVRAM uint64
 	for _, gpu := range gpus {
@@ -2787,16 +2150,11 @@ func streamResponse(c *gin.Context, ch chan any) {
 
 func (s *Server) StatusHandler(c *gin.Context) {
 	disabled, source := internalcloud.Status()
-	contextLength := int(envconfig.ContextLength())
-	if contextLength == 0 {
-		contextLength = s.defaultNumCtx
-	}
 	c.JSON(http.StatusOK, api.StatusResponse{
 		Cloud: api.CloudStatus{
 			Disabled: disabled,
 			Source:   source,
 		},
-		ContextLength: contextLength,
 	})
 }
 
@@ -2829,14 +2187,6 @@ func (s *Server) webExperimentalProxyHandler(c *gin.Context, proxyPath, disabled
 }
 
 func (s *Server) WhoamiHandler(c *gin.Context) {
-	// Check local cache first
-	state, err := auth.GetSignInState()
-	if err == nil && state.Name != "" {
-		c.JSON(http.StatusOK, &api.UserResponse{Name: state.Name, Email: state.Email})
-		return
-	}
-
-	// No local cache - try network
 	// todo allow other hosts
 	u, err := url.Parse("https://ollama.com")
 	if err != nil {
@@ -2890,10 +2240,6 @@ func (s *Server) WhoamiHandler(c *gin.Context) {
 	c.JSON(http.StatusOK, user)
 }
 
-func (s *Server) UsageHandler(c *gin.Context) {
-	proxyCloudRequest(c, nil, cloudErrUsageUnavailable)
-}
-
 func (s *Server) SignoutHandler(c *gin.Context) {
 	pubKey, err := auth.GetPublicKey()
 	if err != nil {
@@ -2924,16 +2270,7 @@ func (s *Server) SignoutHandler(c *gin.Context) {
 		return
 	}
 
-	// Clear local sign-in cache
-	if err := auth.ClearSignInState(); err != nil {
-		slog.Warn("failed to clear local sign-in state", "error", err)
-	}
-
 	c.JSON(http.StatusOK, nil)
-}
-
-func (s *Server) UsageHandler(c *gin.Context) {
-	c.JSON(http.StatusOK, s.usage.Stats())
 }
 
 func (s *Server) PsHandler(c *gin.Context) {
@@ -2968,63 +2305,6 @@ func (s *Server) PsHandler(c *gin.Context) {
 	})
 
 	c.JSON(http.StatusOK, api.ProcessResponse{Models: models})
-}
-
-func (s *Server) UsageHandler(c *gin.Context) {
-	// Get total VRAM used by Ollama
-	s.sched.loadedMu.Lock()
-	var totalOllamaVRAM uint64
-	for _, runner := range s.sched.loaded {
-		totalOllamaVRAM += runner.vramSize
-	}
-	s.sched.loadedMu.Unlock()
-
-	var resp api.UsageResponse
-
-	// Get GPU/device info
-	gpus := discover.GPUDevices(c.Request.Context(), nil)
-
-	// On Apple Silicon, use system memory instead of Metal's recommendedMaxWorkingSetSize
-	// because unified memory means GPU and CPU share the same physical RAM pool
-	var sysTotal, sysFree uint64
-	if runtime.GOOS == "darwin" && runtime.GOARCH == "arm64" {
-		sysInfo := discover.GetSystemInfo()
-		sysTotal = sysInfo.TotalMemory
-		sysFree = sysInfo.FreeMemory
-	}
-
-	for _, gpu := range gpus {
-		total := gpu.TotalMemory
-		free := gpu.FreeMemory
-
-		// On Apple Silicon, override with system memory values
-		if runtime.GOOS == "darwin" && runtime.GOARCH == "arm64" && sysTotal > 0 {
-			total = sysTotal
-			free = sysFree
-		}
-
-		used := total - free
-		ollamaUsed := min(totalOllamaVRAM, used)
-		otherUsed := used - ollamaUsed
-
-		// Use Description for Name (actual device name like "Apple M2 Max")
-		// Fall back to backend name if Description is empty
-		name := gpu.Description
-		if name == "" {
-			name = gpu.Name
-		}
-
-		resp.GPUs = append(resp.GPUs, api.GPUUsage{
-			Name:    name,
-			Backend: gpu.Library,
-			Total:   total,
-			Free:    free,
-			Used:    ollamaUsed,
-			Other:   otherUsed,
-		})
-	}
-
-	c.JSON(http.StatusOK, resp)
 }
 
 func toolCallId() string {
@@ -3179,13 +2459,6 @@ func (s *Server) ChatHandler(c *gin.Context) {
 		return
 	}
 
-	if runner, err := normalizeRunner(req.Runner); err != nil {
-		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-		return
-	} else {
-		req.Runner = runner
-	}
-
 	modelRef, err := parseAndValidateModelRef(req.Model)
 	if err != nil {
 		writeModelRefParseError(c, err, http.StatusBadRequest, "model is required")
@@ -3210,13 +2483,11 @@ func (s *Server) ChatHandler(c *gin.Context) {
 		return
 	}
 
-	m, err := GetModelForRunner(name.String(), req.Runner)
+	m, err := s.getModel(name.String())
 	if err != nil {
 		switch {
 		case os.IsNotExist(err):
 			c.JSON(http.StatusNotFound, gin.H{"error": fmt.Sprintf("model '%s' not found", req.Model)})
-		case errors.Is(err, manifest.ErrNoCompatibleManifest):
-			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		case err.Error() == errtypes.InvalidModelNameErrMsg:
 			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		default:
@@ -3298,10 +2569,6 @@ func (s *Server) ChatHandler(c *gin.Context) {
 		c.Header("Content-Type", contentType)
 
 		fn := func(resp api.ChatResponse) error {
-			if resp.Done {
-				s.usage.Record(origModel, resp.PromptEvalCount, resp.EvalCount)
-			}
-
 			resp.Model = origModel
 			resp.RemoteModel = m.Config.RemoteModel
 			resp.RemoteHost = m.Config.RemoteHost
@@ -3369,12 +2636,12 @@ func (s *Server) ChatHandler(c *gin.Context) {
 		}
 	}
 
-	r, m, opts, err := s.scheduleRunner(c.Request.Context(), name.String(), caps, req.Options, req.KeepAlive, req.Shift)
+	r, m, opts, err := s.scheduleRunner(c.Request.Context(), m, caps, req.Options, req.KeepAlive, req.Shift)
 	if errors.Is(err, errCapabilityCompletion) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": fmt.Sprintf("%q does not support chat", req.Model)})
 		return
 	} else if err != nil {
-		s.handleScheduleError(c, req.Model, err)
+		handleScheduleError(c, req.Model, err)
 		return
 	}
 
@@ -3442,9 +2709,6 @@ func (s *Server) ChatHandler(c *gin.Context) {
 		return
 	}
 
-	// Set numKeep to protect system prompt + tools from truncation during context shift
-	opts.NumKeep = numKeep
-
 	// If debug mode is enabled, return the rendered template instead of calling the model
 	if req.DebugRenderOnly {
 		c.JSON(http.StatusOK, api.ChatResponse{
@@ -3488,6 +2752,7 @@ func (s *Server) ChatHandler(c *gin.Context) {
 		defer close(ch)
 
 		structuredOutputsState := structuredOutputsState_None
+		var firstPassMetrics api.Metrics
 
 		for {
 			var tb strings.Builder
@@ -3506,44 +2771,61 @@ func (s *Server) ChatHandler(c *gin.Context) {
 			if req.Format != nil && structuredOutputsState == structuredOutputsState_None && !forceImmediate && ((builtinParser != nil || thinkingState != nil) && slices.Contains(m.Capabilities(), model.CapabilityThinking)) {
 				currentFormat = nil
 			}
+			includeIntermediateMetrics := req.Format != nil && currentFormat == nil
 
 			// sets up new context given parent context per request
 			ctx, cancel := context.WithCancel(c.Request.Context())
 
+			var parserErr error
+
 			err := r.Completion(ctx, llm.CompletionRequest{
-				Prompt:          prompt,
-				Media:           media,
-				Format:          currentFormat,
-				Options:         opts,
-				Shift:           req.Shift == nil || *req.Shift,
-				Truncate:        truncate,
-				Logprobs:        req.Logprobs,
-				TopLogprobs:     req.TopLogprobs,
-				PreservedTokens: preservedTokensForCompletion(builtinParser),
-				ToolCallTag:     toolCallTagForCompletion(toolParser),
-				LeadingBOS:      leadingBOSForModel(m),
+				Prompt:                     prompt,
+				Media:                      media,
+				Format:                     currentFormat,
+				Options:                    opts,
+				Shift:                      req.Shift == nil || *req.Shift,
+				Truncate:                   truncate,
+				Logprobs:                   req.Logprobs,
+				TopLogprobs:                req.TopLogprobs,
+				PreservedTokens:            preservedTokensForCompletion(builtinParser),
+				ToolCallTag:                toolCallTagForCompletion(toolParser),
+				LeadingBOS:                 leadingBOSForModel(m),
+				IncludeIntermediateMetrics: includeIntermediateMetrics,
 			}, func(r llm.CompletionResponse) {
+				metrics := api.Metrics{
+					PromptEvalCount:       r.PromptEvalCount,
+					PromptEvalCachedCount: r.PromptEvalCachedCount,
+					PromptEvalDuration:    r.PromptEvalDuration,
+					EvalCount:             r.EvalCount,
+					EvalDuration:          r.EvalDuration,
+				}
+				if includeIntermediateMetrics {
+					firstPassMetrics = metrics
+					if !r.Done {
+						metrics = api.Metrics{}
+					}
+				} else if structuredOutputsState == structuredOutputsState_Applying && r.Done {
+					// Treat the restart as generation work: retain the original prompt metrics and fold in the second prefill.
+					metrics.PromptEvalCount = firstPassMetrics.PromptEvalCount
+					metrics.PromptEvalCachedCount = firstPassMetrics.PromptEvalCachedCount
+					metrics.PromptEvalDuration = firstPassMetrics.PromptEvalDuration
+					metrics.EvalCount += firstPassMetrics.EvalCount
+					metrics.EvalDuration += firstPassMetrics.EvalDuration + r.PromptEvalDuration
+				}
+
 				res := api.ChatResponse{
 					Model:     req.Model,
 					CreatedAt: time.Now().UTC(),
 					Message:   api.Message{Role: "assistant", Content: r.Content},
 					Done:      r.Done,
-					Metrics: api.Metrics{
-						PromptEvalCount:       r.PromptEvalCount,
-						PromptEvalCachedCount: r.PromptEvalCachedCount,
-						PromptEvalDuration:    r.PromptEvalDuration,
-						EvalCount:             r.EvalCount,
-						EvalDuration:          r.EvalDuration,
-					},
-					Logprobs: toAPILogprobs(r.Logprobs),
+					Metrics:   metrics,
+					Logprobs:  toAPILogprobs(r.Logprobs),
 				}
 
 				if r.Done {
 					res.DoneReason = r.DoneReason.String()
 					res.TotalDuration = time.Since(checkpointStart)
 					res.LoadDuration = checkpointLoaded.Sub(checkpointStart)
-
-					s.usage.Record(req.Model, r.PromptEvalCount, r.EvalCount)
 				}
 
 				if builtinParser != nil {
@@ -3551,7 +2833,8 @@ func (s *Server) ChatHandler(c *gin.Context) {
 
 					content, thinking, toolCalls, err := builtinParser.Add(r.Content, r.Done)
 					if err != nil {
-						ch <- gin.H{"error": err.Error()}
+						parserErr = err
+						cancel()
 						return
 					}
 
@@ -3630,6 +2913,10 @@ func (s *Server) ChatHandler(c *gin.Context) {
 
 				ch <- res
 			})
+			if parserErr != nil {
+				ch <- gin.H{"error": parserErr.Error()}
+				return
+			}
 			if err != nil {
 				if structuredOutputsState == structuredOutputsState_ReadyToApply && strings.Contains(err.Error(), "context canceled") && c.Request.Context().Err() == nil {
 					// only ignores error if it's a context cancellation due to setting structured outputs
@@ -3752,23 +3039,8 @@ func (s *Server) handleNativeChat(c *gin.Context, req api.ChatRequest, m *Model,
 			if res.Message.Role == "" {
 				res.Message.Role = "assistant"
 			}
-			for _, p := range r.LogProbs {
-				res.LogProbs = append(res.LogProbs, api.TokenProbs{
-					TokenID: p.TokenID,
-					LogProb: p.LogProb,
-					Token:   p.Token,
-				})
-			}
 
 			if r.Done {
-				slog.Debug("min duration", "duration", minDuration)
-				slog.Debug("max duration", "duration", maxDuration)
-				slog.Debug("total duration", "duration", totalDuration)
-				slog.Debug("check count", "count", checkCount)
-				// slog.Debug("average duration", "duration", totalDuration/time.Duration(checkCount))
-				// if sb.Len() > 0 {
-				// 	res.Message.Content = sb.String()
-				// }
 				res.DoneReason = r.DoneReason.String()
 				res.TotalDuration = time.Since(checkpointStart)
 				res.LoadDuration = checkpointLoaded.Sub(checkpointStart)
@@ -3857,30 +3129,9 @@ func countChatImages(msgs []api.Message) int {
 	return count
 }
 
-func (s *Server) versionHandler(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
-
-	data := struct {
-		Version string `json:"version"`
-	}{
-		Version: version.Version,
-	}
-
-	w.Header().Set("Content-Type", "application/json")
-	if err := json.NewEncoder(w).Encode(data); err != nil {
-		http.Error(w, "Failed to encode version", http.StatusInternalServerError)
-	}
-}
-
-func (s *Server) handleScheduleError(c *gin.Context, name string, err error) {
-	s.usageError()
+func handleScheduleError(c *gin.Context, name string, err error) {
 	switch {
 	case errors.Is(err, errCapabilities), errors.Is(err, errRequired):
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-	case errors.Is(err, manifest.ErrNoCompatibleManifest):
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 	case errors.Is(err, context.Canceled):
 		c.JSON(499, gin.H{"error": "request canceled"})

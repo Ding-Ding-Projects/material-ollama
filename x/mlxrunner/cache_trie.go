@@ -21,36 +21,7 @@ type trieNode struct {
 	children  []*trieNode
 	lastUsed  time.Time        // for LRU eviction
 	snapshots []cache.Snapshot // per-layer paged-out snapshot data (nil if not paged out)
-	restore   restorePointKind // explicit restore point kind, if any
-}
-
-type restorePointKind uint8
-
-const (
-	restorePointNone restorePointKind = iota
-	restorePointEphemeral
-	restorePointDurable
-)
-
-func (k restorePointKind) String() string {
-	switch k {
-	case restorePointEphemeral:
-		return "ephemeral"
-	case restorePointDurable:
-		return "durable"
-	default:
-		return "none"
-	}
-}
-
-func (n *trieNode) isRestorePoint() bool {
-	return n.restore != restorePointNone
-}
-
-func (n *trieNode) markRestorePoint(kind restorePointKind) {
-	if kind > n.restore {
-		n.restore = kind
-	}
+	user      bool             // true = explicit restore point (resist auto-merge)
 }
 
 // startOffset returns the cumulative token offset at the start of this node's edge.
@@ -188,23 +159,17 @@ func findBestMatch(root *trieNode, tokens []trieKey) (path []*trieNode, matched 
 	return path, pos
 }
 
-// appendTokens either creates a new child node or extends the leaf in place,
-// returning the node that now holds the tokens.
-func (n *trieNode) appendTokens(root *trieNode, tokens []trieKey, endOffset int) *trieNode {
-	if n == root || len(n.children) > 0 || n.hasSnapshots() {
-		child := &trieNode{
-			tokens:    make([]trieKey, len(tokens)),
-			endOffset: endOffset,
-			parent:    n,
-			lastUsed:  n.lastUsed,
-		}
-		copy(child.tokens, tokens)
-		n.children = append(n.children, child)
-		return child
+// appendChild creates a child node holding the tokens.
+func (n *trieNode) appendChild(tokens []trieKey, endOffset int) *trieNode {
+	child := &trieNode{
+		tokens:    make([]trieKey, len(tokens)),
+		endOffset: endOffset,
+		parent:    n,
+		lastUsed:  n.lastUsed,
 	}
-	n.tokens = append(n.tokens, tokens...)
-	n.endOffset = endOffset
-	return n
+	copy(child.tokens, tokens)
+	n.children = append(n.children, child)
+	return child
 }
 
 // removeNode removes a leaf node from the trie.
@@ -324,9 +289,8 @@ func mergeWithChild(node *trieNode, caches []cache.Cache, counter *int64) {
 		gc.parent = node
 	}
 
-	// After merging, the node's endOffset moves to the child boundary, so only
-	// the child's restore point can remain semantically valid.
-	node.restore = child.restore
+	// Inherit user flag from child if child was a user-created snapshot node.
+	node.user = child.user
 
 	// Update lastUsed to the more recent of the two.
 	if child.lastUsed.After(node.lastUsed) {

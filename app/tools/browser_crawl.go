@@ -5,7 +5,6 @@ package tools
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 )
 
@@ -88,7 +87,7 @@ func (g *BrowserCrawler) Schema() map[string]any {
 func (g *BrowserCrawler) Execute(ctx context.Context, args map[string]any) (*CrawlResponse, error) {
 	urlsRaw, ok := args["urls"].([]any)
 	if !ok {
-		return nil, errors.New("urls parameter is required and must be an array of strings")
+		return nil, fmt.Errorf("urls parameter is required and must be an array of strings")
 	}
 
 	urls := make([]string, 0, len(urlsRaw))
@@ -99,7 +98,7 @@ func (g *BrowserCrawler) Execute(ctx context.Context, args map[string]any) (*Cra
 	}
 
 	if len(urls) == 0 {
-		return nil, errors.New("at least one URL is required")
+		return nil, fmt.Errorf("at least one URL is required")
 	}
 
 	return g.performWebCrawl(ctx, urls)

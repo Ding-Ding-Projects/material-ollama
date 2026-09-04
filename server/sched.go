@@ -10,7 +10,6 @@ import (
 	"runtime"
 	"slices"
 	"sort"
-	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -86,7 +85,6 @@ type Scheduler struct {
 // on a large GPU can cause stalling
 var defaultModelsPerGPU = 3
 
-
 var ErrMaxQueue = errors.New("server busy, please try again.  maximum pending requests exceeded")
 
 func InitScheduler(ctx context.Context) *Scheduler {
@@ -108,17 +106,13 @@ func InitScheduler(ctx context.Context) *Scheduler {
 
 // schedulerModelKey returns the scheduler map key for a model.
 // GGUF-backed models use ModelPath; safetensors/image models without a
-// ModelPath use the selected manifest digest so distinct child manifests don't
-// collide.
+// ModelPath use manifest digest so distinct models don't collide.
 func schedulerModelKey(m *Model) string {
 	if m == nil {
 		return ""
 	}
 	if m.ModelPath != "" {
 		return m.ModelPath
-	}
-	if m.ManifestDigest != "" {
-		return "manifest:" + m.ManifestDigest
 	}
 	if m.Digest != "" {
 		return "digest:" + m.Digest
@@ -226,10 +220,6 @@ func (s *Scheduler) Run(ctx context.Context) {
 	go func() {
 		s.processCompleted(ctx)
 	}()
-
-	// go func() {
-	// 	could clean up whisper servers in init thread
-	// }
 }
 
 func (s *Scheduler) processPending(ctx context.Context) {
@@ -243,9 +233,6 @@ func (s *Scheduler) processPending(ctx context.Context) {
 		case pending := <-s.pendingReqCh:
 			// Block other requests until we get this pending request running
 			pending.schedAttempts++
-			if pending.origNumCtx == 0 {
-				pending.origNumCtx = pending.opts.NumCtx
-			}
 
 			if pending.ctx.Err() != nil {
 				slog.Debug("pending request cancelled or timed out, skipping scheduling")
@@ -1391,16 +1378,6 @@ func (runner *runnerRef) unload() {
 	runner.contextShift = false
 }
 
-func runnerOptionsEqual(a, b api.Runner) bool {
-	// if one of the options is -1, then it means it needs to be dynamically calculated
-	if a.NumCtx == -1 {
-		a.NumCtx = b.NumCtx
-	} else if b.NumCtx == -1 {
-		b.NumCtx = a.NumCtx
-	}
-	return reflect.DeepEqual(a, b)
-}
-
 func (runner *runnerRef) needsReload(ctx context.Context, req *LlmRequest) bool {
 	slog.Debug("evaluating already loaded", "model", schedulerModelKey(req.model))
 	runner.refMu.Lock()
@@ -1416,7 +1393,7 @@ func (runner *runnerRef) needsReload(ctx context.Context, req *LlmRequest) bool 
 	}
 
 	// Don't reload runner if num_gpu=-1 was provided
-	optsExisting := runner.Runner
+	optsExisting := runner.Options.Runner
 	optsNew := req.opts.Runner
 	optsNew.NumCtx = effectiveContext(optsNew.NumCtx, runner.trainContext)
 	if runner.numCtxAuto && req.numCtxAuto {
@@ -1546,7 +1523,7 @@ func (runner *runnerRef) LogValue() slog.Value {
 		slog.String("model", modelID),
 	)
 	if runner.Options != nil {
-		attrs = append(attrs, slog.Int("num_ctx", runner.NumCtx))
+		attrs = append(attrs, slog.Int("num_ctx", runner.Options.NumCtx))
 	}
 	return slog.GroupValue(attrs...)
 }

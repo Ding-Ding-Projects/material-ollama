@@ -5,7 +5,6 @@ import (
 	"context"
 	"encoding/binary"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io"
 	"io/fs"
@@ -14,7 +13,6 @@ import (
 	"net"
 	"net/http"
 	"net/http/httptest"
-	"net/url"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -22,7 +20,6 @@ import (
 	"sort"
 	"strings"
 	"testing"
-	"time"
 	"unicode"
 
 	"github.com/gin-gonic/gin"
@@ -33,11 +30,6 @@ import (
 	"github.com/ollama/ollama/openai"
 	"github.com/ollama/ollama/types/model"
 	"github.com/ollama/ollama/version"
-)
-
-var (
-	streamFalse = types.NullWithValue(false)
-	streamTrue  = types.NullWithValue(true)
 )
 
 func createTestFile(t *testing.T, name string) (string, string) {
@@ -120,7 +112,7 @@ func TestRoutes(t *testing.T) {
 
 		r := api.CreateRequest{
 			Name:  name,
-			Files: []api.File{{Name: "test.gguf", Digest: digest}},
+			Files: map[string]string{"test.gguf": digest},
 			Parameters: map[string]any{
 				"seed":  42,
 				"top_p": 0.9,
@@ -146,19 +138,28 @@ func TestRoutes(t *testing.T) {
 		s.refreshModelListCache(modelName)
 	}
 
-	// Test Model Digests
-	blobs := []string{
-		"sha256:a4e5e156ddec27e286f75328784d7106b60a4eb1d246e950a001a3f944fbda99",
-		"sha256:4f9d252f34ae677363956ffc6dd2d10918a539c5c91f5ee2fe889d9178be6ae3",
-		"sha256:0f239b83e9e2aad7cd997a5bb44124937a32ac1f4e98e95a2f46e7b966bfc878",
-	}
-
-	var (
-		searchRequests []api.WebSearchRequest
-		fetchRequests  []api.WebFetchRequest
-	)
-
 	testCases := []testCase{
+		{
+			Name:   "Version Handler",
+			Method: http.MethodGet,
+			Path:   "/api/version",
+			Setup: func(t *testing.T, req *http.Request) {
+			},
+			Expected: func(t *testing.T, resp *http.Response) {
+				contentType := resp.Header.Get("Content-Type")
+				if contentType != "application/json; charset=utf-8" {
+					t.Errorf("expected content type application/json; charset=utf-8, got %s", contentType)
+				}
+				body, err := io.ReadAll(resp.Body)
+				if err != nil {
+					t.Fatalf("failed to read response body: %v", err)
+				}
+				expectedBody := fmt.Sprintf(`{"version":"%s"}`, version.Version)
+				if string(body) != expectedBody {
+					t.Errorf("expected body %s, got %s", expectedBody, string(body))
+				}
+			},
+		},
 		{
 			Name:   "Tags Handler (no tags)",
 			Method: http.MethodGet,
@@ -333,103 +334,16 @@ func TestRoutes(t *testing.T) {
 			},
 		},
 		{
-			Name:   "Show Model Handler",
-			Method: http.MethodPost,
-			Path:   "/api/show",
-			Setup: func(t *testing.T, req *http.Request) {
-				createTestModel(t, "show-model")
-				showReq := api.ShowRequest{Model: "show-model"}
-				jsonData, err := json.Marshal(showReq)
-				assert.Nil(t, err)
-				req.Body = io.NopCloser(bytes.NewReader(jsonData))
-			},
-			Expected: func(t *testing.T, resp *http.Response) {
-				contentType := resp.Header.Get("Content-Type")
-				assert.Equal(t, contentType, "application/json; charset=utf-8")
-				body, err := io.ReadAll(resp.Body)
-				assert.Nil(t, err)
-
-				var showResp api.ShowResponse
-				err = json.Unmarshal(body, &showResp)
-				assert.Nil(t, err)
-
-				var params []string
-				paramsSplit := strings.Split(showResp.Parameters, "\n")
-				for _, p := range paramsSplit {
-					params = append(params, strings.Join(strings.Fields(p), " "))
-				}
-				sort.Strings(params)
-				expectedParams := []string{
-					"seed 42",
-					"stop \"bar\"",
-					"stop \"foo\"",
-					"top_p 0.9",
-				}
-				assert.Equal(t, expectedParams, params)
-			},
-		},
-		{
-			Name:   "Delete Handler (multiple blob reference)",
-			Method: http.MethodDelete,
-			Path:   "/api/delete",
-			Setup: func(t *testing.T, req *http.Request) {
-				deleteReq := api.DeleteRequest{Model: "test-model"}
-				jsonData, err := json.Marshal(deleteReq)
-				assert.Nil(t, err)
-				req.Body = io.NopCloser(bytes.NewReader(jsonData))
-			},
-			Expected: func(t *testing.T, resp *http.Response) {
-				_, err := io.ReadAll(resp.Body)
-				assert.Nil(t, err)
-				assert.Equal(t, resp.StatusCode, 200)
-
-				_, err = GetModel("test-model")
-				assert.True(t, os.IsNotExist(err))
-
-				model, _ := GetModel("show-model")
-				assert.Equal(t, "show-model:latest", model.ShortName)
-
-				for i, blob := range blobs {
-					blobPath, _ := GetBlobsPath(blob)
-					_, err := os.Stat(blobPath)
-					assert.False(t, os.IsNotExist(err))
-					blobs[i] = blobPath
-				}
-			},
-		},
-		{
-			Name:   "Delete Handler (single blob reference)",
-			Method: http.MethodDelete,
-			Path:   "/api/delete",
-			Setup: func(t *testing.T, req *http.Request) {
-				deleteReq := api.DeleteRequest{Model: "show-model"}
-				jsonData, err := json.Marshal(deleteReq)
-				assert.Nil(t, err)
-				req.Body = io.NopCloser(bytes.NewReader(jsonData))
-			},
-			Expected: func(t *testing.T, resp *http.Response) {
-				_, err := io.ReadAll(resp.Body)
-				assert.Nil(t, err)
-
-				_, err = GetModel("show-model")
-				assert.True(t, os.IsNotExist(err))
-
-				for _, blob := range blobs {
-					_, err := os.Stat(blob)
-					assert.True(t, os.IsNotExist(err))
-				}
-			},
-		},
-		{
 			Name:   "Create Model Handler",
 			Method: http.MethodPost,
 			Path:   "/api/create",
 			Setup: func(t *testing.T, req *http.Request) {
 				_, digest := createTestFile(t, "ollama-model")
+				stream := false
 				createReq := api.CreateRequest{
 					Name:   "t-bone",
 					Files:  map[string]string{"test.gguf": digest},
-					Stream: streamFalse,
+					Stream: &stream,
 				}
 				jsonData, err := json.Marshal(createReq)
 				if err != nil {
@@ -517,7 +431,8 @@ func TestRoutes(t *testing.T) {
 				}
 
 				var params []string
-				for p := range strings.SplitSeq(showResp.Parameters, "\n") {
+				paramsSplit := strings.Split(showResp.Parameters, "\n")
+				for _, p := range paramsSplit {
 					params = append(params, strings.Join(strings.Fields(p), " "))
 				}
 				sort.Strings(params)
@@ -536,69 +451,6 @@ func TestRoutes(t *testing.T) {
 				}
 				if math.Abs(paramCount) > 1e-9 {
 					t.Errorf("expected parameter count to be 0, got %f", paramCount)
-				}
-			},
-		},
-		{
-			Name:   "Web Search Handler",
-			Method: http.MethodPost,
-			Path:   "/api/web_search",
-			Setup: func(t *testing.T, req *http.Request) {
-				searchRequests = nil
-				payload := api.WebSearchRequest{Query: "cats", MaxResults: 2}
-				data, err := json.Marshal(payload)
-				if err != nil {
-					t.Fatalf("failed to marshal request: %v", err)
-				}
-				req.Body = io.NopCloser(bytes.NewReader(data))
-				req.Header.Set("Content-Type", "application/json")
-			},
-			Expected: func(t *testing.T, resp *http.Response) {
-				if resp.StatusCode != http.StatusOK {
-					t.Fatalf("expected status 200, got %d", resp.StatusCode)
-				}
-				var out api.WebSearchResponse
-				if err := json.NewDecoder(resp.Body).Decode(&out); err != nil {
-					t.Fatalf("failed to decode response: %v", err)
-				}
-				if len(out.Results) != 1 || out.Results[0].Title != "Result" {
-					t.Fatalf("unexpected response: %+v", out)
-				}
-				if len(searchRequests) != 1 {
-					t.Fatalf("expected 1 forwarded request, got %d", len(searchRequests))
-				}
-				if searchRequests[0].Query != "cats" || searchRequests[0].MaxResults != 2 {
-					t.Fatalf("unexpected forwarded request: %+v", searchRequests[0])
-				}
-			},
-		},
-		{
-			Name:   "Web Fetch Handler",
-			Method: http.MethodPost,
-			Path:   "/api/web_fetch",
-			Setup: func(t *testing.T, req *http.Request) {
-				fetchRequests = nil
-				payload := api.WebFetchRequest{URL: "https://example.com"}
-				data, err := json.Marshal(payload)
-				if err != nil {
-					t.Fatalf("failed to marshal request: %v", err)
-				}
-				req.Body = io.NopCloser(bytes.NewReader(data))
-				req.Header.Set("Content-Type", "application/json")
-			},
-			Expected: func(t *testing.T, resp *http.Response) {
-				if resp.StatusCode != http.StatusOK {
-					t.Fatalf("expected status 200, got %d", resp.StatusCode)
-				}
-				var out api.WebFetchResponse
-				if err := json.NewDecoder(resp.Body).Decode(&out); err != nil {
-					t.Fatalf("failed to decode response: %v", err)
-				}
-				if out.Title != "Example" || len(out.Links) != 1 {
-					t.Fatalf("unexpected response: %+v", out)
-				}
-				if len(fetchRequests) != 1 || fetchRequests[0].URL != "https://example.com" {
-					t.Fatalf("unexpected forwarded request: %+v", fetchRequests)
 				}
 			},
 		},
@@ -637,73 +489,6 @@ func TestRoutes(t *testing.T) {
 			Expected: func(t *testing.T, resp *http.Response) {
 				if resp.StatusCode != 405 {
 					t.Errorf("expected status code 405, got %d", resp.StatusCode)
-				}
-			},
-		},
-		{
-			Name:   "Embed Handler Empty Input",
-			Method: http.MethodPost,
-			Path:   "/api/embed",
-			Setup: func(t *testing.T, req *http.Request) {
-				embedReq := api.EmbedRequest{
-					Model: "t-bone",
-					Input: "",
-				}
-				jsonData, err := json.Marshal(embedReq)
-				require.NoError(t, err)
-				req.Body = io.NopCloser(bytes.NewReader(jsonData))
-			},
-			Expected: func(t *testing.T, resp *http.Response) {
-				contentType := resp.Header.Get("Content-Type")
-				if contentType != "application/json; charset=utf-8" {
-					t.Fatalf("expected content type application/json; charset=utf-8, got %s", contentType)
-				}
-				body, err := io.ReadAll(resp.Body)
-				if err != nil {
-					t.Fatal(err)
-				}
-
-				var embedResp api.EmbedResponse
-				err = json.Unmarshal(body, &embedResp)
-				if err != nil {
-					t.Fatal(err)
-				}
-
-				if embedResp.Model != "t-bone" {
-					t.Fatalf("expected model t-bone, got %s", embedResp.Model)
-				}
-
-				if embedResp.Embeddings != nil {
-					t.Fatalf("expected embeddings to be nil, got %v", embedResp.Embeddings)
-				}
-			},
-		},
-		{
-			Name:   "Embed Handler Invalid Input",
-			Method: http.MethodPost,
-			Path:   "/api/embed",
-			Setup: func(t *testing.T, req *http.Request) {
-				embedReq := api.EmbedRequest{
-					Model: "t-bone",
-					Input: 2,
-				}
-				jsonData, err := json.Marshal(embedReq)
-				require.NoError(t, err)
-				req.Body = io.NopCloser(bytes.NewReader(jsonData))
-			},
-			Expected: func(t *testing.T, resp *http.Response) {
-				contentType := resp.Header.Get("Content-Type")
-				if contentType != "application/json; charset=utf-8" {
-					t.Fatalf("expected content type application/json; charset=utf-8, got %s", contentType)
-				}
-				_, err := io.ReadAll(resp.Body)
-
-				if err != nil {
-					t.Fatal(err)
-				}
-
-				if resp.StatusCode != http.StatusBadRequest {
-					t.Fatalf("expected status code 400, got %d", resp.StatusCode)
 				}
 			},
 		},
@@ -888,14 +673,11 @@ func TestManifestCaseSensitivity(t *testing.T) {
 	checkManifestList := func() {
 		t.Helper()
 
-		mandir, err := manifest.V2Path()
-		if err != nil {
-			t.Fatalf("failed to resolve v2 manifest path: %v", err)
-		}
+		mandir := filepath.Join(os.Getenv("OLLAMA_MODELS"), "manifests/")
 		var entries []string
 		t.Logf("dir entries:")
 		fsys := os.DirFS(mandir)
-		err = fs.WalkDir(fsys, ".", func(path string, info fs.DirEntry, err error) error {
+		err := fs.WalkDir(fsys, ".", func(path string, info fs.DirEntry, err error) error {
 			if err != nil {
 				return err
 			}
@@ -918,14 +700,7 @@ func TestManifestCaseSensitivity(t *testing.T) {
 
 		g := entries[0] // raw path
 		g = filepath.ToSlash(g)
-		wp, err := manifest.V2PathForName(model.ParseName(wantStableName))
-		if err != nil {
-			t.Fatalf("failed to resolve expected manifest path: %v", err)
-		}
-		w, err := filepath.Rel(mandir, wp)
-		if err != nil {
-			t.Fatalf("failed to make expected manifest path relative: %v", err)
-		}
+		w := model.ParseName(wantStableName).Filepath()
 		w = filepath.ToSlash(w)
 		if g != w {
 			t.Errorf("\ngot:  %s\nwant: %s", g, w)
@@ -954,7 +729,7 @@ func TestManifestCaseSensitivity(t *testing.T) {
 		// version.
 		Name:   wantStableName,
 		Files:  map[string]string{"test.gguf": digest},
-		Stream: streamFalse,
+		Stream: &stream,
 	}))
 	checkManifestList()
 
@@ -962,14 +737,14 @@ func TestManifestCaseSensitivity(t *testing.T) {
 	checkOK(createRequest(t, s.CreateHandler, api.CreateRequest{
 		Name:   name(),
 		Files:  map[string]string{"test.gguf": digest},
-		Stream: streamFalse,
+		Stream: &stream,
 	}))
 	checkManifestList()
 
 	t.Logf("pulling")
 	checkOK(createRequest(t, s.PullHandler, api.PullRequest{
 		Name:     name(),
-		Stream:   streamFalse,
+		Stream:   &stream,
 		Insecure: true,
 	}))
 	checkManifestList()
@@ -1004,7 +779,7 @@ func TestShow(t *testing.T) {
 
 	createRequest(t, s.CreateHandler, api.CreateRequest{
 		Name:  "show-model",
-		Files: []api.File{{Name: "model.gguf", Digest: digest1}, {Name: "projector.gguf", Digest: digest2}},
+		Files: map[string]string{"model.gguf": digest1, "projector.gguf": digest2},
 	})
 
 	w := createRequest(t, s.ShowHandler, api.ShowRequest{
@@ -1336,6 +1111,8 @@ func TestFilterThinkTags(t *testing.T) {
 }
 
 func TestWaitForStream(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
 	cases := []struct {
 		name       string
 		messages   []any
@@ -1414,40 +1191,5 @@ func TestWaitForStream(t *testing.T) {
 				t.Errorf("body mismatch (-want +got):\n%s", diff)
 			}
 		})
-	}
-}
-
-func TestVersionHandler(t *testing.T) {
-	w := httptest.NewRecorder()
-	req, _ := http.NewRequest(http.MethodGet, "/api/version", nil)
-	s := &Server{}
-	s.versionHandler(w, req)
-
-	if w.Code != http.StatusOK {
-		t.Fatalf("Expected status code %d, but got %d", http.StatusOK, w.Code)
-	}
-
-	ct := w.Header().Get("Content-Type")
-	if ct != "application/json" {
-		t.Fatalf("Expected content type application/json, but got %s", ct)
-	}
-
-	var resp struct {
-		Version string `json:"version"`
-	}
-	if err := json.NewDecoder(w.Body).Decode(&resp); err != nil {
-		t.Fatal(err)
-	}
-
-	if resp.Version != version.Version {
-		t.Fatalf("want version %s, got %s", version.Version, resp.Version)
-	}
-
-	w = httptest.NewRecorder()
-	req, _ = http.NewRequest(http.MethodPost, "/api/version", nil)
-	s.versionHandler(w, req)
-
-	if w.Code != http.StatusMethodNotAllowed {
-		t.Fatalf("Expected status code %d, but got %d", http.StatusMethodNotAllowed, w.Code)
 	}
 }

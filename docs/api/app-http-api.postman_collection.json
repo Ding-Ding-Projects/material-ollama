@@ -33,7 +33,7 @@
               ],
               "path": []
             },
-            "description": "Handled by app/ui/ui.go's Server.corsPreflight (registered at source line 286). Requires the app's own `token` cookie unless the server is running in Dev mode -- see this folder's auth note."
+            "description": "Handled by app/ui/ui.go's Server.corsPreflight (registered at source line 289). Requires the app's own `token` cookie unless the server is running in Dev mode -- see this folder's auth note."
           }
         },
         {
@@ -54,7 +54,7 @@
               ],
               "path": []
             },
-            "description": "Handled by app/ui/ui.go's Server.s.appHandler( (registered at source line 440). Requires the app's own `token` cookie unless the server is running in Dev mode -- see this folder's auth note."
+            "description": "Handled by app/ui/ui.go's Server.s.appHandler( (registered at source line 445). Requires the app's own `token` cookie unless the server is running in Dev mode -- see this folder's auth note."
           }
         },
         {
@@ -75,7 +75,7 @@
               ],
               "path": []
             },
-            "description": "Handled by app/ui/ui.go's Server.s.appHandler( (registered at source line 441). Requires the app's own `token` cookie unless the server is running in Dev mode -- see this folder's auth note.",
+            "description": "Handled by app/ui/ui.go's Server.s.appHandler( (registered at source line 446). Requires the app's own `token` cookie unless the server is running in Dev mode -- see this folder's auth note.",
             "body": {
               "mode": "raw",
               "raw": "{}",
@@ -105,7 +105,7 @@
               ],
               "path": []
             },
-            "description": "Handled by app/ui/ui.go's Server.s.appHandler( (registered at source line 442). Requires the app's own `token` cookie unless the server is running in Dev mode -- see this folder's auth note.",
+            "description": "Handled by app/ui/ui.go's Server.s.appHandler( (registered at source line 447). Requires the app's own `token` cookie unless the server is running in Dev mode -- see this folder's auth note.",
             "body": {
               "mode": "raw",
               "raw": "{}",
@@ -135,7 +135,7 @@
               ],
               "path": []
             },
-            "description": "Handled by app/ui/ui.go's Server.s.appHandler( (registered at source line 443). Requires the app's own `token` cookie unless the server is running in Dev mode -- see this folder's auth note.",
+            "description": "Handled by app/ui/ui.go's Server.s.appHandler( (registered at source line 448). Requires the app's own `token` cookie unless the server is running in Dev mode -- see this folder's auth note.",
             "body": {
               "mode": "raw",
               "raw": "{}",
@@ -165,7 +165,7 @@
               ],
               "path": []
             },
-            "description": "Handled by app/ui/ui.go's Server.s.appHandler( (registered at source line 444). Requires the app's own `token` cookie unless the server is running in Dev mode -- see this folder's auth note."
+            "description": "Handled by app/ui/ui.go's Server.s.appHandler( (registered at source line 449). Requires the app's own `token` cookie unless the server is running in Dev mode -- see this folder's auth note."
           }
         }
       ]
@@ -195,7 +195,7 @@
                 "chats"
               ]
             },
-            "description": "Handled by app/ui/ui.go's Server.listChats (registered at source line 291). Requires the app's own `token` cookie unless the server is running in Dev mode -- see this folder's auth note."
+            "description": "Handled by app/ui/ui.go's Server.listChats (registered at source line 294). Requires the app's own `token` cookie unless the server is running in Dev mode -- see this folder's auth note."
           }
         }
       ]
@@ -233,7 +233,7 @@
                 }
               ]
             },
-            "description": "Handled by app/ui/ui.go's Server.getChat (registered at source line 292). Requires the app's own `token` cookie unless the server is running in Dev mode -- see this folder's auth note."
+            "description": "Handled by app/ui/ui.go's Server.getChat (registered at source line 295). Requires the app's own `token` cookie unless the server is running in Dev mode -- see this folder's auth note."
           }
         },
         {
@@ -266,7 +266,7 @@
                 }
               ]
             },
-            "description": "Handled by app/ui/ui.go's Server.chat (registered at source line 293). Requires the app's own `token` cookie unless the server is running in Dev mode -- see this folder's auth note.",
+            "description": "Handled by app/ui/ui.go's Server.chat (registered at source line 296). Requires the app's own `token` cookie unless the server is running in Dev mode -- see this folder's auth note.",
             "body": {
               "mode": "raw",
               "raw": "{}",
@@ -308,7 +308,7 @@
                 }
               ]
             },
-            "description": "Handled by app/ui/ui.go's Server.deleteChat (registered at source line 294). Requires the app's own `token` cookie unless the server is running in Dev mode -- see this folder's auth note."
+            "description": "Handled by app/ui/ui.go's Server.deleteChat (registered at source line 297). Requires the app's own `token` cookie unless the server is running in Dev mode -- see this folder's auth note."
           }
         },
         {
@@ -342,7 +342,7 @@
                 }
               ]
             },
-            "description": "Handled by app/ui/ui.go's Server.renameChat (registered at source line 296). Requires the app's own `token` cookie unless the server is running in Dev mode -- see this folder's auth note.",
+            "description": "Handled by app/ui/ui.go's Server.renameChat (registered at source line 299). Requires the app's own `token` cookie unless the server is running in Dev mode -- see this folder's auth note.",
             "body": {
               "mode": "raw",
               "raw": "{}",
@@ -381,7 +381,7 @@
                 "create-chat"
               ]
             },
-            "description": "Handled by app/ui/ui.go's Server.createChat (registered at source line 295). Requires the app's own `token` cookie unless the server is running in Dev mode -- see this folder's auth note.",
+            "description": "Handled by app/ui/ui.go's Server.createChat (registered at source line 298). Requires the app's own `token` cookie unless the server is running in Dev mode -- see this folder's auth note.",
             "body": {
               "mode": "raw",
               "raw": "{}",
@@ -420,7 +420,7 @@
                 "inference-compute"
               ]
             },
-            "description": "Handled by app/ui/ui.go's Server.getInferenceCompute (registered at source line 298). Requires the app's own `token` cookie unless the server is running in Dev mode -- see this folder's auth note."
+            "description": "Handled by app/ui/ui.go's Server.getInferenceCompute (registered at source line 301). Requires the app's own `token` cookie unless the server is running in Dev mode -- see this folder's auth note."
           }
         }
       ]
@@ -451,7 +451,7 @@
                 "upstream"
               ]
             },
-            "description": "Handled by app/ui/ui.go's Server.modelUpstream (registered at source line 299). Requires the app's own `token` cookie unless the server is running in Dev mode -- see this folder's auth note.",
+            "description": "Handled by app/ui/ui.go's Server.modelUpstream (registered at source line 302). Requires the app's own `token` cookie unless the server is running in Dev mode -- see this folder's auth note.",
             "body": {
               "mode": "raw",
               "raw": "{}",
@@ -490,7 +490,7 @@
                 "hardware"
               ]
             },
-            "description": "Handled by app/ui/ui.go's Server.getHardware (registered at source line 305). Requires the app's own `token` cookie unless the server is running in Dev mode -- see this folder's auth note."
+            "description": "Handled by app/ui/ui.go's Server.getHardware (registered at source line 308). Requires the app's own `token` cookie unless the server is running in Dev mode -- see this folder's auth note."
           }
         }
       ]
@@ -521,7 +521,7 @@
                 "installed"
               ]
             },
-            "description": "Handled by app/ui/ui.go's Server.modelsInstalled (registered at source line 306). Requires the app's own `token` cookie unless the server is running in Dev mode -- see this folder's auth note."
+            "description": "Handled by app/ui/ui.go's Server.modelsInstalled (registered at source line 309). Requires the app's own `token` cookie unless the server is running in Dev mode -- see this folder's auth note."
           }
         },
         {
@@ -547,7 +547,7 @@
                 "running"
               ]
             },
-            "description": "Handled by app/ui/ui.go's Server.modelsRunning (registered at source line 307). Requires the app's own `token` cookie unless the server is running in Dev mode -- see this folder's auth note."
+            "description": "Handled by app/ui/ui.go's Server.modelsRunning (registered at source line 310). Requires the app's own `token` cookie unless the server is running in Dev mode -- see this folder's auth note."
           }
         },
         {
@@ -573,7 +573,7 @@
                 "pull"
               ]
             },
-            "description": "Handled by app/ui/ui.go's Server.pullEnqueue (registered at source line 308). Requires the app's own `token` cookie unless the server is running in Dev mode -- see this folder's auth note.",
+            "description": "Handled by app/ui/ui.go's Server.pullEnqueue (registered at source line 311). Requires the app's own `token` cookie unless the server is running in Dev mode -- see this folder's auth note.",
             "body": {
               "mode": "raw",
               "raw": "{}",
@@ -609,7 +609,7 @@
                 "queue"
               ]
             },
-            "description": "Handled by app/ui/ui.go's Server.pullQueueList (registered at source line 309). Requires the app's own `token` cookie unless the server is running in Dev mode -- see this folder's auth note."
+            "description": "Handled by app/ui/ui.go's Server.pullQueueList (registered at source line 312). Requires the app's own `token` cookie unless the server is running in Dev mode -- see this folder's auth note."
           }
         },
         {
@@ -636,7 +636,7 @@
                 "events"
               ]
             },
-            "description": "Handled by app/ui/ui.go's Server.pullEvents (registered at source line 310). Requires the app's own `token` cookie unless the server is running in Dev mode -- see this folder's auth note."
+            "description": "Handled by app/ui/ui.go's Server.pullEvents (registered at source line 313). Requires the app's own `token` cookie unless the server is running in Dev mode -- see this folder's auth note."
           }
         },
         {
@@ -671,7 +671,7 @@
                 }
               ]
             },
-            "description": "Handled by app/ui/ui.go's Server.pullPause (registered at source line 311). Requires the app's own `token` cookie unless the server is running in Dev mode -- see this folder's auth note.",
+            "description": "Handled by app/ui/ui.go's Server.pullPause (registered at source line 314). Requires the app's own `token` cookie unless the server is running in Dev mode -- see this folder's auth note.",
             "body": {
               "mode": "raw",
               "raw": "{}",
@@ -715,7 +715,7 @@
                 }
               ]
             },
-            "description": "Handled by app/ui/ui.go's Server.pullResume (registered at source line 312). Requires the app's own `token` cookie unless the server is running in Dev mode -- see this folder's auth note.",
+            "description": "Handled by app/ui/ui.go's Server.pullResume (registered at source line 315). Requires the app's own `token` cookie unless the server is running in Dev mode -- see this folder's auth note.",
             "body": {
               "mode": "raw",
               "raw": "{}",
@@ -759,7 +759,7 @@
                 }
               ]
             },
-            "description": "Handled by app/ui/ui.go's Server.pullCancel (registered at source line 313). Requires the app's own `token` cookie unless the server is running in Dev mode -- see this folder's auth note.",
+            "description": "Handled by app/ui/ui.go's Server.pullCancel (registered at source line 316). Requires the app's own `token` cookie unless the server is running in Dev mode -- see this folder's auth note.",
             "body": {
               "mode": "raw",
               "raw": "{}",
@@ -794,7 +794,7 @@
                 "delete"
               ]
             },
-            "description": "Handled by app/ui/ui.go's Server.modelsDelete (registered at source line 314). Requires the app's own `token` cookie unless the server is running in Dev mode -- see this folder's auth note.",
+            "description": "Handled by app/ui/ui.go's Server.modelsDelete (registered at source line 317). Requires the app's own `token` cookie unless the server is running in Dev mode -- see this folder's auth note.",
             "body": {
               "mode": "raw",
               "raw": "{}",
@@ -829,7 +829,7 @@
                 "catalog"
               ]
             },
-            "description": "Handled by app/ui/ui.go's Server.modelCatalogGet (registered at source line 323). Requires the app's own `token` cookie unless the server is running in Dev mode -- see this folder's auth note."
+            "description": "Handled by app/ui/ui.go's Server.modelCatalogGet (registered at source line 326). Requires the app's own `token` cookie unless the server is running in Dev mode -- see this folder's auth note."
           }
         },
         {
@@ -856,7 +856,7 @@
                 "status"
               ]
             },
-            "description": "Handled by app/ui/ui.go's Server.modelCatalogStatus (registered at source line 324). Requires the app's own `token` cookie unless the server is running in Dev mode -- see this folder's auth note."
+            "description": "Handled by app/ui/ui.go's Server.modelCatalogStatus (registered at source line 327). Requires the app's own `token` cookie unless the server is running in Dev mode -- see this folder's auth note."
           }
         },
         {
@@ -883,7 +883,7 @@
                 "refresh"
               ]
             },
-            "description": "Handled by app/ui/ui.go's Server.modelCatalogRefresh (registered at source line 325). Requires the app's own `token` cookie unless the server is running in Dev mode -- see this folder's auth note.",
+            "description": "Handled by app/ui/ui.go's Server.modelCatalogRefresh (registered at source line 328). Requires the app's own `token` cookie unless the server is running in Dev mode -- see this folder's auth note.",
             "body": {
               "mode": "raw",
               "raw": "{}",
@@ -918,7 +918,33 @@
                 "variant"
               ]
             },
-            "description": "Handled by app/ui/ui.go's Server.modelVariantGet (registered at source line 326). Requires the app's own `token` cookie unless the server is running in Dev mode -- see this folder's auth note."
+            "description": "Handled by app/ui/ui.go's Server.modelVariantGet (registered at source line 329). Requires the app's own `token` cookie unless the server is running in Dev mode -- see this folder's auth note."
+          }
+        },
+        {
+          "name": "GET /api/v1/models/cloud",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/models/cloud",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "models",
+                "cloud"
+              ]
+            },
+            "description": "Handled by app/ui/ui.go's Server.getCloudModels (registered at source line 351). Requires the app's own `token` cookie unless the server is running in Dev mode -- see this folder's auth note."
           }
         }
       ]
@@ -948,7 +974,7 @@
                 "settings"
               ]
             },
-            "description": "Handled by app/ui/ui.go's Server.getSettings (registered at source line 328). Requires the app's own `token` cookie unless the server is running in Dev mode -- see this folder's auth note."
+            "description": "Handled by app/ui/ui.go's Server.getSettings (registered at source line 331). Requires the app's own `token` cookie unless the server is running in Dev mode -- see this folder's auth note."
           }
         },
         {
@@ -973,7 +999,7 @@
                 "settings"
               ]
             },
-            "description": "Handled by app/ui/ui.go's Server.settings (registered at source line 329). Requires the app's own `token` cookie unless the server is running in Dev mode -- see this folder's auth note.",
+            "description": "Handled by app/ui/ui.go's Server.settings (registered at source line 332). Requires the app's own `token` cookie unless the server is running in Dev mode -- see this folder's auth note.",
             "body": {
               "mode": "raw",
               "raw": "{}",
@@ -1012,7 +1038,7 @@
                 "capabilities"
               ]
             },
-            "description": "Handled by app/ui/ui.go's Server.capabilities (registered at source line 330). Requires the app's own `token` cookie unless the server is running in Dev mode -- see this folder's auth note."
+            "description": "Handled by app/ui/ui.go's Server.capabilities (registered at source line 333). Requires the app's own `token` cookie unless the server is running in Dev mode -- see this folder's auth note."
           }
         }
       ]
@@ -1042,7 +1068,7 @@
                 "release"
               ]
             },
-            "description": "Handled by app/ui/ui.go's Server.releaseInfo (registered at source line 335). Requires the app's own `token` cookie unless the server is running in Dev mode -- see this folder's auth note."
+            "description": "Handled by app/ui/ui.go's Server.releaseInfo (registered at source line 338). Requires the app's own `token` cookie unless the server is running in Dev mode -- see this folder's auth note."
           }
         }
       ]
@@ -1072,7 +1098,7 @@
                 "history"
               ]
             },
-            "description": "Handled by app/ui/ui.go's Server.listHistory (registered at source line 339). Requires the app's own `token` cookie unless the server is running in Dev mode -- see this folder's auth note."
+            "description": "Handled by app/ui/ui.go's Server.listHistory (registered at source line 342). Requires the app's own `token` cookie unless the server is running in Dev mode -- see this folder's auth note."
           }
         },
         {
@@ -1097,7 +1123,7 @@
                 "history"
               ]
             },
-            "description": "Handled by app/ui/ui.go's Server.appendHistory (registered at source line 340). Requires the app's own `token` cookie unless the server is running in Dev mode -- see this folder's auth note.",
+            "description": "Handled by app/ui/ui.go's Server.appendHistory (registered at source line 343). Requires the app's own `token` cookie unless the server is running in Dev mode -- see this folder's auth note.",
             "body": {
               "mode": "raw",
               "raw": "{}",
@@ -1137,7 +1163,7 @@
                 "profiles"
               ]
             },
-            "description": "Handled by app/ui/ui.go's Server.getConfigProfiles (registered at source line 341). Requires the app's own `token` cookie unless the server is running in Dev mode -- see this folder's auth note."
+            "description": "Handled by app/ui/ui.go's Server.getConfigProfiles (registered at source line 344). Requires the app's own `token` cookie unless the server is running in Dev mode -- see this folder's auth note."
           }
         },
         {
@@ -1163,7 +1189,7 @@
                 "profiles"
               ]
             },
-            "description": "Handled by app/ui/ui.go's Server.createConfigProfile (registered at source line 342). Requires the app's own `token` cookie unless the server is running in Dev mode -- see this folder's auth note.",
+            "description": "Handled by app/ui/ui.go's Server.createConfigProfile (registered at source line 345). Requires the app's own `token` cookie unless the server is running in Dev mode -- see this folder's auth note.",
             "body": {
               "mode": "raw",
               "raw": "{}",
@@ -1206,7 +1232,7 @@
                 }
               ]
             },
-            "description": "Handled by app/ui/ui.go's Server.updateConfigProfile (registered at source line 343). Requires the app's own `token` cookie unless the server is running in Dev mode -- see this folder's auth note.",
+            "description": "Handled by app/ui/ui.go's Server.updateConfigProfile (registered at source line 346). Requires the app's own `token` cookie unless the server is running in Dev mode -- see this folder's auth note.",
             "body": {
               "mode": "raw",
               "raw": "{}",
@@ -1249,7 +1275,7 @@
                 }
               ]
             },
-            "description": "Handled by app/ui/ui.go's Server.deleteConfigProfile (registered at source line 344). Requires the app's own `token` cookie unless the server is running in Dev mode -- see this folder's auth note."
+            "description": "Handled by app/ui/ui.go's Server.deleteConfigProfile (registered at source line 347). Requires the app's own `token` cookie unless the server is running in Dev mode -- see this folder's auth note."
           }
         },
         {
@@ -1284,7 +1310,7 @@
                 }
               ]
             },
-            "description": "Handled by app/ui/ui.go's Server.applyConfigProfile (registered at source line 345). Requires the app's own `token` cookie unless the server is running in Dev mode -- see this folder's auth note.",
+            "description": "Handled by app/ui/ui.go's Server.applyConfigProfile (registered at source line 348). Requires the app's own `token` cookie unless the server is running in Dev mode -- see this folder's auth note.",
             "body": {
               "mode": "raw",
               "raw": "{}",
@@ -1323,7 +1349,7 @@
                 "cloud"
               ]
             },
-            "description": "Handled by app/ui/ui.go's Server.getCloudSetting (registered at source line 346). Requires the app's own `token` cookie unless the server is running in Dev mode -- see this folder's auth note."
+            "description": "Handled by app/ui/ui.go's Server.getCloudSetting (registered at source line 349). Requires the app's own `token` cookie unless the server is running in Dev mode -- see this folder's auth note."
           }
         },
         {
@@ -1348,7 +1374,7 @@
                 "cloud"
               ]
             },
-            "description": "Handled by app/ui/ui.go's Server.cloudSetting (registered at source line 347). Requires the app's own `token` cookie unless the server is running in Dev mode -- see this folder's auth note.",
+            "description": "Handled by app/ui/ui.go's Server.cloudSetting (registered at source line 350). Requires the app's own `token` cookie unless the server is running in Dev mode -- see this folder's auth note.",
             "body": {
               "mode": "raw",
               "raw": "{}",
@@ -1358,6 +1384,36 @@
                 }
               }
             }
+          }
+        }
+      ]
+    },
+    {
+      "name": "integrations",
+      "item": [
+        {
+          "name": "GET /api/v1/integrations",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/integrations",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "integrations"
+              ]
+            },
+            "description": "Handled by app/ui/ui.go's Server.getIntegrationStatuses (registered at source line 352). Requires the app's own `token` cookie unless the server is running in Dev mode -- see this folder's auth note."
           }
         }
       ]
@@ -1388,7 +1444,7 @@
                 "preferences"
               ]
             },
-            "description": "Handled by app/ui/ui.go's Server.uhGetPreferences (registered at source line 352). Requires the app's own `token` cookie unless the server is running in Dev mode -- see this folder's auth note."
+            "description": "Handled by app/ui/ui.go's Server.uhGetPreferences (registered at source line 357). Requires the app's own `token` cookie unless the server is running in Dev mode -- see this folder's auth note."
           }
         },
         {
@@ -1414,7 +1470,7 @@
                 "preferences"
               ]
             },
-            "description": "Handled by app/ui/ui.go's Server.uhPatchPreferences (registered at source line 353). Requires the app's own `token` cookie unless the server is running in Dev mode -- see this folder's auth note.",
+            "description": "Handled by app/ui/ui.go's Server.uhPatchPreferences (registered at source line 358). Requires the app's own `token` cookie unless the server is running in Dev mode -- see this folder's auth note.",
             "body": {
               "mode": "raw",
               "raw": "{}",
@@ -1450,7 +1506,7 @@
                 "pin"
               ]
             },
-            "description": "Handled by app/ui/ui.go's Server.uhSetSchoolPIN (registered at source line 354). Requires the app's own `token` cookie unless the server is running in Dev mode -- see this folder's auth note.",
+            "description": "Handled by app/ui/ui.go's Server.uhSetSchoolPIN (registered at source line 359). Requires the app's own `token` cookie unless the server is running in Dev mode -- see this folder's auth note.",
             "body": {
               "mode": "raw",
               "raw": "{}",
@@ -1486,7 +1542,7 @@
                 "unlock"
               ]
             },
-            "description": "Handled by app/ui/ui.go's Server.uhUnlockSchool (registered at source line 355). Requires the app's own `token` cookie unless the server is running in Dev mode -- see this folder's auth note.",
+            "description": "Handled by app/ui/ui.go's Server.uhUnlockSchool (registered at source line 360). Requires the app's own `token` cookie unless the server is running in Dev mode -- see this folder's auth note.",
             "body": {
               "mode": "raw",
               "raw": "{}",
@@ -1522,7 +1578,7 @@
                 "pin"
               ]
             },
-            "description": "Handled by app/ui/ui.go's Server.uhClearSchoolPIN (registered at source line 356). Requires the app's own `token` cookie unless the server is running in Dev mode -- see this folder's auth note."
+            "description": "Handled by app/ui/ui.go's Server.uhClearSchoolPIN (registered at source line 361). Requires the app's own `token` cookie unless the server is running in Dev mode -- see this folder's auth note."
           }
         },
         {
@@ -1549,7 +1605,7 @@
                 "accounts"
               ]
             },
-            "description": "Handled by app/ui/ui.go's Server.totpListAccounts (registered at source line 362). Requires the app's own `token` cookie unless the server is running in Dev mode -- see this folder's auth note."
+            "description": "Handled by app/ui/ui.go's Server.totpListAccounts (registered at source line 367). Requires the app's own `token` cookie unless the server is running in Dev mode -- see this folder's auth note."
           }
         },
         {
@@ -1576,7 +1632,7 @@
                 "accounts"
               ]
             },
-            "description": "Handled by app/ui/ui.go's Server.totpCreateAccount (registered at source line 363). Requires the app's own `token` cookie unless the server is running in Dev mode -- see this folder's auth note.",
+            "description": "Handled by app/ui/ui.go's Server.totpCreateAccount (registered at source line 368). Requires the app's own `token` cookie unless the server is running in Dev mode -- see this folder's auth note.",
             "body": {
               "mode": "raw",
               "raw": "{}",
@@ -1620,7 +1676,7 @@
                 }
               ]
             },
-            "description": "Handled by app/ui/ui.go's Server.totpDeleteAccount (registered at source line 364). Requires the app's own `token` cookie unless the server is running in Dev mode -- see this folder's auth note."
+            "description": "Handled by app/ui/ui.go's Server.totpDeleteAccount (registered at source line 369). Requires the app's own `token` cookie unless the server is running in Dev mode -- see this folder's auth note."
           }
         },
         {
@@ -1647,7 +1703,7 @@
                 "codes"
               ]
             },
-            "description": "Handled by app/ui/ui.go's Server.totpCodes (registered at source line 365). Requires the app's own `token` cookie unless the server is running in Dev mode -- see this folder's auth note."
+            "description": "Handled by app/ui/ui.go's Server.totpCodes (registered at source line 370). Requires the app's own `token` cookie unless the server is running in Dev mode -- see this folder's auth note."
           }
         },
         {
@@ -1674,7 +1730,7 @@
                 "pairing-uri"
               ]
             },
-            "description": "Handled by app/ui/ui.go's Server.totpPairingURI (registered at source line 366). Requires the app's own `token` cookie unless the server is running in Dev mode -- see this folder's auth note.",
+            "description": "Handled by app/ui/ui.go's Server.totpPairingURI (registered at source line 371). Requires the app's own `token` cookie unless the server is running in Dev mode -- see this folder's auth note.",
             "body": {
               "mode": "raw",
               "raw": "{}",
@@ -1714,7 +1770,7 @@
                 "discovery"
               ]
             },
-            "description": "Handled by app/ui/ui.go's Server.codexDiscovery (registered at source line 370). Requires the app's own `token` cookie unless the server is running in Dev mode -- see this folder's auth note."
+            "description": "Handled by app/ui/ui.go's Server.codexDiscovery (registered at source line 375). Requires the app's own `token` cookie unless the server is running in Dev mode -- see this folder's auth note."
           }
         },
         {
@@ -1740,7 +1796,7 @@
                 "profiles"
               ]
             },
-            "description": "Handled by app/ui/ui.go's Server.codexProfiles (registered at source line 371). Requires the app's own `token` cookie unless the server is running in Dev mode -- see this folder's auth note."
+            "description": "Handled by app/ui/ui.go's Server.codexProfiles (registered at source line 376). Requires the app's own `token` cookie unless the server is running in Dev mode -- see this folder's auth note."
           }
         },
         {
@@ -1766,7 +1822,7 @@
                 "profiles"
               ]
             },
-            "description": "Handled by app/ui/ui.go's Server.codexProfiles (registered at source line 372). Requires the app's own `token` cookie unless the server is running in Dev mode -- see this folder's auth note.",
+            "description": "Handled by app/ui/ui.go's Server.codexProfiles (registered at source line 377). Requires the app's own `token` cookie unless the server is running in Dev mode -- see this folder's auth note.",
             "body": {
               "mode": "raw",
               "raw": "{}",
@@ -1801,7 +1857,7 @@
                 "profiles"
               ]
             },
-            "description": "Handled by app/ui/ui.go's Server.codexProfiles (registered at source line 373). Requires the app's own `token` cookie unless the server is running in Dev mode -- see this folder's auth note."
+            "description": "Handled by app/ui/ui.go's Server.codexProfiles (registered at source line 378). Requires the app's own `token` cookie unless the server is running in Dev mode -- see this folder's auth note."
           }
         },
         {
@@ -1827,7 +1883,7 @@
                 "preflight"
               ]
             },
-            "description": "Handled by app/ui/ui.go's Server.codexPreflight (registered at source line 374). Requires the app's own `token` cookie unless the server is running in Dev mode -- see this folder's auth note.",
+            "description": "Handled by app/ui/ui.go's Server.codexPreflight (registered at source line 379). Requires the app's own `token` cookie unless the server is running in Dev mode -- see this folder's auth note.",
             "body": {
               "mode": "raw",
               "raw": "{}",
@@ -1862,7 +1918,7 @@
                 "sessions"
               ]
             },
-            "description": "Handled by app/ui/ui.go's Server.codexSessions (registered at source line 375). Requires the app's own `token` cookie unless the server is running in Dev mode -- see this folder's auth note."
+            "description": "Handled by app/ui/ui.go's Server.codexSessions (registered at source line 380). Requires the app's own `token` cookie unless the server is running in Dev mode -- see this folder's auth note."
           }
         },
         {
@@ -1888,7 +1944,7 @@
                 "sessions"
               ]
             },
-            "description": "Handled by app/ui/ui.go's Server.codexRun (registered at source line 376). Requires the app's own `token` cookie unless the server is running in Dev mode -- see this folder's auth note.",
+            "description": "Handled by app/ui/ui.go's Server.codexRun (registered at source line 381). Requires the app's own `token` cookie unless the server is running in Dev mode -- see this folder's auth note.",
             "body": {
               "mode": "raw",
               "raw": "{}",
@@ -1931,7 +1987,7 @@
                 }
               ]
             },
-            "description": "Handled by app/ui/ui.go's Server.codexSession (registered at source line 377). Requires the app's own `token` cookie unless the server is running in Dev mode -- see this folder's auth note."
+            "description": "Handled by app/ui/ui.go's Server.codexSession (registered at source line 382). Requires the app's own `token` cookie unless the server is running in Dev mode -- see this folder's auth note."
           }
         },
         {
@@ -1966,7 +2022,7 @@
                 }
               ]
             },
-            "description": "Handled by app/ui/ui.go's Server.codexSessionEvents (registered at source line 378). Requires the app's own `token` cookie unless the server is running in Dev mode -- see this folder's auth note."
+            "description": "Handled by app/ui/ui.go's Server.codexSessionEvents (registered at source line 383). Requires the app's own `token` cookie unless the server is running in Dev mode -- see this folder's auth note."
           }
         },
         {
@@ -2001,7 +2057,7 @@
                 }
               ]
             },
-            "description": "Handled by app/ui/ui.go's Server.codexSessionCancel (registered at source line 379). Requires the app's own `token` cookie unless the server is running in Dev mode -- see this folder's auth note.",
+            "description": "Handled by app/ui/ui.go's Server.codexSessionCancel (registered at source line 384). Requires the app's own `token` cookie unless the server is running in Dev mode -- see this folder's auth note.",
             "body": {
               "mode": "raw",
               "raw": "{}",
@@ -2045,7 +2101,7 @@
                 }
               ]
             },
-            "description": "Handled by app/ui/ui.go's Server.codexSessionRollback (registered at source line 380). Requires the app's own `token` cookie unless the server is running in Dev mode -- see this folder's auth note.",
+            "description": "Handled by app/ui/ui.go's Server.codexSessionRollback (registered at source line 385). Requires the app's own `token` cookie unless the server is running in Dev mode -- see this folder's auth note.",
             "body": {
               "mode": "raw",
               "raw": "{}",
@@ -2080,7 +2136,7 @@
                 "editor"
               ]
             },
-            "description": "Handled by app/ui/ui.go's Server.codexEditor (registered at source line 381). Requires the app's own `token` cookie unless the server is running in Dev mode -- see this folder's auth note.",
+            "description": "Handled by app/ui/ui.go's Server.codexEditor (registered at source line 386). Requires the app's own `token` cookie unless the server is running in Dev mode -- see this folder's auth note.",
             "body": {
               "mode": "raw",
               "raw": "{}",
@@ -2120,7 +2176,7 @@
                 "integrations"
               ]
             },
-            "description": "Handled by app/ui/ui.go's Server.launchIntegrations (registered at source line 387). Requires the app's own `token` cookie unless the server is running in Dev mode -- see this folder's auth note."
+            "description": "Handled by app/ui/ui.go's Server.launchIntegrations (registered at source line 392). Requires the app's own `token` cookie unless the server is running in Dev mode -- see this folder's auth note."
           }
         },
         {
@@ -2146,7 +2202,7 @@
                 "run"
               ]
             },
-            "description": "Handled by app/ui/ui.go's Server.launchRun (registered at source line 388). Requires the app's own `token` cookie unless the server is running in Dev mode -- see this folder's auth note.",
+            "description": "Handled by app/ui/ui.go's Server.launchRun (registered at source line 393). Requires the app's own `token` cookie unless the server is running in Dev mode -- see this folder's auth note.",
             "body": {
               "mode": "raw",
               "raw": "{}",
@@ -2186,7 +2242,7 @@
                 "status"
               ]
             },
-            "description": "Handled by app/ui/ui.go's Server.dockerStatus (registered at source line 395). Requires the app's own `token` cookie unless the server is running in Dev mode -- see this folder's auth note."
+            "description": "Handled by app/ui/ui.go's Server.dockerStatus (registered at source line 400). Requires the app's own `token` cookie unless the server is running in Dev mode -- see this folder's auth note."
           }
         },
         {
@@ -2212,7 +2268,7 @@
                 "probe-gpu"
               ]
             },
-            "description": "Handled by app/ui/ui.go's Server.dockerProbeGPU (registered at source line 396). Requires the app's own `token` cookie unless the server is running in Dev mode -- see this folder's auth note.",
+            "description": "Handled by app/ui/ui.go's Server.dockerProbeGPU (registered at source line 401). Requires the app's own `token` cookie unless the server is running in Dev mode -- see this folder's auth note.",
             "body": {
               "mode": "raw",
               "raw": "{}",
@@ -2247,7 +2303,7 @@
                 "container"
               ]
             },
-            "description": "Handled by app/ui/ui.go's Server.dockerContainerGet (registered at source line 397). Requires the app's own `token` cookie unless the server is running in Dev mode -- see this folder's auth note."
+            "description": "Handled by app/ui/ui.go's Server.dockerContainerGet (registered at source line 402). Requires the app's own `token` cookie unless the server is running in Dev mode -- see this folder's auth note."
           }
         },
         {
@@ -2273,7 +2329,7 @@
                 "container"
               ]
             },
-            "description": "Handled by app/ui/ui.go's Server.dockerContainerCreate (registered at source line 398). Requires the app's own `token` cookie unless the server is running in Dev mode -- see this folder's auth note.",
+            "description": "Handled by app/ui/ui.go's Server.dockerContainerCreate (registered at source line 403). Requires the app's own `token` cookie unless the server is running in Dev mode -- see this folder's auth note.",
             "body": {
               "mode": "raw",
               "raw": "{}",
@@ -2309,7 +2365,7 @@
                 "start"
               ]
             },
-            "description": "Handled by app/ui/ui.go's Server.dockerContainerStart (registered at source line 399). Requires the app's own `token` cookie unless the server is running in Dev mode -- see this folder's auth note.",
+            "description": "Handled by app/ui/ui.go's Server.dockerContainerStart (registered at source line 404). Requires the app's own `token` cookie unless the server is running in Dev mode -- see this folder's auth note.",
             "body": {
               "mode": "raw",
               "raw": "{}",
@@ -2345,7 +2401,7 @@
                 "stop"
               ]
             },
-            "description": "Handled by app/ui/ui.go's Server.dockerContainerStop (registered at source line 400). Requires the app's own `token` cookie unless the server is running in Dev mode -- see this folder's auth note.",
+            "description": "Handled by app/ui/ui.go's Server.dockerContainerStop (registered at source line 405). Requires the app's own `token` cookie unless the server is running in Dev mode -- see this folder's auth note.",
             "body": {
               "mode": "raw",
               "raw": "{}",
@@ -2381,7 +2437,7 @@
                 "restart"
               ]
             },
-            "description": "Handled by app/ui/ui.go's Server.dockerContainerRestart (registered at source line 401). Requires the app's own `token` cookie unless the server is running in Dev mode -- see this folder's auth note.",
+            "description": "Handled by app/ui/ui.go's Server.dockerContainerRestart (registered at source line 406). Requires the app's own `token` cookie unless the server is running in Dev mode -- see this folder's auth note.",
             "body": {
               "mode": "raw",
               "raw": "{}",
@@ -2416,7 +2472,7 @@
                 "container"
               ]
             },
-            "description": "Handled by app/ui/ui.go's Server.dockerContainerDelete (registered at source line 402). Requires the app's own `token` cookie unless the server is running in Dev mode -- see this folder's auth note."
+            "description": "Handled by app/ui/ui.go's Server.dockerContainerDelete (registered at source line 407). Requires the app's own `token` cookie unless the server is running in Dev mode -- see this folder's auth note."
           }
         },
         {
@@ -2443,7 +2499,7 @@
                 "logs"
               ]
             },
-            "description": "Handled by app/ui/ui.go's Server.dockerContainerLogs (registered at source line 403). Requires the app's own `token` cookie unless the server is running in Dev mode -- see this folder's auth note."
+            "description": "Handled by app/ui/ui.go's Server.dockerContainerLogs (registered at source line 408). Requires the app's own `token` cookie unless the server is running in Dev mode -- see this folder's auth note."
           }
         },
         {
@@ -2470,7 +2526,7 @@
                 "health"
               ]
             },
-            "description": "Handled by app/ui/ui.go's Server.dockerContainerHealth (registered at source line 404). Requires the app's own `token` cookie unless the server is running in Dev mode -- see this folder's auth note."
+            "description": "Handled by app/ui/ui.go's Server.dockerContainerHealth (registered at source line 409). Requires the app's own `token` cookie unless the server is running in Dev mode -- see this folder's auth note."
           }
         }
       ]
@@ -2501,7 +2557,7 @@
                 "inventory"
               ]
             },
-            "description": "Handled by app/ui/ui.go's Server.docsInventory (registered at source line 411). Requires the app's own `token` cookie unless the server is running in Dev mode -- see this folder's auth note."
+            "description": "Handled by app/ui/ui.go's Server.docsInventory (registered at source line 416). Requires the app's own `token` cookie unless the server is running in Dev mode -- see this folder's auth note."
           }
         },
         {
@@ -2535,7 +2591,7 @@
                 }
               ]
             },
-            "description": "Handled by app/ui/ui.go's Server.docsArticleByID (registered at source line 412). Requires the app's own `token` cookie unless the server is running in Dev mode -- see this folder's auth note."
+            "description": "Handled by app/ui/ui.go's Server.docsArticleByID (registered at source line 417). Requires the app's own `token` cookie unless the server is running in Dev mode -- see this folder's auth note."
           }
         }
       ]
@@ -2566,7 +2622,7 @@
                 "catalog"
               ]
             },
-            "description": "Handled by app/ui/ui.go's Server.convertCatalogHandler (registered at source line 420). Requires the app's own `token` cookie unless the server is running in Dev mode -- see this folder's auth note."
+            "description": "Handled by app/ui/ui.go's Server.convertCatalogHandler (registered at source line 425). Requires the app's own `token` cookie unless the server is running in Dev mode -- see this folder's auth note."
           }
         },
         {
@@ -2592,7 +2648,7 @@
                 "probe"
               ]
             },
-            "description": "Handled by app/ui/ui.go's Server.convertProbeHandler (registered at source line 421). Requires the app's own `token` cookie unless the server is running in Dev mode -- see this folder's auth note.",
+            "description": "Handled by app/ui/ui.go's Server.convertProbeHandler (registered at source line 426). Requires the app's own `token` cookie unless the server is running in Dev mode -- see this folder's auth note.",
             "body": {
               "mode": "raw",
               "raw": "{}",
@@ -2627,7 +2683,7 @@
                 "jobs"
               ]
             },
-            "description": "Handled by app/ui/ui.go's Server.convertJobsHandler (registered at source line 422). Requires the app's own `token` cookie unless the server is running in Dev mode -- see this folder's auth note."
+            "description": "Handled by app/ui/ui.go's Server.convertJobsHandler (registered at source line 427). Requires the app's own `token` cookie unless the server is running in Dev mode -- see this folder's auth note."
           }
         },
         {
@@ -2653,7 +2709,7 @@
                 "jobs"
               ]
             },
-            "description": "Handled by app/ui/ui.go's Server.convertJobsHandler (registered at source line 423). Requires the app's own `token` cookie unless the server is running in Dev mode -- see this folder's auth note.",
+            "description": "Handled by app/ui/ui.go's Server.convertJobsHandler (registered at source line 428). Requires the app's own `token` cookie unless the server is running in Dev mode -- see this folder's auth note.",
             "body": {
               "mode": "raw",
               "raw": "{}",
@@ -2688,7 +2744,7 @@
                 "events"
               ]
             },
-            "description": "Handled by app/ui/ui.go's Server.convertJobEventsHandler (registered at source line 424). Requires the app's own `token` cookie unless the server is running in Dev mode -- see this folder's auth note."
+            "description": "Handled by app/ui/ui.go's Server.convertJobEventsHandler (registered at source line 429). Requires the app's own `token` cookie unless the server is running in Dev mode -- see this folder's auth note."
           }
         },
         {
@@ -2723,7 +2779,7 @@
                 }
               ]
             },
-            "description": "Handled by app/ui/ui.go's Server.convertJobCancelHandler (registered at source line 425). Requires the app's own `token` cookie unless the server is running in Dev mode -- see this folder's auth note.",
+            "description": "Handled by app/ui/ui.go's Server.convertJobCancelHandler (registered at source line 430). Requires the app's own `token` cookie unless the server is running in Dev mode -- see this folder's auth note.",
             "body": {
               "mode": "raw",
               "raw": "{}",
@@ -2766,7 +2822,7 @@
                 }
               ]
             },
-            "description": "Handled by app/ui/ui.go's Server.convertJobDeleteHandler (registered at source line 426). Requires the app's own `token` cookie unless the server is running in Dev mode -- see this folder's auth note."
+            "description": "Handled by app/ui/ui.go's Server.convertJobDeleteHandler (registered at source line 431). Requires the app's own `token` cookie unless the server is running in Dev mode -- see this folder's auth note."
           }
         }
       ]
@@ -2795,7 +2851,7 @@
                 "tags"
               ]
             },
-            "description": "Forwarded verbatim to the real Ollama server's own HTTP API -- see docs/api.md for its request/response shape. Handled by ui.go's ollamaProxy reverse proxy (source line 430)."
+            "description": "Forwarded verbatim to the real Ollama server's own HTTP API -- see docs/api.md for its request/response shape. Handled by ui.go's ollamaProxy reverse proxy (source line 435)."
           }
         },
         {
@@ -2819,7 +2875,7 @@
                 "show"
               ]
             },
-            "description": "Forwarded verbatim to the real Ollama server's own HTTP API -- see docs/api.md for its request/response shape. Handled by ui.go's ollamaProxy reverse proxy (source line 431)."
+            "description": "Forwarded verbatim to the real Ollama server's own HTTP API -- see docs/api.md for its request/response shape. Handled by ui.go's ollamaProxy reverse proxy (source line 436)."
           }
         },
         {
@@ -2843,7 +2899,7 @@
                 "version"
               ]
             },
-            "description": "Forwarded verbatim to the real Ollama server's own HTTP API -- see docs/api.md for its request/response shape. Handled by ui.go's ollamaProxy reverse proxy (source line 432)."
+            "description": "Forwarded verbatim to the real Ollama server's own HTTP API -- see docs/api.md for its request/response shape. Handled by ui.go's ollamaProxy reverse proxy (source line 437)."
           }
         },
         {
@@ -2867,7 +2923,7 @@
                 "status"
               ]
             },
-            "description": "Forwarded verbatim to the real Ollama server's own HTTP API -- see docs/api.md for its request/response shape. Handled by ui.go's ollamaProxy reverse proxy (source line 433)."
+            "description": "Forwarded verbatim to the real Ollama server's own HTTP API -- see docs/api.md for its request/response shape. Handled by ui.go's ollamaProxy reverse proxy (source line 438)."
           }
         },
         {
@@ -2891,7 +2947,7 @@
                 "version"
               ]
             },
-            "description": "Forwarded verbatim to the real Ollama server's own HTTP API -- see docs/api.md for its request/response shape. Handled by ui.go's ollamaProxy reverse proxy (source line 434)."
+            "description": "Forwarded verbatim to the real Ollama server's own HTTP API -- see docs/api.md for its request/response shape. Handled by ui.go's ollamaProxy reverse proxy (source line 439)."
           }
         },
         {
@@ -2915,7 +2971,7 @@
                 "me"
               ]
             },
-            "description": "Forwarded verbatim to the real Ollama server's own HTTP API -- see docs/api.md for its request/response shape. Handled by ui.go's ollamaProxy reverse proxy (source line 435)."
+            "description": "Forwarded verbatim to the real Ollama server's own HTTP API -- see docs/api.md for its request/response shape. Handled by ui.go's ollamaProxy reverse proxy (source line 440)."
           }
         },
         {
@@ -2939,7 +2995,7 @@
                 "signout"
               ]
             },
-            "description": "Forwarded verbatim to the real Ollama server's own HTTP API -- see docs/api.md for its request/response shape. Handled by ui.go's ollamaProxy reverse proxy (source line 436)."
+            "description": "Forwarded verbatim to the real Ollama server's own HTTP API -- see docs/api.md for its request/response shape. Handled by ui.go's ollamaProxy reverse proxy (source line 441)."
           }
         },
         {
@@ -2964,7 +3020,7 @@
                 "model-recommendations"
               ]
             },
-            "description": "Forwarded verbatim to the real Ollama server's own HTTP API -- see docs/api.md for its request/response shape. Handled by ui.go's ollamaProxy reverse proxy (source line 437)."
+            "description": "Forwarded verbatim to the real Ollama server's own HTTP API -- see docs/api.md for its request/response shape. Handled by ui.go's ollamaProxy reverse proxy (source line 442)."
           }
         }
       ]

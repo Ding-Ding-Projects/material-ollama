@@ -41,7 +41,7 @@ func TestClientFromEnvironment(t *testing.T) {
 			t.Setenv("OLLAMA_HOST", v.value)
 
 			client, err := ClientFromEnvironment()
-			if !errors.Is(err, v.err) {
+			if err != v.err {
 				t.Fatalf("expected %s, got %s", v.err, err)
 			}
 
@@ -49,32 +49,6 @@ func TestClientFromEnvironment(t *testing.T) {
 				t.Fatalf("expected %s, got %s", v.expect, client.base.String())
 			}
 		})
-	}
-}
-
-func TestClientUsage(t *testing.T) {
-	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != http.MethodGet || r.URL.Path != "/api/usage" {
-			t.Fatalf("request = %s %s, want GET /api/usage", r.Method, r.URL.Path)
-		}
-		fmt.Fprint(w, `{"activity":{"cost":"0.00709","period":{"type":"last_4_weeks","starting_at":"2026-06-29T00:00:00Z","ending_at":"2026-07-27T00:00:00Z"},"models":[{"name":"qwen3-coder:480b","request_count":1,"cost":"0.00709"}]},"limits":{"session":{"usage":0.006,"models":[]},"weekly":{"usage":0,"models":[]}}}`)
-	}))
-	defer ts.Close()
-
-	base, err := url.Parse(ts.URL)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	got, err := NewClient(base, ts.Client()).Usage(t.Context())
-	if err != nil {
-		t.Fatal(err)
-	}
-	if got.Activity.Cost != "0.00709" {
-		t.Errorf("activity cost = %q, want 0.00709", got.Activity.Cost)
-	}
-	if len(got.Activity.Models) != 1 || got.Activity.Models[0].Name != "qwen3-coder:480b" {
-		t.Errorf("activity models = %#v, want qwen3-coder:480b", got.Activity.Models)
 	}
 }
 
@@ -117,6 +91,16 @@ func TestClientStream(t *testing.T) {
 				},
 			},
 			wantErr: "mid-stream error",
+		},
+		{
+			name: "http status error takes precedence over general error",
+			responses: []any{
+				testError{
+					message:    "custom error message",
+					statusCode: http.StatusInternalServerError,
+				},
+			},
+			wantErr: "500",
 		},
 		{
 			name: "successful stream completion",

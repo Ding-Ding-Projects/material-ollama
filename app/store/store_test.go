@@ -5,7 +5,6 @@ package store
 import (
 	"path/filepath"
 	"testing"
-	"time"
 )
 
 func TestStore(t *testing.T) {
@@ -82,18 +81,18 @@ func TestStore(t *testing.T) {
 		}
 	})
 
-	t.Run("settings default home view is launch", func(t *testing.T) {
+	t.Run("settings default home view is chat", func(t *testing.T) {
 		loaded, err := s.Settings()
 		if err != nil {
 			t.Fatal(err)
 		}
 
-		if loaded.LastHomeView != "launch" {
-			t.Fatalf("expected default LastHomeView to be launch, got %q", loaded.LastHomeView)
+		if loaded.LastHomeView != "chat" {
+			t.Fatalf("expected default LastHomeView to be chat, got %q", loaded.LastHomeView)
 		}
 	})
 
-	t.Run("settings empty home view falls back to launch", func(t *testing.T) {
+	t.Run("settings empty home view falls back to chat", func(t *testing.T) {
 		if err := s.SetSettings(Settings{LastHomeView: ""}); err != nil {
 			t.Fatal(err)
 		}
@@ -103,12 +102,12 @@ func TestStore(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		if loaded.LastHomeView != "launch" {
-			t.Fatalf("expected empty LastHomeView to fall back to launch, got %q", loaded.LastHomeView)
+		if loaded.LastHomeView != "chat" {
+			t.Fatalf("expected empty LastHomeView to fall back to chat, got %q", loaded.LastHomeView)
 		}
 	})
 
-	t.Run("settings disabled home view falls back to launch", func(t *testing.T) {
+	t.Run("settings retired home view falls back to chat", func(t *testing.T) {
 		if err := s.SetSettings(Settings{LastHomeView: "claude-desktop"}); err != nil {
 			t.Fatal(err)
 		}
@@ -118,12 +117,12 @@ func TestStore(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		if loaded.LastHomeView != "launch" {
-			t.Fatalf("expected disabled LastHomeView to fall back to launch, got %q", loaded.LastHomeView)
+		if loaded.LastHomeView != "chat" {
+			t.Fatalf("expected retired LastHomeView to fall back to chat, got %q", loaded.LastHomeView)
 		}
 	})
 
-	t.Run("settings codex app home view is accepted", func(t *testing.T) {
+	t.Run("settings integration home view falls back to chat", func(t *testing.T) {
 		if err := s.SetSettings(Settings{LastHomeView: "codex-app"}); err != nil {
 			t.Fatal(err)
 		}
@@ -133,8 +132,8 @@ func TestStore(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		if loaded.LastHomeView != "codex-app" {
-			t.Fatalf("expected codex-app LastHomeView to be preserved, got %q", loaded.LastHomeView)
+		if loaded.LastHomeView != "chat" {
+			t.Fatalf("expected integration LastHomeView to fall back to chat, got %q", loaded.LastHomeView)
 		}
 	})
 
@@ -228,93 +227,55 @@ func TestStore(t *testing.T) {
 	})
 }
 
-func TestStoreChatSummariesUseLatestActivity(t *testing.T) {
+func TestOnboardingVersionRoundTrip(t *testing.T) {
 	s, cleanup := setupTestStore(t)
 	defer cleanup()
 
-	base := time.Date(2026, 6, 23, 15, 30, 45, 0, time.UTC)
-
-	oldChat := NewChat("chat-old")
-	oldChat.Title = "Old Chat"
-	oldChat.CreatedAt = base
-	oldChat.Messages = []Message{
-		{
-			Role:      "user",
-			Content:   "older first prompt",
-			CreatedAt: base.Add(100 * time.Millisecond),
-			UpdatedAt: base.Add(100 * time.Millisecond),
-		},
-		{
-			Role:      "user",
-			Content:   "older second prompt",
-			CreatedAt: base.Add(200 * time.Millisecond),
-			UpdatedAt: base.Add(200 * time.Millisecond),
-		},
-	}
-	if err := s.SetChat(*oldChat); err != nil {
-		t.Fatalf("failed to save old chat: %v", err)
-	}
-
-	newChat := NewChat("chat-new")
-	newChat.Title = "New Chat"
-	newChat.CreatedAt = base
-	newChat.Messages = []Message{
-		{
-			Role:      "user",
-			Content:   "newer prompt",
-			CreatedAt: base.Add(900 * time.Millisecond),
-			UpdatedAt: base.Add(900 * time.Millisecond),
-		},
-	}
-	if err := s.SetChat(*newChat); err != nil {
-		t.Fatalf("failed to save new chat: %v", err)
-	}
-
-	activityOnlyChat := NewChat("chat-activity-only")
-	activityOnlyChat.Title = "Activity Only Chat"
-	activityOnlyChat.CreatedAt = base
-	activityOnlyChat.Messages = []Message{
-		{
-			Role:      "assistant",
-			Content:   "recent assistant activity",
-			CreatedAt: base.Add(1500 * time.Millisecond),
-			UpdatedAt: base.Add(1500 * time.Millisecond),
-		},
-	}
-	if err := s.SetChat(*activityOnlyChat); err != nil {
-		t.Fatalf("failed to save activity-only chat: %v", err)
-	}
-
-	chats, err := s.Chats()
+	settings, err := s.Settings()
 	if err != nil {
-		t.Fatalf("failed to list chats: %v", err)
+		t.Fatal(err)
 	}
-	if len(chats) != 3 {
-		t.Fatalf("expected 3 chats, got %d", len(chats))
-	}
-	if chats[0].ID != "chat-activity-only" {
-		t.Fatalf("expected chat-activity-only first, got %s", chats[0].ID)
+	if settings.OnboardingVersion != 0 {
+		t.Fatalf("expected onboarding version 0 by default, got %d", settings.OnboardingVersion)
 	}
 
-	for _, chat := range chats {
-		if len(chat.Messages) != 1 {
-			t.Fatalf("expected summary message for %s, got %d messages", chat.ID, len(chat.Messages))
-		}
+	settings.OnboardingVersion = 1
+	if err := s.SetSettings(settings); err != nil {
+		t.Fatal(err)
 	}
-	if !chats[0].Messages[0].UpdatedAt.Equal(activityOnlyChat.Messages[0].UpdatedAt) {
-		t.Fatalf("expected latest activity updated_at %s, got %s", activityOnlyChat.Messages[0].UpdatedAt, chats[0].Messages[0].UpdatedAt)
+
+	loaded, err := s.Settings()
+	if err != nil {
+		t.Fatal(err)
 	}
-	if chats[0].Messages[0].Role != "" || chats[0].Messages[0].Content != "" {
-		t.Fatalf("expected activity-only chat to have no user excerpt, got role=%q content=%q", chats[0].Messages[0].Role, chats[0].Messages[0].Content)
+	if loaded.OnboardingVersion != 1 {
+		t.Fatalf("expected onboarding version 1, got %d", loaded.OnboardingVersion)
 	}
-	if chats[1].ID != "chat-new" {
-		t.Fatalf("expected chat-new second, got %s", chats[1].ID)
+}
+
+func TestClaudeDesktopUsedRoundTrip(t *testing.T) {
+	s, cleanup := setupTestStore(t)
+	defer cleanup()
+
+	settings, err := s.Settings()
+	if err != nil {
+		t.Fatal(err)
 	}
-	if !chats[1].Messages[0].UpdatedAt.Equal(newChat.Messages[0].UpdatedAt) {
-		t.Fatalf("expected precise updated_at %s, got %s", newChat.Messages[0].UpdatedAt, chats[1].Messages[0].UpdatedAt)
+	if settings.ClaudeDesktopUsed {
+		t.Fatal("expected Claude Desktop history to be false by default")
 	}
-	if chats[2].Messages[0].Content != "older first prompt" {
-		t.Fatalf("expected first user prompt excerpt, got %q", chats[2].Messages[0].Content)
+
+	settings.ClaudeDesktopUsed = true
+	if err := s.SetSettings(settings); err != nil {
+		t.Fatal(err)
+	}
+
+	loaded, err := s.Settings()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !loaded.ClaudeDesktopUsed {
+		t.Fatal("expected Claude Desktop history to persist")
 	}
 }
 

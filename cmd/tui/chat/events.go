@@ -70,7 +70,6 @@ type chatTickMsg struct{}
 
 func (m *chatModel) applyAgentEvent(event coreagent.Event) {
 	contextChanged := false
-	skipResponseMetrics := false
 
 	switch event.Type {
 	case coreagent.EventThinkingDelta:
@@ -194,13 +193,10 @@ func (m *chatModel) applyAgentEvent(event coreagent.Event) {
 		}
 		m.entries = append(m.entries, newChatEntry(chatEntry{role: "system", content: message}))
 		m.status = "compact skipped"
-	case coreagent.EventModelStreamDone:
-		m.awaitingModel = false
 	case coreagent.EventError:
 		m.resetRunState()
 		m.eventErrorRendered = true
-		message := displayChatError(event.Error)
-		m.entries = append(m.entries, newChatEntry(chatEntry{role: "error", content: message, err: event.Error}))
+		m.entries = append(m.entries, newChatEntry(chatEntry{role: "error", content: event.Error, err: event.Error}))
 	}
 
 	if contextChanged {

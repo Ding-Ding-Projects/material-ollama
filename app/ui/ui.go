@@ -13,7 +13,6 @@ import (
 	"net/http"
 	"net/http/httputil"
 	"os"
-	"os/exec"
 	"runtime"
 	"runtime/debug"
 	"slices"
@@ -32,7 +31,7 @@ import (
 	"github.com/ollama/ollama/app/updater"
 	"github.com/ollama/ollama/app/version"
 	ollamaAuth "github.com/ollama/ollama/auth"
-	ollamaConfig "github.com/ollama/ollama/cmd/config"
+	"github.com/ollama/ollama/cmd/launch"
 	"github.com/ollama/ollama/envconfig"
 	"github.com/ollama/ollama/manifest"
 	"github.com/ollama/ollama/types/model"
@@ -98,23 +97,25 @@ const (
 )
 
 type Server struct {
-	Logger       *slog.Logger
-	Restart      func()
-	Token        string
-	Store        *store.Store
+	Logger         *slog.Logger
+	Restart        func()
+	Token          string
+	Store          *store.Store
 	ConfigProfiles *ConfigProfileManager
-	ToolRegistry *tools.Registry
-	Tools        bool   // if true, the server will use single-turn tools to fulfill the user's request
-	WebSearch    bool   // if true, the server will use single-turn browser tool to fulfill the user's request
-	Agent        bool   // if true, the server will use multi-turn tools to fulfill the user's request
-	WorkingDir   string // Working directory for all agent operations
+	ToolRegistry   *tools.Registry
+	Tools          bool   // if true, the server will use single-turn tools to fulfill the user's request
+	WebSearch      bool   // if true, the server will use single-turn browser tool to fulfill the user's request
+	Agent          bool   // if true, the server will use multi-turn tools to fulfill the user's request
+	WorkingDir     string // Working directory for all agent operations
 
 	// Dev is true if the server is running in development mode
 	Dev bool
 
 	// Updater for checking and downloading updates
-	Updater             *updater.Updater
-	UpdateAvailableFunc func()
+	Updater              *updater.Updater
+	UpdateAvailableFunc  func()
+	IntegrationInstalled func(string) bool
+	ListCloudModels      func(context.Context) (*api.ListResponse, error)
 
 	configProfilesOnce sync.Once
 	configProfilesErr  error
@@ -236,7 +237,7 @@ func (s *Server) Handler() http.Handler {
 			log := s.log()
 			level := slog.LevelInfo
 			start := time.Now()
-			requestID := strconv.FormatInt(time.Now().UnixNano(), 10)
+			requestID := fmt.Sprintf("%d", time.Now().UnixNano())
 
 			defer func() {
 				p := recover()
@@ -246,7 +247,7 @@ func (s *Server) Handler() http.Handler {
 
 					// Handle panic with user-friendly error
 					if !sw.Written() {
-						s.handleError(sw, errors.New("internal server error"))
+						s.handleError(sw, fmt.Errorf("internal server error"))
 					}
 				}
 
@@ -288,9 +289,6 @@ func (s *Server) Handler() http.Handler {
 	mux.Handle("OPTIONS /", handle(func(w http.ResponseWriter, r *http.Request) error {
 		return nil
 	}))
-	mux.Handle("OPTIONS /api/v1/chat/{id}/messages/{index}", handle(func(w http.ResponseWriter, r *http.Request) error {
-		return nil
-	}))
 
 	// API routes - handle first to take precedence
 	mux.Handle("GET /api/v1/chats", handle(s.listChats))
@@ -299,7 +297,6 @@ func (s *Server) Handler() http.Handler {
 	mux.Handle("DELETE /api/v1/chat/{id}", handle(s.deleteChat))
 	mux.Handle("POST /api/v1/create-chat", handle(s.createChat))
 	mux.Handle("PUT /api/v1/chat/{id}/rename", handle(s.renameChat))
-	mux.Handle("PATCH /api/v1/chat/{id}/messages/{index}", handle(s.updateChatMessage))
 
 	mux.Handle("GET /api/v1/inference-compute", handle(s.getInferenceCompute))
 	mux.Handle("POST /api/v1/model/upstream", handle(s.modelUpstream))
@@ -351,6 +348,8 @@ func (s *Server) Handler() http.Handler {
 	mux.Handle("POST /api/v1/config/profiles/{id}/apply", handle(s.applyConfigProfile))
 	mux.Handle("GET /api/v1/cloud", handle(s.getCloudSetting))
 	mux.Handle("POST /api/v1/cloud", handle(s.cloudSetting))
+	mux.Handle("GET /api/v1/models/cloud", handle(s.getCloudModels))
+	mux.Handle("GET /api/v1/integrations", handle(s.getIntegrationStatuses))
 
 	// Dedicated UI-preferences routes. Deliberately NOT folded into the
 	// general /api/v1/settings pair above -- see app/ui/uh.go's header
@@ -450,6 +449,74 @@ func (s *Server) Handler() http.Handler {
 	mux.Handle("DELETE /", s.appHandler())
 
 	return mux
+}
+
+func (s *Server) getIntegrationStatuses(w http.ResponseWriter, _ *http.Request) error {
+	isInstalled := s.IntegrationInstalled
+	if isInstalled == nil {
+		isInstalled = launch.IsIntegrationInstalled
+	}
+
+	type integrationStatus struct {
+		ID          string `json:"id"`
+		Name        string `json:"name"`
+		Description string `json:"description"`
+		Installed   *bool  `json:"installed,omitempty"`
+		Action      string `json:"action"`
+		Command     string `json:"command,omitempty"`
+	}
+
+	infos := launch.ListIntegrationInfos()
+	statuses := make([]integrationStatus, 0, len(infos)+2)
+	claudeDesktopInstalled := isInstalled("claude-desktop")
+	statuses = append(statuses, integrationStatus{
+		ID:          "claude-desktop",
+		Name:        "Claude",
+		Description: "Use Ollama models in Claude Desktop",
+		Installed:   &claudeDesktopInstalled,
+		Action:      "connect",
+	})
+
+	byName := make(map[string]launch.IntegrationInfo, len(infos))
+	for _, info := range infos {
+		byName[info.Name] = info
+	}
+	seen := map[string]bool{"chatgpt": true}
+	launcherMenuOrder := []string{"claude", "codex", "openclaw", "opencode", "hermes", "hermes-desktop", "droid", "pi", "cline"}
+	orderedInfos := make([]launch.IntegrationInfo, 0, len(infos))
+	for _, name := range launcherMenuOrder {
+		if info, ok := byName[name]; ok {
+			orderedInfos = append(orderedInfos, info)
+			seen[name] = true
+		}
+	}
+	for _, info := range infos {
+		if !seen[info.Name] {
+			orderedInfos = append(orderedInfos, info)
+		}
+	}
+
+	for _, info := range orderedInfos {
+		installed := isInstalled(info.Name)
+		statuses = append(statuses, integrationStatus{
+			ID:          info.Name,
+			Name:        info.DisplayName,
+			Description: info.Description,
+			Installed:   &installed,
+			Action:      "copy",
+			Command:     "ollama launch " + info.Name,
+		})
+	}
+
+	statuses = append(statuses, integrationStatus{
+		ID:          "terminal",
+		Name:        "Terminal",
+		Description: "Run local models from your terminal",
+		Action:      "copy",
+		Command:     "ollama",
+	})
+
+	return json.NewEncoder(w).Encode(statuses)
 }
 
 // handleError renders appropriate error responses based on request type
@@ -635,7 +702,7 @@ func (s *Server) checkModelUpstream(ctx context.Context, modelName string, timeo
 
 	digest := resp.Header.Get("ollama-content-digest")
 	if digest == "" {
-		return "", 0, errors.New("no digest header found")
+		return "", 0, fmt.Errorf("no digest header found")
 	}
 
 	var pushTime int64
@@ -790,12 +857,12 @@ func (s *Server) chat(w http.ResponseWriter, r *http.Request) error {
 	}
 
 	if req.Model == "" {
-		return errors.New("empty model")
+		return fmt.Errorf("empty model")
 	}
 
 	// Don't allow empty messages unless forceUpdate is true
 	if req.Prompt == "" && !req.ForceUpdate {
-		return errors.New("empty message")
+		return fmt.Errorf("empty message")
 	}
 
 	if createdChat {
@@ -1132,7 +1199,7 @@ func (s *Server) chat(w http.ResponseWriter, r *http.Request) error {
 					} else {
 						onlyStandalone := true
 						for _, tc := range res.Message.ToolCalls {
-							if tc.Function.Name != "web_search" && tc.Function.Name != "web_fetch" {
+							if !(tc.Function.Name == "web_search" || tc.Function.Name == "web_fetch") {
 								onlyStandalone = false
 								break
 							}
@@ -1384,7 +1451,7 @@ func (s *Server) getChat(w http.ResponseWriter, r *http.Request) error {
 	cid := r.PathValue("id")
 
 	if cid == "" {
-		return errors.New("chat ID is required")
+		return fmt.Errorf("chat ID is required")
 	}
 
 	chat, err := s.Store.Chat(cid)
@@ -1442,7 +1509,7 @@ func (s *Server) getChat(w http.ResponseWriter, r *http.Request) error {
 func (s *Server) renameChat(w http.ResponseWriter, r *http.Request) error {
 	cid := r.PathValue("id")
 	if cid == "" {
-		return errors.New("chat ID is required")
+		return fmt.Errorf("chat ID is required")
 	}
 
 	var req struct {
@@ -1470,61 +1537,10 @@ func (s *Server) renameChat(w http.ResponseWriter, r *http.Request) error {
 	return nil
 }
 
-func (s *Server) updateChatMessage(w http.ResponseWriter, r *http.Request) error {
-	chatID := r.PathValue("id")
-	if chatID == "" {
-		return fmt.Errorf("chat ID is required")
-	}
-
-	indexParam := r.PathValue("index")
-	msgIndex, err := strconv.Atoi(indexParam)
-	if err != nil {
-		return fmt.Errorf("invalid message index: %w", err)
-	}
-
-	var req responses.MessageUpdateRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		return fmt.Errorf("invalid request body: %w", err)
-	}
-
-	if strings.TrimSpace(req.Content) == "" {
-		return fmt.Errorf("message content cannot be empty")
-	}
-
-	chat, err := s.Store.ChatWithOptions(chatID, true)
-	if err != nil {
-		return fmt.Errorf("failed to load chat: %w", err)
-	}
-
-	if msgIndex < 0 || msgIndex >= len(chat.Messages) {
-		return fmt.Errorf("message index out of range")
-	}
-
-	message := chat.Messages[msgIndex]
-	if message.Role != "assistant" {
-		return fmt.Errorf("only assistant messages can be updated")
-	}
-
-	message.Content = req.Content
-	message.UpdatedAt = time.Now()
-	chat.Messages[msgIndex] = message
-
-	if err := s.Store.SetChat(*chat); err != nil {
-		return fmt.Errorf("failed to update chat message: %w", err)
-	}
-
-	w.Header().Set("Content-Type", "application/json")
-	return json.NewEncoder(w).Encode(responses.MessageUpdateResponse{
-		Index:   msgIndex,
-		ChatID:  chatID,
-		Message: message,
-	})
-}
-
 func (s *Server) deleteChat(w http.ResponseWriter, r *http.Request) error {
 	cid := r.PathValue("id")
 	if cid == "" {
-		return errors.New("chat ID is required")
+		return fmt.Errorf("chat ID is required")
 	}
 
 	// Check if the chat exists (no need to load attachments)
@@ -1532,7 +1548,7 @@ func (s *Server) deleteChat(w http.ResponseWriter, r *http.Request) error {
 	if err != nil {
 		if errors.Is(err, not.Found) {
 			w.WriteHeader(http.StatusNotFound)
-			return errors.New("chat not found")
+			return fmt.Errorf("chat not found")
 		}
 		return fmt.Errorf("failed to get chat: %w", err)
 	}
@@ -1643,8 +1659,7 @@ func (s *Server) getSettings(w http.ResponseWriter, r *http.Request) error {
 
 	w.Header().Set("Content-Type", "application/json")
 	return json.NewEncoder(w).Encode(responses.SettingsResponse{
-		Settings:             settings,
-		HasCompletedFirstRun: s.hasCompletedAppTerminalPrompt(),
+		Settings: settings,
 	})
 }
 
@@ -1654,9 +1669,25 @@ func (s *Server) settings(w http.ResponseWriter, r *http.Request) error {
 		return fmt.Errorf("failed to load settings: %w", err)
 	}
 
-	var settings store.Settings
-	if err := json.NewDecoder(r.Body).Decode(&settings); err != nil {
+	var request struct {
+		store.Settings
+		OnboardingVersion *int
+		ClaudeDesktopUsed *bool
+	}
+	if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
 		return fmt.Errorf("invalid request body: %w", err)
+	}
+
+	settings := request.Settings
+	if request.OnboardingVersion == nil {
+		settings.OnboardingVersion = old.OnboardingVersion
+	} else {
+		settings.OnboardingVersion = *request.OnboardingVersion
+	}
+	if request.ClaudeDesktopUsed == nil {
+		settings.ClaudeDesktopUsed = old.ClaudeDesktopUsed
+	} else {
+		settings.ClaudeDesktopUsed = *request.ClaudeDesktopUsed
 	}
 
 	if err := s.Store.SetSettings(settings); err != nil {
@@ -1689,73 +1720,8 @@ func (s *Server) settings(w http.ResponseWriter, r *http.Request) error {
 
 	w.Header().Set("Content-Type", "application/json")
 	return json.NewEncoder(w).Encode(responses.SettingsResponse{
-		Settings:             settings,
-		HasCompletedFirstRun: s.hasCompletedAppTerminalPrompt(),
+		Settings: settings,
 	})
-}
-
-func (s *Server) skipFirstRun(w http.ResponseWriter, r *http.Request) error {
-	if err := ollamaConfig.MarkOnboardingCompleted(ollamaConfig.OnboardingSectionApp, ollamaConfig.OnboardingKeyTerminalPrompt); err != nil {
-		return fmt.Errorf("failed to save first run status: %w", err)
-	}
-
-	w.Header().Set("Content-Type", "application/json")
-	return json.NewEncoder(w).Encode(map[string]bool{"ok": true})
-}
-
-func (s *Server) runOllamaInTerminal(w http.ResponseWriter, r *http.Request) error {
-	if err := ollamaConfig.MarkOnboardingCompleted(ollamaConfig.OnboardingSectionApp, ollamaConfig.OnboardingKeyTerminalPrompt); err != nil {
-		return fmt.Errorf("failed to save first run status: %w", err)
-	}
-
-	if err := openTerminalWithOllama(); err != nil {
-		return fmt.Errorf("open terminal: %w", err)
-	}
-
-	w.Header().Set("Content-Type", "application/json")
-	return json.NewEncoder(w).Encode(map[string]bool{"ok": true})
-}
-
-var openTerminalWithOllama = defaultOpenTerminalWithOllama
-
-func defaultOpenTerminalWithOllama() error {
-	switch runtime.GOOS {
-	case "darwin":
-		script := `tell application "Terminal"
-	activate
-	do script "ollama"
-end tell`
-		return exec.Command("osascript", "-e", script).Run()
-	case "windows":
-		return exec.Command("cmd", "/C", "start", "", "cmd", "/K", "ollama").Run()
-	default:
-		return fmt.Errorf("unsupported platform %s", runtime.GOOS)
-	}
-}
-
-func (s *Server) hasCompletedAppTerminalPrompt() bool {
-	completed, ok, err := ollamaConfig.LookupOnboardingCompleted(ollamaConfig.OnboardingSectionApp, ollamaConfig.OnboardingKeyTerminalPrompt)
-	if err != nil {
-		s.log().Warn("failed to load onboarding status", "error", err)
-		return false
-	}
-	if ok {
-		return completed
-	}
-
-	hasCompletedLegacyFirstRun, err := s.Store.HasCompletedFirstRun()
-	if err != nil {
-		s.log().Warn("failed to load legacy first run status", "error", err)
-		return false
-	}
-	if !hasCompletedLegacyFirstRun {
-		return false
-	}
-
-	if err := ollamaConfig.MarkOnboardingCompleted(ollamaConfig.OnboardingSectionApp, ollamaConfig.OnboardingKeyTerminalPrompt); err != nil {
-		s.log().Warn("failed to migrate first run status to config", "error", err)
-	}
-	return true
 }
 
 func (s *Server) cloudSetting(w http.ResponseWriter, r *http.Request) error {
@@ -1792,6 +1758,58 @@ func (s *Server) writeCloudStatus(w http.ResponseWriter) error {
 	})
 }
 
+func (s *Server) getCloudModels(w http.ResponseWriter, r *http.Request) error {
+	w.Header().Set("Content-Type", "application/json")
+	disabled, _, err := s.Store.CloudStatus()
+	if err != nil {
+		return fmt.Errorf("failed to load cloud status: %w", err)
+	}
+	if disabled {
+		return json.NewEncoder(w).Encode(api.ListResponse{Models: []api.ListModelResponse{}})
+	}
+
+	list := s.ListCloudModels
+	if list == nil {
+		list = s.listCloudModels
+	}
+	ctx, cancel := context.WithTimeout(r.Context(), 3*time.Second)
+	defer cancel()
+	models, err := list(ctx)
+	if err != nil {
+		var authErr api.AuthorizationError
+		if errors.As(err, &authErr) && (authErr.StatusCode == http.StatusUnauthorized || authErr.StatusCode == http.StatusForbidden) {
+			return json.NewEncoder(w).Encode(api.ListResponse{Models: []api.ListModelResponse{}})
+		}
+		return fmt.Errorf("failed to list cloud models: %w", err)
+	}
+	if models == nil {
+		models = &api.ListResponse{Models: []api.ListModelResponse{}}
+	}
+
+	return json.NewEncoder(w).Encode(models)
+}
+
+func (s *Server) listCloudModels(ctx context.Context) (*api.ListResponse, error) {
+	resp, err := s.doSelfSigned(ctx, http.MethodGet, "/api/tags")
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode == http.StatusUnauthorized || resp.StatusCode == http.StatusForbidden {
+		return nil, api.AuthorizationError{StatusCode: resp.StatusCode}
+	}
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("ollama.com/api/tags returned %s", resp.Status)
+	}
+
+	var models api.ListResponse
+	if err := json.NewDecoder(resp.Body).Decode(&models); err != nil {
+		return nil, fmt.Errorf("failed to parse cloud models: %w", err)
+	}
+	return &models, nil
+}
+
 func (s *Server) getInferenceCompute(w http.ResponseWriter, r *http.Request) error {
 	ctx, cancel := context.WithTimeout(r.Context(), 500*time.Millisecond)
 	defer cancel()
@@ -1824,7 +1842,7 @@ func (s *Server) getInferenceCompute(w http.ResponseWriter, r *http.Request) err
 
 func (s *Server) modelUpstream(w http.ResponseWriter, r *http.Request) error {
 	if r.Method != "POST" {
-		return errors.New("method not allowed")
+		return fmt.Errorf("method not allowed")
 	}
 
 	var req struct {
@@ -1835,7 +1853,7 @@ func (s *Server) modelUpstream(w http.ResponseWriter, r *http.Request) error {
 	}
 
 	if req.Model == "" {
-		return errors.New("model is required")
+		return fmt.Errorf("model is required")
 	}
 
 	digest, pushTime, err := s.checkModelUpstream(r.Context(), req.Model, 5*time.Second)
@@ -1959,8 +1977,8 @@ func supportsBrowserTools(model string) bool {
 
 // buildChatRequest converts store.Chat to api.ChatRequest
 func (s *Server) buildChatRequest(chat *store.Chat, model string, think any, availableTools []map[string]any) (*api.ChatRequest, error) {
-	msgs := make([]api.Message, len(chat.Messages))
-	for i, m := range chat.Messages {
+	var msgs []api.Message
+	for _, m := range chat.Messages {
 		// Skip empty messages if present
 		if m.Content == "" && m.Thinking == "" && len(m.ToolCalls) == 0 && len(m.Attachments) == 0 {
 			continue
@@ -2018,7 +2036,7 @@ func (s *Server) buildChatRequest(chat *store.Chat, model string, think any, ava
 			s.log().Debug("unknown message role", "role", m.Role)
 		}
 
-		msgs[i] = apiMsg
+		msgs = append(msgs, apiMsg)
 	}
 
 	var thinkValue *api.ThinkValue

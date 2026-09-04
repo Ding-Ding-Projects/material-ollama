@@ -1,13 +1,6 @@
 package launch
 
 import (
-	"context"
-	"fmt"
-	"net/http"
-	"net/http/httptest"
-	"net/url"
-	"slices"
-	"strings"
 	"testing"
 
 	"github.com/ollama/ollama/api"
@@ -87,54 +80,4 @@ func TestBuildModelList_InstalledRecommendedPreservesRecommendationAndMetadata(t
 	if got.Description != "Reasoning, coding, and visual understanding locally" {
 		t.Fatalf("Description = %q, want recommendation description", got.Description)
 	}
-}
-
-func TestRecommendedModelsFallbackIsNeutral(t *testing.T) {
-	want := []string{
-		"kimi-k2.6:cloud",
-		"qwen3.5:cloud",
-		"glm-5.1:cloud",
-		"minimax-m2.7:cloud",
-		"gemma4",
-		"qwen3.5",
-	}
-	if !slices.Equal(modelItemNames(recommendedModels), want) {
-		t.Fatalf("models = %v, want %v", modelItemNames(recommendedModels), want)
-	}
-	for _, name := range modelItemNames(recommendedModels) {
-		if strings.Contains(name, "-mlx") {
-			t.Fatalf("fallback recommendation should not use MLX tag: %q", name)
-		}
-	}
-}
-
-func TestLauncherRequestRecommendationsTrustsServerModelNames(t *testing.T) {
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path != "/api/experimental/model-recommendations" {
-			http.NotFound(w, r)
-			return
-		}
-		fmt.Fprint(w, `{"recommendations":[{"model":"gemma4","description":"local","vram_bytes":12884901888},{"model":"qwen3.5:9b","description":"local","vram_bytes":15032385536},{"model":"qwen3.6","description":"local","vram_bytes":25769803776}]}`)
-	}))
-	defer srv.Close()
-
-	u, _ := url.Parse(srv.URL)
-	client := &launcherClient{apiClient: api.NewClient(u, srv.Client())}
-	got, err := client.requestRecommendations(context.Background())
-	if err != nil {
-		t.Fatalf("requestRecommendations failed: %v", err)
-	}
-
-	want := []string{"gemma4", "qwen3.5:9b", "qwen3.6"}
-	if !slices.Equal(modelItemNames(got), want) {
-		t.Fatalf("models = %v, want %v", modelItemNames(got), want)
-	}
-}
-
-func modelItemNames(items []ModelItem) []string {
-	names := make([]string, len(items))
-	for i, item := range items {
-		names[i] = item.Name
-	}
-	return names
 }

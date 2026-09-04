@@ -43,18 +43,18 @@ func (p *gemmaModel) KV(t *Tokenizer) KV {
 }
 
 func (p *gemmaModel) Tensors(ts []Tensor) []*ggml.Tensor {
-	out := make([]*ggml.Tensor, len(ts))
-	for i, t := range ts {
+	var out []*ggml.Tensor
+	for _, t := range ts {
 		if !strings.HasPrefix(t.Name(), "v.") && strings.HasSuffix(t.Name(), "_norm.weight") {
 			t.SetRepacker(p.addOne)
 		}
 
-		out[i] = &ggml.Tensor{
+		out = append(out, &ggml.Tensor{
 			Name:     t.Name(),
 			Kind:     t.Kind(),
 			Shape:    t.Shape(),
 			WriterTo: t,
-		}
+		})
 	}
 
 	return out

@@ -137,7 +137,7 @@ func (p *bertModel) KV(t *Tokenizer) KV {
 }
 
 func (p *bertModel) Tensors(ts []Tensor) []*ggml.Tensor {
-	out := make([]*ggml.Tensor, 0, len(ts))
+	var out []*ggml.Tensor
 	for _, t := range ts {
 		if slices.Contains([]string{
 			"embeddings.position_ids",

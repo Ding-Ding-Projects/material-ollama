@@ -3,10 +3,9 @@ package openai
 import (
 	"encoding/base64"
 	"encoding/json"
+	"strings"
 	"testing"
 	"time"
-
-	"github.com/google/go-cmp/cmp"
 
 	"github.com/google/go-cmp/cmp"
 
@@ -31,6 +30,10 @@ const (
 	prefix = `data:image/jpeg;base64,`
 	image  = `iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=`
 )
+
+func testIntPtr(v int) *int {
+	return &v
+}
 
 func TestFromChatRequest_Basic(t *testing.T) {
 	req := ChatCompletionRequest{
@@ -121,12 +124,7 @@ func TestFromChatRequest_WithImage(t *testing.T) {
 			{
 				Role: "user",
 				Content: []any{
-					map[string]any{"type": "text", "text": "First part."},
-					map[string]any{"type": "text", "text": "Second part."},
-					map[string]any{
-						"type":      "image_url",
-						"image_url": map[string]any{"url": prefix + image},
-					},
+					map[string]any{"type": "text", "text": "Hello"},
 					map[string]any{
 						"type":      "image_url",
 						"image_url": map[string]any{"url": prefix + image},
@@ -141,31 +139,20 @@ func TestFromChatRequest_WithImage(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	// Multi-part content array should produce a single message per OpenAI spec
-	if len(result.Messages) != 1 {
-		t.Fatalf("expected 1 message, got %d", len(result.Messages))
+	if len(result.Messages) != 2 {
+		t.Fatalf("expected 2 messages, got %d", len(result.Messages))
 	}
 
-	msg := result.Messages[0]
-	if msg.Role != "user" {
-		t.Errorf("expected role 'user', got %q", msg.Role)
+	if result.Messages[0].Content != "Hello" {
+		t.Errorf("expected first message content 'Hello', got %q", result.Messages[0].Content)
 	}
 
-	// Multiple text parts should be joined
-	expectedContent := "First part.\n\nSecond part."
-	if msg.Content != expectedContent {
-		t.Errorf("expected content %q, got %q", expectedContent, msg.Content)
+	if len(result.Messages[1].Images) != 1 {
+		t.Fatalf("expected 1 image, got %d", len(result.Messages[1].Images))
 	}
 
-	// Multiple images should be in the same message
-	if len(msg.Images) != 2 {
-		t.Fatalf("expected 2 images, got %d", len(msg.Images))
-	}
-
-	for i, img := range msg.Images {
-		if string(img) != string(imgData) {
-			t.Errorf("image %d data mismatch", i)
-		}
+	if string(result.Messages[1].Images[0]) != string(imgData) {
+		t.Error("image data mismatch")
 	}
 }
 
@@ -199,7 +186,7 @@ func TestToUsage(t *testing.T) {
 	resp := api.ChatResponse{
 		Metrics: api.Metrics{
 			PromptEvalCount:       10,
-			PromptEvalCachedCount: 4,
+			PromptEvalCachedCount: testIntPtr(4),
 			EvalCount:             20,
 		},
 	}
@@ -209,9 +196,8 @@ func TestToUsage(t *testing.T) {
 	if usage.PromptTokens != 10 {
 		t.Errorf("expected PromptTokens 10, got %d", usage.PromptTokens)
 	}
-
-	if usage.PromptTokensDetails.CachedTokens != 4 {
-		t.Errorf("expected CachedTokens 4, got %d", usage.PromptTokensDetails.CachedTokens)
+	if usage.PromptTokensDetails == nil || usage.PromptTokensDetails.CachedTokens != 4 {
+		t.Errorf("expected CachedTokens 4, got %#v", usage.PromptTokensDetails)
 	}
 
 	if usage.CompletionTokens != 20 {
@@ -220,6 +206,68 @@ func TestToUsage(t *testing.T) {
 
 	if usage.TotalTokens != 30 {
 		t.Errorf("expected TotalTokens 30, got %d", usage.TotalTokens)
+	}
+
+	data, err := json.Marshal(usage)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(data), `"prompt_tokens_details":{"cached_tokens":4}`) {
+		t.Errorf("unexpected usage json: %s", data)
+	}
+}
+
+func TestToUsageOmitsUnreportedCacheDetails(t *testing.T) {
+	usage := ToUsage(api.ChatResponse{Metrics: api.Metrics{PromptEvalCount: 10, EvalCount: 2}})
+	if usage.PromptTokensDetails != nil {
+		t.Fatalf("expected no cache details, got %#v", usage.PromptTokensDetails)
+	}
+
+	data, err := json.Marshal(usage)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var payload map[string]any
+	if err := json.Unmarshal(data, &payload); err != nil {
+		t.Fatal(err)
+	}
+	if _, ok := payload["prompt_tokens_details"]; ok {
+		t.Fatalf("unexpected cache details in %s", data)
+	}
+}
+
+func TestToUsageIncludesZeroCacheDetails(t *testing.T) {
+	usage := ToUsage(api.ChatResponse{Metrics: api.Metrics{
+		PromptEvalCount:       10,
+		PromptEvalCachedCount: testIntPtr(0),
+		EvalCount:             2,
+	}})
+	if usage.PromptTokensDetails == nil || usage.PromptTokensDetails.CachedTokens != 0 {
+		t.Fatalf("expected zero cache details, got %#v", usage.PromptTokensDetails)
+	}
+
+	data, err := json.Marshal(usage)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(data), `"prompt_tokens_details":{"cached_tokens":0}`) {
+		t.Errorf("unexpected usage json: %s", data)
+	}
+}
+
+func TestToCompletionUsageIncludesCachedTokens(t *testing.T) {
+	completion := ToCompletion("completion-id", api.GenerateResponse{
+		Metrics: api.Metrics{
+			PromptEvalCount:       10,
+			PromptEvalCachedCount: testIntPtr(4),
+			EvalCount:             2,
+		},
+	})
+	if completion.Usage.PromptTokens != 10 || completion.Usage.TotalTokens != 12 {
+		t.Fatalf("unexpected usage: %#v", completion.Usage)
+	}
+	if details := completion.Usage.PromptTokensDetails; details == nil || details.CachedTokens != 4 {
+		t.Fatalf("expected 4 cached tokens, got %#v", details)
 	}
 }
 

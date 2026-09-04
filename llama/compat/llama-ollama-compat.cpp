@@ -984,49 +984,6 @@ void handle_qwen3next(gguf_context * meta, ggml_context * ctx) {
 // Split expert gate/up tensors are valid in llama.cpp GGUFs, so they are not
 // sufficient to identify an existing published Ollama model.
 
-bool is_byte_fallback_token(const char * tok) {
-    if (!tok) return false;
-    if (std::strlen(tok) != 6) return false;
-    if (tok[0] != '<' || tok[1] != '0' || tok[2] != 'x' || tok[5] != '>') return false;
-
-    auto is_hex = [](char c) {
-        return (c >= '0' && c <= '9') || (c >= 'A' && c <= 'F') || (c >= 'a' && c <= 'f');
-    };
-    return is_hex(tok[3]) && is_hex(tok[4]);
-}
-
-void fix_byte_fallback_token_types(gguf_context * meta) {
-    const int64_t tok_kid = gguf_find_key(meta, "tokenizer.ggml.tokens");
-    const int64_t typ_kid = gguf_find_key(meta, "tokenizer.ggml.token_type");
-    if (tok_kid < 0 || typ_kid < 0) return;
-    if (gguf_get_kv_type(meta, tok_kid) != GGUF_TYPE_ARRAY ||
-        gguf_get_arr_type(meta, tok_kid) != GGUF_TYPE_STRING) {
-        return;
-    }
-    if (gguf_get_kv_type(meta, typ_kid) != GGUF_TYPE_ARRAY ||
-        gguf_get_arr_type(meta, typ_kid) != GGUF_TYPE_INT32) {
-        return;
-    }
-
-    const size_t n_tokens = gguf_get_arr_n(meta, tok_kid);
-    const size_t n_types = gguf_get_arr_n(meta, typ_kid);
-    const size_t n = std::min(n_tokens, n_types);
-    const auto * src = static_cast<const int32_t *>(gguf_get_arr_data(meta, typ_kid));
-    std::vector<int32_t> types(src, src + n_types);
-
-    bool changed = false;
-    for (size_t i = 0; i < n; ++i) {
-        if (is_byte_fallback_token(gguf_get_arr_str(meta, tok_kid, i)) && types[i] != 6) { // LLAMA_TOKEN_TYPE_BYTE
-            types[i] = 6;
-            changed = true;
-        }
-    }
-
-    if (changed) {
-        gguf_set_arr_data(meta, "tokenizer.ggml.token_type", GGUF_TYPE_INT32, types.data(), types.size());
-    }
-}
-
 bool detect_ollama_gemma4(const gguf_context * meta, const ggml_context * ctx) {
     const int64_t arch_kid = gguf_find_key(meta, "general.architecture");
     if (arch_kid < 0) return false;
@@ -1128,7 +1085,6 @@ void handle_gemma4(const llama_model_loader * ml, gguf_context * meta, ggml_cont
             }
         }
     }
-    fix_byte_fallback_token_types(meta);
 
     // Hide embedded audio + vision + projector tensors from the text loader.
     add_skip_prefix(ml, "a.");
@@ -3480,6 +3436,71 @@ bool maybe_load_text_tensor(const llama_model_loader * ml,
     LoadOp op;
     if (!take_load_op(ggml_get_name(cur), op)) return false;
     return load_tensor_with_op(cur, path.c_str(), buft, op);
+}
+
+// Slab-read cache slot (maybe_load_text_tensor_range). Holds AT MOST ONE
+// materialized tensor per loader: quantize reads a tensor's slabs
+// contiguously, so the previous entry is evicted when the next tensor's
+// first range arrives. This keeps peak memory at one op tensor at a time —
+// the same profile as the whole-tensor read this hook replaced. Growing a
+// per-tensor map instead would accumulate every layer's output for per-layer
+// ops (gemma4 MoE gate/up, qwen3.5 norm-shift) — most of the model in RAM by
+// the end of a quantize run.
+std::mutex g_text_range_mutex;
+std::unordered_map<const llama_model_loader *,
+                   std::pair<std::string, std::vector<uint8_t>>>
+    g_text_range_cache;
+
+const void * maybe_load_text_tensor_range(const llama_model_loader * ml,
+                                          ggml_tensor * cur,
+                                          size_t offs,
+                                          size_t size,
+                                          void * buf) {
+    if (compat_disabled()) return nullptr;
+    std::string path;
+    {
+        std::lock_guard<std::mutex> lk(g_loader_path_mutex);
+        auto it = g_loader_paths.find(ml);
+        if (it == g_loader_paths.end() || it->second.empty()) return nullptr;
+        path = it->second;
+    }
+
+    std::lock_guard<std::mutex> lk(g_text_range_mutex);
+    auto & slot = g_text_range_cache[ml];
+    auto cached = slot.first == ggml_get_name(cur) ? &slot.second : nullptr;
+    if (!cached) {
+        LoadOp op;
+        if (!take_load_op(ggml_get_name(cur), op)) return nullptr;
+
+        const auto start = std::chrono::steady_clock::now();
+        std::vector<uint8_t> full(ggml_nbytes(cur));
+        if (!op.apply(path.c_str(), full.data(), full.size())) {
+            OLLAMA_COMPAT_LOG_ERROR("%s: %s failed for %s after %.3f ms\n",
+                                    __func__, op.description, ggml_get_name(cur), elapsed_ms(start));
+            return nullptr;
+        }
+
+        const size_t dst_size = full.size();
+        slot = {std::string(ggml_get_name(cur)), std::move(full)};
+        cached = &slot.second;
+        const double ms = elapsed_ms(start);
+        const TransformTiming total = record_transform_timing(dst_size, ms);
+        OLLAMA_COMPAT_LOG_INFO("compat tensor transform: op=%s tensor=%s bytes=%zu duration_ms=%.3f total_ops=%llu total_bytes=%zu total_ms=%.3f\n",
+                               op.description, ggml_get_name(cur), dst_size, ms,
+                               (unsigned long long) total.count, total.bytes, total.ms);
+    }
+
+    if (offs + size > cached->size()) {
+        OLLAMA_COMPAT_LOG_ERROR("%s: range %zu+%zu out of bounds for %s (%zu bytes)\n",
+                                __func__, offs, size, ggml_get_name(cur), cached->size());
+        return nullptr;
+    }
+
+    const void * out = buf ? buf : cached->data() + offs;
+    if (buf) {
+        std::memcpy(buf, cached->data() + offs, size);
+    }
+    return out;
 }
 
 int maybe_clip_mmproj_embd(const char * projector_type, int projection_dim) {

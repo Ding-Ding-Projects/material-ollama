@@ -67,20 +67,10 @@ func (p *Progress) stop() (bool, int) {
 func (p *Progress) Stop() bool {
 	stopped, _ := p.stop()
 	if stopped {
-		p.mu.Lock()
-		defer p.mu.Unlock()
 		fmt.Fprint(p.w, "\n")
 		p.w.Flush()
 	}
-
-	// show cursor
-	fmt.Fprint(p.w, "\033[?25h")
-	p.w.Flush()
 	return stopped
-}
-
-func (p *Progress) StopWithoutClear() bool {
-	return p.stop()
 }
 
 func (p *Progress) StopAndClear() bool {
@@ -91,13 +81,6 @@ func (p *Progress) StopAndClear() bool {
 
 	stopped, pos := p.stop()
 	if stopped {
-		p.mu.Lock()
-		defer p.mu.Unlock()
-		defer p.w.Flush()
-
-		fmt.Fprint(p.w, "\033[?25l")
-		defer fmt.Fprint(p.w, "\033[?25h")
-
 		// clear all progress lines
 		for i := range pos {
 			if i > 0 {
@@ -105,13 +88,8 @@ func (p *Progress) StopAndClear() bool {
 			}
 			fmt.Fprint(p.w, "\033[2K\033[1G")
 		}
-
-		fmt.Fprint(p.w, "\033[2K", "\033[1G")
 	}
 
-	// show cursor
-	fmt.Fprint(p.w, "\033[?25h")
-	p.w.Flush()
 	return stopped
 }
 
@@ -142,10 +120,13 @@ func (p *Progress) renderLocked() {
 	fmt.Fprint(p.w, "\033[?2026h")
 	defer fmt.Fprint(p.w, "\033[?2026l")
 
+	fmt.Fprint(p.w, "\033[?25l")
+	defer fmt.Fprint(p.w, "\033[?25h")
+
+	// move the cursor back to the beginning
 	for range p.pos - 1 {
 		fmt.Fprint(p.w, "\033[A")
 	}
-
 	fmt.Fprint(p.w, "\033[1G")
 
 	// render progress lines
@@ -158,7 +139,6 @@ func (p *Progress) renderLocked() {
 	}
 
 	p.pos = len(p.states)
-	p.w.Flush()
 }
 
 func (p *Progress) start() {

@@ -1,7 +1,6 @@
 package launch
 
 import (
-	"context"
 	"fmt"
 	"os"
 	"os/exec"
@@ -13,22 +12,8 @@ import (
 	"github.com/ollama/ollama/envconfig"
 )
 
-const (
-	claudeInstallURL = "https://code.claude.com/docs/en/quickstart"
-	claudeBrewCmd    = "brew install anthropic/tap/claude-code"
-	claudeNpmCmd     = "npm install -g @anthropic-ai/claude-code"
-)
-
-var (
-	claudeLookPath = exec.LookPath
-	claudeCommand  = exec.Command
-	claudeGOOS     = runtime.GOOS
-)
-
 // Claude implements Runner for Claude Code integration.
 type Claude struct{}
-
-const claudeCodeAutoCompactMinContext = 100_000
 
 func (c *Claude) String() string { return "Claude Code" }
 
@@ -42,7 +27,7 @@ func (c *Claude) args(model string, extra []string) []string {
 }
 
 func (c *Claude) findPath() (string, error) {
-	if p, err := claudeLookPath("claude"); err == nil {
+	if p, err := exec.LookPath("claude"); err == nil {
 		return p, nil
 	}
 	home, err := os.UserHomeDir()
@@ -50,7 +35,7 @@ func (c *Claude) findPath() (string, error) {
 		return "", err
 	}
 	name := "claude"
-	if claudeGOOS == "windows" {
+	if runtime.GOOS == "windows" {
 		name = "claude.exe"
 	}
 	for _, fallback := range []string{
@@ -64,38 +49,34 @@ func (c *Claude) findPath() (string, error) {
 	return "", fmt.Errorf("claude binary not found")
 }
 
-func (c *Claude) Run(model string, models []LaunchModel, args []string) error {
+func (c *Claude) Run(model string, _ []LaunchModel, args []string) error {
 	claudePath, err := ensureClaudeInstalled()
 	if err != nil {
 		return err
 	}
 
-	contextLength := 0
-	if len(models) > 0 {
-		contextLength = models[0].ContextLength
-	}
-
-	cmd := claudeCommand(claudePath, c.args(model, args)...)
+	cmd := exec.Command(claudePath, c.args(model, args)...)
 	cmd.Stdin = os.Stdin
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 
-	cmd.Env = append(os.Environ(), c.envVars(model, contextLength)...)
+	cmd.Env = append(os.Environ(), c.envVars(model)...)
 	return cmd.Run()
 }
 
-func (c *Claude) envVars(model string, contextLength int) []string {
+func (c *Claude) envVars(model string) []string {
 	env := []string{
 		"ANTHROPIC_BASE_URL=" + envconfig.Host().String(),
 		"ANTHROPIC_API_KEY=",
 		"ANTHROPIC_AUTH_TOKEN=ollama",
 		"CLAUDE_CODE_ATTRIBUTION_HEADER=0",
+		"CLAUDE_CODE_TOTAL_TOKENS_REMINDER=off",
 		"DISABLE_ERROR_REPORTING=1",
 		"DISABLE_FEEDBACK_COMMAND=1",
 		"CLAUDE_CODE_DISABLE_FEEDBACK_SURVEY=1",
 	}
 
-	env = append(env, c.modelEnvVars(model, contextLength)...)
+	env = append(env, c.modelEnvVars(model)...)
 	return env
 }
 
@@ -180,53 +161,8 @@ func claudeInstallerCommand(goos string) (string, []string, error) {
 	}
 }
 
-func (c *Claude) prepareRunLaunchModels(ctx context.Context, client *launcherClient, model string, models []LaunchModel) ([]LaunchModel, error) {
-	if model == "" || isCloudModelName(model) {
-		return models, nil
-	}
-
-	contextLength, ok := client.localServerContextLength(ctx)
-	if !ok {
-		return models, nil
-	}
-
-	models = launchModelsWithContextLength(model, models, contextLength)
-	if contextLength >= claudeCodeAutoCompactMinContext {
-		return models, nil
-	}
-
-	if err := confirmLocalContextWarning(c.String(), contextLength, claudeCodeAutoCompactMinContext); err != nil {
-		return nil, err
-	}
-	return models, nil
-}
-
-func launchModelsWithContextLength(primary string, models []LaunchModel, contextLength int) []LaunchModel {
-	if contextLength <= 0 {
-		return models
-	}
-	if len(models) == 0 && primary != "" {
-		models = launchModelsFromNames([]string{primary})
-	}
-
-	out := cloneLaunchModels(models)
-	for i := range out {
-		if launchModelMatches(out[i].Name, primary) {
-			out[i].ContextLength = contextLength
-			return out
-		}
-	}
-
-	if primary != "" {
-		model := fallbackLaunchModel(primary)
-		model.ContextLength = contextLength
-		out = append([]LaunchModel{model}, out...)
-	}
-	return out
-}
-
 // modelEnvVars returns Claude Code env vars that route all model tiers through Ollama.
-func (c *Claude) modelEnvVars(model string, contextLength int) []string {
+func (c *Claude) modelEnvVars(model string) []string {
 	env := []string{
 		"ANTHROPIC_DEFAULT_OPUS_MODEL=" + model,
 		"ANTHROPIC_DEFAULT_SONNET_MODEL=" + model,
@@ -238,8 +174,6 @@ func (c *Claude) modelEnvVars(model string, contextLength int) []string {
 		if l, ok := lookupCloudModelLimit(model); ok {
 			env = append(env, "CLAUDE_CODE_AUTO_COMPACT_WINDOW="+strconv.Itoa(l.Context))
 		}
-	} else if contextLength >= claudeCodeAutoCompactMinContext {
-		env = append(env, "CLAUDE_CODE_AUTO_COMPACT_WINDOW="+strconv.Itoa(contextLength))
 	}
 
 	return env

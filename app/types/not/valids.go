@@ -4,7 +4,6 @@ package not
 
 import (
 	"fmt"
-	"strings"
 )
 
 type ValidError struct {
@@ -45,12 +44,12 @@ func (b Valids) Error() string {
 		return ""
 	}
 
-	var sb strings.Builder
+	var result string
 	for i, err := range b {
 		if i > 0 {
-			sb.WriteString("; ")
+			result += "; "
 		}
-		sb.WriteString(err.Error())
+		result += err.Error()
 	}
-	return sb.String()
+	return result
 }

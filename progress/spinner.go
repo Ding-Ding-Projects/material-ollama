@@ -14,6 +14,8 @@ type Spinner struct {
 	mu           sync.Mutex
 	messageWidth int
 
+	parts []string
+
 	value int
 
 	started time.Time
@@ -62,8 +64,9 @@ func (s *Spinner) String() string {
 	}
 
 	if s.stopped.IsZero() {
-		sb.WriteString(fmt.Sprintf("\033[48;5;%dm ", s.value))
-		sb.WriteString("\033[0m")
+		spinner := s.parts[s.value]
+		sb.WriteString(spinner)
+		sb.WriteString(" ")
 	}
 
 	return sb.String()

@@ -7,7 +7,7 @@ import { AppShell } from "@/components/shell/AppShell";
 
 function RootComponent() {
   // This hook ensures settings are fetched on app startup
-  const { data: settingsData, isLoading } = useQuery({
+  useQuery({
     queryKey: ["settings"],
     queryFn: getSettings,
   });

@@ -12,19 +12,36 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
-	"github.com/muesli/termenv"
 
 	coreagent "github.com/ollama/ollama/agent"
 	"github.com/ollama/ollama/api"
 )
 
+func testIntPtr(v int) *int {
+	return &v
+}
+
+func TestMetricsSummaryLinesCachedPromptTokens(t *testing.T) {
+	lines := metricsSummaryLines(&api.Metrics{
+		PromptEvalCount:       10,
+		PromptEvalCachedCount: testIntPtr(4),
+		PromptEvalDuration:    time.Second,
+	})
+	got := strings.Join(lines, "\n")
+	for _, want := range []string{"prompt eval count:    10 token(s)", "prompt eval cached:   4 token(s)", "prompt eval rate:     6.00 tokens/s"} {
+		if !strings.Contains(got, want) {
+			t.Errorf("summary missing %q:\n%s", want, got)
+		}
+	}
+}
+
 func TestChatAssistantEntryHasNoLabel(t *testing.T) {
 	m := chatModel{}
 
-	prefix, _ := m.renderEntry(m.entries[0])
+	prefix, _ := m.renderEntry(chatEntry{role: "assistant", content: "hello"})
 
-	if prefix != "" {
-		t.Fatalf("prefix = %q, want empty", prefix)
+	if strings.Contains(prefix, "Ollama:") {
+		t.Fatalf("prefix should not include Ollama label: %q", prefix)
 	}
 	if prefix != "" {
 		t.Fatalf("prefix = %q, want empty", prefix)
@@ -44,10 +61,8 @@ func TestChatViewRendersEmptyPromptHint(t *testing.T) {
 	if hintLine < 0 {
 		t.Fatalf("empty chat view missing prompt hint: %q", view)
 	}
-	for _, oldCopy := range []string{"Try:", "Start a conversation. Use /help for commands."} {
-		if strings.Contains(view, oldCopy) {
-			t.Fatalf("empty chat view should use promptless rotating hint: %q", view)
-		}
+	if strings.Contains(view, "Start a conversation. Use /help for commands.") {
+		t.Fatalf("empty chat view should use rotating prompt hint: %q", view)
 	}
 }
 
@@ -67,9 +82,6 @@ func TestChatUserEntryHasNoLabel(t *testing.T) {
 	if !strings.Contains(transcript, "  hello") {
 		t.Fatalf("user transcript should render as user block: %q", transcript)
 	}
-	if !strings.HasPrefix(transcript, "  hello") {
-		t.Fatalf("user transcript should use leading inset: %q", transcript)
-	}
 }
 
 func TestChatSystemEntryHasNoLabel(t *testing.T) {
@@ -85,32 +97,6 @@ func TestChatSystemEntryHasNoLabel(t *testing.T) {
 	}
 	if transcript := stripANSI(m.renderTranscript(80)); strings.Contains(transcript, "sys ") {
 		t.Fatalf("system transcript should not render sys prefix: %q", transcript)
-	}
-}
-
-func TestRenderMarkdownForViewFormatsBasics(t *testing.T) {
-	got := stripANSI(renderMarkdownForView(strings.Join([]string{
-		"# Summary",
-		"Run `go test` before merging.",
-		"",
-		"```go",
-		"fmt.Println(\"hi\")",
-		"```",
-		"",
-		"| Tool | Result |",
-		"| --- | --- |",
-		"| read | ok |",
-	}, "\n"), 80))
-
-	for _, want := range []string{"Summary", "go test", "fmt.Println(\"hi\")", "Tool | Result", "read | ok"} {
-		if !strings.Contains(got, want) {
-			t.Fatalf("rendered markdown missing %q:\n%s", want, got)
-		}
-	}
-	for _, old := range []string{"# Summary", "`go test`", "```"} {
-		if strings.Contains(got, old) {
-			t.Fatalf("rendered markdown should not keep raw marker %q:\n%s", old, got)
-		}
 	}
 }
 
@@ -369,7 +355,7 @@ func TestChatViewExpandsInputBoxForLongPrompt(t *testing.T) {
 	if got := inputPromptLineCount(t, view); got < 2 {
 		t.Fatalf("input body lines = %d, want wrapped prompt:\n%s", got, view)
 	}
-	if !strings.Contains(view, inputCursorGlyph) {
+	if !strings.Contains(view, "█") {
 		t.Fatalf("view missing cursor: %q", view)
 	}
 }
@@ -887,66 +873,6 @@ func TestRenderMarkdownStrongAfterPunctuation(t *testing.T) {
 				t.Fatalf("rendered output should emphasize %q: %q", test.emphasis, rendered)
 			}
 		})
-	}
-}
-
-func TestChatStreamingAssistantOutputRendersCodeFences(t *testing.T) {
-	m := chatModel{
-		width:   80,
-		height:  12,
-		running: true,
-	}
-
-	m.applyAgentEvent(coreagent.Event{Type: coreagent.EventMessageDelta, Content: "```go\npackage"})
-	m.applyAgentEvent(coreagent.Event{Type: coreagent.EventMessageDelta, Content: " main\n```"})
-
-	view := stripANSI(m.View())
-	if strings.Contains(view, "```") {
-		t.Fatalf("streamed fence markers should not render:\n%s", view)
-	}
-	if !strings.Contains(view, "package main") {
-		t.Fatalf("streamed code should remain visible:\n%s", view)
-	}
-}
-
-func TestChatFlowShowsAssistantAfterToolGroupingShrinksTranscript(t *testing.T) {
-	m := chatModel{
-		width:   100,
-		height:  16,
-		running: true,
-		entries: []chatEntry{
-			{role: "user", content: "inspect the repo"},
-		},
-	}
-
-	m, _ = m.flowTranscriptFlushCmd()
-	if m.flowPrintedLines == 0 {
-		t.Fatal("user prompt should start as flushed transcript")
-	}
-
-	for i := 1; i <= 4; i++ {
-		toolID := fmt.Sprintf("call-%d", i)
-		args := map[string]any{"command": fmt.Sprintf("echo %d", i)}
-		m.applyAgentEvent(coreagent.Event{Type: coreagent.EventToolStarted, ToolCallID: toolID, ToolName: "bash", Args: args})
-		m, _ = m.flowTranscriptFlushCmd()
-		m.applyAgentEvent(coreagent.Event{Type: coreagent.EventToolFinished, ToolCallID: toolID, ToolName: "bash", Args: args, Content: fmt.Sprintf("out %d", i)})
-		m, _ = m.flowTranscriptFlushCmd()
-	}
-	if m.flowPrintedLines < 5 {
-		t.Fatalf("completed tools should have flushed individually before grouping, printed=%d", m.flowPrintedLines)
-	}
-
-	m.applyAgentEvent(coreagent.Event{Type: coreagent.EventMessageDelta, Content: "First streamed answer line."})
-	m, _ = m.flowTranscriptFlushCmd()
-	view := stripANSI(m.View())
-	if !strings.Contains(view, "First streamed answer line.") {
-		t.Fatalf("live assistant text should remain visible after tool grouping:\n%s", view)
-	}
-	if m.entries[0].role != "user" || m.entries[1].role != "tool_group" || len(m.entries[1].tools) != 4 {
-		t.Fatalf("entries should retain grouped tools before assistant: %#v", m.entries)
-	}
-	if m.flowPrintedLines >= len(m.transcriptLines(m.width)) {
-		t.Fatalf("flowPrintedLines should leave live assistant managed, printed=%d transcript=%d", m.flowPrintedLines, len(m.transcriptLines(m.width)))
 	}
 }
 
@@ -2352,141 +2278,5 @@ func TestRenderMarkdownTablePreservesValidSeparator(t *testing.T) {
 	}
 	if !strings.Contains(plain, "Name") || !strings.Contains(plain, "Ollama") {
 		t.Fatalf("valid Markdown table was not rendered:\n%s", plain)
-	}
-}
-
-func TestRenderMarkdownCodeFencesHighlightLanguageTaggedCode(t *testing.T) {
-	profile := lipgloss.ColorProfile()
-	lipgloss.SetColorProfile(termenv.TrueColor)
-	defer lipgloss.SetColorProfile(profile)
-
-	markdown := strings.Join([]string{
-		"Use **greet** before running this code.",
-		"```go",
-		"package main",
-		"func greet(name string) string {",
-		"\treturn \"hello \" + name // greeting",
-		"}",
-		"```",
-		"",
-		"```",
-		"plain code stays plain",
-		"```",
-	}, "\n")
-
-	rendered := renderMarkdownForView(markdown, 72)
-	plain := stripANSI(rendered)
-	if strings.Contains(plain, "```") {
-		t.Fatalf("fence markers should not render:\n%s", plain)
-	}
-	for _, want := range []string{"package main", "func greet(name string) string {", "plain code stays plain"} {
-		if !strings.Contains(plain, want) {
-			t.Fatalf("rendered code is missing %q:\n%s", want, plain)
-		}
-	}
-	if !strings.Contains(rendered, chatStrongStyle.Render("greet")) {
-		t.Fatalf("inline Markdown should remain styled alongside code fences: %q", rendered)
-	}
-	for _, line := range strings.Split(rendered, "\n") {
-		if got := lipgloss.Width(line); got > 72 {
-			t.Fatalf("rendered code line width = %d, want <= 72: %q", got, stripANSI(line))
-		}
-	}
-	if got, ok := highlightMarkdownCodeBlock("go", "package main", nil, false); !ok || !strings.Contains(got, "\x1b[") {
-		t.Fatalf("language-tagged code should use Chroma highlighting: %q", got)
-	}
-	if got, ok := highlightMarkdownCodeBlock("", "plain code stays plain", nil, false); ok || got != "plain code stays plain" {
-		t.Fatalf("untagged code = %q, want plain code", got)
-	}
-}
-
-func TestRenderMarkdownCodeFencesRespectNoColorTerminals(t *testing.T) {
-	profile := lipgloss.ColorProfile()
-	lipgloss.SetColorProfile(termenv.Ascii)
-	defer lipgloss.SetColorProfile(profile)
-
-	if got, ok := highlightMarkdownCodeBlock("go", "package main", nil, false); ok || got != "package main" {
-		t.Fatalf("no-color output = %q, highlighted = %t", got, ok)
-	}
-}
-
-func TestRenderMarkdownCodeFencesHighlightMultilineConstructs(t *testing.T) {
-	profile := lipgloss.ColorProfile()
-	lipgloss.SetColorProfile(termenv.TrueColor)
-	defer lipgloss.SetColorProfile(profile)
-
-	rendered := renderMarkdownForView(strings.Join([]string{
-		"```go",
-		"/*",
-		" * This is a multi-line comment.",
-		" */",
-		"```",
-	}, "\n"), 72)
-
-	for _, line := range strings.Split(rendered, "\n") {
-		if strings.Contains(stripANSI(line), "multi-line comment") && !strings.Contains(line, "\x1b[") {
-			t.Fatalf("multiline comment should remain highlighted: %q", line)
-		}
-	}
-}
-
-func TestWrapHighlightedMarkdownCodePreservesANSIStyle(t *testing.T) {
-	lines := wrapHighlightedMarkdownCode("\x1b[31mabcdef\x1b[0m", 3)
-	if got, want := len(lines), 2; got != want {
-		t.Fatalf("wrapped lines = %d, want %d: %#v", got, want, lines)
-	}
-	if got, want := stripANSI(lines[0]), "abc"; got != want {
-		t.Fatalf("first line = %q, want %q", got, want)
-	}
-	if got, want := stripANSI(lines[1]), "def"; got != want {
-		t.Fatalf("continuation = %q, want %q", got, want)
-	}
-	if !strings.HasSuffix(lines[0], "\x1b[0m") || !strings.HasPrefix(lines[1], "\x1b[31m") {
-		t.Fatalf("ANSI style should reset and resume at the wrap boundary: %#v", lines)
-	}
-}
-
-func TestHighlightMarkdownCodeBlockCachesCompletedBlocks(t *testing.T) {
-	profile := lipgloss.ColorProfile()
-	lipgloss.SetColorProfile(termenv.TrueColor)
-	defer lipgloss.SetColorProfile(profile)
-
-	cache := map[markdownCodeBlockCacheKey]string{}
-	if _, ok := highlightMarkdownCodeBlock("go", "package main", &cache, true); !ok || len(cache) != 1 {
-		t.Fatalf("completed code block should be highlighted and cached: %#v", cache)
-	}
-	for key := range cache {
-		cache[key] = "cached highlighting"
-	}
-	if got, ok := highlightMarkdownCodeBlock("go", "package main", &cache, true); !ok || got != "cached highlighting" {
-		t.Fatalf("completed code block should use cached highlighting: %q", got)
-	}
-}
-
-func TestChatCompletedCodeBlockSurvivesLaterStreamingRender(t *testing.T) {
-	profile := lipgloss.ColorProfile()
-	lipgloss.SetColorProfile(termenv.TrueColor)
-	defer lipgloss.SetColorProfile(profile)
-
-	m := chatModel{entries: []chatEntry{newChatEntry(chatEntry{
-		role: "assistant",
-		content: strings.Join([]string{
-			"```go",
-			"package main",
-			"```",
-		}, "\n"),
-	})}}
-	m.renderTranscript(80)
-	if got := len(m.entries[0].codeBlocks); got != 1 {
-		t.Fatalf("completed block cache entries = %d, want 1", got)
-	}
-	for key := range m.entries[0].codeBlocks {
-		m.entries[0].codeBlocks[key] = "\x1b[31mcached code\x1b[0m"
-	}
-
-	m.entries[0].content += "\ncontinued response"
-	m.markEntryDirty(0)
-	if got := stripANSI(m.renderTranscript(80)); !strings.Contains(got, "cached code") {
-		t.Fatalf("later streamed content should reuse completed block highlighting: %q", got)
 	}
 }

@@ -10,9 +10,7 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
-	"reflect"
 	"runtime"
-	"slices"
 	"strconv"
 	"strings"
 	"sync"
@@ -176,16 +174,6 @@ func Remotes() []string {
 	return r
 }
 
-// Skills returns the list of skill directories. Skills directories can be configured via the OLLAMA_SKILLS environment variable.
-// Returns empty slice if not configured.
-func Skills() []string {
-	raw := strings.TrimSpace(Var("OLLAMA_SKILLS"))
-	if raw == "" {
-		return []string{}
-	}
-	return strings.Split(raw, ",")
-}
-
 func BoolWithDefault(k string) func(defaultValue bool) bool {
 	return func(defaultValue bool) bool {
 		if s := Var(k); s != "" {
@@ -314,10 +302,10 @@ func Uint64(key string, defaultValue uint64) func() uint64 {
 // Set aside VRAM per GPU
 var GpuOverhead = Uint64("OLLAMA_GPU_OVERHEAD", 0)
 
-type item struct {
-	enable              bool
-	name, usage         string
-	value, defaultValue any
+type EnvVar struct {
+	Name        string
+	Value       any
+	Description string
 }
 
 func AsMap() map[string]EnvVar {
@@ -372,93 +360,15 @@ func AsMap() map[string]EnvVar {
 		ret["OLLAMA_VULKAN"] = EnvVar{"OLLAMA_VULKAN", EnableVulkan(true), "Enable Vulkan support"}
 	}
 
-	// Skills configuration would go here when added
-	ret["OLLAMA_SKILLS"] = EnvVar{"OLLAMA_SKILLS", Skills(), "Comma-separated list of skill directories"}
-
 	return ret
 }
 
-func (i item) LogValue() slog.Value {
-	return slog.GroupValue(slog.Any(i.name, i.value))
-}
-
-type slice []item
-
-func (s slice) LogValue() slog.Value {
-	attrs := make([]slog.Attr, 0, 2*len(s))
-	for _, e := range s {
-		attrs = append(attrs, e.LogValue().Group()...)
+func Values() map[string]string {
+	vals := make(map[string]string)
+	for k, v := range AsMap() {
+		vals[k] = fmt.Sprintf("%v", v.Value)
 	}
-	return slog.GroupValue(attrs...)
-}
-
-var all = slice{
-	{true, "OLLAMA_DEBUG", "Show additional debug information (e.g. OLLAMA_DEBUG=1). Verbosity increase with value", LogLevel(), nil},
-	{true, "OLLAMA_FLASH_ATTENTION", "Enable flash attention", FlashAttention(false), nil},
-	{true, "OLLAMA_KV_CACHE_TYPE", "Quantization type for the K/V cache", KvCacheType(), nil},
-	{true, "OLLAMA_GPU_OVERHEAD", "Reserve a portion of VRAM per GPU (bytes)", GpuOverhead(), 0},
-	{true, "OLLAMA_HOST", "IP Address for the ollama server", Host(), "127.0.0.1:11434"},
-	{true, "OLLAMA_KEEP_ALIVE", "The duration that models stay loaded in memory", KeepAlive(), 5 * time.Minute},
-	{true, "OLLAMA_LLM_LIBRARY", "Set LLM library to bypass autodetection", LLMLibrary(), nil},
-	{true, "OLLAMA_LOAD_TIMEOUT", "How long to allow model loads to stall before giving up", LoadTimeout(), 5 * time.Minute},
-	{true, "OLLAMA_MAX_LOADED_MODELS", "Maximum number of loaded models per GPU", MaxRunners(), 0},
-	{true, "OLLAMA_MAX_QUEUE", "Maximum number of queued requests", MaxQueue(), 512},
-	{true, "OLLAMA_MODELS", "The path to the models directory", Models(), filepath.Join(os.Getenv("HOME"), ".ollama", "models")},
-	{true, "OLLAMA_NOHISTORY", "Do not preserve readline history", NoHistory(), false},
-	{true, "OLLAMA_NOPRUNE", "Do not prune model blobs on startup", NoPrune(), false},
-	{true, "OLLAMA_NUM_PARALLEL", "Maximum number of parallel requests", NumParallel(), 1},
-	{true, "OLLAMA_ORIGINS", "A comma separated list of allowed origins", AllowedOrigins(), nil},
-	{true, "OLLAMA_SCHED_SPREAD", "Always schedule model across all GPUs", SchedSpread(), false},
-	{true, "OLLAMA_MULTIUSER_CACHE", "Optimize prompt caching for multi-user scenarios", MultiUserCache(), false},
-	{true, "OLLAMA_CONTEXT_LENGTH", "Context length to use unless otherwise specified", ContextLength(), 4096},
-	{true, "OLLAMA_NEW_ENGINE", "Enable the new Ollama engine", NewEngine(), false},
-	{true, "OLLAMA_REMOTES", "Allowed hosts for remote models", Remotes(), []string{"ollama.com"}},
-	{runtime.GOOS != "windows", "HTTP_PROXY", "HTTP proxy", String("http_proxy")(), nil},
-	{runtime.GOOS != "windows", "HTTPS_PROXY", "HTTPS proxy", String("https_proxy")(), nil},
-	{runtime.GOOS != "windows", "NO_PROXY", "No proxy", String("no_proxy")(), nil},
-	{runtime.GOOS != "darwin", "CUDA_VISIBLE_DEVICES", "Set which NVIDIA devices are visible", CudaVisibleDevices(), nil},
-	{runtime.GOOS != "darwin", "HIP_VISIBLE_DEVICES", "Set which AMD devices are visible by numeric ID", HipVisibleDevices(), nil},
-	{runtime.GOOS != "darwin", "ROCR_VISIBLE_DEVICES", "Set which AMD devices are visible by UUID or numeric ID", RocrVisibleDevices(), nil},
-	{runtime.GOOS != "darwin", "GGML_VK_VISIBLE_DEVICES", "Set which Vulkan devices are visible by numeric ID", VkVisibleDevices(), nil},
-	{runtime.GOOS != "darwin", "GPU_DEVICE_ORDINAL", "Set which AMD devices are visible by numeric ID", GpuDeviceOrdinal(), nil},
-	{runtime.GOOS != "darwin", "HSA_OVERRIDE_GFX_VERSION", "Override the gfx used for all detected AMD GPUs", HsaOverrideGfxVersion(), nil},
-}
-
-func Enabled() slice {
-	enabled := make(slice, 0, len(all))
-	for _, i := range all {
-		if i.enable {
-			enabled = append(enabled, i)
-		}
-	}
-	return enabled
-}
-
-func Lookup(s ...string) []item {
-	enabled := Enabled()
-	filtered := make([]item, 0, len(s))
-	for _, k := range s {
-		if i := slices.IndexFunc(enabled, func(i item) bool { return i.name == k }); i != -1 {
-			filtered = append(filtered, enabled[i])
-		}
-	}
-	return filtered
-}
-
-// Usage returns enabled environment variables and their usage descriptions.
-// If a variable has a default value, it is included in the description.
-func Usage(s ...string) map[string]string {
-	enabled := Enabled()
-	m := make(map[string]string, len(s))
-	for _, k := range s {
-		if i := slices.IndexFunc(enabled, func(i item) bool { return i.name == k }); i != -1 {
-			m[k] = enabled[i].usage
-			if enabled[i].defaultValue != nil {
-				m[k] += fmt.Sprintf(" (default: %v)", enabled[i].defaultValue)
-			}
-		}
-	}
-	return m
+	return vals
 }
 
 // Var returns an environment variable stripped of leading and trailing quotes or spaces

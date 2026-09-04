@@ -13,6 +13,7 @@ import (
 	"strings"
 	"sync/atomic"
 	"testing"
+	"time"
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/ollama/ollama/cmd/config"
@@ -1095,7 +1096,7 @@ func TestLaunchIntegration_ManagedSingleIntegrationCanConfigureWithModelList(t *
 		t.Fatalf("LaunchIntegration returned error: %v", err)
 	}
 
-	if diff := compareStringSlices(runner.configuredModelLists, [][]string{{"gemma4", "kimi-k2.6:cloud", "qwen3.5:cloud", "glm-5.2:cloud", "minimax-m2.7:cloud", "qwen3.5", "qwen3:8b"}}); diff != "" {
+	if diff := compareStringSlices(runner.configuredModelLists, [][]string{{"gemma4", "kimi-k2.6:cloud", "qwen3.5:cloud", "glm-5.1:cloud", "minimax-m2.7:cloud", "qwen3.5", "qwen3:8b"}}); diff != "" {
 		t.Fatalf("configured model list mismatch (-want +got):\n%s", diff)
 	}
 	if diff := compareStrings(runner.configured, []string{"gemma4"}); diff != "" {
@@ -2146,12 +2147,19 @@ func TestResolveRunModel_SubscriptionModelUsesUpgradeHook(t *testing.T) {
 
 	DefaultSingleSelectorWithUpdates = func(title string, items []SelectionItem, current string, updates <-chan []SelectionItem) (string, error) {
 		for _, item := range items {
+			if item.Name == "kimi-k2.6:cloud" && item.AvailabilityBadge != "" {
+				t.Fatalf("initial availability badge = %q, want empty before account update", item.AvailabilityBadge)
+			}
+		}
+		select {
+		case items = <-updates:
+		case <-time.After(time.Second):
+			t.Fatal("timed out waiting for selector item update")
+		}
+		for _, item := range items {
 			if item.Name == "kimi-k2.6:cloud" {
 				if item.AvailabilityBadge != "Upgrade required" {
 					t.Fatalf("availability badge = %q, want Upgrade required", item.AvailabilityBadge)
-				}
-				if updates != nil {
-					t.Fatal("expected no selector item update after synchronous account check")
 				}
 				return "kimi-k2.6:cloud", nil
 			}
@@ -2478,9 +2486,6 @@ func TestLaunchIntegration_EditorForceConfigure_FloatsCheckedModelsInPicker(t *t
 		gotPreChecked = append([]string(nil), preChecked...)
 		return []string{"qwen3.5:cloud", "qwen3.5"}, nil
 	}
-	DefaultConfirmPrompt = func(prompt string, options ConfirmOptions) (bool, error) {
-		return true, nil
-	}
 
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
@@ -2536,11 +2541,7 @@ func TestLaunchIntegration_EditorModelOverridePreservesExtras(t *testing.T) {
 	writeFakeBinary(t, binDir, "droid")
 	t.Setenv("PATH", binDir)
 
-	settingsPath := filepath.Join(t.TempDir(), "settings.json")
-	if err := os.WriteFile(settingsPath, []byte("{}"), 0o644); err != nil {
-		t.Fatalf("failed to seed editor settings: %v", err)
-	}
-	editor := &launcherEditorRunner{paths: []string{settingsPath}}
+	editor := &launcherEditorRunner{}
 	withIntegrationOverride(t, "droid", editor)
 
 	if err := config.SaveIntegration("droid", []string{"sample-model", "mistral"}); err != nil {
@@ -2558,9 +2559,6 @@ func TestLaunchIntegration_EditorModelOverridePreservesExtras(t *testing.T) {
 	}))
 	defer srv.Close()
 	t.Setenv("OLLAMA_HOST", srv.URL)
-	DefaultConfirmPrompt = func(prompt string, options ConfirmOptions) (bool, error) {
-		return true, nil
-	}
 
 	if err := LaunchIntegration(context.Background(), IntegrationLaunchRequest{
 		Name:          "droid",
@@ -2594,11 +2592,7 @@ func TestLaunchIntegration_EditorCloudDisabledFallsBackToSelector(t *testing.T) 
 	writeFakeBinary(t, binDir, "droid")
 	t.Setenv("PATH", binDir)
 
-	settingsPath := filepath.Join(t.TempDir(), "settings.json")
-	if err := os.WriteFile(settingsPath, []byte("{}"), 0o644); err != nil {
-		t.Fatalf("failed to seed editor settings: %v", err)
-	}
-	editor := &launcherEditorRunner{paths: []string{settingsPath}}
+	editor := &launcherEditorRunner{}
 	withIntegrationOverride(t, "droid", editor)
 
 	if err := config.SaveIntegration("droid", []string{"glm-5:cloud"}); err != nil {
@@ -2609,9 +2603,6 @@ func TestLaunchIntegration_EditorCloudDisabledFallsBackToSelector(t *testing.T) 
 	DefaultMultiSelector = func(title string, items []SelectionItem, preChecked []string) ([]string, error) {
 		multiCalled = true
 		return []string{"sample-model"}, nil
-	}
-	DefaultConfirmPrompt = func(prompt string, options ConfirmOptions) (bool, error) {
-		return true, nil
 	}
 
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -2648,11 +2639,7 @@ func TestLaunchIntegration_EditorConfigureMultiSkipsMissingLocalAndPersistsAccep
 	writeFakeBinary(t, binDir, "droid")
 	t.Setenv("PATH", binDir)
 
-	settingsPath := filepath.Join(t.TempDir(), "settings.json")
-	if err := os.WriteFile(settingsPath, []byte("{}"), 0o644); err != nil {
-		t.Fatalf("failed to seed editor settings: %v", err)
-	}
-	editor := &launcherEditorRunner{paths: []string{settingsPath}}
+	editor := &launcherEditorRunner{}
 	withIntegrationOverride(t, "droid", editor)
 
 	DefaultMultiSelector = func(title string, items []SelectionItem, preChecked []string) ([]string, error) {
@@ -2733,11 +2720,7 @@ func TestLaunchIntegration_EditorConfigureMultiSkipsUnauthedCloudAndPersistsAcce
 	writeFakeBinary(t, binDir, "droid")
 	t.Setenv("PATH", binDir)
 
-	settingsPath := filepath.Join(t.TempDir(), "settings.json")
-	if err := os.WriteFile(settingsPath, []byte("{}"), 0o644); err != nil {
-		t.Fatalf("failed to seed editor settings: %v", err)
-	}
-	editor := &launcherEditorRunner{paths: []string{settingsPath}}
+	editor := &launcherEditorRunner{}
 	withIntegrationOverride(t, "droid", editor)
 
 	DefaultMultiSelector = func(title string, items []SelectionItem, preChecked []string) ([]string, error) {
@@ -3158,8 +3141,8 @@ func TestLaunchIntegration_ConfiguredEditorLaunchSkipsReconfigure(t *testing.T) 
 	if err := LaunchIntegration(context.Background(), IntegrationLaunchRequest{Name: "droid"}); err != nil {
 		t.Fatalf("LaunchIntegration returned error: %v", err)
 	}
-	if diff := compareStringSlices(editor.edited, nil); diff != "" {
-		t.Fatalf("expected normal launch to reuse saved editor config without rewriting it (-want +got):\n%s", diff)
+	if len(editor.edited) != 0 {
+		t.Fatalf("expected normal launch to skip editor rewrites, got %v", editor.edited)
 	}
 	if editor.ranModel != "sample-model" {
 		t.Fatalf("expected launch to use saved primary model, got %q", editor.ranModel)
@@ -3226,51 +3209,7 @@ func TestLaunchIntegration_ConfiguredEditorLaunchRewritesDriftedLiveConfig(t *te
 	}
 }
 
-func TestLaunchIntegration_ConfiguredPiLaunchSkipsReconfigure(t *testing.T) {
-	tmpDir := t.TempDir()
-	setLaunchTestHome(t, tmpDir)
-	withLauncherHooks(t)
-
-	binDir := t.TempDir()
-	writeFakeBinary(t, binDir, "pi")
-	t.Setenv("PATH", binDir)
-
-	editor := &launcherEditorRunner{}
-	withIntegrationOverride(t, "pi", editor)
-
-	if err := config.SaveIntegration("pi", []string{"llama3.2", "qwen3:8b"}); err != nil {
-		t.Fatalf("failed to seed config: %v", err)
-	}
-
-	DefaultConfirmPrompt = func(prompt string, options ConfirmOptions) (bool, error) {
-		t.Fatalf("did not expect prompt during a normal editor launch: %s", prompt)
-		return false, nil
-	}
-
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path == "/api/show" {
-			var req apiShowRequest
-			_ = json.NewDecoder(r.Body).Decode(&req)
-			fmt.Fprintf(w, `{"model":%q}`, req.Model)
-			return
-		}
-		http.NotFound(w, r)
-	}))
-	defer srv.Close()
-	t.Setenv("OLLAMA_HOST", srv.URL)
-
-	if err := LaunchIntegration(context.Background(), IntegrationLaunchRequest{Name: "pi"}); err != nil {
-		t.Fatalf("LaunchIntegration returned error: %v", err)
-	}
-	if diff := compareStringSlices(editor.edited, nil); diff != "" {
-		t.Fatalf("expected configured Pi launch to reuse saved editor config without rewriting it (-want +got):\n%s", diff)
-	}
-	if editor.ranModel != "llama3.2" {
-		t.Fatalf("expected launch to use saved primary model, got %q", editor.ranModel)
-	}
-}
-
-func TestLaunchIntegration_OpenclawPreservesExistingModelListWithoutReconfigure(t *testing.T) {
+func TestLaunchIntegration_OpenclawPreservesExistingModelList(t *testing.T) {
 	tmpDir := t.TempDir()
 	setLaunchTestHome(t, tmpDir)
 	withLauncherHooks(t)
@@ -3301,8 +3240,8 @@ func TestLaunchIntegration_OpenclawPreservesExistingModelListWithoutReconfigure(
 	if err := LaunchIntegration(context.Background(), IntegrationLaunchRequest{Name: "openclaw"}); err != nil {
 		t.Fatalf("LaunchIntegration returned error: %v", err)
 	}
-	if diff := compareStringSlices(editor.edited, nil); diff != "" {
-		t.Fatalf("expected launch to preserve existing OpenClaw config without rewriting it (-want +got):\n%s", diff)
+	if len(editor.edited) != 0 {
+		t.Fatalf("expected launch to preserve the existing OpenClaw config, got rewrites %v", editor.edited)
 	}
 	if editor.ranModel != "sample-model" {
 		t.Fatalf("expected launch to use first saved model, got %q", editor.ranModel)

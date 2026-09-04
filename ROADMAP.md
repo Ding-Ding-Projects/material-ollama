@@ -31,3 +31,7 @@ does not claim that an unpublished build is released.
 - [ ] Upload the committed root `social-preview.png` through the repository's
   hosting settings; this remains an owner/manual external step while no
   supported API is available.
+- [ ] Port upstream's onboarding and Claude Desktop screens into the Material
+      Design 3 component kit. The store, migrations, types and helper plumbing
+      are already merged; only the surfaces are missing. See
+      [docs/upstream-merge.md](./docs/upstream-merge.md).

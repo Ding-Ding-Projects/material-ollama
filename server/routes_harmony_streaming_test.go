@@ -12,6 +12,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/gin-gonic/gin"
 	"github.com/ollama/ollama/api"
 	"github.com/ollama/ollama/fs/ggml"
 	"github.com/ollama/ollama/llm"
@@ -87,6 +88,8 @@ func createHarmonyTestModel(t *testing.T) (string, string) {
 
 // TestChatHarmonyParserStreamingRealtime verifies that chunks are emitted as soon as they're available
 func TestChatHarmonyParserStreamingRealtime(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
 	type step struct {
 		input         llm.CompletionResponse
 		wantContent   string
@@ -252,7 +255,6 @@ func TestChatHarmonyParserStreamingRealtime(t *testing.T) {
 			}
 
 			s := Server{
-				usage: NewUsageTracker(),
 				sched: &Scheduler{
 					pendingReqCh:    make(chan *LlmRequest, 1),
 					finishedReqCh:   make(chan *LlmRequest, 1),
@@ -277,11 +279,12 @@ func TestChatHarmonyParserStreamingRealtime(t *testing.T) {
 			// Create a simple test model
 			_, digest := createHarmonyTestModel(t)
 
+			streamFalse := false
 			w := createRequest(t, s.CreateHandler, api.CreateRequest{
 				Model:    "harmony-test-streaming",
-				Files:    []api.File{{Name: "test.gguf", Digest: digest}},
+				Files:    map[string]string{"test.gguf": digest},
 				Template: `<|start|><|end|>{{ with .Tools }}{{ end }}{{ .Prompt }}`,
-				Stream:   streamFalse,
+				Stream:   &streamFalse,
 			})
 
 			if w.Code != 200 {
@@ -289,10 +292,11 @@ func TestChatHarmonyParserStreamingRealtime(t *testing.T) {
 			}
 
 			// Test chat endpoint with streaming
+			streamTrue := true
 			w = createRequest(t, s.ChatHandler, api.ChatRequest{
 				Model:    "harmony-test-streaming",
 				Messages: []api.Message{{Role: "user", Content: "Hello"}},
-				Stream:   streamTrue,
+				Stream:   &streamTrue,
 				Tools:    getTestTools(),
 			})
 
@@ -381,6 +385,8 @@ func TestChatHarmonyParserStreamingRealtime(t *testing.T) {
 
 // TestChatHarmonyParserStreamingSimple is a simpler test that just verifies basic streaming
 func TestChatHarmonyParserStreamingSimple(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
 	mockResponses := []llm.CompletionResponse{
 		{Content: "<|message|>First ", Done: false},
 		{Content: "chunk ", Done: false},
@@ -400,7 +406,6 @@ func TestChatHarmonyParserStreamingSimple(t *testing.T) {
 	}
 
 	s := Server{
-		usage: NewUsageTracker(),
 		sched: &Scheduler{
 			pendingReqCh:    make(chan *LlmRequest, 1),
 			finishedReqCh:   make(chan *LlmRequest, 1),
@@ -424,11 +429,12 @@ func TestChatHarmonyParserStreamingSimple(t *testing.T) {
 
 	// Create model
 	_, digest := createHarmonyTestModel(t)
+	streamFalse := false
 	w := createRequest(t, s.CreateHandler, api.CreateRequest{
 		Model:    "gpt-oss",
-		Files:    []api.File{{Name: "test.gguf", Digest: digest}},
+		Files:    map[string]string{"test.gguf": digest},
 		Template: `<|start|><|end|>{{ .Tools }}{{ .Prompt }}`,
-		Stream:   streamFalse,
+		Stream:   &streamFalse,
 	})
 
 	if w.Code != 200 {
@@ -436,10 +442,11 @@ func TestChatHarmonyParserStreamingSimple(t *testing.T) {
 	}
 
 	// Test streaming
+	streamTrue := true
 	w = createRequest(t, s.ChatHandler, api.ChatRequest{
 		Model:    "gpt-oss",
 		Messages: []api.Message{{Role: "user", Content: "Hello"}},
-		Stream:   streamTrue,
+		Stream:   &streamTrue,
 		Tools:    getTestTools(),
 	})
 
@@ -490,6 +497,8 @@ func TestChatHarmonyParserStreamingSimple(t *testing.T) {
 }
 
 func TestChatHarmonyParserStreaming(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
 	type expectedChunk struct {
 		afterResponse int    // Which mock response this chunk should appear after
 		content       string // Expected content in this chunk
@@ -579,7 +588,6 @@ func TestChatHarmonyParserStreaming(t *testing.T) {
 			}
 
 			s := Server{
-				usage: NewUsageTracker(),
 				sched: &Scheduler{
 					pendingReqCh:    make(chan *LlmRequest, 1),
 					finishedReqCh:   make(chan *LlmRequest, 1),
@@ -605,11 +613,12 @@ func TestChatHarmonyParserStreaming(t *testing.T) {
 			_, digest := createHarmonyTestModel(t)
 
 			// Create model with passthrough template
+			stream := false
 			w := createRequest(t, s.CreateHandler, api.CreateRequest{
 				Model:    "harmony-test",
-				Files:    []api.File{{Name: "file.gguf", Digest: digest}},
+				Files:    map[string]string{"file.gguf": digest},
 				Template: `<|start|><|end|>{{ with .Tools }}{{ end }}{{ .Prompt }}`,
-				Stream:   streamFalse,
+				Stream:   &stream,
 			})
 
 			if w.Code != http.StatusOK {
@@ -617,10 +626,11 @@ func TestChatHarmonyParserStreaming(t *testing.T) {
 			}
 
 			// Test chat endpoint with streaming
+			streamTrue := true
 			w = createRequest(t, s.ChatHandler, api.ChatRequest{
 				Model:    "harmony-test",
 				Messages: []api.Message{{Role: "user", Content: "Hello"}},
-				Stream:   streamTrue,
+				Stream:   &streamTrue,
 				Tools:    getTestTools(),
 			})
 

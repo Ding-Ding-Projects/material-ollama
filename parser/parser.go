@@ -3,22 +3,26 @@ package parser
 import (
 	"bufio"
 	"bytes"
+	"crypto/sha256"
 	"errors"
 	"fmt"
 	"io"
-	"io/fs"
-	"iter"
 	"net/http"
 	"os"
 	"os/user"
 	"path/filepath"
+	"runtime"
 	"slices"
 	"strconv"
 	"strings"
+	"sync"
 
 	"golang.org/x/mod/semver"
+	"golang.org/x/sync/errgroup"
 	"golang.org/x/text/encoding/unicode"
 	"golang.org/x/text/transform"
+
+	"github.com/ollama/ollama/api"
 )
 
 var ErrModelNotFound = errors.New("no Modelfile or safetensors files found")
@@ -50,15 +54,10 @@ var deprecatedParameters = []string{
 
 // CreateRequest creates a new *api.CreateRequest from an existing Modelfile
 func (f Modelfile) CreateRequest(relativeDir string) (*api.CreateRequest, error) {
-	req := &api.CreateRequest{
-		Files:    make(map[string]string),
-		Adapters: make(map[string]string),
-	}
+	req := &api.CreateRequest{}
 
 	var messages []api.Message
 	var licenses []string
-	var skills []api.SkillRef
-	var mcps []api.MCPRef
 	params := make(map[string]any)
 	var modelPaths []string
 	var draftPaths []string
@@ -66,9 +65,14 @@ func (f Modelfile) CreateRequest(relativeDir string) (*api.CreateRequest, error)
 	for _, c := range f.Commands {
 		switch c.Name {
 		case "model":
-			files, err := filesMap(c.Args, relativeDir)
+			path, err := expandPath(c.Args, relativeDir)
+			if err != nil {
+				return nil, err
+			}
+
+			digestMap, err := fileDigestMap(path)
 			if errors.Is(err, os.ErrNotExist) {
-				req.From = name
+				req.From = c.Args
 				continue
 			} else if err != nil {
 				return nil, err
@@ -81,7 +85,9 @@ func (f Modelfile) CreateRequest(relativeDir string) (*api.CreateRequest, error)
 			if req.Files == nil {
 				req.Files = digestMap
 			} else {
-				maps.Copy(req.Files, digestMap)
+				for k, v := range digestMap {
+					req.Files[k] = v
+				}
 			}
 		case "draft":
 			path, err := expandPath(c.Args, relativeDir)
@@ -106,18 +112,21 @@ func (f Modelfile) CreateRequest(relativeDir string) (*api.CreateRequest, error)
 				}
 			}
 		case "adapter":
-			files, err := filesMap(c.Args, relativeDir)
+			path, err := expandPath(c.Args, relativeDir)
 			if err != nil {
 				return nil, err
 			}
 
-			maps.Copy(req.Adapters, files)
+			digestMap, err := fileDigestMap(path)
+			if err != nil {
+				return nil, err
+			}
+
+			req.Adapters = digestMap
 		case "template":
-			template := c.Args.(string)
-			req.Template = template
+			req.Template = c.Args
 		case "system":
-			system := c.Args.(string)
-			req.System = system
+			req.System = c.Args
 		case "license":
 			licenses = append(licenses, c.Args)
 		case "renderer":
@@ -135,16 +144,15 @@ func (f Modelfile) CreateRequest(relativeDir string) (*api.CreateRequest, error)
 			}
 			req.Requires = strings.TrimPrefix(requires, "v")
 		case "message":
-			msg := c.Args.(*Message)
-			messages = append(messages, api.Message{Role: msg.Role, Content: msg.Content})
-		case "parameter":
+			role, msg, _ := strings.Cut(c.Args, ": ")
+			messages = append(messages, api.Message{Role: role, Content: msg})
+		default:
 			if slices.Contains(deprecatedParameters, c.Name) {
-				fmt.Printf("warning: parameter '%s' is deprecated\n", c.Name)
+				fmt.Printf("warning: parameter %s is deprecated\n", c.Name)
 				break
 			}
 
-			param := c.Args.(*Parameter)
-			ps, err := api.FormatParams(map[string][]string{param.Name: {param.Value}})
+			ps, err := api.FormatParams(map[string][]string{c.Name: {c.Args}})
 			if err != nil {
 				return nil, err
 			}
@@ -158,8 +166,6 @@ func (f Modelfile) CreateRequest(relativeDir string) (*api.CreateRequest, error)
 					params[k] = v
 				}
 			}
-		default:
-			return nil, fmt.Errorf("warning: unknown command '%s'", c.Name)
 		}
 	}
 
@@ -171,12 +177,6 @@ func (f Modelfile) CreateRequest(relativeDir string) (*api.CreateRequest, error)
 	}
 	if len(licenses) > 0 {
 		req.License = licenses
-	}
-	if len(skills) > 0 {
-		req.Skills = skills
-	}
-	if len(mcps) > 0 {
-		req.MCPs = mcps
 	}
 
 	return req, nil
@@ -224,16 +224,8 @@ func fileDigestMap(path string) (map[string]string, error) {
 	}
 
 	var files []string
-	if !fi.IsDir() {
-		files = []string{path}
-	} else {
-		root, err := os.OpenRoot(path)
-		if err != nil {
-			return nil, err
-		}
-		defer root.Close()
-
-		fs, err := filesForModel(root.FS())
+	if fi.IsDir() {
+		fs, err := filesForModel(path)
 		if err != nil {
 			return nil, err
 		}
@@ -258,25 +250,32 @@ func fileDigestMap(path string) (map[string]string, error) {
 
 			files = append(files, f)
 		}
+	} else {
+		files = []string{path}
 	}
 
-	root, err := os.OpenRoot(path)
-	if err != nil {
+	var mu sync.Mutex
+	var g errgroup.Group
+	g.SetLimit(max(runtime.GOMAXPROCS(0)-1, 1))
+	for _, f := range files {
+		g.Go(func() error {
+			digest, err := digestForFile(f)
+			if err != nil {
+				return err
+			}
+
+			mu.Lock()
+			defer mu.Unlock()
+			fl[f] = digest
+			return nil
+		})
+	}
+
+	if err := g.Wait(); err != nil {
 		return nil, err
 	}
-	defer root.Close()
 
-	files, err := filesForModel(root)
-	if err != nil {
-		return nil, err
-	}
-
-	for _, file := range files {
-		// create a temporary mapping from relative path to absolute path
-		mapping[file] = "abs:" + filepath.Join(root.Name(), file)
-	}
-
-	return mapping, nil
+	return fl, nil
 }
 
 func digestForFile(filename string) (string, error) {
@@ -298,59 +297,27 @@ func digestForFile(filename string) (string, error) {
 	return fmt.Sprintf("sha256:%x", hash.Sum(nil)), nil
 }
 
-func detectContentType(fsys fs.FS, path string) (string, error) {
-	f, err := fsys.Open(path)
-	if err != nil {
-		return "", err
-	}
-	defer f.Close()
-
-	bts := make([]byte, 512)
-	n, err := io.ReadFull(f, bts)
-	if errors.Is(err, io.ErrUnexpectedEOF) {
-		bts = bts[:n]
-	} else if err != nil {
-		return "", err
-	}
-
-	contentType, _, _ := strings.Cut(http.DetectContentType(bts), ";")
-	return contentType, nil
-}
-
-func matchFirst(fsys fs.FS, patternsContentTypes ...string) iter.Seq2[string, error] {
-	return func(yield func(string, error) bool) {
-		for i := 0; i < len(patternsContentTypes); i += 2 {
-			pattern := patternsContentTypes[i]
-			contentType := patternsContentTypes[i+1]
-			matches, err := fs.Glob(fsys, pattern)
-			if err != nil {
-				if !yield("", err) {
-					return
-				}
-				continue
-			}
-
-			if len(matches) > 0 {
-				for _, match := range matches {
-					if ct, err := detectContentType(fsys, match); err != nil {
-						if !yield("", err) {
-							return
-						}
-					} else if ct == contentType {
-						if !yield(match, nil) {
-							return
-						}
-					}
-				}
-
-				return
-			}
+func filesForModel(path string) ([]string, error) {
+	detectContentType := func(path string) (string, error) {
+		f, err := os.Open(path)
+		if err != nil {
+			return "", err
 		}
-	}
-}
+		defer f.Close()
 
-func collect[E any](it iter.Seq2[E, error]) (s []E, _ error) {
-	for v, err := range it {
+		var b bytes.Buffer
+		b.Grow(512)
+
+		if _, err := io.CopyN(&b, f, 512); err != nil && !errors.Is(err, io.EOF) {
+			return "", err
+		}
+
+		contentType, _, _ := strings.Cut(http.DetectContentType(b.Bytes()), ";")
+		return contentType, nil
+	}
+
+	glob := func(pattern, contentType string) ([]string, error) {
+		matches, err := filepath.Glob(pattern)
 		if err != nil {
 			return nil, err
 		}
@@ -359,18 +326,16 @@ func collect[E any](it iter.Seq2[E, error]) (s []E, _ error) {
 			if ct, err := detectContentType(match); err != nil {
 				return nil, err
 			} else if len(contentType) > 0 && ct != contentType {
-				return nil, fmt.Errorf("invalid content type: expected %s for %s, got %s", ct, match, contentType)
+				return nil, fmt.Errorf("invalid content type: expected %s for %s", ct, match)
 			}
 		}
 
 		return matches, nil
 	}
-	return s, nil
-}
 
 	var files []string
 	// some safetensors files do not properly match "application/octet-stream", so skip checking their contentType
-	if st, _ := glob("model*.safetensors", ""); len(st) > 0 {
+	if st, _ := glob(filepath.Join(path, "model*.safetensors"), ""); len(st) > 0 {
 		// safetensors files might be unresolved git lfs references; skip if they are
 		// covers model-x-of-y.safetensors, model.fp32-x-of-y.safetensors, model.safetensors
 		files = append(files, st...)
@@ -382,24 +347,26 @@ func collect[E any](it iter.Seq2[E, error]) (s []E, _ error) {
 	} else if st, _ := glob(filepath.Join(path, "consolidated*.safetensors"), ""); len(st) > 0 {
 		// covers consolidated.safetensors
 		files = append(files, st...)
-	} else if pt, _ := glob("pytorch_model*.bin", "application/zip"); len(pt) > 0 {
+	} else if pt, _ := glob(filepath.Join(path, "pytorch_model*.bin"), "application/zip"); len(pt) > 0 {
 		// pytorch files might also be unresolved git lfs references; skip if they are
 		// covers pytorch_model-x-of-y.bin, pytorch_model.fp32-x-of-y.bin, pytorch_model.bin
-		"pytorch_model*.bin", "application/zip",
+		files = append(files, pt...)
+	} else if pt, _ := glob(filepath.Join(path, "consolidated*.pth"), "application/zip"); len(pt) > 0 {
 		// pytorch files might also be unresolved git lfs references; skip if they are
 		// covers consolidated.x.pth, consolidated.pth
-		"consolidated*.pth", "application/zip",
+		files = append(files, pt...)
+	} else if gg, _ := glob(filepath.Join(path, "*.gguf"), "application/octet-stream"); len(gg) > 0 {
 		// covers gguf files ending in .gguf
-		"*.gguf", "application/octet-stream",
+		files = append(files, gg...)
+	} else if gg, _ := glob(filepath.Join(path, "*.bin"), "application/octet-stream"); len(gg) > 0 {
 		// covers gguf files ending in .bin
-		"*.bin", "application/octet-stream",
-	))
-	if err != nil {
-		return nil, err
+		files = append(files, gg...)
+	} else {
+		return nil, ErrModelNotFound
 	}
 
 	// add configuration files, json files are detected as text/plain
-	js, err := collect(matchFirst(fsys, "*.json", "text/plain"))
+	js, err := glob(filepath.Join(path, "*.json"), "text/plain")
 	if err != nil {
 		return nil, err
 	}
@@ -407,7 +374,7 @@ func collect[E any](it iter.Seq2[E, error]) (s []E, _ error) {
 
 	// bert models require a nested config.json
 	// TODO(mxyng): merge this with the glob above
-	js, err = collect(matchFirst(fsys, "**/*.json", "text/plain"))
+	js, err = glob(filepath.Join(path, "**/*.json"), "text/plain")
 	if err != nil {
 		return nil, err
 	}
@@ -423,9 +390,9 @@ func collect[E any](it iter.Seq2[E, error]) (s []E, _ error) {
 
 	// add tokenizer.model if it exists (tokenizer.json is automatically picked up by the previous glob)
 	// tokenizer.model might be a unresolved git lfs reference; error if it is
-	if tks, _ := glob("tokenizer.model", "application/octet-stream"); len(tks) > 0 {
+	if tks, _ := glob(filepath.Join(path, "tokenizer.model"), "application/octet-stream"); len(tks) > 0 {
 		files = append(files, tks...)
-	} else if tks, _ := glob("**/tokenizer.model", "text/plain"); len(tks) > 0 {
+	} else if tks, _ := glob(filepath.Join(path, "**/tokenizer.model"), "text/plain"); len(tks) > 0 {
 		// some times tokenizer.model is in a subdirectory (e.g. meta-llama/Meta-Llama-3-8B)
 		files = append(files, tks...)
 	}
@@ -435,17 +402,7 @@ func collect[E any](it iter.Seq2[E, error]) (s []E, _ error) {
 
 type Command struct {
 	Name string
-	Args any
-}
-
-type Parameter struct {
-	Name  string
-	Value string
-}
-
-type Message struct {
-	Role    string
-	Content string
+	Args string
 }
 
 func (c Command) String() string {
@@ -458,10 +415,8 @@ func (c Command) String() string {
 	case "message":
 		role, message, _ := strings.Cut(c.Args, ": ")
 		fmt.Fprintf(&sb, "MESSAGE %s %s", role, quote(message))
-	case "ollama":
-		fmt.Fprintf(&sb, "OLLAMA %s", c.Args)
 	default:
-		fmt.Printf("unknown command '%s'\n", c.Name)
+		fmt.Fprintf(&sb, "PARAMETER %s %s", c.Name, quote(c.Args))
 	}
 
 	return sb.String()
@@ -471,12 +426,11 @@ type state int
 
 const (
 	stateNil state = iota
-	stateKey
+	stateName
 	stateValue
 	stateParameter
 	stateMessage
 	stateComment
-	stateVersion
 )
 
 var (
@@ -500,8 +454,9 @@ func (e *ParserError) Error() string {
 func ParseFile(r io.Reader) (*Modelfile, error) {
 	var cmd Command
 	var curr state
-	currLine := 1
+	var currLine int = 1
 	var b bytes.Buffer
+	var role string
 
 	var f Modelfile
 
@@ -533,7 +488,7 @@ func ParseFile(r io.Reader) (*Modelfile, error) {
 		// process the state transition, some transitions need to be intercepted and redirected
 		if next != curr {
 			switch curr {
-			case stateKey:
+			case stateName:
 				if !isValidCommand(b.String()) {
 					return nil, &ParserError{
 						LineNumber: currLine,
@@ -545,80 +500,29 @@ func ParseFile(r io.Reader) (*Modelfile, error) {
 				switch s := strings.ToLower(b.String()); s {
 				case "from":
 					cmd.Name = "model"
-				case "agent":
-					// "AGENT TYPE" -> "agent_type", consume next word
-					cmd.Name = "agent_type"
 				case "parameter":
 					// transition to stateParameter which sets command name
 					next = stateParameter
-					cmd.Name = s
 				case "message":
 					// transition to stateMessage which validates the message role
 					next = stateMessage
-					cmd.Name = s
-				case "ollama":
-					next = stateVersion
 					fallthrough
 				default:
 					cmd.Name = s
 				}
 			case stateParameter:
-				s, ok := unquote(strings.TrimSpace(b.String()))
-				if !ok || isSpace(r) {
-					if _, err := b.WriteRune(r); err != nil {
-						return nil, err
-					}
-
-					continue
-				}
-				cmd.Args = &Parameter{
-					Name: s,
-				}
+				cmd.Name = b.String()
 			case stateMessage:
-				s, ok := unquote(strings.TrimSpace(b.String()))
-				if !ok || isSpace(r) {
-					if _, err := b.WriteRune(r); err != nil {
-						return nil, err
-					}
-
-					continue
-				}
-
-				if !isValidMessageRole(s) {
+				if !isValidMessageRole(b.String()) {
 					return nil, &ParserError{
 						LineNumber: currLine,
 						Msg:        errInvalidMessageRole.Error(),
 					}
 				}
 
-				cmd.Args = &Message{
-					Role: s,
-				}
+				role = b.String()
 			case stateComment, stateNil:
 				// pass
-			case stateVersion:
-				s, ok := unquote(strings.TrimSpace(b.String()))
-				if !ok {
-					if _, err := b.WriteRune(r); err != nil {
-						return nil, err
-					}
-
-					continue
-				} else if isSpace(r) {
-					return nil, errInvalidVersion
-				}
-
-				if s[0] != 'v' {
-					s = "v" + s
-				}
-
-				if !semver.IsValid(s) {
-					return nil, errInvalidVersion
-				}
-
-				cmd.Args = semver.Canonical(s)
-				f.Commands = append(f.Commands, cmd)
-
 			case stateValue:
 				s, ok := unquote(strings.TrimSpace(b.String()))
 				if !ok || isSpace(r) {
@@ -629,16 +533,12 @@ func ParseFile(r io.Reader) (*Modelfile, error) {
 					continue
 				}
 
-				switch cmd.Name {
-				case "parameter":
-					p := cmd.Args.(*Parameter)
-					p.Value = s
-				case "message":
-					m := cmd.Args.(*Message)
-					m.Content = s
-				default:
-					cmd.Args = s
+				if role != "" {
+					s = role + ": " + s
+					role = ""
 				}
+
+				cmd.Args = s
 				f.Commands = append(f.Commands, cmd)
 			}
 
@@ -657,38 +557,17 @@ func ParseFile(r io.Reader) (*Modelfile, error) {
 	switch curr {
 	case stateComment, stateNil:
 		// pass; nothing to flush
-	case stateVersion:
-		s, ok := unquote(strings.TrimSpace(b.String()))
-		if !ok {
-			return nil, io.ErrUnexpectedEOF
-		}
-
-		if s[0] != 'v' {
-			s = "v" + s
-		}
-
-		if !semver.IsValid(s) {
-			return nil, errInvalidVersion
-		}
-
-		cmd.Args = semver.Canonical(s)
-		f.Commands = append(f.Commands, cmd)
 	case stateValue:
 		s, ok := unquote(strings.TrimSpace(b.String()))
 		if !ok {
 			return nil, io.ErrUnexpectedEOF
 		}
 
-		switch cmd.Name {
-		case "parameter":
-			c := cmd.Args.(*Parameter)
-			c.Value = s
-		case "message":
-			c := cmd.Args.(*Message)
-			c.Content = s
-		default:
-			cmd.Args = s
+		if role != "" {
+			s = role + ": " + s
 		}
+
+		cmd.Args = s
 		f.Commands = append(f.Commands, cmd)
 	default:
 		return nil, io.ErrUnexpectedEOF
@@ -696,10 +575,6 @@ func ParseFile(r io.Reader) (*Modelfile, error) {
 
 	for _, cmd := range f.Commands {
 		if cmd.Name == "model" {
-			return &f, nil
-		}
-		// Allow entrypoint-only agents without FROM
-		if cmd.Name == "entrypoint" {
 			return &f, nil
 		}
 	}
@@ -716,12 +591,12 @@ func parseRuneForState(r rune, cs state) (state, rune, error) {
 		case isSpace(r), isNewline(r):
 			return stateNil, 0, nil
 		default:
-			return stateKey, r, nil
+			return stateName, r, nil
 		}
-	case stateKey:
+	case stateName:
 		switch {
 		case isAlpha(r):
-			return stateKey, r, nil
+			return stateName, r, nil
 		case isSpace(r):
 			return stateValue, 0, nil
 		default:
@@ -760,15 +635,6 @@ func parseRuneForState(r rune, cs state) (state, rune, error) {
 			return stateNil, 0, nil
 		default:
 			return stateComment, 0, nil
-		}
-	case stateVersion:
-		switch {
-		case isNewline(r), isSpace(r):
-			return stateNil, 0, nil
-		case isAlpha(r), isNumber(r), r == '.', r == '+', r == '-':
-			return stateVersion, r, nil
-		default:
-			return stateNil, r, nil
 		}
 	default:
 		return stateNil, 0, errors.New("")
@@ -837,119 +703,43 @@ func isValidCommand(cmd string) bool {
 	}
 }
 
-func expandPath(path, dir string) (string, error) {
-	if filepath.IsAbs(path) {
-		return path, nil
-	}
+func expandPathImpl(path, relativeDir string, currentUserFunc func() (*user.User, error), lookupUserFunc func(string) (*user.User, error)) (string, error) {
+	if filepath.IsAbs(path) || strings.HasPrefix(path, "\\") || strings.HasPrefix(path, "/") {
+		return filepath.Abs(path)
+	} else if strings.HasPrefix(path, "~") {
+		var homeDir string
 
-	path, found := strings.CutPrefix(path, "~")
-	switch {
-	case !found:
-		// make path relative to dir
-		if !filepath.IsAbs(dir) {
-			// if dir is relative, make it absolute relative to cwd
-			cwd, err := os.Getwd()
+		if path == "~" || strings.HasPrefix(path, "~/") {
+			// Current user's home directory
+			currentUser, err := currentUserFunc()
 			if err != nil {
-				return "", err
+				return "", fmt.Errorf("failed to get current user: %w", err)
 			}
-			dir = filepath.Join(cwd, dir)
+			homeDir = currentUser.HomeDir
+			path = strings.TrimPrefix(path, "~")
+		} else {
+			// Specific user's home directory
+			parts := strings.SplitN(path[1:], "/", 2)
+			userInfo, err := lookupUserFunc(parts[0])
+			if err != nil {
+				return "", fmt.Errorf("failed to find user '%s': %w", parts[0], err)
+			}
+			homeDir = userInfo.HomeDir
+			if len(parts) > 1 {
+				path = "/" + parts[1]
+			} else {
+				path = ""
+			}
 		}
-		path = filepath.Join(dir, path)
-	case filepath.IsLocal(path):
-		// ~<user>/...
-		// make path relative to specified user's home
-		split := strings.SplitN(path, string(os.PathSeparator), 2)
-		u, err := user.Lookup(split[0])
-		if err != nil {
-			return "", err
-		}
-		split[0] = u.HomeDir
-		path = filepath.Join(split...)
-	default:
-		// ~ or ~/...
-		// make path relative to current user's home
-		home, err := os.UserHomeDir()
-		if err != nil {
-			return "", err
-		}
-		path = filepath.Join(home, path)
+
+		path = filepath.Join(homeDir, path)
+	} else {
+		path = filepath.Join(relativeDir, path)
 	}
 
-	return filepath.Clean(path), nil
+	return filepath.Abs(path)
 }
 
-// parseMCPArg parses MCP command arguments.
-// Supports two formats:
-//
-//	JSON: {"name": "web-search", "command": "uv", "args": ["run", "./script.py"]}
-//	Simple: web-search uv run ./script.py (name, command, args...)
-func parseMCPArg(args string, relativeDir string) (api.MCPRef, error) {
-	args = strings.TrimSpace(args)
-	if args == "" {
-		return api.MCPRef{}, errors.New("MCP requires arguments")
-	}
-
-	// Try JSON format first
-	if strings.HasPrefix(args, "{") {
-		var ref api.MCPRef
-		if err := json.Unmarshal([]byte(args), &ref); err != nil {
-			return api.MCPRef{}, fmt.Errorf("invalid JSON: %w", err)
-		}
-		if ref.Name == "" {
-			return api.MCPRef{}, errors.New("MCP name is required")
-		}
-		if ref.Command == "" {
-			return api.MCPRef{}, errors.New("MCP command is required")
-		}
-		if ref.Type == "" {
-			ref.Type = "stdio"
-		}
-		// Expand relative paths in args
-		for i, arg := range ref.Args {
-			if isLocalPath(arg) {
-				expanded, err := expandPath(arg, relativeDir)
-				if err != nil {
-					return api.MCPRef{}, fmt.Errorf("expanding path %q: %w", arg, err)
-				}
-				ref.Args[i] = expanded
-			}
-		}
-		return ref, nil
-	}
-
-	// Simple format: name command args...
-	parts := strings.Fields(args)
-	if len(parts) < 2 {
-		return api.MCPRef{}, errors.New("MCP requires at least name and command")
-	}
-
-	ref := api.MCPRef{
-		Name:    parts[0],
-		Command: parts[1],
-		Type:    "stdio",
-	}
-	if len(parts) > 2 {
-		ref.Args = parts[2:]
-	}
-
-	// Expand relative paths in args
-	for i, arg := range ref.Args {
-		if isLocalPath(arg) {
-			expanded, err := expandPath(arg, relativeDir)
-			if err != nil {
-				return api.MCPRef{}, fmt.Errorf("expanding path %q: %w", arg, err)
-			}
-			ref.Args[i] = expanded
-		}
-	}
-
-	return ref, nil
-}
-
-// isLocalPath checks if a string looks like a local filesystem path.
-func isLocalPath(s string) bool {
-	return strings.HasPrefix(s, "/") ||
-		strings.HasPrefix(s, "./") ||
-		strings.HasPrefix(s, "../") ||
-		strings.HasPrefix(s, "~")
+func expandPath(path, relativeDir string) (string, error) {
+	return expandPathImpl(path, relativeDir, user.Current, user.Lookup)
 }

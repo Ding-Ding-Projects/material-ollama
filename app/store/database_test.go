@@ -135,7 +135,7 @@ func TestMigrationV13ToV14ContextLength(t *testing.T) {
 	}
 }
 
-func TestMigrationV15ToV16LastHomeViewDefaultsToLaunch(t *testing.T) {
+func TestMigrationV15ToV16LastHomeViewMigratesToChat(t *testing.T) {
 	tmpDir := t.TempDir()
 	dbPath := filepath.Join(tmpDir, "test.db")
 
@@ -161,8 +161,8 @@ func TestMigrationV15ToV16LastHomeViewDefaultsToLaunch(t *testing.T) {
 		t.Fatalf("failed to read last_home_view: %v", err)
 	}
 
-	if lastHomeView != "launch" {
-		t.Fatalf("expected last_home_view to default to launch after migration, got %q", lastHomeView)
+	if lastHomeView != "chat" {
+		t.Fatalf("expected last_home_view to migrate to chat, got %q", lastHomeView)
 	}
 
 	version, err := db.getSchemaVersion()
@@ -174,97 +174,85 @@ func TestMigrationV15ToV16LastHomeViewDefaultsToLaunch(t *testing.T) {
 	}
 }
 
-func TestMigrationV16ToV17AddsAgentSchema(t *testing.T) {
-	tmpDir := t.TempDir()
-	dbPath := filepath.Join(tmpDir, "test.db")
-
-	db, err := newDatabase(dbPath)
-	if err != nil {
-		t.Fatalf("failed to create database: %v", err)
-	}
-	defer db.Close()
-
-	if _, err := db.conn.Exec(`
-		DROP INDEX IF EXISTS idx_messages_chat_id_id;
-		DROP INDEX IF EXISTS idx_messages_chat_id_archived;
-		DROP INDEX IF EXISTS idx_compactions_chat_id;
-		DROP TABLE IF EXISTS compactions;
-		ALTER TABLE chats DROP COLUMN model_name;
-		ALTER TABLE chats DROP COLUMN source;
-		ALTER TABLE messages DROP COLUMN images;
-		ALTER TABLE messages DROP COLUMN tool_name;
-		ALTER TABLE messages DROP COLUMN tool_call_id;
-		ALTER TABLE messages DROP COLUMN archived;
-		ALTER TABLE tool_calls DROP COLUMN tool_call_id;
-		UPDATE settings SET schema_version = 16;
-	`); err != nil {
-		t.Fatalf("failed to seed v16 schema: %v", err)
-	}
-
-	if err := db.migrate(); err != nil {
-		t.Fatalf("migration from v16 to v17 failed: %v", err)
-	}
-
-	version, err := db.getSchemaVersion()
-	if err != nil {
-		t.Fatalf("failed to get schema version: %v", err)
-	}
-	if version != 17 {
-		t.Fatalf("expected schema version 17, got %d", version)
-	}
-
-	columns := columnMap(db)
-	for _, want := range []struct {
-		table  string
-		column string
-	}{
-		{"chats", "model_name TEXT NOT NULL DEFAULT ''"},
-		{"chats", "source TEXT NOT NULL DEFAULT 'app'"},
-		{"messages", "images TEXT NOT NULL DEFAULT '[]'"},
-		{"messages", "archived BOOLEAN NOT NULL DEFAULT 0"},
-		{"tool_calls", "tool_call_id TEXT NOT NULL DEFAULT ''"},
-	} {
-		if !containsString(columns[want.table], want.column) {
-			t.Fatalf("%s columns missing %q: %#v", want.table, want.column, columns[want.table])
+func TestOnboardingVersionDefaultsAndMigration(t *testing.T) {
+	t.Run("fresh installs need onboarding", func(t *testing.T) {
+		dbPath := filepath.Join(t.TempDir(), "fresh.db")
+		db, err := newDatabase(dbPath)
+		if err != nil {
+			t.Fatalf("failed to create database: %v", err)
 		}
-	}
-	if _, ok := columns["compactions"]; !ok {
-		t.Fatalf("compactions table was not created: %#v", columns)
-	}
+		defer db.Close()
+
+		settings, err := db.getSettings()
+		if err != nil {
+			t.Fatalf("failed to read settings: %v", err)
+		}
+		if settings.OnboardingVersion != 0 {
+			t.Fatalf("expected fresh install onboarding version 0, got %d", settings.OnboardingVersion)
+		}
+	})
+
+	t.Run("existing installs skip onboarding", func(t *testing.T) {
+		dbPath := filepath.Join(t.TempDir(), "existing.db")
+		db, err := newDatabase(dbPath)
+		if err != nil {
+			t.Fatalf("failed to create database: %v", err)
+		}
+		defer db.Close()
+
+		if _, err := db.conn.Exec(`
+			ALTER TABLE settings DROP COLUMN onboarding_version;
+			UPDATE settings SET schema_version = 16;
+		`); err != nil {
+			t.Fatalf("failed to seed v16 settings row: %v", err)
+		}
+
+		if err := db.migrate(); err != nil {
+			t.Fatalf("migration from v16 to v17 failed: %v", err)
+		}
+
+		settings, err := db.getSettings()
+		if err != nil {
+			t.Fatalf("failed to read settings: %v", err)
+		}
+		if settings.OnboardingVersion != 1 {
+			t.Fatalf("expected existing install onboarding version 1, got %d", settings.OnboardingVersion)
+		}
+	})
 }
 
-func TestMigrationRepairsIncompleteCurrentSchema(t *testing.T) {
-	tmpDir := t.TempDir()
-	dbPath := filepath.Join(tmpDir, "test.db")
-
+func TestClaudeDesktopUsedDefaultsAndMigration(t *testing.T) {
+	dbPath := filepath.Join(t.TempDir(), "claude-history.db")
 	db, err := newDatabase(dbPath)
 	if err != nil {
 		t.Fatalf("failed to create database: %v", err)
 	}
 	defer db.Close()
 
+	settings, err := db.getSettings()
+	if err != nil {
+		t.Fatalf("failed to read settings: %v", err)
+	}
+	if settings.ClaudeDesktopUsed {
+		t.Fatal("expected fresh installs to have no Claude Desktop history")
+	}
+
 	if _, err := db.conn.Exec(`
-		ALTER TABLE chats DROP COLUMN source;
+		ALTER TABLE settings DROP COLUMN claude_desktop_used;
 		UPDATE settings SET schema_version = 17;
 	`); err != nil {
-		t.Fatalf("failed to seed incomplete current schema: %v", err)
+		t.Fatalf("failed to seed v17 settings row: %v", err)
 	}
-
 	if err := db.migrate(); err != nil {
-		t.Fatalf("migration repair failed: %v", err)
+		t.Fatalf("migration from v17 to v18 failed: %v", err)
 	}
 
-	version, err := db.getSchemaVersion()
+	settings, err = db.getSettings()
 	if err != nil {
-		t.Fatalf("failed to get schema version: %v", err)
+		t.Fatalf("failed to read migrated settings: %v", err)
 	}
-	if version != currentSchemaVersion {
-		t.Fatalf("expected schema version %d, got %d", currentSchemaVersion, version)
-	}
-
-	columns := columnMap(db)
-	if !containsString(columns["chats"], "source TEXT NOT NULL DEFAULT 'app'") {
-		t.Fatalf("chats.source was not repaired: %#v", columns["chats"])
+	if settings.ClaudeDesktopUsed {
+		t.Fatal("expected existing installs to start with no inferred Claude Desktop history")
 	}
 }
 
@@ -452,7 +440,7 @@ func countRows(t *testing.T, db *database, table string) int {
 	return count
 }
 
-func countRowsWithCondition(t *testing.T, db *database, table, condition string, args ...any) int {
+func countRowsWithCondition(t *testing.T, db *database, table, condition string, args ...interface{}) int {
 	t.Helper()
 	var count int
 	query := fmt.Sprintf("SELECT COUNT(*) FROM %s WHERE %s", table, condition)
@@ -463,19 +451,10 @@ func countRowsWithCondition(t *testing.T, db *database, table, condition string,
 	return count
 }
 
-func containsString(values []string, want string) bool {
-	for _, value := range values {
-		if value == want {
-			return true
-		}
-	}
-	return false
-}
-
 // Test helpers for schema migration testing
 
 // schemaMap returns both tables/columns and indexes (ignoring order)
-func schemaMap(db *database) map[string]any {
+func schemaMap(db *database) map[string]interface{} {
 	result := make(map[string]any)
 
 	result["tables"] = columnMap(db)

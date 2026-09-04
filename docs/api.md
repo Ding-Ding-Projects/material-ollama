@@ -15,7 +15,6 @@
 - [Push a Model](#push-a-model)
 - [Generate Embeddings](#generate-embeddings)
 - [List Running Models](#list-running-models)
-- [Usage](#usage)
 - [Version](#version)
 
 ## Conventions
@@ -101,8 +100,8 @@ The final response in the stream also includes additional data about the generat
 - `total_duration`: time spent generating the response
 - `load_duration`: time spent in nanoseconds loading the model
 - `prompt_eval_count`: number of tokens in the prompt
-- `prompt_eval_cached_count`: number of prompt tokens read from the prompt cache, when available
-- `prompt_eval_duration`: time spent in nanoseconds evaluating the prompt
+- `prompt_eval_cached_count`: number of prompt tokens read from the cache
+- `prompt_eval_duration`: time spent in nanoseconds evaluating uncached prompt tokens
 - `eval_count`: number of tokens in the response
 - `eval_duration`: time in nanoseconds spent generating the response
 - `context`: an encoding of the conversation used in this response, this can be sent in the next request to keep a conversational memory
@@ -1379,7 +1378,7 @@ curl -T model.gguf -X POST http://localhost:11434/api/blobs/sha256:29fdb92e57cf0
 
 Return 201 Created if the blob was successfully created, 400 Bad Request if the digest used is not expected.
 
-## List Models
+## List Local Models
 
 ```
 GET /api/tags
@@ -1392,7 +1391,7 @@ List models that are available locally.
 #### Request
 
 ```shell
-curl http://localhost:11434/api/list
+curl http://localhost:11434/api/tags
 ```
 
 #### Response
@@ -1786,6 +1785,7 @@ A single JSON object will be returned.
 {
   "models": [
     {
+      "name": "mistral:latest",
       "model": "mistral:latest",
       "size": 5137025024,
       "digest": "2ae6f6dd7a3dd734790bbbf58b8909a606e0e7e97e94b7604e0aa7ae4490e6d8",
@@ -1804,69 +1804,6 @@ A single JSON object will be returned.
 }
 ```
 
-## Tokenize Text
-
-Tokenize text to an array of tokens using a specific model.
-
-```shell
-POST /api/tokenize
-```
-
-##### Parameters
-
-- `model`: name of model to use for tokenization
-- `text`: text to tokenize
-
-### Examples
-
-#### Request
-
-```shell
-curl -X POST http://localhost:11434/api/tokenize -d '{
-  "model": "llama3.2",
-  "text": "Why is the sky blue?"
-}'
-```
-
-#### Response
-
-```json
-{
-  "tokens": [10445,279,13180,374,6437,30]
-}
-```
-
-## Detokenize Tokens
-
-Detokenize tokens to text using a specific model.
-
-```shell
-POST /api/detokenize
-```
-
-#### Parameters
-
-- `model`: name of model to use for detokenization
-- `tokens`: list of tokens to detokenize
-
-### Examples
-
-#### Request
-
-```shell
-curl -X POST http://localhost:11434/api/detokenize -d '{
-  "model": "llama3.2",
-  "tokens": [10445,374,279,13180,6437,30]
-}'
-```
-
-#### Response
-
-```json
-{"text":"Why is the sky blue?"}
-```
-
-
 ## Generate Embedding
 
 > Note: this endpoint has been superseded by `/api/embed`
@@ -1880,8 +1817,7 @@ Generate embeddings from a model
 ### Parameters
 
 - `model`: name of model to generate embeddings from
-- `prompt`: string to generate the embedding for
-- `prompts`: array of strings to generate a batch of embeddings for
+- `prompt`: text to generate embeddings for
 
 Advanced parameters:
 
@@ -1911,53 +1847,6 @@ curl http://localhost:11434/api/embeddings -d '{
   ]
 }
 ```
-
-## Usage
-
-```
-GET /api/usage
-```
-
-Show aggregate usage statistics per model since the server started. All timestamps are UTC in RFC 3339 format.
-
-### Examples
-
-#### Request
-
-```shell
-curl http://localhost:11434/api/usage
-```
-
-#### Response
-
-```json
-{
-  "start": "2025-01-27T20:00:00Z",
-  "usage": [
-    {
-      "model": "llama3.2",
-      "requests": 5,
-      "prompt_tokens": 130,
-      "completion_tokens": 890
-    },
-    {
-      "model": "deepseek-r1",
-      "requests": 2,
-      "prompt_tokens": 48,
-      "completion_tokens": 312
-    }
-  ]
-}
-```
-
-#### Response fields
-
-- `start`: when the server started tracking usage (UTC, RFC 3339)
-- `usage`: list of per-model usage statistics
-  - `model`: model name
-  - `requests`: total number of completed requests
-  - `prompt_tokens`: total prompt tokens evaluated
-  - `completion_tokens`: total completion tokens generated
 
 ## Version
 

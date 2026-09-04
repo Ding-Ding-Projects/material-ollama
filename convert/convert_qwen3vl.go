@@ -62,6 +62,7 @@ func (m *qwen3VLModel) KV(t *Tokenizer) KV {
 	if m.NumExperts > 0 {
 		arch += "moe"
 	}
+	// override architecture
 	kv["general.architecture"] = arch
 
 	if sections := m.RopeScaling.MropeSection; len(sections) > 0 {
@@ -87,8 +88,11 @@ func (m *qwen3VLModel) KV(t *Tokenizer) KV {
 	kv["vision.temporal_patch_size"] = cmp.Or(m.VisionModel.TemporalPatchSize, 2)
 	kv["vision.deepstack_visual_indexes"] = m.VisionModel.DeepstackVisualIndexes
 
-	// Number of deepstack layers (used by llama-server to compute n_embd_inp)
-	kv["n_deepstack_layers"] = uint32(len(m.VisionModel.DeepstackVisualIndexes))
+	kv["vision.shortest_edge"] = m.VisionModel.Size.ShortestEdge
+	kv["vision.longest_edge"] = m.VisionModel.Size.LongestEdge
+
+	kv["vision.image_mean"] = m.VisionModel.ImageMean
+	kv["vision.image_std"] = m.VisionModel.ImageStd
 
 	return kv
 }

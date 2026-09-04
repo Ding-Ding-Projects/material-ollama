@@ -56,12 +56,18 @@ func (p *fakePending) take() []cache.Snapshot {
 func (p *fakePending) feedCapturing(start int, tokens []int32, capture func(from, reached int) cache.Snapshot, advance func([]int32)) {
 	end := start + len(tokens)
 	captureAt := func(reached int) {
+		fired := false
 		for i, o := range p.offsets {
 			if p.captured[i] == nil && o == reached {
 				p.captured[i] = capture(p.base, reached)
+				fired = true
 			}
 		}
-		p.base = reached
+		// The base advances only when a capture fires, mirroring
+		// pendingSnapshots.captureReached.
+		if fired {
+			p.base = reached
+		}
 	}
 
 	if len(p.offsets) == 0 {
@@ -257,9 +263,6 @@ func (c *fakeSlidingWindowCache) Update(keys, values *mlx.Array) (*mlx.Array, *m
 }
 func (c *fakeSlidingWindowCache) State() []*mlx.Array { return nil }
 func (c *fakeSlidingWindowCache) Offset() int         { return len(c.tokens) }
-func (c *fakeSlidingWindowCache) RequiresExactRestorePoint() bool {
-	return true
-}
 
 func (c *fakeSlidingWindowCache) Free() {
 	c.tokens = nil
@@ -348,9 +351,6 @@ func (c *fakeRecurrentCache) Update(keys, values *mlx.Array) (*mlx.Array, *mlx.A
 }
 func (c *fakeRecurrentCache) State() []*mlx.Array { return nil }
 func (c *fakeRecurrentCache) Offset() int         { return len(c.tokens) }
-func (c *fakeRecurrentCache) RequiresExactRestorePoint() bool {
-	return true
-}
 
 func (c *fakeRecurrentCache) Free() {
 	c.tokens = nil
@@ -506,16 +506,6 @@ type requestResult struct {
 // simulateRequest runs a request through the harness. If userSnapshotAt > 0,
 // a user snapshot is requested at that offset during prefill.
 func simulateRequest(t *testing.T, pc *prefixCache, inputs, generated []int32, userSnapshotAt ...int) requestResult {
-	t.Helper()
-	return simulateRequestWithOptions(t, kvc, inputs, generated, false, userSnapshotAt...)
-}
-
-func simulateRequestWithDecodeCheckpoints(t *testing.T, kvc *kvCache, inputs, generated []int32, userSnapshotAt ...int) requestResult {
-	t.Helper()
-	return simulateRequestWithOptions(t, kvc, inputs, generated, true, userSnapshotAt...)
-}
-
-func simulateRequestWithOptions(t *testing.T, kvc *kvCache, inputs, generated []int32, decodeCheckpoints bool, userSnapshotAt ...int) requestResult {
 	t.Helper()
 
 	session := pc.begin(inputs, nil)
@@ -1021,12 +1011,13 @@ func TestSnapshotBeyondPrefillSkipped(t *testing.T) {
 	})
 }
 
-// TestPrefillSnapshotsDiscardedOnCancel mirrors a prefill canceled after the
-// caches captured interior snapshots but before attachPrefillSnapshots ran. The
-// abandoned captures must be released when the session closes; otherwise the
-// next request's PrepareSnapshots overwrites the schedule without closing them,
-// leaking the snapshots (caught by checkSnapshotLeaks in the env cleanup).
-func TestPrefillSnapshotsDiscardedOnCancel(t *testing.T) {
+// TestPrefillSnapshotsKeptOnCancel mirrors a prefill canceled after the caches
+// captured interior snapshots but before the success-path attach ran. Closing
+// the session attaches the crossed captures so a retry can resume from them,
+// and drains the capture schedule; otherwise the next request's
+// PrepareSnapshots would overwrite it without closing the captures, leaking
+// them (caught by checkSnapshotLeaks in the env cleanup).
+func TestPrefillSnapshotsKeptOnCancel(t *testing.T) {
 	forEachEnv(t, func(t *testing.T, env *testEnv) {
 		pc := env.pc
 		inputs := []int32{1, 2, 3, 4, 5}
@@ -1034,21 +1025,17 @@ func TestPrefillSnapshotsDiscardedOnCancel(t *testing.T) {
 		session := pc.begin(inputs, nil)
 		session.schedulePrefillSnapshots([]int{3})
 		// Cross offset 3 so the caches capture it, then close the session as a
-		// canceled prefill would, before the captures are attached to the trie.
+		// canceled prefill would, before the success-path attach.
 		feedAll(pc.caches, inputs[pc.minCacheOffset():3])
 		session.close()
 
-		// close advances the trie over the committed tokens, but the abandoned
-		// captures must not be attached as snapshots to any node.
-		walkNodes(pc.root, func(n *trieNode) bool {
-			if n != pc.root && n.hasSnapshots() {
-				t.Errorf("abandoned capture attached as snapshot at offset %d", n.endOffset)
-			}
-			return true
-		})
+		// The crossed capture becomes a restore point for the retry.
+		if at := 3 - pc.draftLookahead; !nodeExistsAtOffset(pc.root, at) {
+			t.Errorf("no trie node at capture point %d after cancel", at)
+		}
 
 		// A second request re-prepares snapshots on the same caches: if the
-		// discarded ones were not closed, prepare() orphans them here.
+		// pending ones were not drained, prepare() orphans them here.
 		simulateRequest(t, pc, inputs, nil, 5)
 
 		checkTrieInvariants(t, pc.root)
@@ -1093,44 +1080,6 @@ func assertUserNodeExists(t *testing.T, pc *prefixCache, label string) {
 	if !exists {
 		t.Fatalf("%s: no user-marked node found", label)
 	}
-}
-
-func countUserNodesAt(kvc *kvCache, offset int) int {
-	return countRestorePointNodesAt(kvc, offset, restorePointDurable)
-}
-
-func countEphemeralNodesAt(kvc *kvCache, offset int) int {
-	return countRestorePointNodesAt(kvc, offset, restorePointEphemeral)
-}
-
-func countRestorePointNodesAt(kvc *kvCache, offset int, kind restorePointKind) int {
-	var count int
-	walkNodes(kvc.root, func(n *trieNode) bool {
-		if n.restore == kind && n.endOffset == offset {
-			count++
-		}
-		return true
-	})
-	return count
-}
-
-func countSnapshotNodesAt(kvc *kvCache, offset int) int {
-	var count int
-	walkNodes(kvc.root, func(n *trieNode) bool {
-		if n.endOffset == offset && n.hasSnapshots() {
-			count++
-		}
-		return true
-	})
-	return count
-}
-
-func int32Range(start, count int) []int32 {
-	values := make([]int32, count)
-	for i := range values {
-		values[i] = int32(start + i)
-	}
-	return values
 }
 
 // TestBranchSwitchRestoresCorrectState exercises switching back to an older

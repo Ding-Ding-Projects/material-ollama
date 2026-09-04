@@ -53,21 +53,6 @@ type Cache interface {
 	Split(snapshot Snapshot, at int) (parent, child Snapshot)
 }
 
-// ExactRestorePointCache marks cache types that cannot cheaply restore to an
-// arbitrary matched offset without a snapshot at that exact point.
-type ExactRestorePointCache interface {
-	RequiresExactRestorePoint() bool
-}
-
-func RequiresExactRestorePoint(caches []Cache) bool {
-	for _, c := range caches {
-		if exact, ok := c.(ExactRestorePointCache); ok && exact.RequiresExactRestorePoint() {
-			return true
-		}
-	}
-	return false
-}
-
 // Snapshot is paged-out cache state that can be restored later.
 type Snapshot interface {
 	// Size returns the byte size of the paged-out data (in VRAM). A lazy
@@ -109,9 +94,6 @@ func (p *pendingSnapshots) prepare(currentOffset int, offsets []int) {
 		// on it being ascending and unique.
 		if i > 0 && o <= offsets[i-1] {
 			panic(fmt.Sprintf("PrepareSnapshots: offsets must be sorted and unique, got %v", offsets))
-		}
-		if kvCacheGrowDebugEnabled() {
-			slog.Info("KVCache grow", "prev", prev, "new_capacity", c.keys.Dim(2), "step", c.step)
 		}
 	}
 	p.offsets = append([]int(nil), offsets...)

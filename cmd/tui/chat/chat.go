@@ -156,6 +156,7 @@ type chatModel struct {
 	openModelOnInit    bool
 	quitArmed          bool
 	quitArmedKey       string
+	escArmed           bool
 	eventErrorRendered bool
 	err                error
 }
@@ -308,6 +309,7 @@ func (m chatModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if msg.err != nil {
 			if isUnsupportedThinkingError(msg.err) && thinkRequestsThinking(m.opts.Think) {
 				m.opts.Think = &api.ThinkValue{Value: false}
+				m.status = fmt.Sprintf("Thinking disabled for %s", msg.model)
 				if msg.model != "" && m.opts.PreloadModel != nil {
 					m.preloadingModel = msg.model
 					return m, tea.Batch(preloadModelCmd(m.ctx, m.opts.PreloadModel, msg.model, m.opts.Think), m.scheduleTick())
@@ -398,7 +400,7 @@ func (m chatModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		if msg.err != nil {
 			if !m.eventErrorRendered {
-				m.entries = append(m.entries, newChatEntry(chatEntry{role: "error", content: displayChatError(msg.err.Error()), err: msg.err.Error()}))
+				m.entries = append(m.entries, newChatEntry(chatEntry{role: "error", content: msg.err.Error(), err: msg.err.Error()}))
 			}
 			m.status = "error"
 			return m.withFlowTranscriptFlush(nil)
@@ -580,6 +582,9 @@ func (m chatModel) updateKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	if msg.Type != tea.KeyCtrlC && msg.Type != tea.KeyCtrlD {
 		m.disarmQuit()
 	}
+	if msg.Type != tea.KeyEsc {
+		m.disarmEsc()
+	}
 
 	switch msg.Type {
 	case tea.KeyCtrlC:
@@ -690,20 +695,6 @@ func (m *chatModel) toggleInlineTranscriptDetails() {
 	m.scroll = 0
 }
 
-func (m chatModel) closeToolDetailsWindow() (tea.Model, tea.Cmd) {
-	wasFlowMode := !m.boundedFrame
-	m.toolDetailsOpen = false
-	m.toolDetailsScroll = 0
-	if !wasFlowMode {
-		return m, nil
-	}
-
-	m.boundedFrame = true
-	m.scroll = m.maxScroll()
-	m.flowPrintedLines = 0
-	return m, tea.ClearScreen
-}
-
 func (m chatModel) updateCtrlC() (tea.Model, tea.Cmd) {
 	if len(m.input) > 0 {
 		m.clearInput()
@@ -782,7 +773,6 @@ func (m chatModel) updateEsc() (tea.Model, tea.Cmd) {
 	} else {
 		m.status = "ready"
 	}
-	m.status = "ready"
 	return m, nil
 }
 
@@ -796,9 +786,6 @@ func (m *chatModel) clearInput() {
 }
 
 func (m chatModel) updateUpKey() (tea.Model, tea.Cmd) {
-	if m.dequeueLatestPrompt() {
-		return m, nil
-	}
 	if m.promptActive && m.movePromptHistory(-1) {
 		return m, nil
 	}
@@ -813,33 +800,6 @@ func (m chatModel) updateUpKey() (tea.Model, tea.Cmd) {
 	}
 	m.movePromptHistory(-1)
 	return m, nil
-}
-
-func (m *chatModel) dequeueLatestPrompt() bool {
-	if len(m.input) > 0 || len(m.queued) == 0 {
-		return false
-	}
-
-	index := len(m.queued) - 1
-	input := m.queued[index]
-	m.queued = m.queued[:index]
-	if len(m.queuedAttachments) > index {
-		m.inputAttachments = cloneInputAttachments(m.queuedAttachments[index])
-		m.queuedAttachments = m.queuedAttachments[:index]
-	} else {
-		m.inputAttachments = nil
-	}
-	if len(m.queuedPastedTexts) > index {
-		m.inputPastedTexts = cloneInputPastedTexts(m.queuedPastedTexts[index])
-		m.queuedPastedTexts = m.queuedPastedTexts[:index]
-	} else {
-		m.inputPastedTexts = nil
-	}
-	m.input = []rune(input)
-	m.inputCursor = len(m.input)
-	m.inputCursorSet = true
-	m.status = "ready"
-	return true
 }
 
 func (m chatModel) updateDownKey() (tea.Model, tea.Cmd) {
@@ -883,11 +843,11 @@ func (m chatModel) View() string {
 
 func (m chatModel) flowView(width int) string {
 	allTranscriptLines := m.transcriptLines(width)
-	printed := clamp(m.flowPrintedLines, 0, len(allTranscriptLines))
-	lines := slices.Clone(allTranscriptLines[printed:])
-
 	bottomLines := m.bottomLines(width, 0)
 	bottomGap := transcriptInputGap(0, len(bottomLines), len(allTranscriptLines))
+
+	printed := clamp(m.flowPrintedLines, 0, len(allTranscriptLines))
+	lines := slices.Clone(allTranscriptLines[printed:])
 	for range bottomGap {
 		lines = append(lines, "")
 	}
@@ -975,9 +935,6 @@ func (m chatModel) flowTranscriptFlushCmd() (chatModel, tea.Cmd) {
 	}
 	m.flowPrintedLines = clamp(m.flowPrintedLines, 0, len(lines))
 	flushCount := m.flowTranscriptFlushCount(lines, width)
-	if m.flowPrintedLines > flushCount {
-		m.flowPrintedLines = flushCount
-	}
 	if flushCount <= m.flowPrintedLines {
 		return m, nil
 	}
@@ -1011,10 +968,6 @@ func (m chatModel) flowTranscriptHoldEntryIndex() int {
 		if entry.content != "" {
 			return index
 		}
-	case "thinking":
-		if entry.status == "running" {
-			return index
-		}
 	case "tool":
 		if isToolActiveStatus(entry.status) {
 			return index
@@ -1029,7 +982,7 @@ func (m chatModel) flowTranscriptHoldEntryIndex() int {
 
 func (m chatModel) emptyChatHint() string {
 	if len(chatEmptyPrompts) == 0 {
-		return "Ask the agent to inspect files, run tools, or explain a repo."
+		return "Try asking the agent to inspect files, run tools, or explain a repo."
 	}
 	h := fnv.New32a()
 	_, _ = h.Write([]byte(m.chatID))
@@ -1274,17 +1227,20 @@ func (m *chatModel) disarmQuit() {
 	}
 }
 
+func (m *chatModel) disarmEsc() {
+	if !m.escArmed {
+		return
+	}
+	m.escArmed = false
+	if strings.HasPrefix(m.status, "press esc again") {
+		m.status = "ready"
+	}
+}
+
 func (m chatModel) canEditInput() bool {
 	return m.promptDebug == nil && m.approvalPrompt == nil && m.cloudAuthPrompt == nil && m.modelPicker == nil && m.thinkPicker == nil
 }
 
 func isChatContextCanceledError(err error) bool {
 	return err != nil && (errors.Is(err, context.Canceled) || strings.Contains(err.Error(), "context canceled"))
-}
-
-func displayChatError(message string) string {
-	if strings.Contains(strings.ToLower(message), "tool round limit reached") {
-		return "Reached the tool limit for this turn. Send another message to continue."
-	}
-	return message
 }

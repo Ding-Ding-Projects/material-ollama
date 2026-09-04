@@ -3,6 +3,7 @@ package server
 import (
 	"context"
 	"crypto/rand"
+	"crypto/sha256"
 	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
@@ -14,17 +15,14 @@ import (
 	"strings"
 	"time"
 
-	"github.com/minio/sha256-simd"
-
 	"github.com/ollama/ollama/api"
 	"github.com/ollama/ollama/auth"
 )
 
 type registryChallenge struct {
-	Realm     string
-	Service   string
-	Scope     string
-	Timestamp time.Time
+	Realm   string
+	Service string
+	Scope   string
 }
 
 func (r registryChallenge) URL() (*url.URL, error) {
@@ -35,11 +33,11 @@ func (r registryChallenge) URL() (*url.URL, error) {
 
 	values := redirectURL.Query()
 	values.Add("service", r.Service)
-	for s := range strings.SplitSeq(r.Scope, " ") {
+	for _, s := range strings.Split(r.Scope, " ") {
 		values.Add("scope", s)
 	}
 
-	values.Add("ts", strconv.FormatInt(r.Timestamp.Unix(), 10))
+	values.Add("ts", strconv.FormatInt(time.Now().Unix(), 10))
 
 	nonce, err := auth.NewNonce(rand.Reader, 16)
 	if err != nil {
@@ -64,7 +62,7 @@ func getAuthorizationToken(ctx context.Context, challenge registryChallenge, ori
 	}
 
 	sha256sum := sha256.Sum256(nil)
-	data := fmt.Appendf(nil, "%s,%s,%s", http.MethodGet, redirectURL.String(), base64.StdEncoding.EncodeToString([]byte(hex.EncodeToString(sha256sum[:]))))
+	data := []byte(fmt.Sprintf("%s,%s,%s", http.MethodGet, redirectURL.String(), base64.StdEncoding.EncodeToString([]byte(hex.EncodeToString(sha256sum[:])))))
 
 	headers := make(http.Header)
 	signature, err := auth.Sign(ctx, data)
@@ -82,7 +80,7 @@ func getAuthorizationToken(ctx context.Context, challenge registryChallenge, ori
 
 	body, err := io.ReadAll(response.Body)
 	if err != nil {
-		return "", fmt.Errorf("%d: %w", response.StatusCode, err)
+		return "", fmt.Errorf("%d: %v", response.StatusCode, err)
 	}
 
 	if response.StatusCode >= http.StatusBadRequest {

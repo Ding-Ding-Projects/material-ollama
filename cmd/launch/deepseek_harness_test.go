@@ -442,6 +442,9 @@ func TestEnsureDeepSeekHarnessInstalledPreservesGlobalFailureWhenNpxIsUnavailabl
 	if err == nil || !strings.Contains(err.Error(), "failed to install deepseek harness") {
 		t.Fatalf("error = %v", err)
 	}
+	if strings.Contains(err.Error(), "npx") {
+		t.Fatalf("error exposes fallback: %v", err)
+	}
 }
 
 func TestDeepSeekHarnessLaunchArgs(t *testing.T) {

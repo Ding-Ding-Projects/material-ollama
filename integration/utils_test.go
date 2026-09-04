@@ -5,7 +5,6 @@ package integration
 import (
 	"bytes"
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -206,7 +205,6 @@ func startServer(t *testing.T, ctx context.Context, ollamaHost string) error {
 	if tmp := os.Getenv("OLLAMA_HOST"); tmp != ollamaHost {
 		slog.Info("setting env", "OLLAMA_HOST", ollamaHost)
 		t.Setenv("OLLAMA_HOST", ollamaHost)
-		envconfig.LoadConfig()
 	}
 
 	serverCmd = exec.Command(CLIName, "serve")
@@ -422,7 +420,6 @@ func DoGenerate(ctx context.Context, t *testing.T, client *api.Client, genReq ap
 // Generate a set of requests
 // By default each request uses llama3.2 as the model
 func GenerateRequests() ([]api.GenerateRequest, [][]string) {
-	stream := false
 	return []api.GenerateRequest{
 			{
 				Model:     smol,
@@ -712,23 +709,6 @@ func skipUnderMinVRAM(t *testing.T, gb uint64) {
 			t.Skip("skipping with small VRAM to avoid timeouts")
 		}
 	}
-}
-
-var minVRAM = map[string]uint64{
-	"qwen3-vl":      16,
-	"gpt-oss:20b":   16,
-	"gpt-oss:120b":  70,
-	"qwen3":         6,
-	"llama3.1":      8,
-	"llama3.2":      4,
-	"mistral":       6,
-	"qwen2.5":       6,
-	"qwen2":         6,
-	"mistral-nemo":  9,
-	"mistral-small": 16,
-	"mixtral:8x22b": 80,
-	"qwq":           20,
-	"granite3.3":    7,
 }
 
 // Skip if the target model isn't X% GPU loaded to avoid excessive runtime

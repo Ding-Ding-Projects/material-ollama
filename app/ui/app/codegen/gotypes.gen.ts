@@ -159,7 +159,6 @@ export class Chat {
     title: string;
     created_at: Time;
     browser_state?: BrowserStateData;
-    draft?: string;
 
     constructor(source: any = {}) {
         if ('string' === typeof source) source = JSON.parse(source);
@@ -168,7 +167,6 @@ export class Chat {
         this.title = source["title"];
         this.created_at = this.convertValues(source["created_at"], Time);
         this.browser_state = source["browser_state"];
-        this.draft = source["draft"];
     }
 
 	convertValues(a: any, classs: any, asMap: boolean = false): any {
@@ -195,44 +193,6 @@ export class ChatResponse {
     constructor(source: any = {}) {
         if ('string' === typeof source) source = JSON.parse(source);
         this.chat = this.convertValues(source["chat"], Chat);
-    }
-
-	convertValues(a: any, classs: any, asMap: boolean = false): any {
-	    if (!a) {
-	        return a;
-	    }
-	    if (Array.isArray(a)) {
-	        return (a as any[]).map(elem => this.convertValues(elem, classs));
-	    } else if ("object" === typeof a) {
-	        if (asMap) {
-	            for (const key of Object.keys(a)) {
-	                a[key] = new classs(a[key]);
-	            }
-	            return a;
-	        }
-	        return new classs(a);
-	    }
-	    return a;
-	}
-}
-export class MessageUpdateRequest {
-    content: string;
-
-    constructor(source: any = {}) {
-        if ('string' === typeof source) source = JSON.parse(source);
-        this.content = source["content"];
-    }
-}
-export class MessageUpdateResponse {
-    index: number;
-    chatId: string;
-    message: Message;
-
-    constructor(source: any = {}) {
-        if ('string' === typeof source) source = JSON.parse(source);
-        this.index = source["index"];
-        this.chatId = source["chatId"];
-        this.message = this.convertValues(source["message"], Message);
     }
 
 	convertValues(a: any, classs: any, asMap: boolean = false): any {
@@ -627,7 +587,9 @@ export class Settings {
     SelectedModel: string;
     SidebarOpen: boolean;
     LastHomeView: string;
+    OnboardingVersion: number;
     AutoUpdateEnabled: boolean;
+    ClaudeDesktopUsed: boolean;
     UIPreferences: UIPreferences;
 
     constructor(source: any = {}) {
@@ -647,7 +609,9 @@ export class Settings {
         this.SelectedModel = source["SelectedModel"];
         this.SidebarOpen = source["SidebarOpen"];
         this.LastHomeView = source["LastHomeView"];
+        this.OnboardingVersion = source["OnboardingVersion"];
         this.AutoUpdateEnabled = source["AutoUpdateEnabled"];
+        this.ClaudeDesktopUsed = source["ClaudeDesktopUsed"];
         this.UIPreferences = this.convertValues(source["UIPreferences"], UIPreferences);
     }
 
@@ -671,12 +635,10 @@ export class Settings {
 }
 export class SettingsResponse {
     settings: Settings;
-    hasCompletedFirstRun: boolean;
 
     constructor(source: any = {}) {
         if ('string' === typeof source) source = JSON.parse(source);
         this.settings = this.convertValues(source["settings"], Settings);
-        this.hasCompletedFirstRun = source["hasCompletedFirstRun"];
     }
 
 	convertValues(a: any, classs: any, asMap: boolean = false): any {

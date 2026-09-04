@@ -9,36 +9,11 @@ import CopyButton from "./CopyButton";
 import type { BundledLanguage } from "shiki";
 import { highlighter } from "@/lib/highlighter";
 
-// Extend GitHub's default sanitization schema to support math rendering
-// and custom citation elements while stripping dangerous tags like <style>
-// and <script> that can leak from model-generated HTML content.
-const sanitizeSchema = {
-  ...defaultSchema,
-  tagNames: [
-    ...(defaultSchema.tagNames || []),
-    "ol-citation",
-  ],
-  attributes: {
-    ...defaultSchema.attributes,
-    div: [
-      ...(defaultSchema.attributes?.div || []),
-      ["className", "math", "math-display"],
-    ],
-    span: [
-      ...(defaultSchema.attributes?.span || []),
-      ["className", "math", "math-inline"],
-    ],
-    "ol-citation": ["cursor", "start", "end"],
-  },
-  strip: ["script", "style"],
-};
-
 interface StreamingMarkdownContentProps {
   content: string;
   isStreaming?: boolean;
   size?: "sm" | "md" | "lg";
   browserToolResult?: any; // TODO: proper type
-  className?: string;
 }
 
 // Helper to extract text from React nodes
@@ -156,26 +131,19 @@ const CodeBlock = React.memo(
 );
 
 const StreamingMarkdownContent: React.FC<StreamingMarkdownContentProps> =
-  React.memo(
-    ({
-      content,
-      isStreaming = false,
-      size,
-      browserToolResult,
-      className = "",
-    }) => {
-      // Build the remark plugins array - keep default GFM and Math, add citations
-      const remarkPlugins = React.useMemo(() => {
-        return [
-          defaultRemarkPlugins.gfm,
-          defaultRemarkPlugins.math,
-          remarkCitationParser,
-        ];
-      }, []);
+  React.memo(({ content, isStreaming = false, size, browserToolResult }) => {
+    // Build the remark plugins array - keep default GFM and Math, add citations
+    const remarkPlugins = React.useMemo(() => {
+      return [
+        defaultRemarkPlugins.gfm,
+        defaultRemarkPlugins.math,
+        remarkCitationParser,
+      ];
+    }, []);
 
-      return (
-        <div
-          className={`
+    return (
+      <div
+        className={`
           max-w-full
           ${size === "sm" ? "prose-sm" : size === "lg" ? "prose-lg" : ""}
           prose
@@ -239,17 +207,17 @@ const StreamingMarkdownContent: React.FC<StreamingMarkdownContentProps> =
           dark:prose-ul:marker:text-neutral-300
           dark:prose-li:marker:text-neutral-300
           break-words
-          ${className}
         `}
+      >
+        <StreamingMarkdownErrorBoundary
+          content={content}
+          isStreaming={isStreaming}
         >
           <Streamdown
             parseIncompleteMarkdown={isStreaming}
             isAnimating={isStreaming}
             rehypePlugins={safeRehypePlugins}
             remarkPlugins={remarkPlugins}
-            rehypePlugins={rehypePlugins}
-            skipHtml={true}
-            disallowedElements={["img"]}
             controls={false}
             components={{
               img: ({ alt }: React.ImgHTMLAttributes<HTMLImageElement>) =>
@@ -319,10 +287,10 @@ const StreamingMarkdownContent: React.FC<StreamingMarkdownContentProps> =
           >
             {content}
           </Streamdown>
-        </div>
-      );
-    },
-  );
+        </StreamingMarkdownErrorBoundary>
+      </div>
+    );
+  });
 
 interface StreamingMarkdownErrorBoundaryProps {
   content: string;

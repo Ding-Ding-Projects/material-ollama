@@ -10,7 +10,6 @@ import {
   ChatRequest,
   Settings,
   User,
-  Message,
 } from "@/gotypes";
 import { parseJsonlFromResponse } from "./util/jsonl-parsing";
 import { ollamaClient as ollama } from "./lib/ollama-client";
@@ -39,7 +38,7 @@ declare module "@/gotypes" {
 }
 
 Model.prototype.isCloud = function (): boolean {
-  return this.model.endsWith("cloud") || this.model === "gemini-3-pro-preview";
+  return this.model.endsWith("cloud");
 };
 
 export type CloudStatusSource = "env" | "config" | "both" | "none";
@@ -47,9 +46,23 @@ export interface CloudStatusResponse {
   disabled: boolean;
   source: CloudStatusSource;
 }
-export interface SettingsResponse {
-  settings: Settings;
-  hasCompletedFirstRun: boolean;
+
+export interface IntegrationStatus {
+  id: string;
+  name: string;
+  description: string;
+  installed?: boolean;
+  command?: string;
+}
+
+export type IntegrationStatuses = IntegrationStatus[];
+
+export async function getIntegrationStatuses(): Promise<IntegrationStatuses> {
+  const response = await fetch(`${API_BASE}/api/v1/integrations`);
+  if (!response.ok) {
+    throw new Error(`Failed to fetch integration statuses: ${response.status}`);
+  }
+  return response.json();
 }
 // Helper function to convert Uint8Array to base64
 function uint8ArrayToBase64(uint8Array: Uint8Array): string {
@@ -100,7 +113,9 @@ export async function fetchConnectUrl(): Promise<string> {
   if (response.status === 401) {
     const data = await response.json();
     if (data.signin_url) {
-      return data.signin_url;
+      const connectUrl = new URL(data.signin_url);
+      connectUrl.searchParams.set("launch", "true");
+      return connectUrl.toString();
     }
   }
 
@@ -195,6 +210,84 @@ export async function getModels(query?: string): Promise<Model[]> {
   }
 }
 
+export async function getClaudeDesktopAvailableModels(
+  includeCloudModels = false,
+): Promise<Model[]> {
+  try {
+    const [localResult, cloudResult] = await Promise.all([
+      ollama.list(),
+      includeCloudModels
+        ? fetch(`${API_BASE}/api/v1/models/cloud`)
+            .then(async (response) => {
+              if (!response.ok) {
+                throw new Error(`cloud model list returned ${response.status}`);
+              }
+              return (await response.json()) as { models?: ModelResponse[] };
+            })
+            .catch((error) => {
+              console.warn("Failed to fetch cloud models:", error);
+              return { models: [] };
+            })
+        : Promise.resolve({ models: [] as ModelResponse[] }),
+    ]);
+
+    const localModels = localResult.models.filter((model: ModelResponse) => {
+      const response = model as ModelResponse & {
+        remote_model?: string;
+        remote_host?: string;
+      };
+      const name = model.name.replace(/:latest$/, "");
+      return (
+        !response.remote_model &&
+        !response.remote_host &&
+        !name.endsWith("cloud")
+      );
+    });
+    const cloudModels = (cloudResult.models ?? []).map((model) => {
+      const name = model.name.replace(/:latest$/, "");
+      const tag = name.slice(name.lastIndexOf(":") + 1).toLowerCase();
+      const explicitCloud =
+        name.endsWith(":cloud") ||
+        (name.includes(":") && tag.endsWith("-cloud"));
+      return {
+        ...model,
+        name: explicitCloud ? name : `${name}:cloud`,
+      };
+    });
+
+    const seen = new Set<string>();
+    return [...localModels, ...cloudModels]
+      .filter((model: ModelResponse) => {
+        const base = model.name
+          .replace(/:latest$/, "")
+          .replace(/:cloud$/, "");
+        if (!base || seen.has(base)) return false;
+
+        const families = model.details?.families;
+        const supported =
+          !families ||
+          families.length === 0 ||
+          !families.every((family: string) =>
+            family.toLowerCase().includes("bert"),
+          );
+        if (supported) seen.add(base);
+        return supported;
+      })
+      .map(
+        (model: ModelResponse) =>
+          new Model({
+            model: model.name.replace(/:latest$/, ""),
+            digest: model.digest,
+            modified_at: model.modified_at
+              ? new Date(model.modified_at)
+              : undefined,
+          }),
+      );
+  } catch (err) {
+    throw new Error(`Failed to fetch Ollama models: ${err}`);
+  }
+}
+
 export async function getModelCapabilities(
   modelName: string,
 ): Promise<ModelCapabilitiesResponse> {
@@ -276,7 +369,9 @@ export async function* sendMessage(
   }
 }
 
-export async function getSettings(): Promise<SettingsResponse> {
+export async function getSettings(): Promise<{
+  settings: Settings;
+}> {
   const response = await fetch(`${API_BASE}/api/v1/settings`);
   if (!response.ok) {
     throw new Error("Failed to fetch settings");
@@ -284,13 +379,12 @@ export async function getSettings(): Promise<SettingsResponse> {
   const data = await response.json();
   return {
     settings: new Settings(data.settings),
-    hasCompletedFirstRun: Boolean(data.hasCompletedFirstRun),
   };
 }
 
-export async function updateSettings(
-  settings: Settings,
-): Promise<SettingsResponse> {
+export async function updateSettings(settings: Settings): Promise<{
+  settings: Settings;
+}> {
   const response = await fetch(`${API_BASE}/api/v1/settings`, {
     method: "POST",
     headers: {
@@ -305,28 +399,7 @@ export async function updateSettings(
   const data = await response.json();
   return {
     settings: new Settings(data.settings),
-    hasCompletedFirstRun: Boolean(data.hasCompletedFirstRun),
   };
-}
-
-export async function skipFirstRun(): Promise<void> {
-  const response = await fetch(`${API_BASE}/api/v1/first-run/skip`, {
-    method: "POST",
-  });
-  if (!response.ok) {
-    const error = await response.text();
-    throw new Error(error || "Failed to skip first run");
-  }
-}
-
-export async function runOllamaInTerminal(): Promise<void> {
-  const response = await fetch(`${API_BASE}/api/v1/first-run/terminal`, {
-    method: "POST",
-  });
-  if (!response.ok) {
-    const error = await response.text();
-    throw new Error(error || "Failed to open terminal");
-  }
 }
 
 export async function updateCloudSetting(
@@ -365,20 +438,6 @@ export async function renameChat(chatId: string, title: string): Promise<void> {
   }
 }
 
-export async function updateChatDraft(chatId: string, draft: string): Promise<void> {
-  const response = await fetch(`${API_BASE}/api/v1/chat/${chatId}/draft`, {
-    method: "PUT",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({ draft }),
-  });
-  if (!response.ok) {
-    const error = await response.text();
-    throw new Error(error || "Failed to update draft");
-  }
-}
-
 export async function deleteChat(chatId: string): Promise<void> {
   const response = await fetch(`${API_BASE}/api/v1/chat/${chatId}`, {
     method: "DELETE",
@@ -387,40 +446,6 @@ export async function deleteChat(chatId: string): Promise<void> {
     const error = await response.text();
     throw new Error(error || "Failed to delete chat");
   }
-}
-
-export async function updateChatMessage(
-  chatId: string,
-  index: number,
-  content: string,
-): Promise<{
-  index: number;
-  chatId: string;
-  message: Message;
-}> {
-  const response = await fetch(
-    `${API_BASE}/api/v1/chat/${chatId}/messages/${index}`,
-    {
-      method: "PATCH",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ content }),
-    },
-  );
-
-  if (!response.ok) {
-    const errorMessage = await response.text();
-    throw new Error(errorMessage || "Failed to update message");
-  }
-
-  const data = await response.json();
-
-  return {
-    index: data.index,
-    chatId: data.chatId,
-    message: new Message(data.message),
-  };
 }
 
 // Get upstream information for model staleness checking

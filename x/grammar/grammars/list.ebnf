@@ -1,4 +1,0 @@
-list = item { ", " item } .
-item = word .
-word = letter { letter } .
-letter = "a" … "z" | "A" … "Z" .

@@ -1,13 +1,12 @@
 package tokenizer
 
 import (
-	"cmp"
+	"container/heap"
 	"fmt"
 	"log/slog"
 	"strconv"
 	"strings"
 
-	"github.com/emirpasic/gods/v2/trees/binaryheap"
 	"github.com/ollama/ollama/logutil"
 )
 
@@ -95,68 +94,79 @@ func (spm SentencePiece) Encode(s string, addSpecial bool) ([]int32, error) {
 			continue
 		}
 
-		runes := []rune(text)
+		q := &queue{}
+		heap.Init(q)
 
-		root := &merge{offset: len(runes) - 1, size: 1}
-		for i := len(runes) - 2; i >= 0; i-- {
-			m := &merge{offset: i, size: 1, next: root}
-			root.prev = m
-			root = m
+		runes := []rune(text)
+		merges := make([]merge, len(runes))
+		for r := range runes {
+			merges[r] = merge{
+				p:     r - 1,
+				n:     r + 1,
+				runes: []rune{runes[r]},
+			}
 		}
 
-		pairwise := func(a, b *merge) *pair[float32] {
-			if a != nil && b != nil {
-				aa := string(runes[a.offset : a.offset+a.size])
-				bb := string(runes[b.offset : b.offset+b.size])
-				if id := spm.vocab.Encode(aa + bb); id >= 0 {
-					return &pair[float32]{a: a, b: b, rank: spm.vocab.Scores[id]}
+		pairwise := func(a, b int) *candidate {
+			if a < 0 || b >= len(runes) {
+				return nil
+			}
+
+			left, right := string(merges[a].runes), string(merges[b].runes)
+			if id := spm.vocab.Encode(left + right); id >= 0 {
+				return &candidate{
+					a:     a,
+					b:     b,
+					score: spm.vocab.Scores[id],
+					size:  len(left) + len(right),
 				}
 			}
 
 			return nil
 		}
 
-		pairs := binaryheap.NewWith(func(i, j *pair[float32]) int { return cmp.Compare(i.rank, j.rank) })
-		for m := root; m != nil; m = m.next {
-			if pair := pairwise(m, m.next); pair != nil {
-				pairs.Push(pair)
+		for i := range len(runes) - 1 {
+			if pair := pairwise(i, i+1); pair != nil {
+				heap.Push(q, pair)
 			}
 		}
 
-		for !pairs.Empty() {
-			p, _ := pairs.Pop()
-			a := string(runes[p.a.offset : p.a.offset+p.a.size])
-			b := string(runes[p.b.offset : p.b.offset+p.b.size])
-			if id := spm.vocab.Encode(a + b); a == "" || b == "" || id < 0 || spm.vocab.Scores[id] != p.rank {
+		for q.Len() > 0 {
+			pair := heap.Pop(q).(*candidate)
+			left, right := merges[pair.a], merges[pair.b]
+
+			if string(left.runes) == "" || string(right.runes) == "" || len(string(left.runes))+len(string(right.runes)) != pair.size {
 				continue
 			}
 
-			p.a.size += p.b.size
-			p.b.size = 0
-
-			p.a.next = p.b.next
-			if p.b.next != nil {
-				p.b.next.prev = p.a
+			merges[pair.a].runes = append(left.runes, right.runes...)
+			merges[pair.b].runes = nil
+			merges[pair.a].n = right.n
+			if right.n < len(merges) {
+				merges[right.n].p = pair.a
 			}
 
-			if pair := pairwise(p.a.prev, p.a); pair != nil {
-				pairs.Push(pair)
+			if pair := pairwise(merges[pair.a].p, pair.a); pair != nil {
+				heap.Push(q, pair)
 			}
 
-			if pair := pairwise(p.a, p.a.next); pair != nil {
-				pairs.Push(pair)
+			if pair := pairwise(pair.a, merges[pair.a].n); pair != nil {
+				heap.Push(q, pair)
 			}
 		}
 
-		for m := root; m != nil; m = m.next {
-			if s := string(runes[m.offset : m.offset+m.size]); s != "" {
-				if id := spm.vocab.Encode(s); id >= 0 {
+		for _, merge := range merges {
+			if token := string(merge.runes); token != "" {
+				id := spm.vocab.Encode(token)
+
+				if id >= 0 {
 					ids = append(ids, id)
 					continue
 				}
 
+				// Fallback to byte tokenization
 				var result []int32
-				for _, b := range []byte(s) {
+				for _, b := range []byte(token) {
 					byteToken := fmt.Sprintf("<0x%02X>", b)
 					unknownID := spm.vocab.Encode(byteToken)
 					if unknownID >= 0 {
@@ -195,12 +205,12 @@ func (q queue) Less(i, j int) bool {
 
 func (q queue) Swap(i, j int) { q[i], q[j] = q[j], q[i] }
 
-func (q *queue) Push(x any) {
+func (q *queue) Push(x interface{}) {
 	item := x.(*candidate)
 	*q = append(*q, item)
 }
 
-func (q *queue) Pop() any {
+func (q *queue) Pop() interface{} {
 	old := *q
 	n := len(old)
 	item := old[n-1]
@@ -221,7 +231,7 @@ func (spm SentencePiece) Decode(ids []int32) (string, error) {
 		if len(data) == 6 && strings.HasPrefix(data, "<0x") && strings.HasSuffix(data, ">") {
 			byteVal, err := strconv.ParseUint(data[1:5], 0, 8)
 			if err != nil {
-				return "", fmt.Errorf("failed to parse hex byte: %w", err)
+				return "", fmt.Errorf("failed to parse hex byte: %v", err)
 			}
 
 			if err := sb.WriteByte(byte(byteVal)); err != nil {

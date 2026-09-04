@@ -217,30 +217,31 @@ type MessagesResponse struct {
 
 // Usage contains token usage information
 type Usage struct {
-	InputTokens              int `json:"input_tokens"`
-	CacheCreationInputTokens int `json:"cache_creation_input_tokens"`
-	CacheReadInputTokens     int `json:"cache_read_input_tokens"`
-	OutputTokens             int `json:"output_tokens"`
+	InputTokens          int  `json:"input_tokens"`
+	CacheReadInputTokens *int `json:"cache_read_input_tokens,omitempty"`
+	OutputTokens         int  `json:"output_tokens"`
 }
 
+// UsageFromMetrics separates total prompt tokens into uncached and cache-read counts.
 func UsageFromMetrics(metrics api.Metrics) Usage {
-	cached := metrics.PromptEvalCachedCount
-	if cached > metrics.PromptEvalCount {
-		cached = metrics.PromptEvalCount
+	total := max(0, metrics.PromptEvalCount)
+	var cached *int
+	if metrics.PromptEvalCachedCount != nil {
+		count := min(max(0, *metrics.PromptEvalCachedCount), total)
+		cached = &count
 	}
-
 	return Usage{
-		InputTokens:          metrics.PromptEvalCount - cached,
+		InputTokens:          total - intValue(cached),
 		CacheReadInputTokens: cached,
 		OutputTokens:         metrics.EvalCount,
 	}
 }
 
-func (u *Usage) Add(other Usage) {
-	u.InputTokens += other.InputTokens
-	u.CacheCreationInputTokens += other.CacheCreationInputTokens
-	u.CacheReadInputTokens += other.CacheReadInputTokens
-	u.OutputTokens += other.OutputTokens
+func intValue(v *int) int {
+	if v == nil {
+		return 0
+	}
+	return *v
 }
 
 // Streaming event types
@@ -295,10 +296,9 @@ type MessageDelta struct {
 
 // DeltaUsage contains cumulative token usage
 type DeltaUsage struct {
-	InputTokens              int `json:"input_tokens"`
-	CacheCreationInputTokens int `json:"cache_creation_input_tokens"`
-	CacheReadInputTokens     int `json:"cache_read_input_tokens"`
-	OutputTokens             int `json:"output_tokens"`
+	InputTokens          int  `json:"input_tokens"`
+	CacheReadInputTokens *int `json:"cache_read_input_tokens,omitempty"`
+	OutputTokens         int  `json:"output_tokens"`
 }
 
 // MessageStopEvent signals the end of the message
@@ -435,39 +435,6 @@ func FromMessagesRequest(r MessagesRequest) (*api.ChatRequest, error) {
 	logutil.Trace("anthropic: converted request", "req", TraceChatRequest(convertedRequest))
 
 	return convertedRequest, nil
-}
-
-func extractBase64ImageSource(source *ImageSource) (api.ImageData, error) {
-	if source == nil {
-		return nil, errors.New("invalid image source")
-	}
-
-	if source.Type == "base64" {
-		decoded, err := base64.StdEncoding.DecodeString(source.Data)
-		if err != nil {
-			return nil, fmt.Errorf("invalid base64 image data: %w", err)
-		}
-		return decoded, nil
-	}
-	return nil, fmt.Errorf("invalid image source type: %s. Only base64 images are supported", source.Type)
-}
-
-func extractBase64Image(blockMap map[string]any) (api.ImageData, error) {
-	source, ok := blockMap["source"].(map[string]any)
-	if !ok {
-		return nil, errors.New("invalid image source")
-	}
-
-	sourceType, _ := source["type"].(string)
-	if sourceType == "base64" {
-		data, _ := source["data"].(string)
-		decoded, err := base64.StdEncoding.DecodeString(data)
-		if err != nil {
-			return nil, fmt.Errorf("invalid base64 image data: %w", err)
-		}
-		return decoded, nil
-	}
-	return nil, fmt.Errorf("invalid image source type: %s. Only base64 images are supported", sourceType)
 }
 
 // convertMessage converts an Anthropic MessageParam to Ollama api.Message(s)
@@ -775,8 +742,7 @@ type StreamConverter struct {
 	firstWrite           bool
 	contentIndex         int
 	inputTokens          int
-	cacheCreationTokens  int
-	cacheReadTokens      int
+	cacheReadTokens      *int
 	outputTokens         int
 	estimatedInputTokens int // Estimated tokens from request (used when actual metrics are 0)
 	thinkingStarted      bool
@@ -808,13 +774,10 @@ func (c *StreamConverter) Process(r api.ChatResponse) []StreamEvent {
 	if c.firstWrite {
 		c.firstWrite = false
 		// Use actual metrics if available, otherwise use estimate
-		c.inputTokens = r.Metrics.PromptEvalCount
-		c.cacheReadTokens = r.Metrics.PromptEvalCachedCount
-		if c.cacheReadTokens > c.inputTokens {
-			c.cacheReadTokens = c.inputTokens
-		}
-		c.inputTokens -= c.cacheReadTokens
-		if c.inputTokens == 0 && c.cacheReadTokens == 0 && c.estimatedInputTokens > 0 {
+		usage := UsageFromMetrics(r.Metrics)
+		c.inputTokens = usage.InputTokens
+		c.cacheReadTokens = usage.CacheReadInputTokens
+		if c.inputTokens == 0 && intValue(c.cacheReadTokens) == 0 && c.estimatedInputTokens > 0 {
 			c.inputTokens = c.estimatedInputTokens
 		}
 
@@ -829,10 +792,9 @@ func (c *StreamConverter) Process(r api.ChatResponse) []StreamEvent {
 					Model:   c.Model,
 					Content: []ContentBlock{},
 					Usage: Usage{
-						InputTokens:              c.inputTokens,
-						CacheCreationInputTokens: c.cacheCreationTokens,
-						CacheReadInputTokens:     c.cacheReadTokens,
-						OutputTokens:             0,
+						InputTokens:          c.inputTokens,
+						CacheReadInputTokens: c.cacheReadTokens,
+						OutputTokens:         0,
 					},
 				},
 			},
@@ -1013,13 +975,10 @@ func (c *StreamConverter) Process(r api.ChatResponse) []StreamEvent {
 			})
 		}
 
-		c.inputTokens = r.Metrics.PromptEvalCount
-		c.cacheReadTokens = r.Metrics.PromptEvalCachedCount
-		if c.cacheReadTokens > c.inputTokens {
-			c.cacheReadTokens = c.inputTokens
-		}
-		c.inputTokens -= c.cacheReadTokens
-		c.outputTokens = r.Metrics.EvalCount
+		usage := UsageFromMetrics(r.Metrics)
+		c.inputTokens = usage.InputTokens
+		c.cacheReadTokens = usage.CacheReadInputTokens
+		c.outputTokens = usage.OutputTokens
 		stopReason := mapStopReason(r.DoneReason, len(c.toolCallsSent) > 0)
 
 		events = append(events, StreamEvent{
@@ -1030,10 +989,9 @@ func (c *StreamConverter) Process(r api.ChatResponse) []StreamEvent {
 					StopReason: stopReason,
 				},
 				Usage: DeltaUsage{
-					InputTokens:              c.inputTokens,
-					CacheCreationInputTokens: c.cacheCreationTokens,
-					CacheReadInputTokens:     c.cacheReadTokens,
-					OutputTokens:             c.outputTokens,
+					InputTokens:          c.inputTokens,
+					CacheReadInputTokens: c.cacheReadTokens,
+					OutputTokens:         c.outputTokens,
 				},
 			},
 		})
@@ -1145,7 +1103,7 @@ type CountTokensRequest struct {
 
 // EstimateInputTokens estimates input tokens from a MessagesRequest (reuses CountTokensRequest logic)
 func EstimateInputTokens(req MessagesRequest) int {
-	return estimateTokens(CountTokensRequest{
+	return EstimateCountTokens(CountTokensRequest{
 		Model:    req.Model,
 		Messages: req.Messages,
 		System:   req.System,
@@ -1159,10 +1117,10 @@ type CountTokensResponse struct {
 	InputTokens int `json:"input_tokens"`
 }
 
-// estimateTokens returns a rough estimate of tokens (len/4).
+// EstimateCountTokens returns a rough estimate of tokens (len/4).
 // TODO: Replace with actual tokenization via Tokenize API for accuracy.
 // Current len/4 heuristic is a rough approximation (~4 chars/token average).
-func estimateTokens(req CountTokensRequest) int {
+func EstimateCountTokens(req CountTokensRequest) int {
 	var totalLen int
 
 	// Count system prompt

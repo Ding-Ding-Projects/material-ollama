@@ -2,7 +2,6 @@ package server
 
 import (
 	"bytes"
-	"cmp"
 	"context"
 	"crypto/sha256"
 	"encoding/json"
@@ -11,11 +10,11 @@ import (
 	"io"
 	"log"
 	"log/slog"
+	"math"
 	"net"
 	"net/http"
 	"net/url"
 	"os"
-	"path"
 	"path/filepath"
 	"runtime"
 	"slices"
@@ -24,16 +23,14 @@ import (
 	"time"
 
 	"github.com/ollama/ollama/api"
-	"github.com/ollama/ollama/auth"
 	"github.com/ollama/ollama/envconfig"
 	"github.com/ollama/ollama/fs/gguf"
 	"github.com/ollama/ollama/manifest"
 	"github.com/ollama/ollama/model/parsers"
 	"github.com/ollama/ollama/parser"
-	"github.com/ollama/ollama/server/cache"
 	"github.com/ollama/ollama/template"
+	"github.com/ollama/ollama/thinking"
 	"github.com/ollama/ollama/types/model"
-	"github.com/ollama/ollama/types/registry"
 	"github.com/ollama/ollama/version"
 	"github.com/ollama/ollama/x/mlxrunner/mlx"
 	"github.com/ollama/ollama/x/transfer"
@@ -81,9 +78,13 @@ type Model struct {
 	License            []string
 	Digest             string
 	Options            map[string]any
+	GenerationDefaults model.GenerationDefaults
 	Messages           []api.Message
 
 	Template *template.Template
+
+	capabilities       []model.Capability
+	capabilitiesCached bool
 }
 
 func (m *Model) IsMLX() bool {
@@ -92,6 +93,47 @@ func (m *Model) IsMLX() bool {
 
 func (m *Model) isGGUF() bool {
 	return m.Config.ModelFormat == "" || m.Config.ModelFormat == "gguf"
+}
+
+func generationDefaultsFromGGUF(f *gguf.File) model.GenerationDefaults {
+	return model.ParseGGUFGenerationDefaults(
+		func(key string) (int64, bool) {
+			return ggufIntGenerationDefault(f.KeyValue(key))
+		},
+		func(key string) (float64, bool) {
+			return ggufFloatGenerationDefault(f.KeyValue(key))
+		},
+	)
+}
+
+func ggufIntGenerationDefault(kv gguf.KeyValue) (int64, bool) {
+	if value, ok := kv.IntOK(); ok {
+		return value, true
+	}
+	if value, ok := kv.UintOK(); ok {
+		if value > math.MaxInt64 {
+			return 0, false
+		}
+		return int64(value), true
+	}
+	if value, ok := kv.FloatOK(); ok {
+		// Match api.Options.FromMap; rounding may be better for near-integers.
+		return int64(value), true
+	}
+	return 0, false
+}
+
+func ggufFloatGenerationDefault(kv gguf.KeyValue) (float64, bool) {
+	if value, ok := kv.FloatOK(); ok {
+		return value, true
+	}
+	if value, ok := kv.IntOK(); ok {
+		return float64(value), true
+	}
+	if value, ok := kv.UintOK(); ok {
+		return float64(value), true
+	}
+	return 0, false
 }
 
 func appendCapability(capabilities []model.Capability, capability model.Capability) []model.Capability {
@@ -111,6 +153,10 @@ const (
 
 // Capabilities returns the capabilities that the model supports
 func (m *Model) Capabilities() []model.Capability {
+	if m.capabilitiesCached {
+		return slices.Clone(m.capabilities)
+	}
+
 	capabilities := m.capabilitiesForTemplate(templateCapabilitySelected, nil)
 	if len(capabilities) == 0 {
 		slog.Warn("unknown capabilities for model", "model", m.Name)
@@ -191,19 +237,6 @@ func chatTemplateCapabilities(capabilities []model.Capability, chatTemplate stri
 	}
 	if chatTemplateHasThinkingSupport(chatTemplate) {
 		capabilities = appendCapability(capabilities, model.CapabilityThinking)
-	}
-
-	// Temporary workaround — suppress vision/audio for gemma4 MLX models
-	// until multimodal runtime pipeline lands. Remove when imageproc.go is wired up.
-	if m.Config.ModelFormat == "safetensors" && m.Config.Renderer == "gemma4" {
-		capabilities = slices.DeleteFunc(capabilities, func(c model.Capability) bool {
-			return c == model.CapabilityAudio
-		})
-	}
-	if isGemma4Renderer(m.Config.Renderer) && m.Config.ModelFormat == "safetensors" {
-		capabilities = slices.DeleteFunc(capabilities, func(c model.Capability) bool {
-			return c == model.CapabilityVision
-		})
 	}
 
 	return capabilities
@@ -483,19 +516,12 @@ func (m *Model) filterUnsupportedCapabilities(capabilities []model.Capability, m
 }
 
 func suppressVisionCapability(m *Model) bool {
-	if isGemma4Renderer(m.Config.Renderer) && m.Config.ModelFormat == "safetensors" {
-		return true
-	}
-
 	// The current MLX Nemotron path is text-only. Do not advertise vision for
 	// safetensors manifests until the runner can load and serve that modality.
 	return isNemotron3NanoSafetensors(m)
 }
 
 func suppressAudioCapability(m *Model, arch string) bool {
-	if isGemma4Renderer(m.Config.Renderer) && m.Config.ModelFormat == "safetensors" {
-		return true
-	}
 	if m.Config.ModelFormat == "safetensors" && m.Config.Renderer == "glimmer" {
 		return true
 	}
@@ -551,11 +577,7 @@ func projectorSuppressesAudioCapability(f *gguf.File) bool {
 // CheckCapabilities checks if the model has the specified capabilities returning an error describing
 // any missing or unknown capabilities
 func (m *Model) CheckCapabilities(want ...model.Capability) error {
-	available := cache.Capabilities(cache.ModelInfo{
-		ModelPath:      m.ModelPath,
-		ProjectorPaths: m.ProjectorPaths,
-		Template:       m.Template,
-	})
+	available := m.Capabilities()
 	var errs []error
 
 	// Map capabilities to their corresponding error
@@ -654,13 +676,6 @@ func (m *Model) String() string {
 		})
 	}
 
-	if m.Config.Entrypoint != "" {
-		modelfile.Commands = append(modelfile.Commands, parser.Command{
-			Name: "entrypoint",
-			Args: m.Config.Entrypoint,
-		})
-	}
-
 	for k, v := range m.Options {
 		switch v := v.(type) {
 		case []any:
@@ -696,30 +711,17 @@ func (m *Model) String() string {
 }
 
 func GetModel(name string) (*Model, error) {
-	return GetModelForRunner(name, "")
-}
-
-// GetModelForRunner returns model metadata for name, selecting runner from a
-// manifest list when one is specified.
-func GetModelForRunner(name, runner string) (*Model, error) {
 	n := model.ParseName(name)
-	mf, err := manifest.ParseNamedManifestForRunner(n, runner)
+	mf, err := manifest.ParseNamedManifest(n)
 	if err != nil {
 		return nil, err
 	}
 
-	manifestDigest := mf.SelectedDigest()
-	if manifestDigest == "" {
-		manifestDigest = mf.Digest()
-	}
-
 	m := &Model{
-		Name:           n.String(),
-		ShortName:      n.DisplayShortest(),
-		Digest:         mf.Digest(),
-		ManifestDigest: manifestDigest,
-		Runner:         mf.Runner,
-		Template:       template.DefaultTemplate,
+		Name:      n.String(),
+		ShortName: n.DisplayShortest(),
+		Digest:    mf.Digest(),
+		Template:  template.DefaultTemplate,
 	}
 
 	if mf.Config.Digest != "" {
@@ -737,6 +739,7 @@ func GetModelForRunner(name, runner string) (*Model, error) {
 		if err := json.NewDecoder(configFile).Decode(&m.Config); err != nil {
 			return nil, err
 		}
+		m.GenerationDefaults = m.Config.GenerationDefaults
 	}
 
 	modelHasPooling := false
@@ -760,6 +763,7 @@ func GetModelForRunner(name, runner string) (*Model, error) {
 				ggufChatTemplate = f.KeyValue("tokenizer.chat_template").String()
 				m.HasChatTemplate = ggufChatTemplate != ""
 				modelHasPooling = f.KeyValue("pooling_type").Valid()
+				m.GenerationDefaults = generationDefaultsFromGGUF(f)
 				f.Close()
 			}
 		case manifest.MediaTypeImageDraft:
@@ -847,12 +851,31 @@ func CopyModel(src, dst model.Name) error {
 		return nil
 	}
 
-	data, err := manifest.ReadManifestData(src)
+	manifests, err := manifest.Path()
 	if err != nil {
 		return err
 	}
 
-	return manifest.WriteManifestData(dst, data)
+	dstpath := filepath.Join(manifests, dst.Filepath())
+	if err := os.MkdirAll(filepath.Dir(dstpath), 0o755); err != nil {
+		return err
+	}
+
+	srcpath := filepath.Join(manifests, src.Filepath())
+	srcfile, err := os.Open(srcpath)
+	if err != nil {
+		return err
+	}
+	defer srcfile.Close()
+
+	dstfile, err := os.Create(dstpath)
+	if err != nil {
+		return err
+	}
+	defer dstfile.Close()
+
+	_, err = io.Copy(dstfile, srcfile)
+	return err
 }
 
 func deleteUnusedLayers(deleteMap map[string]struct{}) error {
@@ -862,9 +885,12 @@ func deleteUnusedLayers(deleteMap map[string]struct{}) error {
 		return err
 	}
 
-	scheme := "https"
-	if opts.Insecure {
-		scheme = "http"
+	for _, manifest := range manifests {
+		for _, layer := range manifest.Layers {
+			delete(deleteMap, layer.Digest)
+		}
+
+		delete(deleteMap, manifest.Config.Digest)
 	}
 
 	// only delete the files which are still in the deleteMap
@@ -884,7 +910,7 @@ func deleteUnusedLayers(deleteMap map[string]struct{}) error {
 }
 
 func PruneLayers() error {
-	var candidates []string
+	deleteMap := make(map[string]struct{})
 	p, err := manifest.BlobsPath("")
 	if err != nil {
 		return err
@@ -925,18 +951,17 @@ func PruneLayers() error {
 			continue
 		}
 
-		candidates = append(candidates, name)
+		deleteMap[name] = struct{}{}
 	}
 
-	slog.Info(fmt.Sprintf("total blobs: %d", len(candidates)))
+	slog.Info(fmt.Sprintf("total blobs: %d", len(deleteMap)))
 
-	removed, err := manifest.RemoveUnreferencedBlobs(candidates...)
-	if err != nil {
+	if err := deleteUnusedLayers(deleteMap); err != nil {
 		slog.Error(fmt.Sprintf("couldn't remove unused layers: %v", err))
 		return nil
 	}
 
-	slog.Info(fmt.Sprintf("total unused blobs removed: %d", removed))
+	slog.Info(fmt.Sprintf("total unused blobs removed: %d", len(deleteMap)))
 
 	return nil
 }
@@ -948,55 +973,30 @@ func PushModel(ctx context.Context, name string, regOpts *registryOptions, fn fu
 	if n.ProtocolScheme == "http" && !regOpts.Insecure {
 		return errInsecureProtocol
 	}
-	if mp.Namespace != strings.ToLower(mp.Namespace) {
-		return fmt.Errorf("namespace must be lowercase, but is %s", mp.Namespace)
-	}
-	if mp.Repository != strings.ToLower(mp.Repository) {
-		return fmt.Errorf("model name must be lowercase, but is %s", mp.Repository)
-	}
 
-	manifestJSON, err := manifest.ReadManifestData(n)
+	mf, err := manifest.ParseNamedManifest(n)
 	if err != nil {
-		return err
-	}
-
-	var stored manifest.Manifest
-	if err := json.Unmarshal(manifestJSON, &stored); err != nil {
 		fn(api.ProgressResponse{Status: "couldn't retrieve manifest"})
 		return err
 	}
 
 	var layers []manifest.Layer
-	manifestMediaType := manifest.MediaTypeManifest
-
-	if stored.MediaType == manifest.MediaTypeManifestList {
-		layers, err = pushLayersForManifestList(stored)
-		if err != nil {
-			return err
-		}
-		manifestMediaType = manifest.MediaTypeManifestList
-	} else {
-		mf, err := manifest.ParseNamedManifest(n)
-		if err != nil {
-			fn(api.ProgressResponse{Status: "couldn't retrieve manifest"})
-			return err
-		}
-
-		layers = append(layers, mf.Layers...)
-		if mf.Config.Digest != "" {
-			layers = append(layers, mf.Config)
-		}
-
-		if !hasTensorLayers(layers) {
-			manifestJSON, err = json.Marshal(mf)
-			if err != nil {
-				return err
-			}
-		}
+	layers = append(layers, mf.Layers...)
+	if mf.Config.Digest != "" {
+		layers = append(layers, mf.Config)
 	}
 
 	// Use fast transfer for models with tensor layers (many small blobs)
 	if hasTensorLayers(layers) {
+		// Read raw manifest JSON to preserve tensor metadata fields
+		manifestPath, err := manifest.PathForName(n)
+		if err != nil {
+			return err
+		}
+		manifestJSON, err := os.ReadFile(manifestPath)
+		if err != nil {
+			return err
+		}
 		if err := pushWithTransfer(ctx, n, layers, manifestJSON, regOpts, fn); err != nil {
 			return err
 		}
@@ -1015,9 +1015,14 @@ func PushModel(ctx context.Context, name string, regOpts *registryOptions, fn fu
 	requestURL := n.BaseURL()
 	requestURL = requestURL.JoinPath("v2", n.DisplayNamespaceModel(), "manifests", n.Tag)
 
+	manifestJSON, err := json.Marshal(mf)
+	if err != nil {
+		return err
+	}
+
 	headers := make(http.Header)
 	headers.Set("Content-Type", "application/vnd.docker.distribution.manifest.v2+json")
-	resp, err := makeRequestWithRetry(ctx, http.MethodPut, requestURL, headers, bytes.NewReader(manifestJSON), &opts)
+	resp, err := makeRequestWithRetry(ctx, http.MethodPut, requestURL, headers, bytes.NewReader(manifestJSON), regOpts)
 	if err != nil {
 		return err
 	}
@@ -1028,79 +1033,22 @@ func PushModel(ctx context.Context, name string, regOpts *registryOptions, fn fu
 	return nil
 }
 
-func pushLayersForManifestList(parent manifest.Manifest) ([]manifest.Layer, error) {
-	seen := make(map[string]struct{})
-	var layers []manifest.Layer
-
-	addLayer := func(layer manifest.Layer) error {
-		if layer.Digest == "" {
-			return nil
-		}
-		if _, ok := seen[layer.Digest]; ok {
-			return nil
-		}
-		if layer.Size == 0 {
-			p, err := manifest.BlobsPath(layer.Digest)
-			if err != nil {
-				return err
-			}
-			fi, err := os.Stat(p)
-			if err != nil {
-				return err
-			}
-			layer.Size = fi.Size()
-		}
-		seen[layer.Digest] = struct{}{}
-		layers = append(layers, layer)
-		return nil
-	}
-
-	for _, child := range parent.Manifests {
-		childDigest := child.BlobDigest()
-		if childDigest == "" {
-			return nil, errors.New("manifest list child is missing digest")
-		}
-		if err := addLayer(manifest.Layer{
-			MediaType: manifest.MediaTypeManifest,
-			Digest:    childDigest,
-		}); err != nil {
-			return nil, err
-		}
-
-		resolved, err := resolveShowManifestChild(child)
-		if err != nil {
-			return nil, err
-		}
-		for _, layer := range resolved.Layers {
-			if err := addLayer(layer); err != nil {
-				return nil, err
-			}
-		}
-		if err := addLayer(resolved.Config); err != nil {
-			return nil, err
-		}
-	}
-
-	return layers, nil
-}
-
 func PullModel(ctx context.Context, name string, regOpts *registryOptions, fn func(api.ProgressResponse)) error {
 	n := model.ParseName(name)
 
 	// build deleteMap to prune unused layers
 	deleteMap := make(map[string]struct{})
-	existingDigests, err := manifest.ReferencedBlobDigestsForName(n)
+	existingMf, err := manifest.ParseNamedManifest(n)
 	if errors.Is(err, os.ErrNotExist) {
 		// noop
 	} else if err != nil {
 		slog.Warn("pulling model with bad existing manifest", "name", name, "error", err)
 	} else {
-		for _, digest := range existingDigests {
-			if blob, err := manifest.BlobsPath(digest); err == nil {
-				if _, err := os.Stat(blob); err == nil {
-					deleteMap[digest] = struct{}{}
-				}
-			}
+		for _, l := range existingMf.Layers {
+			deleteMap[l.Digest] = struct{}{}
+		}
+		if existingMf.Config.Digest != "" {
+			deleteMap[existingMf.Config.Digest] = struct{}{}
 		}
 	}
 
@@ -1108,9 +1056,7 @@ func PullModel(ctx context.Context, name string, regOpts *registryOptions, fn fu
 		return errInsecureProtocol
 	}
 
-	if currentDigest == "" {
-		fn(api.ProgressResponse{Status: "pulling manifest"})
-	}
+	fn(api.ProgressResponse{Status: "pulling manifest"})
 
 	mf, manifestData, err := pullModelManifest(ctx, n, regOpts)
 	if err != nil {
@@ -1131,13 +1077,6 @@ func PullModel(ctx context.Context, name string, regOpts *registryOptions, fn fu
 		}
 	}
 
-	if mf.MediaType == manifest.MediaTypeManifestList {
-		mf, err = pullSelectedManifest(ctx, n, mf, regOpts, fn)
-		if err != nil {
-			return err
-		}
-	}
-
 	var layers []manifest.Layer
 	layers = append(layers, mf.Layers...)
 	if mf.Config.Digest != "" {
@@ -1153,13 +1092,15 @@ func PullModel(ctx context.Context, name string, regOpts *registryOptions, fn fu
 		return nil
 	}
 
+	skipVerify := make(map[string]bool)
 	for _, layer := range layers {
 		cacheHit, err := downloadBlob(ctx, downloadOpts{
 			n:       n,
 			digest:  layer.Digest,
-			regOpts: opts,
+			regOpts: regOpts,
 			fn:      fn,
-		}); err != nil {
+		})
+		if err != nil {
 			return err
 		}
 		// If any download of a given digest was not a cache hit,
@@ -1186,13 +1127,11 @@ func PullModel(ctx context.Context, name string, regOpts *registryOptions, fn fu
 				if err != nil {
 					return err
 				}
-
 				if err := os.Remove(fp); err != nil {
 					slog.Info(fmt.Sprintf("couldn't remove file with digest mismatch '%s': %v", fp, err))
 				}
-			} else if err != nil {
-				return err
 			}
+			return err
 		}
 	}
 
@@ -1203,21 +1142,31 @@ func PullModel(ctx context.Context, name string, regOpts *registryOptions, fn fu
 
 	fn(api.ProgressResponse{Status: "writing manifest"})
 
-	if err := manifest.WriteManifestData(n, manifestData); err != nil {
-		slog.Info(fmt.Sprintf("couldn't write manifest for %s", n.DisplayShortest()))
+	fp, err := manifest.PathForName(n)
+	if err != nil {
+		return err
+	}
+	if err := os.MkdirAll(filepath.Dir(fp), 0o755); err != nil {
 		return err
 	}
 
-	slog.Debug("manifest written", "name", n.DisplayShortest(), "sha256", fmt.Sprintf("%x", sha256.Sum256(manifestData)), "size", len(manifestData))
+	err = os.WriteFile(fp, manifestData, 0o644)
+	if err != nil {
+		slog.Info(fmt.Sprintf("couldn't write to %s", fp))
+		return err
+	}
+
+	slog.Debug("manifest written", "path", fp, "sha256", fmt.Sprintf("%x", sha256.Sum256(manifestData)), "size", len(manifestData))
 
 	if !envconfig.NoPrune() && len(deleteMap) > 0 {
 		fn(api.ProgressResponse{Status: "removing unused layers"})
-		if _, err := manifest.RemoveUnreferencedBlobs(candidateBlobDigests(deleteMap)...); err != nil {
+		if err := deleteUnusedLayers(deleteMap); err != nil {
 			fn(api.ProgressResponse{Status: fmt.Sprintf("couldn't remove unused layers: %v", err)})
 		}
 	}
 
 	fn(api.ProgressResponse{Status: "success"})
+
 	return nil
 }
 
@@ -1231,85 +1180,8 @@ func hasTensorLayers(layers []manifest.Layer) bool {
 	return false
 }
 
-func candidateBlobDigests(m map[string]struct{}) []string {
-	digests := make([]string, 0, len(m))
-	for digest := range m {
-		digests = append(digests, digest)
-	}
-
-	return digests
-}
-
-func pullSelectedManifest(ctx context.Context, n model.Name, parent *manifest.Manifest, regOpts *registryOptions, fn func(api.ProgressResponse)) (*manifest.Manifest, error) {
-	child, err := manifest.SelectManifestReference(parent.Manifests)
-	if err != nil {
-		return nil, err
-	}
-
-	childDigest := child.BlobDigest()
-	if childDigest == "" {
-		return nil, errors.New("manifest list child is missing digest")
-	}
-
-	layer, err := remoteBlobLayer(ctx, n, childDigest, manifest.MediaTypeManifest, regOpts)
-	if err != nil {
-		return nil, err
-	}
-
-	if err := downloadWithTransfer(ctx, n, []manifest.Layer{layer}, regOpts, fn); err != nil {
-		return nil, err
-	}
-
-	if err := verifyBlob(childDigest); err != nil {
-		return nil, err
-	}
-	blobPath, err := manifest.BlobsPath(childDigest)
-	if err != nil {
-		return nil, err
-	}
-	data, err := os.ReadFile(blobPath)
-	if err != nil {
-		return nil, err
-	}
-
-	var mf manifest.Manifest
-	if err := json.Unmarshal(data, &mf); err != nil {
-		return nil, err
-	}
-	if mf.MediaType == manifest.MediaTypeManifestList {
-		return nil, errors.New("nested manifest lists are not supported")
-	}
-	if mf.Runner == "" {
-		mf.Runner = child.Runner
-	}
-	if mf.Format == "" {
-		mf.Format = child.Format
-	}
-
-	return &mf, nil
-}
-
-func remoteBlobLayer(ctx context.Context, n model.Name, digest, mediaType string, regOpts *registryOptions) (manifest.Layer, error) {
-	requestURL := n.BaseURL().JoinPath("v2", n.DisplayNamespaceModel(), "blobs", digest)
-	resp, err := makeRequestWithRetry(ctx, http.MethodHead, requestURL, nil, nil, regOpts)
-	if err != nil {
-		return manifest.Layer{}, err
-	}
-	defer resp.Body.Close()
-
-	size, err := strconv.ParseInt(resp.Header.Get("Content-Length"), 10, 64)
-	if err != nil {
-		return manifest.Layer{}, err
-	}
-
-	return manifest.Layer{
-		MediaType: mediaType,
-		Digest:    digest,
-		Size:      size,
-	}, nil
-}
-
-func downloadWithTransfer(ctx context.Context, n model.Name, layers []manifest.Layer, regOpts *registryOptions, fn func(api.ProgressResponse)) error {
+// pullWithTransfer uses the simplified x/transfer package for downloading blobs.
+func pullWithTransfer(ctx context.Context, n model.Name, layers []manifest.Layer, manifestData []byte, regOpts *registryOptions, fn func(api.ProgressResponse)) error {
 	blobs := make([]transfer.Blob, len(layers))
 	for i, layer := range layers {
 		blobs[i] = transfer.Blob{
@@ -1365,23 +1237,22 @@ func downloadWithTransfer(ctx context.Context, n model.Name, layers []manifest.L
 		return err
 	}
 
-	return nil
-}
-
-// pullWithTransfer uses the simplified x/transfer package for downloading blobs.
-func pullWithTransfer(ctx context.Context, n model.Name, layers []manifest.Layer, manifestData []byte, regOpts *registryOptions, fn func(api.ProgressResponse)) error {
-	if err := downloadWithTransfer(ctx, n, layers, regOpts, fn); err != nil {
-		return err
-	}
-
 	// Write manifest
 	fn(api.ProgressResponse{Status: "writing manifest"})
 
-	if err := manifest.WriteManifestData(n, manifestData); err != nil {
+	fp, err := manifest.PathForName(n)
+	if err != nil {
+		return err
+	}
+	if err := os.MkdirAll(filepath.Dir(fp), 0o755); err != nil {
 		return err
 	}
 
-	slog.Debug("manifest written", "name", n.DisplayShortest(), "sha256", fmt.Sprintf("%x", sha256.Sum256(manifestData)), "size", len(manifestData))
+	if err := os.WriteFile(fp, manifestData, 0o644); err != nil {
+		return err
+	}
+
+	slog.Debug("manifest written", "path", fp, "sha256", fmt.Sprintf("%x", sha256.Sum256(manifestData)), "size", len(manifestData))
 	return nil
 }
 
@@ -1449,7 +1320,7 @@ func pullModelManifest(ctx context.Context, n model.Name, regOpts *registryOptio
 
 	headers := make(http.Header)
 	headers.Set("Accept", "application/vnd.docker.distribution.manifest.v2+json")
-	resp, err := makeRequestWithRetry(ctx, http.MethodGet, requestURL, headers, nil, opts)
+	resp, err := makeRequestWithRetry(ctx, http.MethodGet, requestURL, headers, nil, regOpts)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -1478,6 +1349,8 @@ func GetSHA256Digest(r io.Reader) (string, int64) {
 
 	return fmt.Sprintf("sha256:%x", h.Sum(nil)), n
 }
+
+var errUnauthorized = errors.New("unauthorized: access denied")
 
 func makeRequestWithRetry(ctx context.Context, method string, requestURL *url.URL, headers http.Header, body io.ReadSeeker, regOpts *registryOptions) (*http.Response, error) {
 	for range 2 {
@@ -1514,35 +1387,15 @@ func makeRequestWithRetry(ctx context.Context, method string, requestURL *url.UR
 			defer resp.Body.Close()
 			responseBody, err := io.ReadAll(resp.Body)
 			if err != nil {
-				return nil, fmt.Errorf("%d: %w", resp.StatusCode, err)
+				return nil, fmt.Errorf("%d: %s", resp.StatusCode, err)
 			}
-
-			var re registry.Errs
-			if err := json.Unmarshal(responseBody, &re); err == nil && len(re.Errors) > 0 {
-				if re.HasCode(registry.ErrCodeAnonymous) {
-					// if the error is due to anonymous access return a custom error
-					// this error is used by the CLI to direct a user to add their key to an account
-					pubKey, nestedErr := auth.GetPublicKey()
-					if nestedErr != nil {
-						slog.Error(fmt.Sprintf("couldn't get public key: %v", nestedErr))
-						return nil, re
-					}
-					return nil, api.ErrUnknownOllamaKey{
-						Key: pubKey,
-					}
-				}
-				return nil, re
-			}
-
-			// Fallback to returning the raw response if parsing fails
 			return nil, fmt.Errorf("%d: %s", resp.StatusCode, responseBody)
 		default:
 			return resp, nil
 		}
 	}
 
-	// should never be reached
-	return nil, fmt.Errorf("failed to make upload request")
+	return nil, errUnauthorized
 }
 
 // testMakeRequestDialContext specifies the dial function for the http client in
@@ -1630,16 +1483,10 @@ func getValue(header, key string) string {
 func parseRegistryChallenge(authStr string) registryChallenge {
 	authStr = strings.TrimPrefix(authStr, "Bearer ")
 
-	s, err := strconv.ParseInt(getValue(authStr, "timestamp"), 10, 64)
-	if err != nil {
-		s = time.Now().Unix()
-	}
-
 	return registryChallenge{
-		Realm:     getValue(authStr, "realm"),
-		Service:   getValue(authStr, "service"),
-		Scope:     getValue(authStr, "scope"),
-		Timestamp: time.Unix(s, 0),
+		Realm:   getValue(authStr, "realm"),
+		Service: getValue(authStr, "service"),
+		Scope:   getValue(authStr, "scope"),
 	}
 }
 

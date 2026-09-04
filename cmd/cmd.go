@@ -5,21 +5,18 @@ import (
 	"context"
 	"crypto/ed25519"
 	"crypto/rand"
-	_ "embed"
 	"encoding/json"
 	"encoding/pem"
 	"errors"
 	"fmt"
 	"io"
-	"io/fs"
 	"log"
 	"log/slog"
 	"math"
 	"net"
 	"net/http"
-	"net/url"
 	"os"
-	"os/exec"
+	"os/signal"
 	"path"
 	"path/filepath"
 	"runtime"
@@ -29,26 +26,17 @@ import (
 	"strings"
 	"sync/atomic"
 	"syscall"
-	"text/tabwriter"
 	"time"
-
-	"github.com/minio/sha256-simd"
 
 	"github.com/containerd/console"
 	"github.com/mattn/go-runewidth"
 	"github.com/olekukonko/tablewriter"
 	"github.com/pkg/browser"
 	"github.com/spf13/cobra"
-	"github.com/spf13/pflag"
 	"golang.org/x/crypto/ssh"
+	"golang.org/x/sync/errgroup"
 	"golang.org/x/term"
-	"gonum.org/v1/gonum/mat"
-	"gonum.org/v1/gonum/stat"
-	"gonum.org/v1/plot"
-	"gonum.org/v1/plot/plotter"
-	"gonum.org/v1/plot/vg"
 
-	agentstore "github.com/ollama/ollama/agent/store"
 	"github.com/ollama/ollama/api"
 	"github.com/ollama/ollama/cmd/config"
 	"github.com/ollama/ollama/cmd/launch"
@@ -60,9 +48,11 @@ import (
 	"github.com/ollama/ollama/logutil"
 	"github.com/ollama/ollama/parser"
 	"github.com/ollama/ollama/progress"
+	"github.com/ollama/ollama/readline"
 	"github.com/ollama/ollama/runner"
 	"github.com/ollama/ollama/server"
 	"github.com/ollama/ollama/types/model"
+	"github.com/ollama/ollama/types/syncmap"
 	"github.com/ollama/ollama/version"
 	xcreate "github.com/ollama/ollama/x/create"
 	xcreateclient "github.com/ollama/ollama/x/create/client"
@@ -103,12 +93,6 @@ func init() {
 	}
 
 	launch.DefaultConfirmPrompt = tui.RunConfirmWithOptions
-
-	launch.DefaultCloudSuggest = func(ctx context.Context, client *api.Client, model string, pullErr error) (string, error) {
-		return suggestCloudModel(ctx, client, model, pullErr, false, func(cloudName string) string {
-			return "--model " + cloudName
-		})
-	}
 
 	launch.DefaultSpinner = tui.RunSpinner
 }
@@ -154,11 +138,11 @@ func convertSelectionItemUpdates(updates <-chan []launch.SelectionItem) <-chan [
 const ConnectInstructions = "If your browser did not open, navigate to:\n    %s\n\n"
 
 // ensureThinkingSupport emits a warning if the model does not advertise thinking support
-func ensureThinkingSupport(ctx context.Context, client *api.Client, name, runner string) {
+func ensureThinkingSupport(ctx context.Context, client *api.Client, name string) {
 	if name == "" {
 		return
 	}
-	resp, err := client.Show(ctx, &api.ShowRequest{Model: name, Runner: runner})
+	resp, err := client.Show(ctx, &api.ShowRequest{Model: name})
 	if err != nil {
 		return
 	}
@@ -322,52 +306,9 @@ func CreateHandler(cmd *cobra.Command, args []string) error {
 		defer f.Close()
 	}
 
-	var r, fallback io.Reader
-	switch filename {
-	case "-":
-		r = os.Stdin
-	case "":
-		filename = "Modelfile"
-		fallback = strings.NewReader("FROM .")
-		fallthrough
-	default:
-		r, err = os.Open(filename)
-		if errors.Is(err, os.ErrNotExist) && fallback != nil {
-			r = fallback
-		} else if errors.Is(err, os.ErrNotExist) {
-			return fmt.Errorf("%w: Modelfile %q does not exist, please create it or use --file to specify a different file", err, filename)
-		} else if err != nil {
-			return err
-		} else {
-			defer r.(*os.File).Close()
-		}
-	}
-
-	modelfile, err := parser.ParseFile(r)
+	modelfile, err := parser.ParseFile(reader)
 	if err != nil {
 		return err
-	}
-
-	// Check if this is a tensor model (image generation) and handle it directly
-	quantize, _ := cmd.Flags().GetString("quantize")
-	modelDir := filepath.Dir(filename)
-	for _, cmd := range modelfile.Commands {
-		if cmd.Name == "model" {
-			if filepath.IsAbs(cmd.Args) {
-				modelDir = cmd.Args
-			} else {
-				modelDir = filepath.Join(filepath.Dir(filename), cmd.Args)
-			}
-			break
-		}
-	}
-	if create.IsTensorModelDir(modelDir) {
-		return xcreateclient.CreateModel(xcreateclient.CreateOptions{
-			ModelName: modelName,
-			ModelDir:  modelDir,
-			Quantize:  quantize,
-			Modelfile: xcreateclient.ExtractModelfileConfig(modelfile),
-		}, p)
 	}
 
 	status := "gathering model components"
@@ -378,8 +319,10 @@ func CreateHandler(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return err
 	}
+	spinner.Stop()
 
 	req.Model = modelName
+	quantize, _ := cmd.Flags().GetString("quantize")
 	if quantize != "" {
 		req.Quantize = quantize
 	}
@@ -396,27 +339,7 @@ func CreateHandler(cmd *cobra.Command, args []string) error {
 	}
 
 	var g errgroup.Group
-	g.SetLimit(runtime.GOMAXPROCS(0))
-	for blob, err := range createBlobs(req.Files, req.Adapters) {
-		if err != nil {
-			return err
-		}
-
-	// Find common directory prefix to compute relative paths for the server.
-	// Files from subdirectories (e.g. 2_Dense/config.json) must keep their
-	// relative path to avoid collisions with root-level files.
-	var modelDir string
-	for f := range req.Files {
-		dir := filepath.Dir(f)
-		if modelDir == "" {
-			modelDir = dir
-		} else {
-			// Find common prefix
-			for !strings.HasPrefix(dir, modelDir) {
-				modelDir = filepath.Dir(modelDir)
-			}
-		}
-	}
+	g.SetLimit(max(runtime.GOMAXPROCS(0)-1, 1))
 
 	files := syncmap.NewSyncMap[string, string]()
 	fileNames := createRequestFileNames(req.Files)
@@ -429,17 +352,6 @@ func CreateHandler(cmd *cobra.Command, args []string) error {
 			files.Store(fileNames[f], digest)
 			return nil
 		})
-
-	var adapterDir string
-	for f := range req.Adapters {
-		dir := filepath.Dir(f)
-		if adapterDir == "" {
-			adapterDir = dir
-		} else {
-			for !strings.HasPrefix(dir, adapterDir) {
-				adapterDir = filepath.Dir(adapterDir)
-			}
-		}
 	}
 
 	adapters := syncmap.NewSyncMap[string, string]()
@@ -477,7 +389,6 @@ func CreateHandler(cmd *cobra.Command, args []string) error {
 	req.DraftFiles = draftFiles.Items()
 
 	bars := make(map[string]*progress.Bar)
-	var quantizeSpin *progress.Spinner
 	fn := func(resp api.ProgressResponse) error {
 		if resp.Digest != "" {
 			bar, ok := bars[resp.Digest]
@@ -492,20 +403,11 @@ func CreateHandler(cmd *cobra.Command, args []string) error {
 			}
 
 			bar.Set(resp.Completed)
-		} else if strings.Contains(resp.Status, "quantizing") {
-			spinner.Stop()
-
-			if quantizeSpin != nil {
-				quantizeSpin.SetMessage(resp.Status)
-			} else {
-				quantizeSpin = progress.NewSpinner(resp.Status)
-				p.Add("quantize", quantizeSpin)
-			}
 		} else if status != resp.Status {
 			spinner.Stop()
 
 			status = resp.Status
-			spinner := progress.NewSpinner(status)
+			spinner = progress.NewSpinner(status)
 			p.Add(status, spinner)
 		}
 
@@ -514,7 +416,7 @@ func CreateHandler(cmd *cobra.Command, args []string) error {
 
 	if err := client.Create(cmd.Context(), req, fn); err != nil {
 		if strings.Contains(err.Error(), "path or Modelfile are required") {
-			return errors.New("the ollama server must be updated to use `ollama create` with this client")
+			return fmt.Errorf("the ollama server must be updated to use `ollama create` with this client")
 		}
 		return err
 	}
@@ -584,7 +486,7 @@ func commonFileRoot(files map[string]string) (string, bool) {
 func createBlob(cmd *cobra.Command, client *api.Client, path string, digest string, p *progress.Progress) (string, error) {
 	realPath, err := filepath.EvalSymlinks(path)
 	if err != nil {
-		return err
+		return "", err
 	}
 
 	bin, err := os.Open(realPath)
@@ -626,7 +528,6 @@ func createBlob(cmd *cobra.Command, client *api.Client, path string, digest stri
 	if err := client.CreateBlob(cmd.Context(), digest, io.TeeReader(bin, &pw)); err != nil {
 		return "", err
 	}
-
 	return digest, nil
 }
 
@@ -653,7 +554,7 @@ func loadOrUnloadModel(cmd *cobra.Command, opts *runOptions) error {
 
 	requestedCloud := modelref.HasExplicitCloudSource(opts.Model)
 
-	if info, err := client.Show(cmd.Context(), &api.ShowRequest{Model: opts.Model, Runner: opts.Runner}); err != nil {
+	if info, err := client.Show(cmd.Context(), &api.ShowRequest{Model: opts.Model}); err != nil {
 		return err
 	} else if info.RemoteHost != "" || requestedCloud {
 		// Cloud model, no need to load/unload
@@ -667,34 +568,33 @@ func loadOrUnloadModel(cmd *cobra.Command, opts *runOptions) error {
 			}
 		}
 
-		if opts.ShowConnect && !isCloud {
+		if opts.ShowConnect {
 			p.StopAndClear()
 			remoteModel := info.RemoteModel
 			if remoteModel == "" {
 				remoteModel = opts.Model
 			}
-			fmt.Fprintf(os.Stderr, "Connecting to '%s' on '%s'\n", remoteModel, info.RemoteHost)
+			if isCloud {
+				fmt.Fprintf(os.Stderr, "Connecting to '%s' on 'ollama.com' ⚡\n", remoteModel)
+			} else {
+				fmt.Fprintf(os.Stderr, "Connecting to '%s' on '%s'\n", remoteModel, info.RemoteHost)
+			}
 		}
 
 		return nil
 	}
 
-	return preloadLocalModel(cmd.Context(), client, *opts)
-}
-
-func preloadLocalModel(ctx context.Context, client *api.Client, opts runOptions) error {
-	if client == nil {
-		return errors.New("client is required")
-	}
 	req := &api.GenerateRequest{
 		Model:     opts.Model,
-		Runner:    opts.Runner,
 		KeepAlive: opts.KeepAlive,
 
-		// Pass Think here so unsupported thinking modes fail before the first chat request.
+		// pass Think here so we fail before getting to the chat prompt if the model doesn't support it
 		Think: opts.Think,
 	}
-	return client.Generate(ctx, req, func(api.GenerateResponse) error { return nil })
+
+	return client.Generate(cmd.Context(), req, func(r api.GenerateResponse) error {
+		return nil
+	})
 }
 
 func StopHandler(cmd *cobra.Command, args []string) error {
@@ -824,7 +724,7 @@ func showOrPullModel(cmd *cobra.Command, client *api.Client, name string, insecu
 		return nil, name, err
 	}
 
-	resolved, err := pullWithCloudSuggestion(cmd.Context(), client, name, insecure, cloudSuggestionRetryCommand(verb))
+	resolved, err := pullWithCloudSuggestion(cmd.Context(), client, name, insecure, verb)
 	if err != nil {
 		return nil, name, err
 	}
@@ -837,26 +737,59 @@ func RunHandler(cmd *cobra.Command, args []string) error {
 	interactive := true
 
 	opts := runOptions{
+		Model:       args[0],
+		WordWrap:    os.Getenv("TERM") == "xterm-256color",
 		Options:     map[string]any{},
 		ShowConnect: true,
 	}
 
-	thinkExplicit, err := applyRunFlagsToOptions(cmd, &opts)
+	format, err := cmd.Flags().GetString("format")
 	if err != nil {
 		return err
 	}
-	if len(args) == 0 {
-		if !opts.Resume {
-			return errors.New("model is required")
+	opts.Format = format
+
+	thinkFlag := cmd.Flags().Lookup("think")
+	if thinkFlag.Changed {
+		thinkStr, err := cmd.Flags().GetString("think")
+		if err != nil {
+			return err
+		}
+
+		// Handle different values for --think
+		switch thinkStr {
+		case "", "true":
+			// --think or --think=true
+			opts.Think = &api.ThinkValue{Value: true}
+		case "false":
+			opts.Think = &api.ThinkValue{Value: false}
+		case "high", "medium", "low", "max":
+			opts.Think = &api.ThinkValue{Value: thinkStr}
+		default:
+			return fmt.Errorf("invalid value for --think: %q (must be true, false, high, medium, low, or max)", thinkStr)
 		}
 	} else {
-		opts.Model = args[0]
+		opts.Think = nil
+	}
+	hidethinking, err := cmd.Flags().GetBool("hidethinking")
+	if err != nil {
+		return err
+	}
+	opts.HideThinking = hidethinking
+
+	keepAlive, err := cmd.Flags().GetString("keepalive")
+	if err != nil {
+		return err
+	}
+	if keepAlive != "" {
+		d, err := time.ParseDuration(keepAlive)
+		if err != nil {
+			return err
+		}
+		opts.KeepAlive = &api.Duration{Duration: d}
 	}
 
-	var prompts []string
-	if len(args) > 1 {
-		prompts = args[1:]
-	}
+	prompts := args[1:]
 	// prepend stdin to the prompt if provided
 	if !term.IsTerminal(int(os.Stdin.Fd())) {
 		in, err := io.ReadAll(os.Stdin)
@@ -870,6 +803,7 @@ func RunHandler(cmd *cobra.Command, args []string) error {
 			prompts = append([]string{stdinContent}, prompts...)
 		}
 		opts.ShowConnect = false
+		opts.WordWrap = false
 		interactive = false
 	}
 	opts.Prompt = strings.Join(prompts, " ")
@@ -880,13 +814,12 @@ func RunHandler(cmd *cobra.Command, args []string) error {
 	if !term.IsTerminal(int(os.Stdout.Fd())) {
 		interactive = false
 	}
-	if opts.Resume && opts.Model == "" {
-		modelName, err := resumeModelFromLatestChat(cmd.Context())
-		if err != nil {
-			return err
-		}
-		opts.Model = modelName
+
+	nowrap, err := cmd.Flags().GetBool("nowordwrap")
+	if err != nil {
+		return err
 	}
+	opts.WordWrap = !nowrap
 
 	// Fill out the rest of the options based on information about the
 	// model.
@@ -913,24 +846,28 @@ func RunHandler(cmd *cobra.Command, args []string) error {
 
 	ensureCloudStub(cmd.Context(), client, name)
 
-	opts.Think, err = inferThinkingOption(&info.Capabilities, &opts, thinkExplicit)
+	opts.Think, err = inferThinkingOption(&info.Capabilities, &opts, thinkFlag.Changed)
 	if err != nil {
 		return err
 	}
 
-	applyMultiModalCompat(&opts, info)
+	audioCapable := slices.Contains(info.Capabilities, model.CapabilityAudio)
+	opts.MultiModal = slices.Contains(info.Capabilities, model.CapabilityVision) || audioCapable
+
+	// TODO: remove the projector info and vision info checks below,
+	// these are left in for backwards compatibility with older servers
+	// that don't have the capabilities field in the model info
+	if len(info.ProjectorInfo) != 0 {
+		opts.MultiModal = true
+	}
+	for k := range info.ModelInfo {
+		if strings.Contains(k, ".vision.") {
+			opts.MultiModal = true
+			break
+		}
+	}
 
 	applyShowResponseToRunOptions(&opts, info)
-
-	// Check if this is an agent
-	isAgent := info.AgentType != "" || len(info.Skills) > 0 || len(info.MCPs) > 0 || info.Entrypoint != ""
-	if isAgent {
-		opts.IsAgent = true
-		opts.AgentType = info.AgentType
-		opts.Skills = info.Skills
-		opts.MCPs = info.MCPs
-		opts.Entrypoint = info.Entrypoint
-	}
 
 	// Check if this is an embedding model
 	isEmbeddingModel := slices.Contains(info.Capabilities, model.CapabilityEmbedding)
@@ -960,32 +897,6 @@ func RunHandler(cmd *cobra.Command, args []string) error {
 	}
 
 	if interactive {
-		if info.RemoteHost != "" || requestedCloud {
-			if err := loadOrUnloadModel(cmd, &opts); err != nil {
-				var sErr api.AuthorizationError
-				if errors.As(err, &sErr) && sErr.StatusCode == http.StatusUnauthorized {
-					fmt.Printf("You need to be signed in to Ollama to run Cloud models.\n\n")
-
-					if sErr.SigninURL != "" {
-						fmt.Printf(ConnectInstructions, sErr.SigninURL)
-					}
-					return nil
-				}
-				return err
-			}
-		}
-
-		contextWindowTokens := contextWindowTokensForRun(cmd.Context(), client, opts.Model, opts.ContextWindowTokens)
-
-		agentOpts := agentOptionsFromRunOptions(opts)
-		agentOpts.ContextWindowTokens = contextWindowTokens
-		if err := config.SetLastModel(opts.Model); err != nil {
-			return err
-		}
-		return GenerateAgentTUI(cmd, agentOpts)
-	}
-
-	if info.RemoteHost == "" && !requestedCloud {
 		if err := loadOrUnloadModel(cmd, &opts); err != nil {
 			var sErr api.AuthorizationError
 			if errors.As(err, &sErr) && sErr.StatusCode == http.StatusUnauthorized {
@@ -1011,179 +922,15 @@ func RunHandler(cmd *cobra.Command, args []string) error {
 			}
 		}
 
-		speech, err := cmd.Flags().GetBool("speech")
-		if err != nil {
-			return err
-		}
-
-		if speech {
-			return generateInteractiveAudio(cmd, opts)
-		}
 		return generateInteractive(cmd, opts)
 	}
-	opts.ContextWindowTokens = contextWindowTokensForRun(cmd.Context(), client, opts.Model, opts.ContextWindowTokens)
-
-	return runAgentHeadless(cmd, opts)
-}
-
-func autoApproveToolsFromFlags(cmd *cobra.Command) (bool, error) {
-	for _, name := range []string{"auto-approve-tools", "yolo", "experimental-yolo"} {
-		if cmd.Flags().Lookup(name) == nil {
-			continue
-		}
-		enabled, err := cmd.Flags().GetBool(name)
-		if err != nil {
-			return false, err
-		}
-		if enabled {
-			return true, nil
-		}
-	}
-	return false, nil
-}
-
-func applyRunFlagsToOptions(cmd *cobra.Command, opts *runOptions) (bool, error) {
-	if cmd == nil || opts == nil {
-		return false, nil
-	}
-	if cmd.Flags().Lookup("format") != nil {
-		format, err := cmd.Flags().GetString("format")
-		if err != nil {
-			return false, err
-		}
-		opts.Format = format
-	}
-
-	thinkExplicit := false
-	if thinkFlag := cmd.Flags().Lookup("think"); thinkFlag != nil && thinkFlag.Changed {
-		thinkStr, err := cmd.Flags().GetString("think")
-		if err != nil {
-			return false, err
-		}
-		thinkExplicit = true
-
-		switch thinkStr {
-		case "", "true":
-			opts.Think = &api.ThinkValue{Value: true}
-		case "false":
-			opts.Think = &api.ThinkValue{Value: false}
-		case "high", "medium", "low", "max":
-			opts.Think = &api.ThinkValue{Value: thinkStr}
-		default:
-			return false, fmt.Errorf("invalid value for --think: %q (must be true, false, high, medium, low, or max)", thinkStr)
-		}
-	} else {
-		opts.Think = nil
-	}
-
-	if cmd.Flags().Lookup("resume") != nil {
-		resume, err := cmd.Flags().GetBool("resume")
-		if err != nil {
-			return false, err
-		}
-		opts.Resume = resume
-	}
-	autoApproveTools, err := autoApproveToolsFromFlags(cmd)
-	if err != nil {
-		return false, err
-	}
-	opts.AutoApproveTools = autoApproveTools
-	if cmd.Flags().Lookup("verbose") != nil {
-		verbose, err := cmd.Flags().GetBool("verbose")
-		if err != nil {
-			return false, err
-		}
-		opts.Verbose = verbose
-	}
-	if cmd.Flags().Lookup("keepalive") != nil {
-		keepAlive, err := cmd.Flags().GetString("keepalive")
-		if err != nil {
-			return false, err
-		}
-		if keepAlive != "" {
-			d, err := time.ParseDuration(keepAlive)
-			if err != nil {
-				return false, err
-			}
-			opts.KeepAlive = &api.Duration{Duration: d}
-		}
-	}
-	return thinkExplicit, nil
-}
-
-func runAgentHeadless(cmd *cobra.Command, opts runOptions) error {
-	if err := GenerateAgentHeadless(cmd, agentOptionsFromRunOptions(opts)); err != nil {
+	if err := generate(cmd, opts); err != nil {
 		if handleCloudAuthorizationError(err) {
 			return nil
 		}
 		return err
 	}
 	return nil
-}
-
-func resumeModelFromLatestChat(ctx context.Context) (string, error) {
-	store, err := agentstore.New("")
-	if err != nil {
-		return "", fmt.Errorf("chat resume unavailable: %w", err)
-	}
-	defer store.Close()
-
-	chat, err := store.LatestChat(ctx)
-	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			return "", errors.New("no saved chat to resume; pass a model to start a new chat")
-		}
-		return "", fmt.Errorf("could not resume chat: %w", err)
-	}
-	if strings.TrimSpace(chat.Model) == "" {
-		return "", errors.New("latest saved chat has no model; pass a model to start a new chat")
-	}
-	return chat.Model, nil
-}
-
-// runEntrypoint executes the agent's entrypoint command instead of the built-in chat loop.
-func runEntrypoint(cmd *cobra.Command, opts runOptions) error {
-	entrypoint := opts.Entrypoint
-
-	// Check if entrypoint contains $PROMPT placeholder
-	hasPlaceholder := strings.Contains(entrypoint, "$PROMPT")
-
-	if hasPlaceholder && opts.Prompt != "" {
-		// Replace $PROMPT with the actual prompt
-		entrypoint = strings.ReplaceAll(entrypoint, "$PROMPT", opts.Prompt)
-	} else if hasPlaceholder {
-		// No prompt provided but placeholder exists - remove placeholder
-		entrypoint = strings.ReplaceAll(entrypoint, "$PROMPT", "")
-	}
-
-	// Parse entrypoint into command and args
-	parts := strings.Fields(entrypoint)
-	if len(parts) == 0 {
-		return fmt.Errorf("empty entrypoint")
-	}
-
-	command := parts[0]
-	args := parts[1:]
-
-	// If user provided a prompt and no placeholder was used, append it as argument
-	if opts.Prompt != "" && !hasPlaceholder {
-		args = append(args, opts.Prompt)
-	}
-
-	// Look up command in PATH
-	execPath, err := exec.LookPath(command)
-	if err != nil {
-		return fmt.Errorf("entrypoint command not found: %s", command)
-	}
-
-	// Create subprocess
-	proc := exec.Command(execPath, args...)
-	proc.Stdin = os.Stdin
-	proc.Stdout = os.Stdout
-	proc.Stderr = os.Stderr
-
-	// Run and wait
-	return proc.Run()
 }
 
 func SigninHandler(cmd *cobra.Command, args []string) error {
@@ -1238,239 +985,6 @@ func SignoutHandler(cmd *cobra.Command, args []string) error {
 	fmt.Println("You have signed out of ollama.com")
 	fmt.Println()
 	return nil
-}
-
-func UsageHandler(cmd *cobra.Command, args []string) error {
-	out := cmd.OutOrStdout()
-
-	client, err := api.ClientFromEnvironment()
-	if err != nil {
-		return err
-	}
-
-	usage, err := client.Usage(cmd.Context())
-	if err != nil {
-		var aErr api.AuthorizationError
-		if errors.As(err, &aErr) && aErr.StatusCode == http.StatusUnauthorized {
-			fmt.Fprintln(out, "You need to be signed in to Ollama to view usage.")
-			fmt.Fprintln(out)
-			if aErr.SigninURL != "" {
-				_ = browser.OpenURL(aErr.SigninURL)
-				fmt.Fprintf(out, ConnectInstructions, aErr.SigninURL)
-			}
-			return nil
-		}
-
-		return err
-	}
-
-	fmt.Fprintln(out, "Usage")
-	details := tabwriter.NewWriter(out, 0, 4, 2, ' ', 0)
-	fmt.Fprintf(details, "  Period\t%s to %s\n", usage.Activity.Period.StartingAt.Format("2006-01-02"), usage.Activity.Period.EndingAt.Format("2006-01-02"))
-	fmt.Fprintf(details, "  Spend\t$%s\n", usage.Activity.Cost)
-	if err := details.Flush(); err != nil {
-		return err
-	}
-
-	if len(usage.Activity.Models) == 0 && usageLimitEmpty(usage.Limits.Session) && usageLimitEmpty(usage.Limits.Weekly) {
-		fmt.Fprintln(out)
-		fmt.Fprintln(out, "No usage recorded for this period.")
-		return nil
-	}
-
-	if len(usage.Activity.Models) > 0 {
-		fmt.Fprintln(out)
-		fmt.Fprintln(out, "Activity")
-		table := tabwriter.NewWriter(out, 0, 4, 2, ' ', 0)
-		fmt.Fprintln(table, "  Model\tRequests\tSpend")
-		for _, m := range usage.Activity.Models {
-			fmt.Fprintf(table, "  %s\t%d\t$%s\n", usageModelName(m.Name), m.RequestCount, m.Cost)
-		}
-		if err := table.Flush(); err != nil {
-			return err
-		}
-	}
-
-	if err := writeUsageLimit(out, "Session", usage.Limits.Session); err != nil {
-		return err
-	}
-	if err := writeUsageLimit(out, "Weekly", usage.Limits.Weekly); err != nil {
-		return err
-	}
-
-	return nil
-}
-
-func usageLimitEmpty(limit api.UsageLimit) bool {
-	return limit.Usage == 0 && len(limit.Models) == 0
-}
-
-func usageModelName(name string) string {
-	switch name {
-	case "web search":
-		return "Web Search"
-	case "web fetch":
-		return "Web Fetch"
-	default:
-		return name
-	}
-}
-
-func writeUsageLimit(out io.Writer, name string, limit api.UsageLimit) error {
-	if usageLimitEmpty(limit) {
-		return nil
-	}
-
-	fmt.Fprintln(out)
-	fmt.Fprintln(out, name)
-	table := tabwriter.NewWriter(out, 0, 4, 2, ' ', 0)
-	fmt.Fprintf(table, "  Used\t%.1f%%\n", limit.Usage*100)
-	if len(limit.Models) > 0 {
-		fmt.Fprintln(table, "  Model\tRequests")
-	}
-	for _, m := range limit.Models {
-		fmt.Fprintf(table, "  %s\t%d\n", usageModelName(m.Name), m.RequestCount)
-	}
-	return table.Flush()
-}
-
-func generateFingerprint(key string) string {
-	hash := sha256.Sum256([]byte(key))
-	fingerprint := base64.RawURLEncoding.EncodeToString(hash[:6])
-
-	var formatted strings.Builder
-	for i, char := range fingerprint {
-		if i > 0 && i%2 == 0 {
-			formatted.WriteRune('-')
-		}
-		formatted.WriteRune(char)
-	}
-
-	return formatted.String()
-}
-
-// tryConnect handles key validation when a connection fails due to an unknown key.
-// It attempts to open the browser for interactive sessions to let users connect their key,
-// falling back to command-line instructions for non-interactive sessions.
-// Returns nil if browser flow succeeds, or an error with connection instructions otherwise.
-func tryConnect(unknownKeyErr error) error {
-	// find SSH public key in the error message
-	// TODO (brucemacd): the API should return structured errors so that this message parsing isn't needed
-	sshKeyPattern := `ssh-\w+ [^\s"]+`
-	re := regexp.MustCompile(sshKeyPattern)
-	matches := re.FindStringSubmatch(unknownKeyErr.Error())
-
-	if len(matches) > 0 {
-		serverPubKey := matches[0]
-
-		publicKey, err := auth.GetPublicKey()
-		if err != nil {
-			return unknownKeyErr
-		}
-
-		localPubKey := strings.TrimSpace(string(ssh.MarshalAuthorizedKey(publicKey)))
-
-		if runtime.GOOS == "linux" && serverPubKey != localPubKey {
-			// try the ollama service public key
-			svcPubKey, err := os.ReadFile("/usr/share/ollama/.ollama/id_ed25519.pub")
-			if err != nil {
-				return unknownKeyErr
-			}
-			localPubKey = strings.TrimSpace(string(svcPubKey))
-		}
-
-		// check if the returned public key matches the local public key, this prevents adding a remote key to the user's account
-		if serverPubKey != localPubKey {
-			return unknownKeyErr
-		}
-
-		if term.IsTerminal(int(os.Stdout.Fd())) {
-			// URL encode the key and device name for the browser URL
-			encodedKey := base64.RawURLEncoding.EncodeToString([]byte(localPubKey))
-			d, _ := os.Hostname()
-			encodedDevice := url.QueryEscape(d)
-			browserURL := fmt.Sprintf("https://ollama.com/connect?host=%s&key=%s", encodedDevice, encodedKey)
-
-			if err := browser.OpenURL(browserURL); err == nil {
-				fmt.Printf("\nOpening browser to add your key...\n")
-				fmt.Printf("\nCheck that this code matches what is shown in your browser:\n")
-				fmt.Printf("\n    %s\n", generateFingerprint(localPubKey))
-				return nil
-			}
-		}
-
-		// only return error for non-interactive terminals or if browser opening failed
-		return fmt.Errorf("%s\nAdd your key at:\nhttps://ollama.com/settings/keys", unknownKeyErr.Error())
-	}
-
-	return unknownKeyErr
-}
-
-// unknownKey handles key validation when a connection fails due to an unknown key.
-// It attempts to open the browser for interactive sessions to let users connect their key,
-// falling back to command-line instructions for non-interactive sessions.
-// Returns nil if browser flow succeeds, or an error with connection instructions otherwise.
-func unknownKey(unknownKeyErr error) error {
-	// find SSH public key in the error message
-	// TODO (brucemacd): the API should return structured errors so that this message parsing isn't needed
-	sshKeyPattern := `ssh-\w+ [^\s"]+`
-	re := regexp.MustCompile(sshKeyPattern)
-	matches := re.FindStringSubmatch(unknownKeyErr.Error())
-
-	if len(matches) > 0 {
-		serverPubKey := matches[0]
-
-		localPubKey, err := auth.GetPublicKey()
-		if err != nil {
-			return unknownKeyErr
-		}
-
-		if runtime.GOOS == "linux" && serverPubKey != localPubKey {
-			// try the ollama service public key
-			svcPubKey, err := os.ReadFile("/usr/share/ollama/.ollama/id_ed25519.pub")
-			if err != nil {
-				return unknownKeyErr
-			}
-			localPubKey = strings.TrimSpace(string(svcPubKey))
-		}
-
-		// check if the returned public key matches the local public key, this prevents adding a remote key to the user's account
-		if serverPubKey != localPubKey {
-			return unknownKeyErr
-		}
-
-		if term.IsTerminal(int(os.Stdout.Fd())) && !envconfig.Noninteractive() {
-			// URL encode the key and device name for the browser URL
-			encodedKey := base64.RawURLEncoding.EncodeToString([]byte(localPubKey))
-			d, _ := os.Hostname()
-			encodedDevice := url.QueryEscape(d)
-			browserURL := fmt.Sprintf("https://ollama.com/connect?host=%s&key=%s", encodedDevice, encodedKey)
-			if err := browser.OpenURL(browserURL); err == nil {
-				fmt.Println("Opening browser to connect your device...")
-				return nil
-			}
-		}
-
-		var msg strings.Builder
-		msg.WriteString(unknownKeyErr.Error())
-		msg.WriteString("\n\nYour ollama key is:\n")
-		msg.WriteString(localPubKey)
-		msg.WriteString("\nAdd your key at:\n")
-		msg.WriteString("https://ollama.com/settings/keys")
-
-		return errors.New(msg.String())
-	}
-
-	keys := []string{usrKey}
-
-	if runtime.GOOS == "linux" {
-		// try the ollama service public key if on Linux
-		if svcKey, err := os.ReadFile("/usr/share/ollama/.ollama/id_ed25519.pub"); err == nil {
-			keys = append(keys, strings.TrimSpace(string(svcKey)))
-		}
-	}
-
-	return keys, nil
 }
 
 func PushHandler(cmd *cobra.Command, args []string) error {
@@ -1551,11 +1065,6 @@ func PushHandler(cmd *cobra.Command, args []string) error {
 		if strings.Contains(errStr, "access denied") || strings.Contains(errStr, "unauthorized") {
 			return errors.New("you are not authorized to push to this namespace, create the model under a namespace you own")
 		}
-		if strings.Contains(err.Error(), errtypes.UnknownOllamaKeyErrMsg) && isOllamaHost {
-			// the user has not added their ollama key to ollama.com
-			// return an error with a more user-friendly message
-			return tryConnect(err)
-		}
 		return err
 	}
 
@@ -1563,11 +1072,51 @@ func PushHandler(cmd *cobra.Command, args []string) error {
 	spinner.Stop()
 
 	destination := n.String()
-	if isOllamaHost {
+	if strings.HasSuffix(n.Host, ".ollama.ai") || strings.HasSuffix(n.Host, ".ollama.com") {
 		destination = "https://ollama.com/" + strings.TrimSuffix(n.DisplayShortest(), ":latest")
 	}
 	fmt.Printf("\nYou can find your model at:\n\n")
 	fmt.Printf("\t%s\n", destination)
+
+	return nil
+}
+
+func ListHandler(cmd *cobra.Command, args []string) error {
+	client, err := api.ClientFromEnvironment()
+	if err != nil {
+		return err
+	}
+
+	models, err := client.List(cmd.Context())
+	if err != nil {
+		return err
+	}
+
+	var data [][]string
+
+	for _, m := range models.Models {
+		if len(args) == 0 || strings.HasPrefix(strings.ToLower(m.Name), strings.ToLower(args[0])) {
+			var size string
+			if m.RemoteModel != "" {
+				size = "-"
+			} else {
+				size = format.HumanBytes(m.Size)
+			}
+
+			data = append(data, []string{m.Name, m.Digest[:12], size, format.HumanTime(m.ModifiedAt, "Never")})
+		}
+	}
+
+	table := tablewriter.NewWriter(os.Stdout)
+	table.SetHeader([]string{"NAME", "ID", "SIZE", "MODIFIED"})
+	table.SetHeaderAlignment(tablewriter.ALIGN_LEFT)
+	table.SetAlignment(tablewriter.ALIGN_LEFT)
+	table.SetHeaderLine(false)
+	table.SetBorder(false)
+	table.SetNoWhiteSpace(true)
+	table.SetTablePadding("    ")
+	table.AppendBulk(data)
+	table.Render()
 
 	return nil
 }
@@ -1586,7 +1135,7 @@ func ListRunningHandler(cmd *cobra.Command, args []string) error {
 	var data [][]string
 
 	for _, m := range models.Models {
-		if len(args) == 0 || strings.HasPrefix(m.Model, args[0]) {
+		if len(args) == 0 || strings.HasPrefix(m.Name, args[0]) {
 			var procStr string
 			switch {
 			case m.SizeVRAM == 0:
@@ -1609,12 +1158,12 @@ func ListRunningHandler(cmd *cobra.Command, args []string) error {
 				until = format.HumanTime(m.ExpiresAt, "Never")
 			}
 			ctxStr := strconv.Itoa(m.ContextLength)
-			data = append(data, []string{m.Name, m.Digest[:12], format.HumanBytes(m.Size), procStr, ctxStr, m.Runner, until})
+			data = append(data, []string{m.Name, m.Digest[:12], format.HumanBytes(m.Size), procStr, ctxStr, until})
 		}
 	}
 
 	table := tablewriter.NewWriter(os.Stdout)
-	table.SetHeader([]string{"NAME", "ID", "SIZE", "PROCESSOR", "CONTEXT", "RUNNER", "UNTIL"})
+	table.SetHeader([]string{"NAME", "ID", "SIZE", "PROCESSOR", "CONTEXT", "UNTIL"})
 	table.SetHeaderAlignment(tablewriter.ALIGN_LEFT)
 	table.SetAlignment(tablewriter.ALIGN_LEFT)
 	table.SetHeaderLine(false)
@@ -1674,11 +1223,6 @@ func ShowHandler(cmd *cobra.Command, args []string) error {
 	flagsSet := 0
 	showType := ""
 
-	if model {
-		flagsSet++
-		showType = "model"
-	}
-
 	if license {
 		flagsSet++
 		showType = "license"
@@ -1709,21 +1253,6 @@ func ShowHandler(cmd *cobra.Command, args []string) error {
 	}
 
 	req := api.ShowRequest{Name: args[0], Verbose: verbose}
-	if flagsSet == 0 && !verbose {
-		resp, err := client.ShowManifests(cmd.Context(), &req)
-		if err != nil {
-			return err
-		}
-
-		if len(resp.Manifests) > 1 {
-			return showManifestListInfo(resp, os.Stdout)
-		}
-		if len(resp.Manifests) == 1 {
-			return showInfo(&resp.Manifests[0].ShowResponse, verbose, os.Stdout)
-		}
-		return nil
-	}
-
 	resp, err := client.Show(cmd.Context(), &req)
 	if err != nil {
 		return err
@@ -1740,7 +1269,7 @@ func ShowHandler(cmd *cobra.Command, args []string) error {
 		case "modelfile":
 			fmt.Println(resp.Modelfile)
 		case "parameters":
-			fmt.Println(formatParams(resp.Parameters, false))
+			fmt.Println(resp.Parameters)
 		case "system":
 			fmt.Print(resp.System)
 		case "template":
@@ -1751,211 +1280,6 @@ func ShowHandler(cmd *cobra.Command, args []string) error {
 	}
 
 	return showInfo(resp, verbose, os.Stdout)
-}
-
-func showManifestListInfo(resp *api.ShowManifestsResponse, w io.Writer) error {
-	tableRender := func(header string, rows func() [][]string) {
-		fmt.Fprintln(w, " ", header)
-		table := tablewriter.NewWriter(w)
-		table.SetAlignment(tablewriter.ALIGN_LEFT)
-		table.SetBorder(false)
-		table.SetNoWhiteSpace(true)
-		table.SetTablePadding("    ")
-
-		if header == "License" {
-			table.SetColWidth(100)
-		}
-
-		table.AppendBulk(rows())
-		table.Render()
-		fmt.Fprintln(w)
-	}
-
-	runners := make([]string, len(resp.Manifests))
-	for i, m := range resp.Manifests {
-		runners[i] = m.Runner
-		if runners[i] == "" {
-			runners[i] = fmt.Sprintf("manifest %d", i+1)
-		}
-	}
-
-	headerRow := func(labelColumn bool) []string {
-		row := []string{""}
-		if labelColumn {
-			row = append(row, "")
-		}
-		return append(row, runners...)
-	}
-
-	tableRender("Model", func() (rows [][]string) {
-		rows = append(rows, headerRow(true))
-		for _, field := range []struct {
-			name  string
-			value func(api.ShowResponse) string
-		}{
-			{"architecture", showArchitecture},
-			{"parameters", showParameterSize},
-			{"context length", func(resp api.ShowResponse) string { return showModelInfoNumber(resp, "context_length") }},
-			{"embedding length", func(resp api.ShowResponse) string { return showModelInfoNumber(resp, "embedding_length") }},
-			{"quantization", func(resp api.ShowResponse) string { return resp.Details.QuantizationLevel }},
-			{"requires", func(resp api.ShowResponse) string { return resp.Requires }},
-		} {
-			row := []string{"", field.name}
-			hasValue := false
-			for _, m := range resp.Manifests {
-				value := field.value(m.ShowResponse)
-				if value != "" {
-					hasValue = true
-				}
-				row = append(row, value)
-			}
-			if hasValue {
-				rows = append(rows, row)
-			}
-		}
-		return rows
-	})
-
-	capabilities := showCapabilities(resp.Manifests)
-	if len(capabilities) > 0 {
-		tableRender("Capabilities", func() (rows [][]string) {
-			rows = append(rows, headerRow(false))
-			for _, capability := range capabilities {
-				row := []string{""}
-				for _, m := range resp.Manifests {
-					if slices.Contains(m.Capabilities, capability) {
-						row = append(row, capability.String())
-					} else {
-						row = append(row, "")
-					}
-				}
-				rows = append(rows, row)
-			}
-			return rows
-		})
-	}
-
-	parameterKeys, parameterValues := showParameterValues(resp.Manifests)
-	if len(parameterKeys) > 0 {
-		tableRender("Parameters", func() (rows [][]string) {
-			rows = append(rows, headerRow(true))
-			for _, key := range parameterKeys {
-				row := []string{"", key}
-				for _, values := range parameterValues {
-					row = append(row, values[key])
-				}
-				rows = append(rows, row)
-			}
-			return rows
-		})
-	}
-
-	if resp.License != "" {
-		tableRender("License", func() [][]string {
-			return showHeadRows(resp.License, 2)
-		})
-	}
-
-	return nil
-}
-
-func showCapabilities(manifests []api.ShowManifest) []model.Capability {
-	seen := make(map[model.Capability]struct{})
-	var capabilities []model.Capability
-	for _, m := range manifests {
-		for _, capability := range m.Capabilities {
-			if _, ok := seen[capability]; ok {
-				continue
-			}
-			seen[capability] = struct{}{}
-			capabilities = append(capabilities, capability)
-		}
-	}
-	return capabilities
-}
-
-func showArchitecture(resp api.ShowResponse) string {
-	if resp.ModelInfo != nil {
-		if arch, _ := resp.ModelInfo["general.architecture"].(string); arch != "" {
-			return arch
-		}
-	}
-	return resp.Details.Family
-}
-
-func showParameterSize(resp api.ShowResponse) string {
-	if resp.Details.ParameterSize != "" {
-		return resp.Details.ParameterSize
-	}
-	if resp.ModelInfo != nil {
-		if v, ok := resp.ModelInfo["general.parameter_count"]; ok {
-			if f, ok := v.(float64); ok {
-				return format.HumanNumber(uint64(f))
-			}
-		}
-	}
-	return ""
-}
-
-func showModelInfoNumber(resp api.ShowResponse, key string) string {
-	if resp.ModelInfo == nil {
-		return ""
-	}
-	arch, _ := resp.ModelInfo["general.architecture"].(string)
-	if arch == "" {
-		return ""
-	}
-	if v, ok := resp.ModelInfo[fmt.Sprintf("%s.%s", arch, key)]; ok {
-		if f, ok := v.(float64); ok {
-			return strconv.FormatFloat(f, 'f', -1, 64)
-		}
-	}
-	return ""
-}
-
-func showParameterValues(manifests []api.ShowManifest) ([]string, []map[string]string) {
-	seen := make(map[string]struct{})
-	var keys []string
-	values := make([]map[string]string, len(manifests))
-
-	for i, m := range manifests {
-		values[i] = make(map[string]string)
-		scanner := bufio.NewScanner(strings.NewReader(m.Parameters))
-		for scanner.Scan() {
-			fields := strings.Fields(scanner.Text())
-			if len(fields) == 0 {
-				continue
-			}
-
-			key := fields[0]
-			values[i][key] = strings.Join(fields[1:], " ")
-			if _, ok := seen[key]; !ok {
-				seen[key] = struct{}{}
-				keys = append(keys, key)
-			}
-		}
-	}
-
-	return keys, values
-}
-
-func showHeadRows(s string, n int) (rows [][]string) {
-	scanner := bufio.NewScanner(strings.NewReader(s))
-	count := 0
-	for scanner.Scan() {
-		text := strings.TrimSpace(scanner.Text())
-		if text == "" {
-			continue
-		}
-		count++
-		if n < 0 || count <= n {
-			rows = append(rows, []string{"", text})
-		}
-	}
-	if n >= 0 && count > n {
-		rows = append(rows, []string{"", "..."})
-	}
-	return
 }
 
 func showInfo(resp *api.ShowResponse, verbose bool, w io.Writer) error {
@@ -2007,87 +1331,21 @@ func showInfo(resp *api.ShowResponse, verbose bool, w io.Writer) error {
 				}
 			}
 
-			if resp.ModelInfo != nil {
-				arch := resp.ModelInfo["general.architecture"].(string)
-				rows = append(rows, []string{"", "architecture", arch})
-
-				var paramStr string
-				if resp.Details.ParameterSize != "" {
-					paramStr = resp.Details.ParameterSize
-				} else if v, ok := resp.ModelInfo["general.parameter_count"]; ok {
-					if f, ok := v.(float64); ok {
-						paramStr = format.HumanNumber(uint64(f))
-					}
-				}
-				rows = append(rows, []string{"", "parameters", paramStr})
-
-				if v, ok := resp.ModelInfo[fmt.Sprintf("%s.context_length", arch)]; ok {
-					if f, ok := v.(float64); ok {
-						rows = append(rows, []string{"", "context length", strconv.FormatFloat(f, 'f', -1, 64)})
-					}
-				}
-
-				if v, ok := resp.ModelInfo[fmt.Sprintf("%s.embedding_length", arch)]; ok {
-					if f, ok := v.(float64); ok {
-						rows = append(rows, []string{"", "embedding length", strconv.FormatFloat(f, 'f', -1, 64)})
-					}
-				}
-			} else {
-				rows = append(rows, []string{"", "architecture", resp.Details.Family})
-				rows = append(rows, []string{"", "parameters", resp.Details.ParameterSize})
-			}
-			rows = append(rows, []string{"", "quantization", resp.Details.QuantizationLevel})
-			if resp.Requires != "" {
-				rows = append(rows, []string{"", "requires", resp.Requires})
-			}
-			return
-		})
-	}
-
-	// Display agent information if this is an agent
-	if resp.AgentType != "" || len(resp.Skills) > 0 || len(resp.MCPs) > 0 || resp.Entrypoint != "" {
-		tableRender("Agent", func() (rows [][]string) {
-			if resp.AgentType != "" {
-				rows = append(rows, []string{"", "type", resp.AgentType})
-			}
-			if resp.Entrypoint != "" {
-				rows = append(rows, []string{"", "entrypoint", resp.Entrypoint})
-			}
-			if len(resp.Skills) > 0 {
-				for i, skill := range resp.Skills {
-					label := "skill"
-					if i > 0 {
-						label = ""
-					}
-					// Show skill name or digest
-					skillDisplay := skill.Name
-					if skillDisplay == "" && skill.Digest != "" {
-						skillDisplay = skill.Digest[:12] + "..."
-					}
-					rows = append(rows, []string{"", label, skillDisplay})
+			if v, ok := resp.ModelInfo[fmt.Sprintf("%s.embedding_length", arch)]; ok {
+				if f, ok := v.(float64); ok {
+					rows = append(rows, []string{"", "embedding length", strconv.FormatFloat(f, 'f', -1, 64)})
 				}
 			}
-			if len(resp.MCPs) > 0 {
-				for i, mcp := range resp.MCPs {
-					label := "mcp"
-					if i > 0 {
-						label = ""
-					}
-					// Show MCP name and command
-					mcpDisplay := mcp.Name
-					if mcp.Command != "" {
-						cmdLine := mcp.Command
-						if len(mcp.Args) > 0 {
-							cmdLine += " " + strings.Join(mcp.Args, " ")
-						}
-						mcpDisplay += " (" + cmdLine + ")"
-					}
-					rows = append(rows, []string{"", label, mcpDisplay})
-				}
-			}
-			return
-		})
-	}
+		} else {
+			rows = append(rows, []string{"", "architecture", resp.Details.Family})
+			rows = append(rows, []string{"", "parameters", resp.Details.ParameterSize})
+		}
+		rows = append(rows, []string{"", "quantization", resp.Details.QuantizationLevel})
+		if resp.Requires != "" {
+			rows = append(rows, []string{"", "requires", resp.Requires})
+		}
+		return
+	})
 
 	if len(resp.Capabilities) > 0 {
 		tableRender("Capabilities", func() (rows [][]string) {
@@ -2150,7 +1408,7 @@ func showInfo(resp *api.ShowResponse, verbose bool, w io.Writer) error {
 				var v string
 				switch vData := resp.ModelInfo[k].(type) {
 				case bool:
-					v = strconv.FormatBool(vData)
+					v = fmt.Sprintf("%t", vData)
 				case string:
 					v = vData
 				case float64:
@@ -2206,51 +1464,38 @@ func showInfo(resp *api.ShowResponse, verbose bool, w io.Writer) error {
 		})
 	}
 
+	head := func(s string, n int) (rows [][]string) {
+		scanner := bufio.NewScanner(strings.NewReader(s))
+		count := 0
+		for scanner.Scan() {
+			text := strings.TrimSpace(scanner.Text())
+			if text == "" {
+				continue
+			}
+			count++
+			if n < 0 || count <= n {
+				rows = append(rows, []string{"", text})
+			}
+		}
+		if n >= 0 && count > n {
+			rows = append(rows, []string{"", "..."})
+		}
+		return
+	}
+
 	if resp.System != "" {
 		tableRender("System", func() [][]string {
-			return showHeadRows(resp.System, 2)
+			return head(resp.System, 2)
 		})
 	}
 
 	if resp.License != "" {
 		tableRender("License", func() [][]string {
-			return showHeadRows(resp.License, 2)
+			return head(resp.License, 2)
 		})
 	}
 
 	return nil
-}
-
-func truncate(s string) string {
-	lines := strings.Split(s, "\n")
-	var truncated strings.Builder
-
-	for _, line := range lines {
-		line = strings.TrimSpace(line)
-		if line != "" {
-			truncated.WriteString(line + " ")
-			if truncated.Len() > 60 {
-				return truncated.String()[:57] + "..."
-			}
-		}
-	}
-	return strings.TrimSpace(truncated.String())
-}
-
-// temporary fix for buggy params #4918
-func handleParams(s string) string {
-	lines := strings.Split(s, "\n")
-	var truncated strings.Builder
-
-	truncated.WriteString("{")
-	for _, line := range lines {
-		line = strings.Join(strings.Fields(line), ":")
-		truncated.WriteString(line + ",")
-		if truncated.Len() > 60 {
-			return truncated.String()[:57] + "..."
-		}
-	}
-	return strings.TrimSpace(truncated.String()) + "}"
 }
 
 func CopyHandler(cmd *cobra.Command, args []string) error {
@@ -2267,67 +1512,18 @@ func CopyHandler(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
-func CopyHandler(cmd *cobra.Command, args []string) error {
-	client := api.NewClient()
-
-	req := api.CopyRequest{Source: args[0], Destination: args[1]}
-	if err := client.Copy(context.Background(), &req); err != nil {
-		return err
-	}
-	fmt.Printf("copied '%s' to '%s'\n", args[0], args[1])
-	return nil
-}
-
 func PullHandler(cmd *cobra.Command, args []string) error {
-	upgradeAll, err := cmd.Flags().GetBool("upgrade-all")
-	if err != nil {
-		return err
-	}
-
-	if !upgradeAll {
-		if len(args) == 0 {
-			return fmt.Errorf("no model specified to pull")
-		}
-		return pull(cmd, args[0], "")
-	}
-
-	client, err := api.ClientFromEnvironment()
-	if err != nil {
-		return err
-	}
-
-	models, err := client.List(cmd.Context())
-	if err != nil {
-		return err
-	}
-
-	for _, m := range (*models).Models {
-		err = pull(cmd, m.Name, "sha256:"+m.Digest)
-		if err != nil {
-			if strings.Contains(err.Error(), "file does not exist") {
-				fmt.Printf("model '%s' is no longer available\n", m.Name)
-				continue
-			}
-			return err
-		}
-	}
-	return nil
-}
-
-func pull(cmd *cobra.Command, name string, currentDigest string) error {
 	insecure, err := cmd.Flags().GetBool("insecure")
 	if err != nil {
-		panic(err)
+		return err
 	}
-	return v
-}
 
 	client, err := api.ClientFromEnvironment()
 	if err != nil {
 		return err
 	}
 
-	_, err = pullWithCloudSuggestion(cmd.Context(), client, args[0], insecure, cloudSuggestionRetryCommand("pull"))
+	_, err = pullWithCloudSuggestion(cmd.Context(), client, args[0], insecure, "pull")
 	return err
 }
 
@@ -2337,31 +1533,63 @@ func pull(cmd *cobra.Command, name string, currentDigest string) error {
 // when a ":cloud" suggestion prompt may immediately follow the failure.
 func pullModelWithProgress(ctx context.Context, client *api.Client, name string, insecure, clearNotFound bool) error {
 	p := progress.NewProgress(os.Stderr)
-	defer p.StopWithoutClear()
+	defer p.Stop()
 
 	bars := make(map[string]*progress.Bar)
 
 	var status string
-	var state progress.State
-	for c := range w {
-		if c.Status != status {
-			if s, ok := state.(*progress.Spinner); ok {
-				s.Stop()
+	var spinner *progress.Spinner
+
+	fn := func(resp api.ProgressResponse) error {
+		if resp.Digest != "" {
+			if resp.Completed == 0 {
+				// This is the initial status update for the
+				// layer, which the server sends before
+				// beginning the download, for clients to
+				// compute total size and prepare for
+				// downloads, if needed.
+				//
+				// Skipping this here to avoid showing a 0%
+				// progress bar, which *should* clue the user
+				// into the fact that many things are being
+				// downloaded and that the current active
+				// download is not that last. However, in rare
+				// cases it seems to be triggering to some, and
+				// it isn't worth explaining, so just ignore
+				// and regress to the old UI that keeps giving
+				// you the "But wait, there is more!" after
+				// each "100% done" bar, which is "better."
+				return nil
 			}
 
-			status = c.Status
-			if c.Digest != "" {
-				state = progress.NewBar(status, c.Total, c.Completed)
-			} else {
-				state = progress.NewSpinner(status)
+			if spinner != nil {
+				spinner.Stop()
 			}
 
-			p.Add(status, state)
+			bar, ok := bars[resp.Digest]
+			if !ok {
+				name, isDigest := strings.CutPrefix(resp.Digest, "sha256:")
+				name = strings.TrimSpace(name)
+				if isDigest {
+					name = name[:min(12, len(name))]
+				}
+				bar = progress.NewBar(fmt.Sprintf("pulling %s:", name), resp.Total, resp.Completed)
+				bars[resp.Digest] = bar
+				p.Add(resp.Digest, bar)
+			}
+
+			bar.Set(resp.Completed)
+		} else if status != resp.Status {
+			if spinner != nil {
+				spinner.Stop()
+			}
+
+			status = resp.Status
+			spinner = progress.NewSpinner(status)
+			p.Add(status, spinner)
 		}
 
-		if b, ok := state.(*progress.Bar); ok {
-			b.Set(c.Completed)
-		}
+		return nil
 	}
 
 	request := api.PullRequest{Name: name, Insecure: insecure}
@@ -2373,24 +1601,24 @@ func pullModelWithProgress(ctx context.Context, client *api.Client, name string,
 	return err
 }
 
+type generateContextKey string
+
 type runOptions struct {
-	Model               string
-	ParentModel         string
-	LoadedMessages      []api.Message
-	Prompt              string
-	Messages            []api.Message
-	Format              string
-	System              string
-	Images              []api.ImageData
-	Options             map[string]any
-	MultiModal          bool
-	KeepAlive           *api.Duration
-	Think               *api.ThinkValue
-	ShowConnect         bool
-	ContextWindowTokens int
-	Resume              bool
-	AutoApproveTools    bool
-	Verbose             bool
+	Model          string
+	ParentModel    string
+	LoadedMessages []api.Message
+	Prompt         string
+	Messages       []api.Message
+	WordWrap       bool
+	Format         string
+	System         string
+	Images         []api.ImageData
+	Options        map[string]any
+	MultiModal     bool
+	KeepAlive      *api.Duration
+	Think          *api.ThinkValue
+	HideThinking   bool
+	ShowConnect    bool
 }
 
 func (r runOptions) Copy() runOptions {
@@ -2415,7 +1643,9 @@ func (r runOptions) Copy() runOptions {
 	var opts map[string]any
 	if r.Options != nil {
 		opts = make(map[string]any, len(r.Options))
-		maps.Copy(opts, r.Options)
+		for k, v := range r.Options {
+			opts[k] = v
+		}
 	}
 
 	var think *api.ThinkValue
@@ -2424,150 +1654,193 @@ func (r runOptions) Copy() runOptions {
 		think = &cThink
 	}
 
-	var skills []api.SkillRef
-	if r.Skills != nil {
-		skills = make([]api.SkillRef, len(r.Skills))
-		copy(skills, r.Skills)
-	}
-
 	return runOptions{
-		Model:               r.Model,
-		ParentModel:         r.ParentModel,
-		LoadedMessages:      loadedMessages,
-		Prompt:              r.Prompt,
-		Messages:            messages,
-		Format:              r.Format,
-		System:              r.System,
-		Images:              images,
-		Options:             opts,
-		MultiModal:          r.MultiModal,
-		KeepAlive:           r.KeepAlive,
-		Think:               think,
-		ShowConnect:         r.ShowConnect,
-		ContextWindowTokens: r.ContextWindowTokens,
-		Resume:              r.Resume,
-		AutoApproveTools:    r.AutoApproveTools,
-		Verbose:             r.Verbose,
+		Model:          r.Model,
+		ParentModel:    r.ParentModel,
+		LoadedMessages: loadedMessages,
+		Prompt:         r.Prompt,
+		Messages:       messages,
+		WordWrap:       r.WordWrap,
+		Format:         r.Format,
+		System:         r.System,
+		Images:         images,
+		Options:        opts,
+		MultiModal:     r.MultiModal,
+		KeepAlive:      r.KeepAlive,
+		Think:          think,
+		HideThinking:   r.HideThinking,
+		ShowConnect:    r.ShowConnect,
 	}
 }
 
 func applyShowResponseToRunOptions(opts *runOptions, info *api.ShowResponse) {
 	opts.ParentModel = info.Details.ParentModel
 	opts.LoadedMessages = slices.Clone(info.Messages)
-	if strings.TrimSpace(opts.System) == "" {
-		opts.System = info.System
-	}
-	opts.ContextWindowTokens = contextWindowTokensFromShowResponse(info)
 }
 
-func applyMultiModalCompat(opts *runOptions, info *api.ShowResponse) {
-	audioCapable := slices.Contains(info.Capabilities, model.CapabilityAudio)
-	opts.MultiModal = slices.Contains(info.Capabilities, model.CapabilityVision) || audioCapable
-	// TODO: remove the projector info and vision info checks below,
-	// these are left in for backwards compatibility with older servers
-	// that don't have the capabilities field in the model info
-	if len(info.ProjectorInfo) != 0 {
-		opts.MultiModal = true
-	}
-	for k := range info.ModelInfo {
-		if strings.Contains(k, ".vision.") {
-			opts.MultiModal = true
-			break
-		}
-	}
+type displayResponseState struct {
+	lineLength int
+	wordBuffer string
 }
 
-func contextWindowTokensFromShowResponse(info *api.ShowResponse) int {
-	if info == nil {
-		return 0
+func displayResponse(content string, wordWrap bool, state *displayResponseState) {
+	termWidth, _, _ := term.GetSize(int(os.Stdout.Fd()))
+	if termWidth == 0 {
+		termWidth = 80
 	}
-	if info.Details.ContextLength > 0 {
-		return info.Details.ContextLength
-	}
-	if info.ModelInfo == nil {
-		return 0
-	}
-	arch, _ := info.ModelInfo["general.architecture"].(string)
-	if arch == "" {
-		return 0
-	}
-	switch v := info.ModelInfo[fmt.Sprintf("%s.context_length", arch)].(type) {
-	case int:
-		return v
-	case int64:
-		return int(v)
-	case float64:
-		return int(v)
-	case float32:
-		return int(v)
-	default:
-		return 0
-	}
-}
+	if wordWrap && termWidth >= 10 {
+		for _, ch := range content {
+			if state.lineLength+1 > termWidth-5 {
+				if runewidth.StringWidth(state.wordBuffer) > termWidth-10 {
+					fmt.Printf("%s%c", state.wordBuffer, ch)
+					state.wordBuffer = ""
+					state.lineLength = 0
+					continue
+				}
 
-func contextWindowTokensForRun(ctx context.Context, client *api.Client, modelName string, fallback int) int {
-	if client == nil || strings.TrimSpace(modelName) == "" {
-		return fallback
-	}
-	if running, err := client.ListRunning(ctx); err == nil {
-		if contextLength := contextWindowTokensFromRunningModels(running.Models, modelName); contextLength > 0 {
-			return contextLength
-		}
-	}
-	if modelref.HasExplicitCloudSource(modelName) {
-		if info, err := client.Show(ctx, &api.ShowRequest{Model: modelName}); err == nil {
-			if contextLength := contextWindowTokensFromShowResponse(info); contextLength > 0 {
-				return contextLength
+				// backtrack the length of the last word and clear to the end of the line
+				a := runewidth.StringWidth(state.wordBuffer)
+				if a > 0 {
+					fmt.Printf("\x1b[%dD", a)
+				}
+				fmt.Printf("\x1b[K\n")
+				fmt.Printf("%s%c", state.wordBuffer, ch)
+				chWidth := runewidth.RuneWidth(ch)
+
+				state.lineLength = runewidth.StringWidth(state.wordBuffer) + chWidth
+			} else {
+				fmt.Print(string(ch))
+				state.lineLength += runewidth.RuneWidth(ch)
+				if runewidth.RuneWidth(ch) >= 2 {
+					state.wordBuffer = ""
+					continue
+				}
+
+				switch ch {
+				case ' ', '\t':
+					state.wordBuffer = ""
+				case '\n', '\r':
+					state.lineLength = 0
+					state.wordBuffer = ""
+				default:
+					state.wordBuffer += string(ch)
+				}
 			}
 		}
-	}
-	return fallback
-}
-
-func contextWindowTokensFromRunningModels(models []api.ProcessModelResponse, modelName string) int {
-	for _, running := range models {
-		if running.ContextLength > 0 && runningModelMatchesName(running, modelName) {
-			return running.ContextLength
+	} else {
+		fmt.Printf("%s%s", state.wordBuffer, content)
+		if len(state.wordBuffer) > 0 {
+			state.wordBuffer = ""
 		}
 	}
-	return 0
 }
 
-func runningModelMatchesName(running api.ProcessModelResponse, modelName string) bool {
-	for _, candidate := range []string{running.Name, running.Model} {
-		if modelNameMatches(candidate, modelName) {
-			return true
-		}
+func thinkingOutputOpeningText(plainText bool) string {
+	text := "Thinking...\n"
+
+	if plainText {
+		return text
 	}
-	return false
+
+	return readline.ColorGrey + readline.ColorBold + text + readline.ColorDefault + readline.ColorGrey
 }
 
-func chat(cmd *cobra.Command, opts runOptions) (*api.Message, *api.Metrics, error) {
+func thinkingOutputClosingText(plainText bool) string {
+	text := "...done thinking.\n\n"
+
+	if plainText {
+		return text
+	}
+
+	return readline.ColorGrey + readline.ColorBold + text + readline.ColorDefault
+}
+
+func chat(cmd *cobra.Command, opts runOptions) (*api.Message, error) {
 	client, err := api.ClientFromEnvironment()
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
-	if a == b {
-		return true
-	}
-	return model.ParseName(a).DisplayShortest() == model.ParseName(b).DisplayShortest()
-}
 
-func runCommandArgs(cmd *cobra.Command, args []string) error {
-	if len(args) > 0 {
+	p := progress.NewProgress(os.Stderr)
+	defer p.StopAndClear()
+
+	spinner := progress.NewSpinner("")
+	p.Add("", spinner)
+
+	cancelCtx, cancel := context.WithCancel(cmd.Context())
+	defer cancel()
+
+	sigChan := make(chan os.Signal, 1)
+	signal.Notify(sigChan, syscall.SIGINT)
+
+	go func() {
+		<-sigChan
+		cancel()
+	}()
+
+	var state *displayResponseState = &displayResponseState{}
+	var thinkingContent strings.Builder
+	var latest api.ChatResponse
+	var fullResponse strings.Builder
+	var thinkTagOpened bool = false
+	var thinkTagClosed bool = false
+
+	role := "assistant"
+
+	fn := func(response api.ChatResponse) error {
+		if response.Message.Content != "" || !opts.HideThinking {
+			p.StopAndClear()
+		}
+
+		latest = response
+
+		role = response.Message.Role
+		if response.Message.Thinking != "" && !opts.HideThinking {
+			if !thinkTagOpened {
+				fmt.Print(thinkingOutputOpeningText(false))
+				thinkTagOpened = true
+				thinkTagClosed = false
+			}
+			thinkingContent.WriteString(response.Message.Thinking)
+			displayResponse(response.Message.Thinking, opts.WordWrap, state)
+		}
+
+		content := response.Message.Content
+		if thinkTagOpened && !thinkTagClosed && (content != "" || len(response.Message.ToolCalls) > 0) {
+			if !strings.HasSuffix(thinkingContent.String(), "\n") {
+				fmt.Println()
+			}
+			fmt.Print(thinkingOutputClosingText(false))
+			thinkTagOpened = false
+			thinkTagClosed = true
+			state = &displayResponseState{}
+		}
+		// purposefully not putting thinking blocks in the response, which would
+		// only be needed if we later added tool calling to the cli (they get
+		// filtered out anyway since current models don't expect them unless you're
+		// about to finish some tool calls)
+		fullResponse.WriteString(content)
+
+		if response.Message.ToolCalls != nil {
+			toolCalls := response.Message.ToolCalls
+			if len(toolCalls) > 0 {
+				fmt.Print(renderToolCalls(toolCalls, false))
+			}
+		}
+
+		displayResponse(content, opts.WordWrap, state)
+
 		return nil
 	}
 
-	var format json.RawMessage
-	if opts.Format != "" {
-		format = json.RawMessage(opts.Format)
+	if opts.Format == "json" {
+		opts.Format = `"` + opts.Format + `"`
 	}
 
 	req := &api.ChatRequest{
 		Model:    opts.Model,
-		Template: opts.Template,
 		Messages: opts.Messages,
-		Format:   format,
+		Format:   json.RawMessage(opts.Format),
 		Options:  opts.Options,
 		Think:    opts.Think,
 	}
@@ -2576,13 +1849,9 @@ func runCommandArgs(cmd *cobra.Command, args []string) error {
 		req.KeepAlive = opts.KeepAlive
 	}
 
-	if opts.Audio {
-		req.RunSpeech = true
-	}
-
 	if err := client.Chat(cancelCtx, req, fn); err != nil {
 		if errors.Is(err, context.Canceled) {
-			return nil, nil, nil
+			return nil, nil
 		}
 
 		// this error should ideally be wrapped properly by the client
@@ -2590,9 +1859,9 @@ func runCommandArgs(cmd *cobra.Command, args []string) error {
 			p.StopAndClear()
 			fmt.Println("An error occurred while processing your message. Please try again.")
 			fmt.Println()
-			return nil, nil, nil
+			return nil, nil
 		}
-		return nil, nil, err
+		return nil, err
 	}
 
 	if len(opts.Messages) > 0 {
@@ -2602,162 +1871,14 @@ func runCommandArgs(cmd *cobra.Command, args []string) error {
 
 	verbose, err := cmd.Flags().GetBool("verbose")
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 
 	if verbose {
 		latest.Summary()
 	}
 
-	return &api.Message{Role: role, Thinking: thinkingContent.String(), Content: fullResponse.String()}, &latest.Metrics, nil
-}
-
-func embed(cmd *cobra.Command, opts runOptions) error {
-	line := opts.Prompt
-	client, err := api.ClientFromEnvironment()
-	if err != nil {
-		fmt.Println("error: couldn't connect to ollama server")
-		return err
-	}
-
-	inputs := strings.Split(line, "\n\n")
-
-	req := &api.EmbedRequest{
-		Model: opts.Model,
-		Input: inputs,
-	}
-
-	resp, err := client.Embed(cmd.Context(), req)
-	if err != nil {
-		fmt.Println("error: couldn't get embeddings")
-		return err
-	}
-
-	embeddings := resp.Embeddings
-
-	r, c := len(embeddings), len(embeddings[0])
-	data := make([]float64, r*c)
-	for i := range r {
-		for j := range c {
-			data[i*c+j] = float64(embeddings[i][j])
-		}
-	}
-
-	X := mat.NewDense(r, c, data)
-
-	// Initialize PCA
-	var pca stat.PC
-
-	// Perform PCA
-	if !pca.PrincipalComponents(X, nil) {
-		return fmt.Errorf("PCA failed")
-	}
-
-	// Extract principal component vectors
-	var vectors mat.Dense
-	pca.VectorsTo(&vectors)
-
-	// // Extract variances of the principal components
-	// var variances []float64
-	// variances = pca.VarsTo(variances)
-
-	W := vectors.Slice(0, c, 0, 2).(*mat.Dense)
-
-	// Perform PCA reduction
-	var reducedData mat.Dense
-	reducedData.Mul(X, W)
-
-	for i, s := range inputs {
-		row := reducedData.RowView(i)
-		fmt.Print(i+1, ". ", s, "\n")
-		fmt.Printf("[%v, %v]\n\n", row.AtVec(0), row.AtVec(1))
-	}
-
-	points := make(plotter.XYs, reducedData.RawMatrix().Rows)
-	for i := range len(points) {
-		row := reducedData.RowView(i)
-		points[i].X = row.AtVec(0)
-		points[i].Y = row.AtVec(1)
-	}
-
-	// Create a new plot
-	p := plot.New()
-
-	// Set plot title and axis labels
-	p.Title.Text = "Embedding Map"
-
-	// Create a scatter plot of the points
-	s, err := plotter.NewScatter(points)
-	if err != nil {
-		panic(err)
-	}
-	p.Add(s)
-
-	/// Create labels plotter and add it to the plot
-
-	labels := make([]string, reducedData.RawMatrix().Rows)
-	for i := range len(labels) {
-		labels[i] = fmt.Sprintf("%d", i+1)
-	}
-
-	// plotter := plotter
-
-	l, err := plotter.NewLabels(plotter.XYLabels{XYs: points, Labels: labels})
-	if err != nil {
-		panic(err)
-	}
-	p.Add(l)
-
-	// Make the grid square
-	p.X.Min = -1
-	p.X.Max = 1
-	p.Y.Min = -1
-	p.Y.Max = 1
-
-	// Set the aspect ratio to be 1:1
-	p.X.Tick.Marker = plot.ConstantTicks([]plot.Tick{
-		{Value: -1, Label: "-1"},
-		{Value: -0.5, Label: "-0.5"},
-		{Value: 0, Label: "0"},
-		{Value: 0.5, Label: "0.5"},
-		{Value: 1, Label: "1"},
-	})
-	p.Y.Tick.Marker = plot.ConstantTicks([]plot.Tick{
-		{Value: -1, Label: "-1"},
-		{Value: -0.5, Label: "-0.5"},
-		{Value: 0, Label: "0"},
-		{Value: 0.5, Label: "0.5"},
-		{Value: 1, Label: "1"},
-	})
-
-	// Save the plot to a svg file
-	if err := p.Save(6*vg.Inch, 6*vg.Inch, "plot.svg"); err != nil {
-		panic(err)
-	}
-
-	// open the plot
-	open := exec.Command("open", "plot.svg")
-	err = open.Run()
-	if err != nil {
-		fmt.Println("error: couldn't open plot")
-		return err
-	}
-
-	// Wait for Enter key press
-	fmt.Print("Press 'Enter' to continue")
-	reader := bufio.NewReader(os.Stdin)
-	_, _ = reader.ReadString('\n')
-
-	// close and delete the plot (defer this)
-	defer func() {
-		delete := exec.Command("rm", "plot.svg")
-		err = delete.Run()
-		if err != nil {
-			fmt.Println("error: couldn't delete plot")
-		}
-	}()
-
-	return nil
+	return &api.Message{Role: role, Thinking: thinkingContent.String(), Content: fullResponse.String()}, nil
 }
 
 func generate(cmd *cobra.Command, opts runOptions) error {
@@ -2790,10 +1911,10 @@ func generate(cmd *cobra.Command, opts runOptions) error {
 		cancel()
 	}()
 
-	state := &displayResponseState{}
+	var state *displayResponseState = &displayResponseState{}
 	var thinkingContent strings.Builder
-	thinkTagOpened := false
-	thinkTagClosed := false
+	var thinkTagOpened bool = false
+	var thinkTagClosed bool = false
 
 	plainText := !term.IsTerminal(int(os.Stdout.Fd()))
 
@@ -2842,185 +1963,53 @@ func generate(cmd *cobra.Command, opts runOptions) error {
 		if err != nil {
 			return err
 		}
-		if resume {
-			return nil
-		}
-	}
-	return cobra.MinimumNArgs(1)(cmd, args)
-}
-
-func prepareRootResumeRunCommand(rootCmd, runCmd *cobra.Command) error {
-	return prepareRootRunCommand(rootCmd, runCmd, true)
-}
-
-func prepareRootModelRunCommand(rootCmd, runCmd *cobra.Command) error {
-	return prepareRootRunCommand(rootCmd, runCmd, false)
-}
-
-func prepareRootRunCommand(rootCmd, runCmd *cobra.Command, resume bool) error {
-	if runCmd == nil {
-		return errors.New("run command unavailable")
 	}
 
-	runCmd.SetContext(rootCmd.Context())
-	if resume {
-		if err := runCmd.Flags().Set("resume", "true"); err != nil {
-			return err
-		}
-	}
-
-	var format json.RawMessage
-	if opts.Format != "" {
-		format = json.RawMessage(opts.Format)
+	if opts.Format == "json" {
+		opts.Format = `"` + opts.Format + `"`
 	}
 
 	request := api.GenerateRequest{
 		Model:     opts.Model,
-		Runner:    opts.Runner,
 		Prompt:    opts.Prompt,
 		Context:   generateContext,
 		Images:    opts.Images,
-		Format:    format,
+		Format:    json.RawMessage(opts.Format),
 		System:    opts.System,
 		Options:   opts.Options,
 		KeepAlive: opts.KeepAlive,
 		Think:     opts.Think,
 	}
 
-	speech, err := cmd.Flags().GetBool("speech")
-	if err != nil {
-		return err
-	}
-
-	// create temp wav file with the recorder package
-	if speech {
-		tempFile, err := os.CreateTemp("", "recording-*.wav")
-		if err != nil {
-			return err
-		}
-		defer os.Remove(tempFile.Name())
-
-		fmt.Print("Speech Mode\n\n")
-
-		err = recorder.RecordAudio(tempFile)
-		if err != nil {
-			return err
-		}
-
-		request.Speech = &api.WhisperRequest{
-			Audio: tempFile.Name(),
-		}
-	}
 	if err := client.Generate(ctx, &request, fn); err != nil {
 		if errors.Is(err, context.Canceled) {
 			return nil
 		}
-		switch rootFlag.Name {
-		case "model", "resume", "version":
-			return
-		}
-		runFlag := runCmd.Flags().Lookup(rootFlag.Name)
-		if runFlag == nil {
-			return
-		}
-		if err := runCmd.Flags().Set(rootFlag.Name, rootFlag.Value.String()); err != nil {
-			setErr = err
-		}
-	})
-	if setErr != nil {
-		return setErr
+		return err
 	}
+
+	if opts.Prompt != "" {
+		fmt.Println()
+		fmt.Println()
+	}
+
+	if !latest.Done {
+		return nil
+	}
+
+	verbose, err := cmd.Flags().GetBool("verbose")
+	if err != nil {
+		return err
+	}
+
+	if verbose {
+		latest.Summary()
+	}
+
+	ctx = context.WithValue(cmd.Context(), generateContextKey("context"), latest.Context)
+	cmd.SetContext(ctx)
 
 	return nil
-}
-
-type runFlagOptions struct {
-	includeResume  bool
-	includeVerbose bool
-	includeFormat  bool
-}
-
-func registerRunFlags(cmd *cobra.Command, includeResume bool) {
-	registerRunFlagsWithOptions(cmd, runFlagOptions{
-		includeResume:  includeResume,
-		includeVerbose: true,
-		includeFormat:  true,
-	})
-}
-
-func registerRootRunFlags(cmd *cobra.Command) {
-	registerRunFlagsWithOptions(cmd, runFlagOptions{
-		includeResume: true,
-	})
-}
-
-func registerRunFlagsWithOptions(cmd *cobra.Command, opts runFlagOptions) {
-	cmd.Flags().String("keepalive", "", "Duration to keep a model loaded (e.g. 5m)")
-	if opts.includeVerbose {
-		cmd.Flags().Bool("verbose", false, "Show timings for response")
-	}
-	cmd.Flags().Bool("insecure", false, "Use an insecure registry")
-	if opts.includeFormat {
-		cmd.Flags().String("format", "", "Response format (e.g. json)")
-	}
-	cmd.Flags().String("think", "", "Enable thinking mode: true/false or high/medium/low for supported models")
-	cmd.Flags().Lookup("think").NoOptDefVal = "true"
-	if opts.includeResume {
-		cmd.Flags().Bool("resume", false, "Resume the latest persisted chat")
-	}
-	cmd.Flags().Bool("auto-approve-tools", false, "Allow agent tools to run without prompting")
-	cmd.Flags().Bool("yolo", false, "Alias for --auto-approve-tools")
-	cmd.Flags().Bool("experimental-yolo", false, "Deprecated: use --auto-approve-tools")
-	cmd.Flags().Bool("truncate", false, "For embedding models: truncate inputs exceeding context length (default: true). Set --truncate=false to error instead")
-	cmd.Flags().Int("dimensions", 0, "Truncate output embeddings to specified dimension (embedding models only)")
-	cmd.Flags().Bool("experimental", false, "Deprecated: agent chat is enabled by default")
-	cmd.Flags().Bool("experimental-websearch", false, "Deprecated: web tools are enabled by default when available")
-	_ = cmd.Flags().MarkHidden("experimental-yolo")
-	_ = cmd.Flags().MarkHidden("experimental")
-	_ = cmd.Flags().MarkHidden("experimental-websearch")
-
-	imagegen.RegisterFlags(cmd)
-
-	cmd.Flags().Bool("imagegen", false, "Use the imagegen runner for LLM inference")
-	_ = cmd.Flags().MarkHidden("imagegen")
-}
-
-var (
-	runHandler                    = RunHandler
-	rootAgentHandler              = runAgentModelPicker
-	agentOnboardingPrompt         = tui.RunAgentSignInOnboarding
-	agentOnboardingSignIn         = runAgentOnboardingSignIn
-	agentOnboardingSignedInStatus = runAgentOnboardingSignedInStatus
-	errAgentOnboardingNotSignedIn = errors.New("not signed in")
-)
-
-func runRootResume(rootCmd, runCmd *cobra.Command, args []string) error {
-	if err := prepareRootResumeRunCommand(rootCmd, runCmd); err != nil {
-		return err
-	}
-	if runCmd.PreRunE != nil {
-		if err := runCmd.PreRunE(runCmd, args); err != nil {
-			return err
-		}
-	}
-	return runHandler(runCmd, args)
-}
-
-func runRootModel(rootCmd, runCmd *cobra.Command, modelName string, args []string) error {
-	if modelName == "" {
-		return errors.New("model is required")
-	}
-	if err := prepareRootModelRunCommand(rootCmd, runCmd); err != nil {
-		return err
-	}
-
-	runArgs := append([]string{modelName}, args...)
-	if runCmd.PreRunE != nil {
-		if err := runCmd.PreRunE(runCmd, runArgs); err != nil {
-			return err
-		}
-	}
-	return runHandler(runCmd, runArgs)
 }
 
 func RunServer(_ *cobra.Command, _ []string) error {
@@ -3041,16 +2030,62 @@ func RunServer(_ *cobra.Command, _ []string) error {
 	return err
 }
 
+func initializeKeypair() error {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return err
+	}
+
+	privKeyPath := filepath.Join(home, ".ollama", "id_ed25519")
+	pubKeyPath := filepath.Join(home, ".ollama", "id_ed25519.pub")
+
+	_, err = os.Stat(privKeyPath)
+	if os.IsNotExist(err) {
+		fmt.Printf("Couldn't find '%s'. Generating new private key.\n", privKeyPath)
+		cryptoPublicKey, cryptoPrivateKey, err := ed25519.GenerateKey(rand.Reader)
+		if err != nil {
+			return err
+		}
+
+		privateKeyBytes, err := ssh.MarshalPrivateKey(cryptoPrivateKey, "")
+		if err != nil {
+			return err
+		}
+
+		if err := os.MkdirAll(filepath.Dir(privKeyPath), 0o755); err != nil {
+			return fmt.Errorf("could not create directory %w", err)
+		}
+
+		if err := os.WriteFile(privKeyPath, pem.EncodeToMemory(privateKeyBytes), 0o600); err != nil {
+			return err
+		}
+
+		sshPublicKey, err := ssh.NewPublicKey(cryptoPublicKey)
+		if err != nil {
+			return err
+		}
+
+		publicKeyBytes := ssh.MarshalAuthorizedKey(sshPublicKey)
+
+		if err := os.WriteFile(pubKeyPath, publicKeyBytes, 0o644); err != nil {
+			return err
+		}
+
+		fmt.Printf("Your new public key is: \n\n%s\n", publicKeyBytes)
+	}
+	return nil
+}
+
 func checkServerHeartbeat(cmd *cobra.Command, _ []string) error {
 	client, err := api.ClientFromEnvironment()
 	if err != nil {
 		return err
 	}
 	if err := client.Heartbeat(cmd.Context()); err != nil {
-		if !strings.Contains(err.Error(), " refused") && !strings.Contains(err.Error(), "could not connect") {
+		if !(strings.Contains(err.Error(), " refused") || strings.Contains(err.Error(), "could not connect")) {
 			return err
 		}
-		if err := startApp(cmd.Context(), client); err != nil {
+		if err := startApp(cmd.Context(), client); err != nil { //nolint:staticcheck,nolintlint // startApp always returns non-nil on Linux (start_default.go) but can return nil on macOS/Windows
 			return err
 		}
 	}
@@ -3058,7 +2093,12 @@ func checkServerHeartbeat(cmd *cobra.Command, _ []string) error {
 }
 
 func versionHandler(cmd *cobra.Command, _ []string) {
-	serverVersion, err := client.New().Version(cmd.Context())
+	client, err := api.ClientFromEnvironment()
+	if err != nil {
+		return
+	}
+
+	serverVersion, err := client.Version(cmd.Context())
 	if err != nil {
 		fmt.Println("Warning: could not connect to a running Ollama instance")
 	}
@@ -3116,140 +2156,6 @@ func launchInteractiveModel(cmd *cobra.Command, modelName string) error {
 		return fmt.Errorf("error running agent: %w", err)
 	}
 	return nil
-}
-
-func runAgentModelPicker(cmd *cobra.Command) {
-	if err := ensureServerRunning(cmd.Context()); err != nil {
-		fmt.Fprintf(os.Stderr, "Error starting server: %v\n", err)
-		return
-	}
-
-	signIn, err := maybeRunAgentOnboarding(cmd.Context())
-	if errors.Is(err, launch.ErrCancelled) {
-		return
-	}
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
-		return
-	}
-	if signIn {
-		if err := agentOnboardingSignIn(cmd.Context()); err != nil && !errors.Is(err, launch.ErrCancelled) {
-			fmt.Fprintf(os.Stderr, "Warning: unable to sign in: %v\n\n", err)
-		}
-	}
-
-	accountPrefetch := launch.StartAccountStatePrefetch(cmd.Context())
-	deps := agentModelPickerDeps{
-		resolveRunModel:     launch.ResolveRunModel,
-		runModel:            launchInteractiveModel,
-		accountState:        accountPrefetch.StateIfReady,
-		accountStateUpdates: accountPrefetch.StateUpdates,
-	}
-	if err := runAgentModelPickerWithDeps(cmd, deps); err != nil {
-		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
-	}
-}
-
-func maybeRunAgentOnboarding(ctx context.Context) (bool, error) {
-	if envconfig.NoCloud() || config.AgentSignInPromptSeen() {
-		return false, nil
-	}
-
-	signedIn, known := agentOnboardingSignedInStatus(ctx)
-	if signedIn {
-		return false, config.SetAgentSignInPromptSeen(true)
-	}
-	if !known {
-		return false, nil
-	}
-
-	signIn, err := agentOnboardingPrompt()
-	if errors.Is(err, tui.ErrCancelled) {
-		return false, launch.ErrCancelled
-	}
-	if err != nil {
-		return false, err
-	}
-	if err := config.SetAgentSignInPromptSeen(true); err != nil {
-		return false, err
-	}
-	return signIn, nil
-}
-
-func runAgentOnboardingSignedInStatus(ctx context.Context) (signedIn bool, known bool) {
-	client, err := api.ClientFromEnvironment()
-	if err != nil {
-		return false, false
-	}
-	user, err := client.Whoami(ctx)
-	if err == nil {
-		return user != nil && user.Name != "", true
-	}
-	var authErr api.AuthorizationError
-	if errors.As(err, &authErr) {
-		return false, true
-	}
-	return false, false
-}
-
-func runAgentOnboardingSignIn(ctx context.Context) error {
-	client, err := api.ClientFromEnvironment()
-	if err != nil {
-		return err
-	}
-
-	user, err := client.Whoami(ctx)
-	if err == nil && user != nil && user.Name != "" {
-		return nil
-	}
-	if err == nil {
-		return errAgentOnboardingNotSignedIn
-	}
-
-	var authErr api.AuthorizationError
-	if !errors.As(err, &authErr) || authErr.SigninURL == "" {
-		return err
-	}
-
-	_, err = tui.RunSignIn("Ollama", authErr.SigninURL)
-	if errors.Is(err, tui.ErrCancelled) {
-		return launch.ErrCancelled
-	}
-	return err
-}
-
-type agentModelPickerDeps struct {
-	resolveRunModel     func(context.Context, launch.RunModelRequest) (string, error)
-	runModel            func(*cobra.Command, string) error
-	accountState        func() *launch.AccountState
-	accountStateUpdates func(context.Context) <-chan *launch.AccountState
-}
-
-func runAgentModelPickerWithDeps(cmd *cobra.Command, deps agentModelPickerDeps) error {
-	req := launch.RunModelRequest{}
-	if deps.accountState != nil {
-		req.AccountState = deps.accountState()
-		req.AccountStateProvider = deps.accountState
-	}
-	req.AccountStateUpdates = deps.accountStateUpdates
-
-	modelName, err := deps.resolveRunModel(cmd.Context(), req)
-	if errors.Is(err, launch.ErrCancelled) {
-		return nil
-	}
-	if errors.Is(err, launch.ErrPlanVerificationUnavailable) && !req.ForcePicker {
-		req.ForcePicker = true
-		req.AccountState = &launch.AccountState{}
-		req.AccountStateProvider = nil
-		modelName, err = deps.resolveRunModel(cmd.Context(), req)
-		if errors.Is(err, launch.ErrCancelled) {
-			return nil
-		}
-	}
-	if err != nil {
-		return fmt.Errorf("selecting model: %w", err)
-	}
-	return deps.runModel(cmd, modelName)
 }
 
 // runInteractiveTUI runs the main interactive TUI menu.
@@ -3378,67 +2284,55 @@ func NewCLI() *cobra.Command {
 		console.ConsoleFromFile(os.Stdin) //nolint:errcheck
 	}
 
-	var runCmd *cobra.Command
 	rootCmd := &cobra.Command{
 		Use:           "ollama",
-		Short:         "Run the Ollama interactive menu",
+		Short:         "Large language model runner",
 		SilenceUsage:  true,
 		SilenceErrors: true,
 		CompletionOptions: cobra.CompletionOptions{
 			DisableDefaultCmd: true,
 		},
-		RunE: func(cmd *cobra.Command, args []string) error {
+		Run: func(cmd *cobra.Command, args []string) {
 			if version, _ := cmd.Flags().GetBool("version"); version {
 				versionHandler(cmd, args)
-				return nil
+				return
 			}
 
-			if resume, _ := cmd.Flags().GetBool("resume"); resume {
-				modelName, _ := cmd.Flags().GetString("model")
-				if modelName != "" {
-					args = append([]string{modelName}, args...)
-				}
-				return runRootResume(cmd, runCmd, args)
-			}
-
-			if modelName, _ := cmd.Flags().GetString("model"); modelName != "" {
-				return runRootModel(cmd, runCmd, modelName, args)
-			}
-
-			rootAgentHandler(cmd)
-			return nil
+			runInteractiveTUI(cmd)
 		},
 	}
 
 	rootCmd.Flags().BoolP("version", "v", false, "Show version information")
-	rootCmd.Flags().String("model", "", "Run a model")
-	registerRootRunFlags(rootCmd)
+	rootCmd.Flags().Bool("verbose", false, "Show timings for response")
+	rootCmd.Flags().Bool("nowordwrap", false, "Don't wrap words to the next line automatically")
 
 	createCmd := &cobra.Command{
-		Use:         "create MODEL",
-		Short:       "Create a model",
-		Args:        cobra.ExactArgs(1),
-		PreRunE:     checkServerHeartbeat,
-		RunE:        CreateHandler,
-		Annotations: envconfig.Usage("OLLAMA_HOST"),
+		Use:   "create MODEL",
+		Short: "Create a model",
+		Args:  cobra.ExactArgs(1),
+		PreRunE: func(cmd *cobra.Command, args []string) error {
+			// Skip server check for experimental mode (writes directly to disk)
+			if experimental, _ := cmd.Flags().GetBool("experimental"); experimental {
+				return nil
+			}
+			return checkServerHeartbeat(cmd, args)
+		},
+		RunE: CreateHandler,
 	}
 
 	createCmd.Flags().StringP("file", "f", "", "Name of the Modelfile (default \"Modelfile\")")
-	createCmd.Flags().StringSlice("combine", nil, "Create a manifest list from comma-separated local models")
 	createCmd.Flags().StringP("quantize", "q", "", "Quantize model to this level (e.g. q4_K_M)")
 	createCmd.Flags().String("draft-quantize", "", "Quantize draft model to this level")
 	createCmd.Flags().Bool("experimental", false, "Enable experimental safetensors model creation")
 
 	showCmd := &cobra.Command{
-		Use:         "show MODEL",
-		Short:       "Show information for a model",
-		Args:        cobra.ExactArgs(1),
-		PreRunE:     checkServerHeartbeat,
-		RunE:        ShowHandler,
-		Annotations: envconfig.Usage("OLLAMA_HOST"),
+		Use:     "show MODEL",
+		Short:   "Show information for a model",
+		Args:    cobra.ExactArgs(1),
+		PreRunE: checkServerHeartbeat,
+		RunE:    ShowHandler,
 	}
 
-	showCmd.Flags().Bool("model", false, "Show basic stats of a model")
 	showCmd.Flags().Bool("license", false, "Show license of a model")
 	showCmd.Flags().Bool("modelfile", false, "Show Modelfile of a model")
 	showCmd.Flags().Bool("parameters", false, "Show parameters of a model")
@@ -3447,37 +2341,30 @@ func NewCLI() *cobra.Command {
 	showCmd.Flags().BoolP("verbose", "v", false, "Show detailed model information")
 
 	runCmd := &cobra.Command{
-		Use:         "run MODEL [PROMPT]",
-		Short:       "Run a model",
-		Args:        cobra.MinimumNArgs(1),
-		PreRunE:     checkServerHeartbeat,
-		RunE:        RunHandler,
-		Annotations: envconfig.Usage("OLLAMA_HOST", "OLLAMA_NOHISTORY"),
+		Use:     "run MODEL [PROMPT]",
+		Short:   "Run a model",
+		Args:    cobra.MinimumNArgs(1),
+		PreRunE: checkServerHeartbeat,
+		RunE:    RunHandler,
 	}
 
-	runCmd.Flags().Bool("speech", false, "Speech to text mode")
 	runCmd.Flags().String("keepalive", "", "Duration to keep a model loaded (e.g. 5m)")
 	runCmd.Flags().Bool("verbose", false, "Show timings for response")
 	runCmd.Flags().Bool("insecure", false, "Use an insecure registry")
 	runCmd.Flags().Bool("nowordwrap", false, "Don't wrap words to the next line automatically")
 	runCmd.Flags().String("format", "", "Response format (e.g. json)")
-	runCmd.Flags().String("runner", "", "Runner to use for manifest list selection (mlx, ggml, llamacpp)")
-	runCmd.Flags().MarkHidden("runner")
 	runCmd.Flags().String("think", "", "Enable thinking mode: true/false or high/medium/low for supported models")
 	runCmd.Flags().Lookup("think").NoOptDefVal = "true"
 	runCmd.Flags().Bool("hidethinking", false, "Hide thinking output (if provided)")
 	runCmd.Flags().Bool("truncate", false, "For embedding models: truncate inputs exceeding context length (default: true). Set --truncate=false to error instead")
 	runCmd.Flags().Int("dimensions", 0, "Truncate output embeddings to specified dimension (embedding models only)")
-	runCmd.Flags().Bool("experimental", false, "Enable experimental agent loop with tools")
-	runCmd.Flags().BoolP("yolo", "y", false, "Skip all tool approval prompts (use with caution)")
 
 	stopCmd := &cobra.Command{
-		Use:         "stop MODEL",
-		Short:       "Stop a running model",
-		Args:        cobra.ExactArgs(1),
-		PreRunE:     checkServerHeartbeat,
-		RunE:        StopHandler,
-		Annotations: envconfig.Usage("OLLAMA_HOST"),
+		Use:     "stop MODEL",
+		Short:   "Stop a running model",
+		Args:    cobra.ExactArgs(1),
+		PreRunE: checkServerHeartbeat,
+		RunE:    StopHandler,
 	}
 
 	serveCmd := &cobra.Command{
@@ -3486,45 +2373,24 @@ func NewCLI() *cobra.Command {
 		Short:   "Start Ollama",
 		Args:    cobra.ExactArgs(0),
 		RunE:    RunServer,
-		Annotations: envconfig.Usage(
-			"OLLAMA_DEBUG",
-			"OLLAMA_HOST",
-			"OLLAMA_CONTEXT_LENGTH",
-			"OLLAMA_KEEP_ALIVE",
-			"OLLAMA_MAX_LOADED_MODELS",
-			"OLLAMA_MAX_QUEUE",
-			"OLLAMA_MODELS",
-			"OLLAMA_NUM_PARALLEL",
-			"OLLAMA_NOPRUNE",
-			"OLLAMA_ORIGINS",
-			"OLLAMA_SCHED_SPREAD",
-			"OLLAMA_FLASH_ATTENTION",
-			"OLLAMA_KV_CACHE_TYPE",
-			"OLLAMA_LLM_LIBRARY",
-			"OLLAMA_GPU_OVERHEAD",
-			"OLLAMA_LOAD_TIMEOUT",
-		),
 	}
 
 	pullCmd := &cobra.Command{
-		Use:         "pull MODEL",
-		Short:       "Pull a model from a registry",
-		Args:        cobra.ExactArgs(1),
-		PreRunE:     checkServerHeartbeat,
-		RunE:        PullHandler,
-		Annotations: envconfig.Usage("OLLAMA_HOST"),
+		Use:     "pull MODEL",
+		Short:   "Pull a model from a registry",
+		Args:    cobra.ExactArgs(1),
+		PreRunE: checkServerHeartbeat,
+		RunE:    PullHandler,
 	}
 
 	pullCmd.Flags().Bool("insecure", false, "Use an insecure registry")
-	pullCmd.Flags().Bool("upgrade-all", false, "Upgrade all models if they're out of date")
 
 	pushCmd := &cobra.Command{
-		Use:         "push MODEL",
-		Short:       "Push a model to a registry",
-		Args:        cobra.ExactArgs(1),
-		PreRunE:     checkServerHeartbeat,
-		RunE:        PushHandler,
-		Annotations: envconfig.Usage("OLLAMA_HOST"),
+		Use:     "push MODEL",
+		Short:   "Push a model to a registry",
+		Args:    cobra.ExactArgs(1),
+		PreRunE: checkServerHeartbeat,
+		RunE:    PushHandler,
 	}
 
 	pushCmd.Flags().Bool("insecure", false, "Use an insecure registry")
@@ -3563,56 +2429,41 @@ func NewCLI() *cobra.Command {
 		RunE:    SignoutHandler,
 	}
 
-	usageCmd := &cobra.Command{
-		Use:     "usage",
-		Short:   "Show your ollama.com usage",
-		Args:    cobra.ExactArgs(0),
-		PreRunE: checkServerHeartbeat,
-		RunE:    UsageHandler,
-	}
-
-	pushCmd.Flags().Bool("insecure", false, "Use an insecure registry")
-
 	listCmd := &cobra.Command{
-		Use:         "list",
-		Aliases:     []string{"ls"},
-		Short:       "List models",
-		PreRunE:     checkServerHeartbeat,
-		RunE:        ListHandler,
-		Annotations: envconfig.Usage("OLLAMA_HOST"),
+		Use:     "list",
+		Aliases: []string{"ls"},
+		Short:   "List models",
+		PreRunE: checkServerHeartbeat,
+		RunE:    ListHandler,
 	}
 
 	psCmd := &cobra.Command{
-		Use:         "ps",
-		Short:       "List running models",
-		PreRunE:     checkServerHeartbeat,
-		RunE:        ListRunningHandler,
-		Annotations: envconfig.Usage("OLLAMA_HOST"),
+		Use:     "ps",
+		Short:   "List running models",
+		PreRunE: checkServerHeartbeat,
+		RunE:    ListRunningHandler,
 	}
-
 	copyCmd := &cobra.Command{
-		Use:         "cp SOURCE DESTINATION",
-		Short:       "Copy a model",
-		Args:        cobra.ExactArgs(2),
-		PreRunE:     checkServerHeartbeat,
-		RunE:        CopyHandler,
-		Annotations: envconfig.Usage("OLLAMA_HOST"),
+		Use:     "cp SOURCE DESTINATION",
+		Short:   "Copy a model",
+		Args:    cobra.ExactArgs(2),
+		PreRunE: checkServerHeartbeat,
+		RunE:    CopyHandler,
 	}
 
 	deleteCmd := &cobra.Command{
-		Use:         "rm MODEL [MODEL...]",
-		Short:       "Remove a model",
-		Args:        cobra.MinimumNArgs(1),
-		PreRunE:     checkServerHeartbeat,
-		RunE:        DeleteHandler,
-		Annotations: envconfig.Usage("OLLAMA_HOST"),
+		Use:     "rm MODEL [MODEL...]",
+		Short:   "Remove a model",
+		Args:    cobra.MinimumNArgs(1),
+		PreRunE: checkServerHeartbeat,
+		RunE:    DeleteHandler,
 	}
 
 	runnerCmd := &cobra.Command{
 		Use:    "runner",
 		Hidden: true,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runner.Execute(os.Args[2:])
+			return runner.Execute(os.Args[1:])
 		},
 		FParseErrWhitelist: cobra.FParseErrWhitelist{UnknownFlags: true},
 	}
@@ -3639,13 +2490,13 @@ func NewCLI() *cobra.Command {
 		showCmd,
 		runCmd,
 		stopCmd,
+		pullCmd,
 		pushCmd,
-		usageCmd,
 		listCmd,
 		psCmd,
 		copyCmd,
+		deleteCmd,
 		serveCmd,
-		embedCmd,
 	} {
 		switch cmd {
 		case runCmd:
@@ -3674,24 +2525,10 @@ func NewCLI() *cobra.Command {
 				envVars["LLAMA_ARG_FIT_TARGET"],
 				envVars["OLLAMA_LOAD_TIMEOUT"],
 			})
-		case pushCmd:
-			appendEnvDocs(cmd, []envconfig.EnvVar{envVars["OLLAMA_NONINTERACTIVE"]})
 		default:
 			appendEnvDocs(cmd, envs)
 		}
 	}
-
-	updateCmd := &cobra.Command{
-		Use:   "update",
-		Short: "Update Ollama to the latest version",
-		Args:  cobra.ExactArgs(0),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			force, _ := cmd.Flags().GetBool("force")
-			_ = version.ClearCachedUpdate()
-			return version.DoUpdate(force)
-		},
-	}
-	updateCmd.Flags().BoolP("force", "f", false, "Force update even if installed via a package manager")
 
 	rootCmd.AddCommand(
 		serveCmd,
@@ -3699,23 +2536,21 @@ func NewCLI() *cobra.Command {
 		showCmd,
 		runCmd,
 		stopCmd,
-		cmdPull(),
+		pullCmd,
 		pushCmd,
 		signinCmd,
 		loginCmd,
 		signoutCmd,
 		logoutCmd,
-		usageCmd,
 		listCmd,
 		psCmd,
 		copyCmd,
-		cmdRemove(),
+		deleteCmd,
 		runnerCmd,
 		gpuDiscoverCmd,
 		launch.LaunchCmd(checkServerHeartbeat, runInteractiveTUI),
 	)
 
-	rootCmd.SetUsageTemplate(usageTemplate)
 	return rootCmd
 }
 
@@ -3758,4 +2593,30 @@ func inferThinkingOption(caps *[]model.Capability, runOpts *runOptions, explicit
 	}
 
 	return nil, nil
+}
+
+func renderToolCalls(toolCalls []api.ToolCall, plainText bool) string {
+	out := ""
+	formatExplanation := ""
+	formatValues := ""
+	if !plainText {
+		formatExplanation = readline.ColorGrey + readline.ColorBold
+		formatValues = readline.ColorDefault
+		out += formatExplanation
+	}
+	for i, toolCall := range toolCalls {
+		argsAsJSON, err := json.Marshal(toolCall.Function.Arguments)
+		if err != nil {
+			return ""
+		}
+		if i > 0 {
+			out += "\n"
+		}
+		// all tool calls are unexpected since we don't currently support registering any in the CLI
+		out += fmt.Sprintf("  Model called a non-existent function '%s()' with arguments: %s", formatValues+toolCall.Function.Name+formatExplanation, formatValues+string(argsAsJSON)+formatExplanation)
+	}
+	if !plainText {
+		out += readline.ColorDefault
+	}
+	return out
 }

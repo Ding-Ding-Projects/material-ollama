@@ -5,8 +5,6 @@ import { useMemo } from "react";
 import { useCloudStatus } from "./useCloudStatus";
 import { useFeaturedModels } from "./useFeaturedModels";
 
-const DEFAULT_MODEL = "gemma3:4b";
-
 export function useModels(searchQuery = "") {
   const { cloudDisabled } = useCloudStatus();
   const { data: recommendations, isLoading: recommendationsLoading } =

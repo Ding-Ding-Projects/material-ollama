@@ -14,8 +14,8 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/ollama/ollama/convert/bfloat16"
-	"github.com/ollama/ollama/convert/float16"
+	"github.com/d4l3k/go-bfloat16"
+	"github.com/x448/float16"
 )
 
 type safetensorMetadata struct {
@@ -42,10 +42,6 @@ func parseSafetensors(fsys fs.FS, replacer *strings.Replacer, ps ...string) ([]T
 		if err := binary.Read(f, binary.LittleEndian, &n); err != nil {
 			return nil, err
 		}
-		if n <= 0 || n > 100<<20 {
-			return nil, fmt.Errorf("invalid safetensors file %q (header size: %d): file may be corrupted or a Git LFS pointer", p, n)
-		}
-
 		if n <= 0 || n > 100<<20 {
 			return nil, fmt.Errorf("invalid safetensors file %q (header size: %d): file may be corrupted or a Git LFS pointer", p, n)
 		}
@@ -237,11 +233,14 @@ func (st safetensor) WriteTo(w io.Writer) (int64, error) {
 			return 0, err
 		}
 
-		f32s = float16.Float32s(u16s)
+		f32s = make([]float32, len(u16s))
+		for i := range u16s {
+			f32s[i] = float16.Frombits(u16s[i]).Float32()
+		}
 
 	case "BF16":
-		u16s := make([]uint16, st.size/2)
-		if err = binary.Read(br, binary.LittleEndian, u16s); err != nil {
+		u8s := make([]uint8, st.size)
+		if err = binary.Read(br, binary.LittleEndian, u8s); err != nil {
 			return 0, err
 		}
 

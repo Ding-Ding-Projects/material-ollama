@@ -19,7 +19,6 @@ import (
 	"github.com/ollama/ollama/envconfig"
 	"github.com/ollama/ollama/internal/modelref"
 	"github.com/ollama/ollama/readline"
-	"github.com/ollama/ollama/recorder"
 	"github.com/ollama/ollama/types/errtypes"
 	"github.com/ollama/ollama/types/model"
 )
@@ -32,26 +31,14 @@ const (
 	MultilineSystem
 )
 
-const (
-	scannerPrompt    = ">>> "
-	scannerAltPrompt = "... "
-)
-
 func generateInteractive(cmd *cobra.Command, opts runOptions) error {
-	var sessionPromptTokens int64
-	var sessionCompletionTokens int64
-
 	usage := func() {
 		fmt.Fprintln(os.Stderr, "Available Commands:")
 		fmt.Fprintln(os.Stderr, "  /set            Set session variables")
 		fmt.Fprintln(os.Stderr, "  /show           Show model information")
-		fmt.Fprintln(os.Stderr, "  /skills         Show available skills")
-		fmt.Fprintln(os.Stderr, "  /skill          Add or remove skills dynamically")
-		fmt.Fprintln(os.Stderr, "  /mcp            Show/add/remove MCP servers")
 		fmt.Fprintln(os.Stderr, "  /load <model>   Load a session or model")
 		fmt.Fprintln(os.Stderr, "  /save <model>   Save your current session")
 		fmt.Fprintln(os.Stderr, "  /clear          Clear session context")
-		fmt.Fprintln(os.Stderr, "  /usage          Show session token usage")
 		fmt.Fprintln(os.Stderr, "  /bye            Exit")
 		fmt.Fprintln(os.Stderr, "  /?, /help       Help for a command")
 		fmt.Fprintln(os.Stderr, "  /? shortcuts    Help for keyboard shortcuts")
@@ -129,8 +116,8 @@ func generateInteractive(cmd *cobra.Command, opts runOptions) error {
 	}
 
 	scanner, err := readline.New(readline.Prompt{
-		Prompt:         scannerPrompt,
-		AltPrompt:      scannerAltPrompt,
+		Prompt:         ">>> ",
+		AltPrompt:      "... ",
 		Placeholder:    "Send a message (/? for help)",
 		AltPlaceholder: "Press Enter to send",
 	})
@@ -146,6 +133,7 @@ func generateInteractive(cmd *cobra.Command, opts runOptions) error {
 	defer fmt.Printf(readline.EndBracketedPaste)
 
 	var sb strings.Builder
+	var multiline MultilineState
 	var thinkExplicitlySet bool = opts.Think != nil
 
 	for {
@@ -200,7 +188,7 @@ func generateInteractive(cmd *cobra.Command, opts runOptions) error {
 
 			multiline = MultilineNone
 			scanner.Prompt.UseAlt = false
-		case strings.HasPrefix(line, `"""`) && !scanner.Pasting:
+		case strings.HasPrefix(line, `"""`):
 			line := strings.TrimPrefix(line, `"""`)
 			line, ok := strings.CutSuffix(line, `"""`)
 			sb.WriteString(line)
@@ -215,7 +203,7 @@ func generateInteractive(cmd *cobra.Command, opts runOptions) error {
 			continue
 		case strings.HasPrefix(line, "/list"):
 			args := strings.Fields(line)
-			if err := listHandler(cmd, args[1:]); err != nil {
+			if err := ListHandler(cmd, args[1:]); err != nil {
 				return err
 			}
 		case strings.HasPrefix(line, "/load"):
@@ -236,7 +224,7 @@ func generateInteractive(cmd *cobra.Command, opts runOptions) error {
 			opts.Messages = []api.Message{}
 			opts.LoadedMessages = nil
 			fmt.Printf("Loading model '%s'\n", opts.Model)
-			info, err := client.Show(cmd.Context(), &api.ShowRequest{Model: opts.Model, Runner: opts.Runner})
+			info, err := client.Show(cmd.Context(), &api.ShowRequest{Model: opts.Model})
 			if err != nil {
 				if strings.Contains(err.Error(), "not found") {
 					fmt.Printf("Couldn't find model '%s'\n", opts.Model)
@@ -280,7 +268,7 @@ func generateInteractive(cmd *cobra.Command, opts runOptions) error {
 			fn := func(resp api.ProgressResponse) error { return nil }
 			err = client.Create(cmd.Context(), req, fn)
 			if err != nil {
-				if strings.Contains(err.Error(), api.InvalidModelNameErrMsg) {
+				if strings.Contains(err.Error(), errtypes.InvalidModelNameErrMsg) {
 					fmt.Printf("error: The model name '%s' is invalid\n", args[1])
 					continue
 				}
@@ -335,7 +323,7 @@ func generateInteractive(cmd *cobra.Command, opts runOptions) error {
 					opts.Think = &thinkValue
 					thinkExplicitlySet = true
 					if client, err := api.ClientFromEnvironment(); err == nil {
-						ensureThinkingSupport(cmd.Context(), client, opts.Model, opts.Runner)
+						ensureThinkingSupport(cmd.Context(), client, opts.Model)
 					}
 					if maybeLevel != "" {
 						fmt.Printf("Set 'think' mode to '%s'.\n", maybeLevel)
@@ -346,20 +334,15 @@ func generateInteractive(cmd *cobra.Command, opts runOptions) error {
 					opts.Think = &api.ThinkValue{Value: false}
 					thinkExplicitlySet = true
 					if client, err := api.ClientFromEnvironment(); err == nil {
-						ensureThinkingSupport(cmd.Context(), client, opts.Model, opts.Runner)
+						ensureThinkingSupport(cmd.Context(), client, opts.Model)
 					}
 					fmt.Println("Set 'nothink' mode.")
 				case "format":
-					if len(args) < 3 {
-						fmt.Println("Invalid or missing format. For 'json' mode use '/set format json or provide a JSON schema'")
-					} else if len(args) == 3 && (args[2] == "json" || args[2] == `"json"`) {
-						opts.Format = `"json"`
-						fmt.Println("Set format to 'json' mode.")
-					} else if len(args) > 3 && strings.HasPrefix(args[2], "{") {
-						opts.Format = strings.Join(args[2:], " ")
-						fmt.Printf("Set format to schema: \n'%s'.\n", opts.Format)
+					if len(args) < 3 || args[2] != "json" {
+						fmt.Println("Invalid or missing format. For 'json' mode use '/set format json'")
 					} else {
-						fmt.Println("Invalid or missing format. For 'json' mode use '/set format json or provide a JSON schema'")
+						opts.Format = args[2]
+						fmt.Printf("Set format to '%s' mode.\n", args[2])
 					}
 				case "noformat":
 					opts.Format = ""
@@ -370,7 +353,7 @@ func generateInteractive(cmd *cobra.Command, opts runOptions) error {
 						continue
 					}
 					params := args[3:]
-					fp, err := api.FormatParameters(map[string][]string{args[2]: params})
+					fp, err := api.FormatParams(map[string][]string{args[2]: params})
 					if err != nil {
 						fmt.Printf("Couldn't set parameter: %q\n", err)
 						continue
@@ -379,19 +362,41 @@ func generateInteractive(cmd *cobra.Command, opts runOptions) error {
 					opts.Options[args[2]] = fp[args[2]]
 				case "system":
 					if len(args) < 3 {
-						fmt.Println("Usage: /set system <message>")
+						usageSet()
 						continue
 					}
 
-					opts.System = strings.Join(args[2:], " ")
-					newMessage := api.Message{Role: "system", Content: opts.System}
+					multiline = MultilineSystem
+
+					line := strings.Join(args[2:], " ")
+					line, ok := strings.CutPrefix(line, `"""`)
+					if !ok {
+						multiline = MultilineNone
+					} else {
+						// only cut suffix if the line is multiline
+						line, ok = strings.CutSuffix(line, `"""`)
+						if ok {
+							multiline = MultilineNone
+						}
+					}
+
+					sb.WriteString(line)
+					if multiline != MultilineNone {
+						scanner.Prompt.UseAlt = true
+						continue
+					}
+
+					opts.System = sb.String() // for display in modelfile
+					newMessage := api.Message{Role: "system", Content: sb.String()}
 					// Check if the slice is not empty and the last message is from 'system'
 					if len(opts.Messages) > 0 && opts.Messages[len(opts.Messages)-1].Role == "system" {
+						// Replace the last message
 						opts.Messages[len(opts.Messages)-1] = newMessage
 					} else {
 						opts.Messages = append(opts.Messages, newMessage)
 					}
 					fmt.Println("Set system message.")
+					sb.Reset()
 					continue
 				default:
 					fmt.Printf("Unknown command '/set %s'. Type /? for help\n", args[1])
@@ -409,7 +414,6 @@ func generateInteractive(cmd *cobra.Command, opts runOptions) error {
 				}
 				req := &api.ShowRequest{
 					Name:    opts.Model,
-					Runner:  opts.Runner,
 					System:  opts.System,
 					Options: opts.Options,
 				}
@@ -435,7 +439,7 @@ func generateInteractive(cmd *cobra.Command, opts runOptions) error {
 					if resp.Parameters == "" {
 						fmt.Println("  No additional parameters were specified for this model.")
 					} else {
-						for l := range strings.SplitSeq(resp.Parameters, "\n") {
+						for _, l := range strings.Split(resp.Parameters, "\n") {
 							fmt.Printf("  %s\n", l)
 						}
 					}
@@ -468,9 +472,6 @@ func generateInteractive(cmd *cobra.Command, opts runOptions) error {
 			} else {
 				usageShow()
 			}
-		case strings.HasPrefix(line, "/usage"):
-			fmt.Printf("prompt tokens:     %d\n", sessionPromptTokens)
-			fmt.Printf("completion tokens: %d\n", sessionCompletionTokens)
 		case strings.HasPrefix(line, "/help"), strings.HasPrefix(line, "/?"):
 			args := strings.Fields(line)
 			if len(args) > 1 {
@@ -479,20 +480,6 @@ func generateInteractive(cmd *cobra.Command, opts runOptions) error {
 					usageSet()
 				case "show", "/show":
 					usageShow()
-				case "skill", "/skill":
-					fmt.Fprintln(os.Stderr, "Available Commands:")
-					fmt.Fprintln(os.Stderr, "  /skill add <path>      Add a skill from local path")
-					fmt.Fprintln(os.Stderr, "  /skill remove <name>   Remove a skill by name")
-					fmt.Fprintln(os.Stderr, "  /skill list            List current session skills")
-					fmt.Fprintln(os.Stderr, "")
-				case "mcp", "/mcp":
-					fmt.Fprintln(os.Stderr, "Available Commands:")
-					fmt.Fprintln(os.Stderr, "  /mcp                                  Show all MCP servers")
-					fmt.Fprintln(os.Stderr, "  /mcp add <name> <command> [args...]   Add an MCP server to global config")
-					fmt.Fprintln(os.Stderr, "  /mcp remove <name>                    Remove an MCP server from global config")
-					fmt.Fprintln(os.Stderr, "  /mcp disable <name>                   Disable an MCP server (keep in config)")
-					fmt.Fprintln(os.Stderr, "  /mcp enable <name>                    Re-enable a disabled MCP server")
-					fmt.Fprintln(os.Stderr, "")
 				case "shortcut", "shortcuts":
 					usageShortcuts()
 				}
@@ -520,12 +507,11 @@ func generateInteractive(cmd *cobra.Command, opts runOptions) error {
 			}
 
 			sb.WriteString(line)
-
 		default:
 			sb.WriteString(line)
 		}
 
-		if sb.Len() > 0 && strings.TrimSpace(sb.String()) != "" && multiline == MultilineNone {
+		if sb.Len() > 0 && multiline == MultilineNone {
 			newMessage := api.Message{Role: "user", Content: sb.String()}
 
 			if opts.MultiModal {
@@ -540,7 +526,7 @@ func generateInteractive(cmd *cobra.Command, opts runOptions) error {
 
 			opts.Messages = append(opts.Messages, newMessage)
 
-			assistant, metrics, err := chat(cmd, opts)
+			assistant, err := chat(cmd, opts)
 			if err != nil {
 				if strings.Contains(err.Error(), "does not support thinking") ||
 					strings.Contains(err.Error(), "invalid think value") {
@@ -550,16 +536,11 @@ func generateInteractive(cmd *cobra.Command, opts runOptions) error {
 				}
 				return err
 			}
-			if metrics != nil {
-				sessionPromptTokens += int64(metrics.PromptEvalCount)
-				sessionCompletionTokens += int64(metrics.EvalCount)
-			}
 			if assistant != nil {
 				opts.Messages = append(opts.Messages, *assistant)
 			}
 
 			sb.Reset()
-			scanner.Prompt.Prompt = scannerPrompt
 		}
 	}
 }
@@ -633,8 +614,9 @@ func extractFileNames(input string) []string {
 
 func extractFileData(input string) (string, []api.ImageData, error) {
 	filePaths := extractFileNames(input)
-	imgs := make([]api.ImageData, len(filePaths))
-	for i, fp := range filePaths {
+	var imgs []api.ImageData
+
+	for _, fp := range filePaths {
 		nfp := normalizeFilePath(fp)
 		data, err := getImageData(nfp)
 		if errors.Is(err, os.ErrNotExist) {
@@ -653,7 +635,7 @@ func extractFileData(input string) (string, []api.ImageData, error) {
 		input = strings.ReplaceAll(input, "'"+nfp+"'", "")
 		input = strings.ReplaceAll(input, "'"+fp+"'", "")
 		input = strings.ReplaceAll(input, fp, "")
-		imgs[i] = data
+		imgs = append(imgs, data)
 	}
 	return strings.TrimSpace(input), imgs, nil
 }
@@ -671,9 +653,12 @@ func editInExternalEditor(content string) (string, error) {
 	}
 
 	// Check that the editor binary exists
-	name := strings.Fields(editor)[0]
-	if _, err := exec.LookPath(name); err != nil {
-		return "", fmt.Errorf("editor %q not found, set OLLAMA_EDITOR to the path of your preferred editor", name)
+	args := strings.Fields(editor)
+	if len(args) == 0 {
+		return "", fmt.Errorf("no editor configured, set OLLAMA_EDITOR to the path of your preferred editor")
+	}
+	if _, err := exec.LookPath(args[0]); err != nil {
+		return "", fmt.Errorf("editor %q not found, set OLLAMA_EDITOR to the path of your preferred editor", args[0])
 	}
 
 	tmpFile, err := os.CreateTemp("", "ollama-prompt-*.txt")
@@ -690,7 +675,6 @@ func editInExternalEditor(content string) (string, error) {
 	}
 	tmpFile.Close()
 
-	args := strings.Fields(editor)
 	args = append(args, tmpFile.Name())
 	cmd := exec.Command(args[0], args[1:]...)
 	cmd.Stdin = os.Stdin

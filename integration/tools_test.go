@@ -3,18 +3,12 @@
 package integration
 
 import (
-	"bytes"
 	"context"
-	"encoding/json"
 	"fmt"
-	"io"
-	"net/http"
-	"strings"
 	"testing"
 	"time"
 
 	"github.com/ollama/ollama/api"
-	"github.com/ollama/ollama/openai"
 )
 
 // testPropsMap creates a ToolPropertiesMap from a map (convenience function for tests)
@@ -66,7 +60,7 @@ func runAPIToolCallingModel(t *testing.T, model string) {
 	ctx, cancel := context.WithTimeout(context.Background(), hardTimeout)
 	defer cancel()
 
-	client, endpoint, cleanup := InitServerConnection(ctx, t)
+	client, _, cleanup := InitServerConnection(ctx, t)
 	defer cleanup()
 
 	runAPIToolCallingModelWithClient(t, ctx, client, model, initialTimeout, streamTimeout, toolsMinVRAM)

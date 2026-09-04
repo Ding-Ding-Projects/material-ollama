@@ -101,7 +101,7 @@ func DoUpgrade(interactive bool) error {
 
 	bundle := getStagedUpdate()
 	if bundle == "" {
-		return errors.New("failed to lookup downloads")
+		return fmt.Errorf("failed to lookup downloads")
 	}
 
 	slog.Info("starting upgrade", "app", BundlePath, "update", bundle, "pid", os.Getpid(), "log", UpgradeLogFile)
@@ -116,7 +116,7 @@ func DoUpgrade(interactive bool) error {
 	// Verify old doesn't exist yet
 	if _, err := os.Stat(contentsOldName); err == nil {
 		slog.Error("prior upgrade failed", "backup", contentsOldName)
-		return errors.New("prior upgrade failed - please upgrade manually by installing the bundle")
+		return fmt.Errorf("prior upgrade failed - please upgrade manually by installing the bundle")
 	}
 	if err := os.MkdirAll(appBackupDir, 0o755); err != nil {
 		return fmt.Errorf("unable to create backup dir %s: %w", appBackupDir, err)
@@ -142,14 +142,14 @@ func DoUpgrade(interactive bool) error {
 			return err
 		}
 		if !chownWithAuthorization(u.Username) {
-			return errors.New("unable to change permissions to complete upgrade")
+			return fmt.Errorf("unable to change permissions to complete upgrade")
 		}
 		if err := os.Rename(BundlePath, appBackup); err != nil {
 			return fmt.Errorf("unable to perform upgrade - failed to stage old version: %w", err)
 		}
 	}
 
-	// Get ready to try to unwind a partial upgade failure during unzip
+	// Get ready to try to unwind a partial upgrade failure during unzip
 	// If something goes wrong, we attempt to put the old version back.
 	anyFailures := false
 	defer func() {
@@ -269,7 +269,7 @@ func DoPostUpgradeCleanup() error {
 func verifyDownload() error {
 	bundle := getStagedUpdate()
 	if bundle == "" {
-		return errors.New("failed to lookup downloads")
+		return fmt.Errorf("failed to lookup downloads")
 	}
 	slog.Debug("verifying update", "bundle", bundle)
 
@@ -339,7 +339,7 @@ func verifyDownload() error {
 	}
 
 	if err := verifyExtractedBundle(filepath.Join(dir, "Ollama.app")); err != nil {
-		return fmt.Errorf("signature verification failed: %w", err)
+		return fmt.Errorf("signature verification failed: %s", err)
 	}
 	return nil
 }
@@ -395,11 +395,11 @@ func validBundleLinkTarget(name, link string, scope bundleEntryScope) bool {
 func DoUpgradeAtStartup() error {
 	bundle := getStagedUpdate()
 	if bundle == "" {
-		return errors.New("failed to lookup downloads")
+		return fmt.Errorf("failed to lookup downloads")
 	}
 
 	if BundlePath == "" {
-		return errors.New("unable to upgrade at startup, app in development mode")
+		return fmt.Errorf("unable to upgrade at startup, app in development mode")
 	}
 
 	// [Re]verify before proceeding
@@ -434,7 +434,7 @@ func IsUpdatePending() bool {
 func chownWithAuthorization(user string) bool {
 	u := C.CString(user)
 	defer C.free(unsafe.Pointer(u))
-	return (bool)(C.chownWithAuthorization(u))
+	return bool(C.chownWithAuthorization(u))
 }
 
 func verifyExtractedBundle(path string) error {

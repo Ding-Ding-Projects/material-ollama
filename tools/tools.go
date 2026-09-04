@@ -17,11 +17,6 @@ const (
 	toolsState_Done
 )
 
-type ToolParser interface {
-	Add(s string) (tools []api.ToolCall, content string)
-	NewParser(templateToProcess *gotmpl.Template) (ToolParser, error)
-}
-
 type Parser struct {
 	tag   string
 	tools []api.Tool
@@ -241,22 +236,45 @@ func findArguments(tool *api.Tool, buffer []byte) (map[string]any, int) {
 		return nil, 0
 	}
 
+	start := -1
 	var braces int
-	var start int = -1
+	var inString, escaped bool
 
-	for i, c := range buffer {
+	for i := range buffer {
+		c := buffer[i]
+
+		if escaped {
+			escaped = false
+			continue
+		}
+
+		if c == '\\' {
+			escaped = true
+			continue
+		}
+
+		if c == '"' {
+			inString = !inString
+			continue
+		}
+
+		if inString {
+			continue
+		}
+
 		if c == '{' {
 			if braces == 0 {
 				start = i
 			}
 			braces++
-		} else if c == '}' && braces > 0 {
+		} else if c == '}' {
 			braces--
 			if braces == 0 && start != -1 {
 				object := buffer[start : i+1]
 
 				var data map[string]any
 				if err := json.Unmarshal(object, &data); err != nil {
+					// not a valid object, keep looking
 					start = -1
 					continue
 				}
@@ -268,7 +286,7 @@ func findArguments(tool *api.Tool, buffer []byte) (map[string]any, int) {
 							return args, true
 						}
 						if argsStr, ok := obj[name].(string); ok {
-							var argsData map[string]any
+							var argsData map[string]interface{}
 							if err := json.Unmarshal([]byte(argsStr), &argsData); err == nil {
 								return argsData, ok
 							}
@@ -313,6 +331,10 @@ func findArguments(tool *api.Tool, buffer []byte) (map[string]any, int) {
 				}
 
 				return data, i
+			}
+
+			if braces < 0 {
+				braces = 0
 			}
 		}
 	}
@@ -379,9 +401,4 @@ func (p *Parser) Content() string {
 	}
 
 	return ""
-}
-
-// NewParser implements the ToolParser interface
-func (p *Parser) NewParser(templateToProcess *gotmpl.Template) (ToolParser, error) {
-	return NewParser(templateToProcess)
 }

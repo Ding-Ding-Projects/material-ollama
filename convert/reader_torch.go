@@ -54,6 +54,6 @@ func (t torch) Clone() Tensor {
 	}
 }
 
-func (t torch) WriteTo(w io.Writer) (int64, error) {
+func (pt torch) WriteTo(w io.Writer) (int64, error) {
 	return 0, nil
 }

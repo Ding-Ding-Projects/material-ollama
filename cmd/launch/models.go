@@ -1,9 +1,7 @@
 package launch
 
 import (
-	"bytes"
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"math"
@@ -22,13 +20,12 @@ import (
 	internalcloud "github.com/ollama/ollama/internal/cloud"
 	"github.com/ollama/ollama/internal/modelref"
 	"github.com/ollama/ollama/progress"
-	"github.com/ollama/ollama/version"
 )
 
 var recommendedModels = []ModelItem{
 	{Name: "kimi-k2.6:cloud", Description: "State-of-the-art coding, long-horizon execution, and multimodal agent swarm capability", Recommended: true, Details: api.ModelDetails{ContextLength: 262_144}, MaxOutputTokens: 262_144},
 	{Name: "qwen3.5:cloud", Description: "Reasoning, coding, and agentic tool use with vision", Recommended: true, Details: api.ModelDetails{ContextLength: 262_144}, MaxOutputTokens: 32_768},
-	{Name: "glm-5.2:cloud", Description: "Reasoning and code generation", Recommended: true, Details: api.ModelDetails{ContextLength: 1_000_000}, MaxOutputTokens: 131_072},
+	{Name: "glm-5.1:cloud", Description: "Reasoning and code generation", Recommended: true, Details: api.ModelDetails{ContextLength: 202_752}, MaxOutputTokens: 131_072},
 	{Name: "minimax-m2.7:cloud", Description: "Fast, efficient coding and real-world productivity", Recommended: true, Details: api.ModelDetails{ContextLength: 204_800}, MaxOutputTokens: 128_000},
 	{Name: "gemma4", Description: "Reasoning and code generation locally", Recommended: true, VRAMBytes: 12 * format.GigaByte},
 	{Name: "qwen3.5", Description: "Reasoning, coding, and visual understanding locally", Recommended: true, VRAMBytes: 14 * format.GigaByte},
@@ -62,7 +59,7 @@ var extraCloudModelLimits = map[string]cloudModelLimit{
 	"glm-4.6":             {Context: 202_752, Output: 131_072},
 	"glm-4.7":             {Context: 202_752, Output: 131_072},
 	"glm-5":               {Context: 202_752, Output: 131_072},
-	"glm-5.2":             {Context: 1_000_000, Output: 131_072},
+	"glm-5.1":             {Context: 202_752, Output: 131_072},
 	"gpt-oss:120b":        {Context: 131_072, Output: 131_072},
 	"gpt-oss:20b":         {Context: 131_072, Output: 131_072},
 	"kimi-k2:1t":          {Context: 262_144, Output: 262_144},
@@ -143,13 +140,6 @@ func mergeCloudModelLimits(base map[string]cloudModelLimit, overlay map[string]c
 	}
 	return out
 }
-
-// DefaultCloudSuggest, when set (the cmd package wires it up), offers the
-// ":cloud" variant of a model whose pull failed because its default tag
-// doesn't exist. It returns the cloud model name to continue with when the
-// user accepts; otherwise it returns the error the caller should surface
-// (the original one, possibly augmented with a hint).
-var DefaultCloudSuggest func(ctx context.Context, client *api.Client, model string, pullErr error) (string, error)
 
 // missingModelPolicy controls how model-not-found errors should be handled.
 type missingModelPolicy int
@@ -263,78 +253,46 @@ func ensureCloudAuth(ctx context.Context, client *api.Client, modelList string) 
 	}
 }
 
-// DefaultCloudSuggestPull, when set (the cmd package wires it up), pulls a
-// model and, if its default tag doesn't exist but a ":cloud" tag does,
-// offers the cloud model instead. It returns the name that was actually
-// pulled. retryCommand renders the command suggested in non-interactive
-// error hints for a given cloud model name.
-var DefaultCloudSuggestPull func(ctx context.Context, client *api.Client, model string, retryCommand func(cloudName string) string) (string, error)
-
-// launchRetryCommand builds the retry command hinted at when a cloud
-// suggestion is raised outside an interactive terminal.
-func launchRetryCommand(commandName string) func(string) string {
-	return func(cloudName string) string {
-		if commandName != "" {
-			return fmt.Sprintf("ollama launch %s --model %s", commandName, cloudName)
-		}
-		return fmt.Sprintf("ollama launch --model %s", cloudName)
-	}
-}
-
-// showOrPullWithPolicy checks if a model exists and applies the provided
-// missing-model policy. It returns the model name to continue with, which
-// differs from the requested one when a missing default tag was resolved to
-// its ":cloud" variant (see DefaultCloudSuggestPull).
-func showOrPullWithPolicy(ctx context.Context, client *api.Client, model string, policy missingModelPolicy, isCloudModel bool, retryCommand func(string) string) (string, error) {
+// showOrPullWithPolicy checks if a model exists and applies the provided missing-model policy.
+func showOrPullWithPolicy(ctx context.Context, client *api.Client, model string, policy missingModelPolicy, isCloudModel bool) error {
 	if _, err := client.Show(ctx, &api.ShowRequest{Model: model}); err == nil {
-		return model, nil
+		return nil
 	} else {
 		if isCloudModel {
 			if disabled, known := cloudStatusDisabled(ctx, client); known && disabled {
-				return "", errors.New(internalcloud.DisabledError("remote inference is unavailable"))
+				return errors.New(internalcloud.DisabledError("remote inference is unavailable"))
 			}
 			var statusErr api.StatusError
 			if errors.As(err, &statusErr) && statusErr.StatusCode == http.StatusNotFound {
-				return "", fmt.Errorf("model %q not found", model)
+				return fmt.Errorf("model %q not found", model)
 			}
-			return model, nil
+			return nil
 		}
 
 		var statusErr api.StatusError
 		if !errors.As(err, &statusErr) || statusErr.StatusCode != http.StatusNotFound {
-			return "", err
+			return err
 		}
 	}
 
 	switch policy {
 	case missingModelAutoPull:
-		return pullOrSuggestCloud(ctx, client, model, retryCommand)
+		return pullMissingModel(ctx, client, model)
 	case missingModelFail:
-		return "", fmt.Errorf("model %q not found; run 'ollama pull %s' first, or use --yes to auto-pull", model, model)
+		return fmt.Errorf("model %q not found; run 'ollama pull %s' first, or use --yes to auto-pull", model, model)
 	default:
-		return confirmAndPull(ctx, client, model, retryCommand)
+		return confirmAndPull(ctx, client, model)
 	}
 }
 
-func confirmAndPull(ctx context.Context, client *api.Client, model string, retryCommand func(string) string) (string, error) {
+func confirmAndPull(ctx context.Context, client *api.Client, model string) error {
 	if ok, err := ConfirmPrompt(fmt.Sprintf("Download %s?", model)); err != nil {
-		return "", err
+		return err
 	} else if !ok {
-		return "", errCancelled
+		return errCancelled
 	}
 	fmt.Fprintf(os.Stderr, "\n")
-	return pullOrSuggestCloud(ctx, client, model, retryCommand)
-}
-
-func pullOrSuggestCloud(ctx context.Context, client *api.Client, model string, retryCommand func(string) string) (string, error) {
-	if DefaultCloudSuggestPull == nil {
-		return model, pullMissingModel(ctx, client, model)
-	}
-	resolved, err := DefaultCloudSuggestPull(ctx, client, model, retryCommand)
-	if err != nil {
-		return "", fmt.Errorf("failed to pull %s: %w", model, err)
-	}
-	return resolved, nil
+	return pullMissingModel(ctx, client, model)
 }
 
 func pullMissingModel(ctx context.Context, client *api.Client, model string) error {
@@ -351,9 +309,6 @@ func prepareEditorIntegration(name string, editor Editor, models []LaunchModel) 
 	}
 	if err := config.SaveIntegration(name, launchModelNames(models)); err != nil {
 		return fmt.Errorf("failed to save: %w", err)
-	}
-	if showBackupNotice {
-		fmt.Fprintf(os.Stderr, "%s%s configuration has been modified. Backups are saved in %s/%s\n", ansiGray, runner, fileutil.BackupDir(), ansiReset)
 	}
 	return nil
 }
@@ -397,6 +352,7 @@ func buildModelListWithRecommendations(existing []modelInfo, recommendations []M
 	cloudModels = make(map[string]bool)
 	recommended := make(map[string]bool)
 	var hasLocalModel, hasCloudModel bool
+
 	recDesc := make(map[string]string)
 	recByName := make(map[string]ModelItem)
 	for _, rec := range recommendations {

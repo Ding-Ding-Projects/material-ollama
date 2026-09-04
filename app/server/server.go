@@ -358,7 +358,7 @@ func GetInferenceInfo(ctx context.Context) (*InferenceInfo, error) {
 	for {
 		select {
 		case <-ctx.Done():
-			return nil, errors.New("timeout scanning server log for inference compute details")
+			return nil, fmt.Errorf("timeout scanning server log for inference compute details")
 		default:
 		}
 		file, err := os.Open(serverLogPath)

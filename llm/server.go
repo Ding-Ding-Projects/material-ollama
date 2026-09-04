@@ -9,7 +9,6 @@ import (
 	"slices"
 	"strings"
 	"time"
-	"unicode/utf8"
 
 	"github.com/ollama/ollama/api"
 	"github.com/ollama/ollama/envconfig"
@@ -83,18 +82,6 @@ type LlamaServerConfig struct {
 	ContextShift   bool
 	EnableMTP      bool
 	DraftModelPath string
-}
-
-// RunnerName returns the runner implementation name for a LlamaServer.
-func RunnerName(s LlamaServer) string {
-	switch s.(type) {
-	case *ollamaServer:
-		return "ggml"
-	case *llamaServer:
-		return "llamacpp"
-	default:
-		return ""
-	}
 }
 
 // LoadModel will load a model from disk. The model must be in the GGML format.
@@ -222,12 +209,13 @@ type CompletionRequest struct {
 	Media   []MediaData
 	Options *api.Options
 
-	Grammar         string // set before sending the request to the subprocess
 	Shift           bool
 	Truncate        bool
 	PreservedTokens []string // parser tokens to render as text; ignored by non-llama-server runners
 	ToolCallTag     string   // raw generic tool parser tag, if any
 	LeadingBOS      string   // textual BOS emitted by Go rendering, if any
+	// IncludeIntermediateMetrics adds cumulative metrics to non-final responses; final responses always include metrics.
+	IncludeIntermediateMetrics bool
 
 	// Logprobs specifies whether to include log probabilities in the response
 	Logprobs bool
@@ -253,34 +241,11 @@ type ChatResponse struct {
 	DoneReason            DoneReason    `json:"done_reason"`
 	Done                  bool          `json:"done"`
 	PromptEvalCount       int           `json:"prompt_eval_count"`
-	PromptEvalCachedCount int           `json:"prompt_eval_cached_count"`
+	PromptEvalCachedCount *int          `json:"prompt_eval_cached_count,omitempty"`
 	PromptEvalDuration    time.Duration `json:"prompt_eval_duration"`
 	EvalCount             int           `json:"eval_count"`
 	EvalDuration          time.Duration `json:"eval_duration"`
 	Logprobs              []Logprob     `json:"logprobs,omitempty"`
-}
-
-type ChatRequest struct {
-	Messages []api.Message
-	Tools    api.Tools
-	Format   json.RawMessage
-	Options  *api.Options
-	Think    *api.ThinkValue
-	Shift    bool
-
-	Logprobs    bool
-	TopLogprobs int
-}
-
-type ChatResponse struct {
-	Message            api.Message   `json:"message"`
-	DoneReason         DoneReason    `json:"done_reason"`
-	Done               bool          `json:"done"`
-	PromptEvalCount    int           `json:"prompt_eval_count"`
-	PromptEvalDuration time.Duration `json:"prompt_eval_duration"`
-	EvalCount          int           `json:"eval_count"`
-	EvalDuration       time.Duration `json:"eval_duration"`
-	Logprobs           []Logprob     `json:"logprobs,omitempty"`
 }
 
 // DoneReason represents the reason why a completion response is done
@@ -290,8 +255,6 @@ const (
 	DoneReasonStop DoneReason = iota
 	DoneReasonLength
 	DoneReasonConnectionClosed
-	// DoneReasonTokenRepeatLimit indicates the completion stopped due to a token repeat limit
-	DoneReasonTokenRepeatLimit
 )
 
 func (d DoneReason) String() string {
@@ -300,8 +263,6 @@ func (d DoneReason) String() string {
 		return "length"
 	case DoneReasonStop:
 		return "stop"
-	case DoneReasonTokenRepeatLimit:
-		return "token_repeat_limit"
 	default:
 		return ""
 	}
@@ -324,7 +285,7 @@ type CompletionResponse struct {
 	DoneReason            DoneReason    `json:"done_reason"`
 	Done                  bool          `json:"done"`
 	PromptEvalCount       int           `json:"prompt_eval_count"`
-	PromptEvalCachedCount int           `json:"prompt_eval_cached_count"`
+	PromptEvalCachedCount *int          `json:"prompt_eval_cached_count,omitempty"`
 	PromptEvalDuration    time.Duration `json:"prompt_eval_duration"`
 	EvalCount             int           `json:"eval_count"`
 	EvalDuration          time.Duration `json:"eval_duration"`

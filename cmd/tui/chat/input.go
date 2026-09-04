@@ -1062,6 +1062,7 @@ func renderInputBoxLines(input string, cursor int, width, maxBodyLines int, plac
 		}
 		lines = append(lines, renderInputBoxBodyLine(renderInputTextWithCursor(rendered), contentWidth))
 	}
+	lines = append(lines, chatInputBorderStyle.Render(inputBoxBottomBorderLine(width)))
 	return lines
 }
 

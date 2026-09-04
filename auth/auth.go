@@ -3,48 +3,42 @@ package auth
 import (
 	"bytes"
 	"context"
-	"crypto/ed25519"
 	"crypto/rand"
 	"encoding/base64"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
 	"log/slog"
-	"net/http"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"golang.org/x/crypto/ssh"
 )
 
-const (
-	defaultPrivateKey = "id_ed25519"
-	signInStateFile   = "signin.json"
-)
-
-// SignInState represents the locally cached sign-in state
-type SignInState struct {
-	Name     string    `json:"name"`
-	Email    string    `json:"email"`
-	CachedAt time.Time `json:"cached_at"`
-}
+const defaultPrivateKey = "id_ed25519"
 
 func GetPublicKey() (string, error) {
 	home, err := os.UserHomeDir()
 	if err != nil {
-		return nil, err
+		return "", err
 	}
 
 	keyPath := filepath.Join(home, ".ollama", defaultPrivateKey)
 	privateKeyFile, err := os.ReadFile(keyPath)
 	if err != nil {
 		slog.Info(fmt.Sprintf("Failed to load private key: %v", err))
-		return nil, err
+		return "", err
 	}
 
-	pubKey, _, _, _, err := ssh.ParseAuthorizedKey(pubKeyFile)
-	return pubKey, err
+	privateKey, err := ssh.ParsePrivateKey(privateKeyFile)
+	if err != nil {
+		return "", err
+	}
+
+	publicKey := ssh.MarshalAuthorizedKey(privateKey.PublicKey())
+
+	return strings.TrimSpace(string(publicKey)), nil
 }
 
 func NewNonce(r io.Reader, length int) (string, error) {
@@ -75,14 +69,8 @@ func Sign(ctx context.Context, bts []byte) (string, error) {
 	}
 
 	// get the pubkey, but remove the type
-	publicKey, err := GetPublicKey()
-	if err != nil {
-		return "", err
-	}
-
-	publicKeyBytes := ssh.MarshalAuthorizedKey(publicKey)
-
-	parts := bytes.Split(publicKeyBytes, []byte(" "))
+	publicKey := ssh.MarshalAuthorizedKey(privateKey.PublicKey())
+	parts := bytes.Split(publicKey, []byte(" "))
 	if len(parts) < 2 {
 		return "", errors.New("malformed public key")
 	}
@@ -94,50 +82,4 @@ func Sign(ctx context.Context, bts []byte) (string, error) {
 
 	// signature is <pubkey>:<signature>
 	return fmt.Sprintf("%s:%s", bytes.TrimSpace(parts[1]), base64.StdEncoding.EncodeToString(signedData.Blob)), nil
-}
-
-func initializeKeypair() error {
-	home, err := os.UserHomeDir()
-	if err != nil {
-		return err
-	}
-
-	privKeyPath := filepath.Join(home, ".ollama", "id_ed25519")
-	pubKeyPath := filepath.Join(home, ".ollama", "id_ed25519.pub")
-
-	_, err = os.Stat(privKeyPath)
-	if errors.Is(err, os.ErrNotExist) {
-		fmt.Printf("Couldn't find '%s'. Generating new private key.\n", privKeyPath)
-		cryptoPublicKey, cryptoPrivateKey, err := ed25519.GenerateKey(rand.Reader)
-		if err != nil {
-			return err
-		}
-
-		privateKeyBytes, err := ssh.MarshalPrivateKey(cryptoPrivateKey, "")
-		if err != nil {
-			return err
-		}
-
-		if err := os.MkdirAll(filepath.Dir(privKeyPath), 0o755); err != nil {
-			return fmt.Errorf("could not create directory %w", err)
-		}
-
-		if err := os.WriteFile(privKeyPath, pem.EncodeToMemory(privateKeyBytes), 0o600); err != nil {
-			return err
-		}
-
-		sshPublicKey, err := ssh.NewPublicKey(cryptoPublicKey)
-		if err != nil {
-			return err
-		}
-
-		publicKeyBytes := ssh.MarshalAuthorizedKey(sshPublicKey)
-
-		if err := os.WriteFile(pubKeyPath, publicKeyBytes, 0o644); err != nil {
-			return err
-		}
-
-		fmt.Printf("Your new public key is: \n\n%s\n", publicKeyBytes)
-	}
-	return nil
 }

@@ -4,7 +4,10 @@ import (
 	"bytes"
 	"encoding/json"
 	"net/http"
+	"path/filepath"
 	"testing"
+
+	"github.com/gin-gonic/gin"
 
 	"github.com/ollama/ollama/api"
 	"github.com/ollama/ollama/manifest"
@@ -12,11 +15,17 @@ import (
 )
 
 func TestDelete(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	p := t.TempDir()
+	t.Setenv("OLLAMA_MODELS", p)
+
 	var s Server
+
 	_, digest := createBinFile(t, nil, nil)
 	w := createRequest(t, s.CreateHandler, api.CreateRequest{
 		Name:  "test",
-		Files: []api.File{{Name: "test.gguf", Digest: digest}},
+		Files: map[string]string{"test.gguf": digest},
 	})
 
 	if w.Code != http.StatusOK {
@@ -25,7 +34,7 @@ func TestDelete(t *testing.T) {
 
 	w = createRequest(t, s.CreateHandler, api.CreateRequest{
 		Name:     "test2",
-		Files:    []api.File{{Name: "test.gguf", Digest: digest}},
+		Files:    map[string]string{"test.gguf": digest},
 		Template: "{{ .System }} {{ .Prompt }}",
 	})
 
@@ -33,9 +42,9 @@ func TestDelete(t *testing.T) {
 		t.Fatalf("expected status code 200, actual %d", w.Code)
 	}
 
-	checkFilesExist(t, "manifests/*/*/*/*", []string{
-		"manifests/registry.ollama.ai/library/test/latest",
-		"manifests/registry.ollama.ai/library/test2/latest",
+	checkFileExists(t, filepath.Join(p, "manifests", "*", "*", "*", "*"), []string{
+		filepath.Join(p, "manifests", "registry.ollama.ai", "library", "test", "latest"),
+		filepath.Join(p, "manifests", "registry.ollama.ai", "library", "test2", "latest"),
 	})
 
 	checkFileExists(t, filepath.Join(p, "blobs", "*"), []string{
@@ -50,8 +59,8 @@ func TestDelete(t *testing.T) {
 		t.Fatalf("expected status code 200, actual %d", w.Code)
 	}
 
-	checkFilesExist(t, "manifests/*/*/*/*", []string{
-		"manifests/registry.ollama.ai/library/test2/latest",
+	checkFileExists(t, filepath.Join(p, "manifests", "*", "*", "*", "*"), []string{
+		filepath.Join(p, "manifests", "registry.ollama.ai", "library", "test2", "latest"),
 	})
 
 	checkFileExists(t, filepath.Join(p, "blobs", "*"), []string{
@@ -66,14 +75,19 @@ func TestDelete(t *testing.T) {
 		t.Fatalf("expected status code 200, actual %d", w.Code)
 	}
 
-	checkFilesExist(t, "manifests/*/*/*/*", []string{})
-	checkFilesExist(t, "blobs/*", []string{})
+	checkFileExists(t, filepath.Join(p, "manifests", "*", "*", "*", "*"), []string{})
+	checkFileExists(t, filepath.Join(p, "blobs", "*"), []string{})
 }
 
 func TestDeleteDuplicateLayers(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	p := t.TempDir()
+	t.Setenv("OLLAMA_MODELS", p)
 	var s Server
-	t.Setenv("OLLAMA_MODELS", t.TempDir())
+
 	n := model.ParseName("test")
+
 	var b bytes.Buffer
 	if err := json.NewEncoder(&b).Encode(&model.ConfigV2{}); err != nil {
 		t.Fatal(err)
@@ -94,7 +108,7 @@ func TestDeleteDuplicateLayers(t *testing.T) {
 		t.Errorf("expected status code 200, actual %d", w.Code)
 	}
 
-	checkFilesExist(t, "manifests/*/*/*/*", []string{})
+	checkFileExists(t, filepath.Join(p, "manifests", "*", "*", "*", "*"), []string{})
 }
 
 func TestDeleteCloudSourceNormalizesToLegacyName(t *testing.T) {
@@ -114,12 +128,14 @@ func TestDeleteCloudSourceNormalizesToLegacyName(t *testing.T) {
 		t.Fatalf("expected status code 200, actual %d", w.Code)
 	}
 
-	checkManifestFiles(t, "gpt-oss:20b-cloud")
+	checkFileExists(t, filepath.Join(p, "manifests", "*", "*", "*", "*"), []string{
+		filepath.Join(p, "manifests", "registry.ollama.ai", "library", "gpt-oss", "20b-cloud"),
+	})
 
 	w = createRequest(t, s.DeleteHandler, api.DeleteRequest{Name: "gpt-oss:20b:cloud"})
 	if w.Code != http.StatusOK {
 		t.Fatalf("expected status code 200, actual %d (%s)", w.Code, w.Body.String())
 	}
 
-	checkManifestFiles(t)
+	checkFileExists(t, filepath.Join(p, "manifests", "*", "*", "*", "*"), []string{})
 }

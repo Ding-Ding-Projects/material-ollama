@@ -1,12 +1,11 @@
 package tools
 
 import (
+	"strings"
 	"testing"
 	"text/template"
 
 	"github.com/google/go-cmp/cmp"
-	"github.com/google/go-cmp/cmp/cmpopts"
-
 	"github.com/ollama/ollama/api"
 )
 
@@ -73,8 +72,8 @@ func TestParser(t *testing.T) {
 							Type:        api.PropertyType{"string"},
 							Description: "The format to return the temperature in",
 							Enum:        []any{"fahrenheit", "celsius"},
-						})
-						props.Set("city", api.ToolProperty{
+						},
+						"city": {
 							Type:        api.PropertyType{"string"},
 							Description: "The city to get the temperature for",
 						},
@@ -139,8 +138,8 @@ func TestParser(t *testing.T) {
 						"a": {
 							Type:        api.PropertyType{"string"},
 							Description: "The first number to add",
-						})
-						props.Set("b", api.ToolProperty{
+						},
+						"b": {
 							Type:        api.PropertyType{"string"},
 							Description: "The second number to add",
 						},
@@ -1160,7 +1159,7 @@ func TestFindArguments(t *testing.T) {
 		},
 		{
 			name:   "deepseek",
-			buffer: []byte(`", "arguments": {"location": "Tokyo"}}</tool_call>`),
+			buffer: []byte(`"arguments": {"location": "Tokyo"}}</tool_call>`),
 			want: map[string]any{
 				"location": "Tokyo",
 			},

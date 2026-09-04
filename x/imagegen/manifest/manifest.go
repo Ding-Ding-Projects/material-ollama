@@ -11,8 +11,6 @@ import (
 	"strings"
 
 	"github.com/ollama/ollama/envconfig"
-	rootmanifest "github.com/ollama/ollama/manifest"
-	"github.com/ollama/ollama/types/model"
 )
 
 // ManifestLayer represents a layer in the manifest.
@@ -51,7 +49,9 @@ func DefaultManifestDir() string {
 // LoadManifest loads a manifest for the given model name.
 // Model name format: "modelname" or "modelname:tag" or "host/namespace/name:tag"
 func LoadManifest(modelName string) (*ModelManifest, error) {
-	data, err := rootmanifest.ReadSelectedManifestData(model.ParseName(modelName))
+	manifestPath := resolveManifestPath(modelName)
+
+	data, err := os.ReadFile(manifestPath)
 	if err != nil {
 		return nil, fmt.Errorf("read manifest: %w", err)
 	}
@@ -63,7 +63,7 @@ func LoadManifest(modelName string) (*ModelManifest, error) {
 
 	return &ModelManifest{
 		Manifest: &manifest,
-		BlobDir:  filepath.Join(envconfig.Models(), "blobs"),
+		BlobDir:  DefaultBlobDir(),
 	}, nil
 }
 
@@ -94,7 +94,7 @@ func resolveManifestPath(modelName string) string {
 		name = parts[1]
 	}
 
-	return filepath.Join(envconfig.Models(), "manifests", host, namespace, name, tag)
+	return filepath.Join(DefaultManifestDir(), host, namespace, name, tag)
 }
 
 // BlobPath returns the full path to a blob given its digest.

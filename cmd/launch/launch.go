@@ -307,6 +307,7 @@ Supported integrations:
 
 Examples:
   ollama launch
+  ollama launch claude-desktop --restore
   ollama launch claude
   ollama launch claude --model <model>
   ollama launch chatgpt
@@ -319,14 +320,17 @@ Examples:
   ollama launch codex -- --sandbox workspace-write`,
 		Args: cobra.ArbitraryArgs,
 		PreRunE: func(cmd *cobra.Command, args []string) error {
-			if restoreFlag || launchCommandCanSkipHeartbeat(args) {
+			if restoreFlag {
 				return nil
+			}
+			if len(args) > 0 && launchCommandIsClaudeDesktop(args[0]) {
+				return fmt.Errorf("Claude Desktop can only be restored from the command line: ollama launch claude-desktop --restore")
 			}
 			return checkServerHeartbeat(cmd, args)
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			policy := defaultLaunchPolicy(isInteractiveSession(), yesFlag)
-			// reset when done to make sure state doens't leak between launches
+			// reset when done to make sure state doesn't leak between launches
 			restoreConfirmPolicy := withLaunchConfirmPolicy(policy.confirmPolicy())
 			defer restoreConfirmPolicy()
 
@@ -357,10 +361,6 @@ Examples:
 				}
 				runTUI(cmd)
 				return nil
-			}
-
-			if !restoreFlag && launchCommandIsClaudeDesktop(name) {
-				return errClaudeDesktopUnsupported()
 			}
 
 			if modelFlag != "" && isCloudModelName(modelFlag) {
@@ -402,13 +402,6 @@ Examples:
 	cmd.Flags().BoolVar(&restoreFlag, "restore", false, "Restore an integration to its default profile")
 	cmd.Flags().BoolVarP(&yesFlag, "yes", "y", false, "Automatically answer yes to confirmation prompts")
 	return cmd
-}
-
-func launchCommandCanSkipHeartbeat(args []string) bool {
-	if len(args) == 0 {
-		return false
-	}
-	return launchCommandIsClaudeDesktop(args[0])
 }
 
 func launchCommandIsClaudeDesktop(name string) bool {
@@ -481,10 +474,6 @@ func LaunchIntegration(ctx context.Context, req IntegrationLaunchRequest) error 
 	name, runner, err := LookupIntegration(req.Name)
 	if err != nil {
 		return err
-	}
-
-	if name == claudeDesktopIntegrationName && !req.Restore {
-		return errClaudeDesktopUnsupported()
 	}
 
 	policy := launchIntegrationPolicy(req)
@@ -696,11 +685,9 @@ func (c *launcherClient) launcherManagedAutodiscoveryState(ctx context.Context, 
 func (c *launcherClient) resolveRunModel(ctx context.Context, req RunModelRequest) (string, error) {
 	current := config.LastModel()
 	if !req.ForcePicker && current != "" && c.policy.Confirm == LaunchConfirmAutoApprove && !isInteractiveSession() {
-		resolved, err := c.readyModel(ctx, current, "ollama launch", "")
-		if err != nil {
+		if err := c.ensureModelsReady(ctx, []string{current}); err != nil {
 			return "", err
 		}
-		current = resolved
 		fmt.Fprintf(os.Stderr, "Headless mode: auto-selected last used model %q\n", current)
 		return current, nil
 	}
@@ -711,17 +698,17 @@ func (c *launcherClient) resolveRunModel(ctx context.Context, req RunModelReques
 			return "", err
 		}
 		if usable {
-			if resolved, err := c.readyModel(ctx, current, "ollama launch", ""); err != nil {
+			if err := c.ensureModelsReady(ctx, []string{current}); err != nil {
 				if !errors.Is(err, errDeprecatedLaunchModelDeclined) {
 					return "", err
 				}
 			} else {
-				return resolved, nil
+				return current, nil
 			}
 		}
 	}
 
-	model, err := c.selectSingleModelWithSelector(ctx, "Select model to chat and code with:", current, DefaultSingleSelector)
+	model, err := c.selectSingleModelWithSelector(ctx, "Select model to run:", current, DefaultSingleSelector)
 	if err != nil {
 		return "", err
 	}
@@ -749,7 +736,7 @@ func (c *launcherClient) launchSingleIntegration(ctx context.Context, name strin
 		}
 	}
 
-	return c.launchAfterConfiguration(ctx, name, runner, target, c.resolveRunModels(ctx, []string{target}), req)
+	return launchAfterConfiguration(name, runner, target, c.resolveRunModels(ctx, []string{target}), req)
 }
 
 func (c *launcherClient) launchEditorIntegration(ctx context.Context, name string, runner Runner, editor Editor, saved *config.IntegrationConfig, req IntegrationLaunchRequest) error {
@@ -762,7 +749,7 @@ func (c *launcherClient) launchEditorIntegration(ctx context.Context, name strin
 		}
 		models = selected
 	} else if len(models) > 0 {
-		if resolved, err := c.readyModel(ctx, models[0], runner.String(), name); err != nil {
+		if err := c.ensureModelsReadyFor(ctx, models[:1], runner.String(), name); err != nil {
 			if !errors.Is(err, errDeprecatedLaunchModelDeclined) || req.ModelOverride != "" {
 				return err
 			}
@@ -772,8 +759,6 @@ func (c *launcherClient) launchEditorIntegration(ctx context.Context, name strin
 			}
 			models = selected
 			needsConfigure = true
-		} else {
-			models[0] = resolved
 		}
 	}
 
@@ -785,7 +770,6 @@ func (c *launcherClient) launchEditorIntegration(ctx context.Context, name strin
 	liveConfigMatches := slices.Equal(editor.Models(), models)
 	if needsConfigure || req.ModelOverride != "" || !savedMatchesModels(saved, models) || !liveConfigMatches {
 		launchModels = c.modelInventory().Resolve(ctx, models)
-		launchModels = c.prepareLaunchModelsForConfig(ctx, editor, models[0], launchModels)
 		if err := prepareEditorIntegration(name, editor, launchModels); err != nil {
 			return err
 		}
@@ -793,22 +777,7 @@ func (c *launcherClient) launchEditorIntegration(ctx context.Context, name strin
 		launchModels = c.resolveRunModels(ctx, models)
 	}
 
-	return c.launchAfterConfiguration(ctx, name, runner, models[0], launchModels, req)
-}
-
-// The launcher stores selected models in ~/.ollama/config.json, but editor
-// integrations also keep state on disk. If the editor state is missing,
-// unreadable, no longer Ollama-managed, or no longer aligned with the launcher
-// selection, rewrite it before launch.
-func editorConfigNeedsRepair(editor Editor, models []string) bool {
-	if len(models) == 0 {
-		return false
-	}
-	current := editor.Models()
-	if current == nil {
-		return true
-	}
-	return !slices.Equal(current, models)
+	return launchAfterConfiguration(name, runner, models[0], launchModels, req)
 }
 
 func (c *launcherClient) launchManagedSingleIntegration(ctx context.Context, name string, runner Runner, managed ManagedSingleModel, saved *config.IntegrationConfig, req IntegrationLaunchRequest) error {
@@ -855,8 +824,6 @@ func (c *launcherClient) launchManagedSingleIntegration(ctx context.Context, nam
 		if err := managed.Onboard(); err != nil {
 			return err
 		}
-
-		return launchAfterConfiguration(name, runner, models[0], req)
 	}
 
 	if configured {
@@ -881,7 +848,6 @@ func (c *launcherClient) launchManagedAutodiscoveryIntegration(ctx context.Conte
 	if err := c.ensureManagedAutodiscoveryUsable(ctx, autodiscovery, target); err != nil {
 		return err
 	}
-
 	needsConfigure := req.ForceConfigure || req.ConfigureOnly || !autodiscovery.AutodiscoveryConfigured() || !savedMatchesModels(saved, []string{target})
 
 	if needsConfigure {
@@ -1020,7 +986,7 @@ func (c *launcherClient) resolveSingleIntegrationTarget(ctx context.Context, nam
 		}
 		target = selected
 	} else if !skipReadiness {
-		if resolved, err := c.readyModel(ctx, target, runner.String(), name); err != nil {
+		if err := c.ensureModelsReadyFor(ctx, []string{target}, runner.String(), name); err != nil {
 			if !errors.Is(err, errDeprecatedLaunchModelDeclined) {
 				return "", false, err
 			}
@@ -1032,8 +998,6 @@ func (c *launcherClient) resolveSingleIntegrationTarget(ctx context.Context, nam
 			}
 			target = selected
 			needsConfigure = true
-		} else {
-			target = resolved
 		}
 	}
 
@@ -1106,8 +1070,7 @@ func (c *launcherClient) selectSingleModelWithSelectorReady(ctx context.Context,
 			return "", ErrCancelled
 		}
 		if ensureReady {
-			resolved, err := c.readyModel(ctx, selected, label, commandName)
-			if err != nil {
+			if err := c.ensureModelsReadyFor(ctx, []string{selected}, label, commandName); err != nil {
 				if errors.Is(err, errUpgradeCancelled) {
 					current = selected
 					continue
@@ -1118,7 +1081,6 @@ func (c *launcherClient) selectSingleModelWithSelectorReady(ctx context.Context,
 				}
 				return "", err
 			}
-			selected = resolved
 		}
 		return selected, nil
 	}
@@ -1191,11 +1153,6 @@ func (c *launcherClient) loadSelectableModels(ctx context.Context, preChecked []
 		return nil, nil, err
 	}
 	recommendations := c.recommendations(ctx)
-	recommendations = filterFreeCloudRecommendationsForAccountState(
-		recommendations,
-		c.accountStateForModelFiltering(ctx, recommendations),
-		preservedRecommendationNames(preChecked, current),
-	)
 
 	cloudDisabled, _ := cloudStatusDisabled(ctx, c.apiClient)
 	items, orderedChecked, _, _ := buildModelListWithRecommendations(inventory, recommendations, preChecked, current)
@@ -1205,54 +1162,10 @@ func (c *launcherClient) loadSelectableModels(ctx context.Context, preChecked []
 		items = filterCloudItems(items)
 		orderedChecked = c.filterDisabledCloudModels(ctx, orderedChecked)
 	}
-	orderedChecked = filterCheckedModelsForItems(orderedChecked, items)
 	if len(items) == 0 {
 		return nil, nil, errors.New(emptyMessage)
 	}
 	return items, orderedChecked, nil
-}
-
-func preservedRecommendationNames(preChecked []string, current string) map[string]bool {
-	preserve := make(map[string]bool, len(preChecked)+1)
-	for _, name := range preChecked {
-		if name != "" {
-			preserve[name] = true
-		}
-	}
-	if current != "" {
-		preserve[current] = true
-	}
-	return preserve
-}
-
-func (c *launcherClient) accountStateForModelFiltering(ctx context.Context, items []ModelItem) *AccountState {
-	state := c.latestAccountState()
-	if state != nil || !selectionItemsNeedAccountState(items) {
-		return state
-	}
-	resolved := launchAccountState(ctx, c.apiClient)
-	if resolved.Status == accountStateUnknown {
-		return nil
-	}
-	c.accountState = &resolved
-	return &resolved
-}
-
-func filterCheckedModelsForItems(checked []string, items []ModelItem) []string {
-	if len(checked) == 0 {
-		return checked
-	}
-	available := make(map[string]struct{}, len(items))
-	for _, item := range items {
-		available[item.Name] = struct{}{}
-	}
-	filtered := make([]string, 0, len(checked))
-	for _, name := range checked {
-		if _, ok := available[name]; ok {
-			filtered = append(filtered, name)
-		}
-	}
-	return filtered
 }
 
 func (c *launcherClient) recommendations(ctx context.Context) []ModelItem {
@@ -1320,51 +1233,44 @@ func (c *launcherClient) requestRecommendations(ctx context.Context) ([]ModelIte
 	return items, nil
 }
 
-// readyModel makes sure model is ready to run (downloading it and checking
-// cloud access and auth as needed) and returns the model name to continue
-// with. The returned name differs from the requested one when a missing
-// default tag was resolved to its ":cloud" variant (see DefaultCloudSuggest).
-func (c *launcherClient) readyModel(ctx context.Context, model, label, commandName string) (string, error) {
+func (c *launcherClient) ensureModelsReady(ctx context.Context, models []string) error {
+	return c.ensureModelsReadyFor(ctx, models, "ollama launch", "")
+}
+
+func (c *launcherClient) ensureModelsReadyFor(ctx context.Context, models []string, label, commandName string) error {
+	models = dedupeModelList(models)
+	if len(models) == 0 {
+		return nil
+	}
 	cloudRec, localRec := c.agentCapableRecommendations(ctx)
-	if prompt := deprecatedLaunchModelPrompt(model, label, commandName, cloudRec, localRec); prompt != "" {
-		ok, err := ConfirmPromptWithOptions(prompt, ConfirmOptions{
-			YesLabel: "Launch anyway",
-			NoLabel:  "Pick another model",
-			Default:  ConfirmDefaultNo,
-		})
-		if err != nil {
-			return "", err
-		}
-		if !ok {
-			return "", errDeprecatedLaunchModelDeclined
-		}
-	}
 
-	isCloudModel := isCloudModelName(model)
-	if isCloudModel {
-		if err := c.ensureCloudModelAccess(ctx, model); err != nil {
-			return "", err
-		}
-	}
-
-	if err := showOrPullWithPolicy(ctx, c.apiClient, model, c.policy.missingModelPolicy(), isCloudModel); err != nil {
-		if !isCloudModel && DefaultCloudSuggest != nil {
-			resolved, serr := DefaultCloudSuggest(ctx, c.apiClient, model, err)
-			if serr != nil {
-				return "", serr
+	cloudModels := make(map[string]bool, len(models))
+	for _, model := range models {
+		if prompt := deprecatedLaunchModelPrompt(model, label, commandName, cloudRec, localRec); prompt != "" {
+			ok, err := ConfirmPromptWithOptions(prompt, ConfirmOptions{
+				YesLabel: "Launch anyway",
+				NoLabel:  "Pick another model",
+				Default:  ConfirmDefaultNo,
+			})
+			if err != nil {
+				return err
 			}
-			// The user accepted the ":cloud" variant; re-enter so it gets the
-			// cloud access and auth checks the original name skipped.
-			return c.readyModel(ctx, resolved, label, commandName)
+			if !ok {
+				return errDeprecatedLaunchModelDeclined
+			}
 		}
-		return "", err
+		isCloudModel := isCloudModelName(model)
+		if isCloudModel {
+			cloudModels[model] = true
+			if err := c.ensureCloudModelAccess(ctx, model); err != nil {
+				return err
+			}
+		}
+		if err := showOrPullWithPolicy(ctx, c.apiClient, model, c.policy.missingModelPolicy(), isCloudModel); err != nil {
+			return err
+		}
 	}
-
-	var cloudModels map[string]bool
-	if isCloudModel {
-		cloudModels = map[string]bool{model: true}
-	}
-	return model, ensureAuth(ctx, c.apiClient, cloudModels, []string{model})
+	return ensureAuth(ctx, c.apiClient, cloudModels, models)
 }
 
 func (c *launcherClient) agentCapableRecommendations(ctx context.Context) (cloud, local string) {
@@ -1412,8 +1318,7 @@ func (c *launcherClient) selectReadyModelsForSave(ctx context.Context, selected 
 	skipped := make([]skippedModel, 0, len(selected))
 
 	for _, model := range selected {
-		resolved, err := c.readyModel(ctx, model, label, commandName)
-		if err != nil {
+		if err := c.ensureModelsReadyFor(ctx, []string{model}, label, commandName); err != nil {
 			if errors.Is(err, errUpgradeCancelled) {
 				return nil, nil, err
 			}
@@ -1429,7 +1334,7 @@ func (c *launcherClient) selectReadyModelsForSave(ctx context.Context, selected 
 			})
 			continue
 		}
-		accepted = append(accepted, resolved)
+		accepted = append(accepted, model)
 	}
 
 	return accepted, skipped, nil
@@ -1548,29 +1453,7 @@ func runIntegration(runner Runner, modelName string, models []LaunchModel, args 
 	return runner.Run(modelName, models, args)
 }
 
-type launchModelRunPreparer interface {
-	prepareRunLaunchModels(context.Context, *launcherClient, string, []LaunchModel) ([]LaunchModel, error)
-}
-
-type launchModelConfigPreparer interface {
-	prepareConfigLaunchModels(context.Context, *launcherClient, string, []LaunchModel) []LaunchModel
-}
-
-func (c *launcherClient) prepareLaunchModelsForRun(ctx context.Context, runner Runner, model string, models []LaunchModel) ([]LaunchModel, error) {
-	if preparer, ok := runner.(launchModelRunPreparer); ok {
-		return preparer.prepareRunLaunchModels(ctx, c, model, models)
-	}
-	return models, nil
-}
-
-func (c *launcherClient) prepareLaunchModelsForConfig(ctx context.Context, editor Editor, primary string, models []LaunchModel) []LaunchModel {
-	if preparer, ok := editor.(launchModelConfigPreparer); ok {
-		return preparer.prepareConfigLaunchModels(ctx, c, primary, models)
-	}
-	return models
-}
-
-func (c *launcherClient) launchAfterConfiguration(ctx context.Context, name string, runner Runner, model string, models []LaunchModel, req IntegrationLaunchRequest) error {
+func launchAfterConfiguration(name string, runner Runner, model string, models []LaunchModel, req IntegrationLaunchRequest) error {
 	if req.ConfigureOnly {
 		launch, err := ConfirmPrompt(fmt.Sprintf("Launch %s now?", runner))
 		if err != nil {
@@ -1583,11 +1466,7 @@ func (c *launcherClient) launchAfterConfiguration(ctx context.Context, name stri
 	if err := EnsureIntegrationInstalled(name, runner); err != nil {
 		return err
 	}
-	preparedModels, err := c.prepareLaunchModelsForRun(ctx, runner, model, models)
-	if err != nil {
-		return err
-	}
-	return runIntegration(runner, model, preparedModels, req.ExtraArgs)
+	return runIntegration(runner, model, models, req.ExtraArgs)
 }
 
 func loadStoredIntegrationConfig(name string) (*config.IntegrationConfig, error) {

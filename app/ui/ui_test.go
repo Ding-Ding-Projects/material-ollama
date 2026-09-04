@@ -14,20 +14,12 @@ import (
 	"strings"
 	"sync/atomic"
 	"testing"
-	"time"
 
 	"github.com/ollama/ollama/api"
 	"github.com/ollama/ollama/app/store"
 	"github.com/ollama/ollama/app/updater"
-	ollamaConfig "github.com/ollama/ollama/cmd/config"
+	"github.com/ollama/ollama/cmd/launch"
 )
-
-func setUITestHome(t *testing.T, home string) {
-	t.Helper()
-	t.Setenv("HOME", home)
-	t.Setenv("TMPDIR", home)
-	t.Setenv("USERPROFILE", home)
-}
 
 func TestHandlePostApiSettings(t *testing.T) {
 	tests := []struct {
@@ -125,6 +117,80 @@ func TestHandlePostApiSettings(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+func TestGetIntegrationStatuses(t *testing.T) {
+	server := &Server{
+		IntegrationInstalled: func(name string) bool {
+			return name == "claude-desktop" || name == "codex"
+		},
+	}
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/integrations", nil)
+	rr := httptest.NewRecorder()
+
+	if err := server.getIntegrationStatuses(rr, req); err != nil {
+		t.Fatalf("getIntegrationStatuses() error = %v", err)
+	}
+
+	var got []struct {
+		ID        string `json:"id"`
+		Installed *bool  `json:"installed"`
+		Action    string `json:"action"`
+		Command   string `json:"command"`
+	}
+	if err := json.NewDecoder(rr.Body).Decode(&got); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+
+	if len(got) < 5 {
+		t.Fatalf("got %d integrations, want the full registry", len(got))
+	}
+	if got[0].ID != "claude-desktop" || got[0].Action != "connect" || got[0].Command != "" {
+		t.Fatalf("first integration = %+v, want command-free Claude Desktop connect", got[0])
+	}
+	wantPrefix := []string{"claude-desktop", "claude", "codex", "openclaw", "opencode", "hermes", "hermes-desktop", "droid", "pi", "cline"}
+	for i, want := range wantPrefix {
+		if got[i].ID != want {
+			t.Fatalf("integration %d = %q, want launcher menu order entry %q", i, got[i].ID, want)
+		}
+	}
+	byID := make(map[string]struct {
+		Installed *bool
+		Action    string
+		Command   string
+	}, len(got))
+	for _, item := range got {
+		byID[item.ID] = struct {
+			Installed *bool
+			Action    string
+			Command   string
+		}{item.Installed, item.Action, item.Command}
+	}
+
+	for name, want := range map[string]bool{
+		"claude-desktop": true,
+		"opencode":       false,
+		"codex":          true,
+	} {
+		item, ok := byID[name]
+		if !ok || item.Installed == nil || *item.Installed != want {
+			t.Errorf("%s installed = %v, want %v", name, item.Installed, want)
+		}
+	}
+	if item, ok := byID["claude"]; !ok || item.Command != "ollama launch claude" {
+		t.Fatal("Claude Code should follow Claude Desktop with its launch command")
+	}
+	if _, ok := byID["chatgpt"]; ok {
+		t.Fatal("ChatGPT should be excluded from onboarding integrations")
+	}
+	wantCount := len(launch.ListIntegrationInfos()) + 1 // Claude Desktop and Terminal replace omitted ChatGPT.
+	if len(got) != wantCount {
+		t.Fatalf("got %d integrations, want %d launcher entries", len(got), wantCount)
+	}
+	terminal := got[len(got)-1]
+	if terminal.ID != "terminal" || terminal.Installed != nil || terminal.Command != "ollama" {
+		t.Fatalf("last integration = %+v, want Terminal without install status", terminal)
 	}
 }
 
@@ -226,197 +292,6 @@ func TestHandleGetApiCloudSetting(t *testing.T) {
 	}
 	if got["source"] != "config" {
 		t.Fatalf("response source = %v, want config", got["source"])
-	}
-}
-
-func TestHandleGetApiSettingsIncludesFirstRunStatus(t *testing.T) {
-	tmpHome := t.TempDir()
-	setUITestHome(t, tmpHome)
-
-	testStore := &store.Store{
-		DBPath: filepath.Join(tmpHome, "db.sqlite"),
-	}
-	defer testStore.Close()
-
-	server := &Server{
-		Store: testStore,
-	}
-
-	if err := testStore.SetHasCompletedFirstRun(false); err != nil {
-		t.Fatalf("SetHasCompletedFirstRun(false) error = %v", err)
-	}
-
-	req := httptest.NewRequest("GET", "/api/v1/settings", nil)
-	rr := httptest.NewRecorder()
-	if err := server.getSettings(rr, req); err != nil {
-		t.Fatalf("getSettings() error = %v", err)
-	}
-
-	var got map[string]any
-	if err := json.Unmarshal(rr.Body.Bytes(), &got); err != nil {
-		t.Fatalf("getSettings() invalid response JSON: %v", err)
-	}
-	if got["hasCompletedFirstRun"] != false {
-		t.Fatalf("hasCompletedFirstRun = %v, want false", got["hasCompletedFirstRun"])
-	}
-
-	if err := ollamaConfig.MarkOnboardingCompleted(ollamaConfig.OnboardingSectionApp, ollamaConfig.OnboardingKeyTerminalPrompt); err != nil {
-		t.Fatalf("MarkOnboardingCompleted() error = %v", err)
-	}
-
-	rr = httptest.NewRecorder()
-	if err := server.getSettings(rr, req); err != nil {
-		t.Fatalf("getSettings() after completion error = %v", err)
-	}
-	if err := json.Unmarshal(rr.Body.Bytes(), &got); err != nil {
-		t.Fatalf("getSettings() after completion invalid response JSON: %v", err)
-	}
-	if got["hasCompletedFirstRun"] != true {
-		t.Fatalf("hasCompletedFirstRun = %v, want true", got["hasCompletedFirstRun"])
-	}
-}
-
-func TestHandleGetApiSettingsMigratesLegacyFirstRunStatus(t *testing.T) {
-	tmpHome := t.TempDir()
-	setUITestHome(t, tmpHome)
-
-	testStore := &store.Store{
-		DBPath: filepath.Join(tmpHome, "db.sqlite"),
-	}
-	defer testStore.Close()
-
-	if err := testStore.SetHasCompletedFirstRun(true); err != nil {
-		t.Fatalf("SetHasCompletedFirstRun(true) error = %v", err)
-	}
-
-	server := &Server{
-		Store: testStore,
-	}
-
-	req := httptest.NewRequest("GET", "/api/v1/settings", nil)
-	rr := httptest.NewRecorder()
-	if err := server.getSettings(rr, req); err != nil {
-		t.Fatalf("getSettings() error = %v", err)
-	}
-
-	var got map[string]any
-	if err := json.Unmarshal(rr.Body.Bytes(), &got); err != nil {
-		t.Fatalf("getSettings() invalid response JSON: %v", err)
-	}
-	if got["hasCompletedFirstRun"] != true {
-		t.Fatalf("hasCompletedFirstRun = %v, want true", got["hasCompletedFirstRun"])
-	}
-	if !ollamaConfig.OnboardingCompleted(ollamaConfig.OnboardingSectionApp, ollamaConfig.OnboardingKeyTerminalPrompt) {
-		t.Fatal("expected legacy first-run status to migrate into onboarding config")
-	}
-}
-
-func TestHandleGetApiSettingsRespectsExplicitOnboardingFalse(t *testing.T) {
-	tmpHome := t.TempDir()
-	setUITestHome(t, tmpHome)
-
-	testStore := &store.Store{
-		DBPath: filepath.Join(tmpHome, "db.sqlite"),
-	}
-	defer testStore.Close()
-
-	if err := testStore.SetHasCompletedFirstRun(true); err != nil {
-		t.Fatalf("SetHasCompletedFirstRun(true) error = %v", err)
-	}
-	if err := ollamaConfig.SetOnboardingCompleted(ollamaConfig.OnboardingSectionApp, ollamaConfig.OnboardingKeyTerminalPrompt, false); err != nil {
-		t.Fatalf("SetOnboardingCompleted(false) error = %v", err)
-	}
-
-	server := &Server{
-		Store: testStore,
-	}
-
-	req := httptest.NewRequest("GET", "/api/v1/settings", nil)
-	rr := httptest.NewRecorder()
-	if err := server.getSettings(rr, req); err != nil {
-		t.Fatalf("getSettings() error = %v", err)
-	}
-
-	var got map[string]any
-	if err := json.Unmarshal(rr.Body.Bytes(), &got); err != nil {
-		t.Fatalf("getSettings() invalid response JSON: %v", err)
-	}
-	if got["hasCompletedFirstRun"] != false {
-		t.Fatalf("hasCompletedFirstRun = %v, want false", got["hasCompletedFirstRun"])
-	}
-	completed, ok, err := ollamaConfig.LookupOnboardingCompleted(ollamaConfig.OnboardingSectionApp, ollamaConfig.OnboardingKeyTerminalPrompt)
-	if err != nil {
-		t.Fatalf("LookupOnboardingCompleted() error = %v", err)
-	}
-	if !ok || completed {
-		t.Fatalf("onboarding lookup = %v, %v, want false, true", completed, ok)
-	}
-}
-
-func TestHandleFirstRunSkipMarksCompleted(t *testing.T) {
-	tmpHome := t.TempDir()
-	setUITestHome(t, tmpHome)
-
-	testStore := &store.Store{
-		DBPath: filepath.Join(tmpHome, "db.sqlite"),
-	}
-	defer testStore.Close()
-
-	server := &Server{
-		Store: testStore,
-	}
-
-	req := httptest.NewRequest("POST", "/api/v1/first-run/skip", nil)
-	rr := httptest.NewRecorder()
-	if err := server.skipFirstRun(rr, req); err != nil {
-		t.Fatalf("skipFirstRun() error = %v", err)
-	}
-	if rr.Code != http.StatusOK {
-		t.Fatalf("skipFirstRun() status = %d, want %d", rr.Code, http.StatusOK)
-	}
-
-	if !ollamaConfig.OnboardingCompleted(ollamaConfig.OnboardingSectionApp, ollamaConfig.OnboardingKeyTerminalPrompt) {
-		t.Fatal("OnboardingCompleted(app terminal prompt) = false, want true")
-	}
-}
-
-func TestHandleFirstRunTerminalMarksCompletedAndOpensTerminal(t *testing.T) {
-	tmpHome := t.TempDir()
-	setUITestHome(t, tmpHome)
-
-	testStore := &store.Store{
-		DBPath: filepath.Join(tmpHome, "db.sqlite"),
-	}
-	defer testStore.Close()
-
-	called := false
-	originalOpenTerminal := openTerminalWithOllama
-	openTerminalWithOllama = func() error {
-		called = true
-		return nil
-	}
-	defer func() {
-		openTerminalWithOllama = originalOpenTerminal
-	}()
-
-	server := &Server{
-		Store: testStore,
-	}
-
-	req := httptest.NewRequest("POST", "/api/v1/first-run/terminal", nil)
-	rr := httptest.NewRecorder()
-	if err := server.runOllamaInTerminal(rr, req); err != nil {
-		t.Fatalf("runOllamaInTerminal() error = %v", err)
-	}
-	if rr.Code != http.StatusOK {
-		t.Fatalf("runOllamaInTerminal() status = %d, want %d", rr.Code, http.StatusOK)
-	}
-	if !called {
-		t.Fatal("openTerminalWithOllama was not called")
-	}
-
-	if !ollamaConfig.OnboardingCompleted(ollamaConfig.OnboardingSectionApp, ollamaConfig.OnboardingKeyTerminalPrompt) {
-		t.Fatal("OnboardingCompleted(app terminal prompt) = false, want true")
 	}
 }
 
@@ -727,6 +602,63 @@ func TestUserAgentTransport(t *testing.T) {
 	t.Logf("User-Agent transport successfully set: %s", receivedUA)
 }
 
+func TestGetCloudModels(t *testing.T) {
+	t.Run("does not call ollama.com when cloud is disabled", func(t *testing.T) {
+		t.Setenv("HOME", t.TempDir())
+		t.Setenv("OLLAMA_NO_CLOUD", "1")
+		testStore := &store.Store{DBPath: filepath.Join(t.TempDir(), "db.sqlite")}
+		defer testStore.Close()
+
+		server := &Server{
+			Store: testStore,
+			ListCloudModels: func(context.Context) (*api.ListResponse, error) {
+				t.Fatal("cloud model list called while cloud was disabled")
+				return nil, nil
+			},
+		}
+		req := httptest.NewRequest(http.MethodGet, "/api/v1/models/cloud", nil)
+		rr := httptest.NewRecorder()
+		if err := server.getCloudModels(rr, req); err != nil {
+			t.Fatal(err)
+		}
+
+		var got api.ListResponse
+		if err := json.NewDecoder(rr.Body).Decode(&got); err != nil {
+			t.Fatal(err)
+		}
+		if len(got.Models) != 0 {
+			t.Fatalf("models = %+v, want none", got.Models)
+		}
+	})
+
+	t.Run("returns no cloud models when account is unauthorized", func(t *testing.T) {
+		t.Setenv("HOME", t.TempDir())
+		t.Setenv("OLLAMA_NO_CLOUD", "")
+		testStore := &store.Store{DBPath: filepath.Join(t.TempDir(), "db.sqlite")}
+		defer testStore.Close()
+
+		server := &Server{
+			Store: testStore,
+			ListCloudModels: func(context.Context) (*api.ListResponse, error) {
+				return nil, api.AuthorizationError{StatusCode: http.StatusUnauthorized}
+			},
+		}
+		req := httptest.NewRequest(http.MethodGet, "/api/v1/models/cloud", nil)
+		rr := httptest.NewRecorder()
+		if err := server.getCloudModels(rr, req); err != nil {
+			t.Fatal(err)
+		}
+
+		var got api.ListResponse
+		if err := json.NewDecoder(rr.Body).Decode(&got); err != nil {
+			t.Fatal(err)
+		}
+		if len(got.Models) != 0 {
+			t.Fatalf("models = %+v, want none", got.Models)
+		}
+	})
+}
+
 func TestInferenceClientUsesUserAgent(t *testing.T) {
 	var gotUserAgent atomic.Value
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -918,6 +850,100 @@ func TestSettingsToggleAutoUpdateOff_CancelsDownload(t *testing.T) {
 	}
 }
 
+func TestSettingsPreservesOnboardingVersionWhenOmitted(t *testing.T) {
+	testStore := &store.Store{
+		DBPath: filepath.Join(t.TempDir(), "db.sqlite"),
+	}
+	defer testStore.Close()
+
+	settings, err := testStore.Settings()
+	if err != nil {
+		t.Fatal(err)
+	}
+	settings.OnboardingVersion = 1
+	if err := testStore.SetSettings(settings); err != nil {
+		t.Fatal(err)
+	}
+
+	payload, err := json.Marshal(settings)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var fields map[string]any
+	if err := json.Unmarshal(payload, &fields); err != nil {
+		t.Fatal(err)
+	}
+	delete(fields, "OnboardingVersion")
+	payload, err = json.Marshal(fields)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	server := &Server{
+		Store:   testStore,
+		Restart: func() {},
+	}
+	req := httptest.NewRequest("POST", "/api/v1/settings", bytes.NewReader(payload))
+	rr := httptest.NewRecorder()
+
+	if err := server.settings(rr, req); err != nil {
+		t.Fatalf("settings() error = %v", err)
+	}
+
+	saved, err := testStore.Settings()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if saved.OnboardingVersion != 1 {
+		t.Fatalf("OnboardingVersion = %d, want 1", saved.OnboardingVersion)
+	}
+}
+
+func TestSettingsPreservesClaudeDesktopUsedWhenOmitted(t *testing.T) {
+	testStore := &store.Store{
+		DBPath: filepath.Join(t.TempDir(), "db.sqlite"),
+	}
+	defer testStore.Close()
+
+	settings, err := testStore.Settings()
+	if err != nil {
+		t.Fatal(err)
+	}
+	settings.ClaudeDesktopUsed = true
+	if err := testStore.SetSettings(settings); err != nil {
+		t.Fatal(err)
+	}
+
+	payload, err := json.Marshal(settings)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var fields map[string]any
+	if err := json.Unmarshal(payload, &fields); err != nil {
+		t.Fatal(err)
+	}
+	delete(fields, "ClaudeDesktopUsed")
+	payload, err = json.Marshal(fields)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	server := &Server{Store: testStore, Restart: func() {}}
+	req := httptest.NewRequest("POST", "/api/v1/settings", bytes.NewReader(payload))
+	rr := httptest.NewRecorder()
+	if err := server.settings(rr, req); err != nil {
+		t.Fatalf("settings() error = %v", err)
+	}
+
+	saved, err := testStore.Settings()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !saved.ClaudeDesktopUsed {
+		t.Fatal("expected ClaudeDesktopUsed to be preserved")
+	}
+}
+
 func TestSettingsToggleAutoUpdateOn_WithPendingUpdate_ShowsNotification(t *testing.T) {
 	testStore := &store.Store{
 		DBPath: filepath.Join(t.TempDir(), "db.sqlite"),
@@ -971,7 +997,7 @@ func TestSettingsToggleAutoUpdateOn_WithPendingUpdate_ShowsNotification(t *testi
 	}
 }
 
-func TestSettingsToggleAutoUpdateOn_NoPendingUpdate_TriggersCheck(t *testing.T) {
+func TestSettingsToggleAutoUpdateOn_NoPendingUpdate_DoesNotNotify(t *testing.T) {
 	testStore := &store.Store{
 		DBPath: filepath.Join(t.TempDir(), "db.sqlite"),
 	}
@@ -1000,17 +1026,6 @@ func TestSettingsToggleAutoUpdateOn_NoPendingUpdate_TriggersCheck(t *testing.T) 
 		DBPath: filepath.Join(t.TempDir(), "db2.sqlite"),
 	}}
 	defer upd.Store.Close()
-
-	// Initialize the checkNow channel by starting (and immediately stopping) the checker
-	// so TriggerImmediateCheck doesn't panic on nil channel
-	ctx, cancel := context.WithCancel(t.Context())
-	stopped := upd.StartBackgroundUpdaterChecker(ctx, func(string) error { return nil })
-	cancel()
-	select {
-	case <-stopped:
-	case <-time.After(2 * time.Second):
-		t.Fatal("background updater did not stop")
-	}
 
 	var notificationCalled atomic.Bool
 	server := &Server{

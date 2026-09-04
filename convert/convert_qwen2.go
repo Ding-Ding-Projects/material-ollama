@@ -49,20 +49,20 @@ func (q *qwen2Model) KV(t *Tokenizer) KV {
 }
 
 func (q *qwen2Model) Tensors(ts []Tensor) []*ggml.Tensor {
-	out := make([]*ggml.Tensor, len(ts))
-	for i, t := range ts {
-		out[i] = &ggml.Tensor{
+	var out []*ggml.Tensor
+	for _, t := range ts {
+		out = append(out, &ggml.Tensor{
 			Name:     t.Name(),
 			Kind:     t.Kind(),
 			Shape:    t.Shape(),
 			WriterTo: t,
-		}
+		})
 	}
 
 	return out
 }
 
-func (q *qwen2Model) Replacements() []string {
+func (p *qwen2Model) Replacements() []string {
 	return []string{
 		"lm_head", "output",
 		"model.embed_tokens", "token_embd",

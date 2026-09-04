@@ -18,6 +18,7 @@ import {
   ArrowDownTrayIcon,
 } from "@heroicons/react/20/solid";
 import { Settings as SettingsType } from "@/gotypes";
+import { useNavigate } from "@tanstack/react-router";
 import { useUser } from "@/hooks/useUser";
 import { useCloudStatus } from "@/hooks/useCloudStatus";
 import CLIConfigPanel from "@/components/CLIConfigPanel";

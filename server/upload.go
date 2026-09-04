@@ -370,27 +370,24 @@ func uploadBlob(ctx context.Context, n model.Name, layer manifest.Layer, opts *r
 	requestURL := n.BaseURL()
 	requestURL = requestURL.JoinPath("v2", n.DisplayNamespaceModel(), "blobs", layer.Digest)
 
-func uploadBlob(ctx context.Context, opts uploadOptions) error {
-	requestURL := opts.baseURL.JoinPath("blobs", opts.layer.Digest)
-
-	resp, err := makeRequestWithRetry(ctx, http.MethodHead, requestURL, nil, nil, opts.regOpts)
+	resp, err := makeRequestWithRetry(ctx, http.MethodHead, requestURL, nil, nil, opts)
 	switch {
 	case errors.Is(err, os.ErrNotExist):
 	case err != nil:
 		return err
 	default:
 		defer resp.Body.Close()
-		opts.fn(api.ProgressResponse{
-			Status:    fmt.Sprintf("pushing %s", opts.layer.Digest[7:19]),
-			Digest:    opts.layer.Digest,
-			Total:     opts.layer.Size,
-			Completed: opts.layer.Size,
+		fn(api.ProgressResponse{
+			Status:    fmt.Sprintf("pushing %s", layer.Digest[7:19]),
+			Digest:    layer.Digest,
+			Total:     layer.Size,
+			Completed: layer.Size,
 		})
 
 		return nil
 	}
 
-	data, ok := blobUploadManager.LoadOrStore(opts.layer.Digest, &blobUpload{Layer: opts.layer})
+	data, ok := blobUploadManager.LoadOrStore(layer.Digest, &blobUpload{Layer: layer})
 	upload := data.(*blobUpload)
 	if !ok {
 		requestURL := n.BaseURL()
@@ -401,8 +398,8 @@ func uploadBlob(ctx context.Context, opts uploadOptions) error {
 		}
 
 		//nolint:contextcheck
-		go upload.Run(context.Background(), opts.regOpts)
+		go upload.Run(context.Background(), opts)
 	}
 
-	return upload.Wait(ctx, opts.fn)
+	return upload.Wait(ctx, fn)
 }

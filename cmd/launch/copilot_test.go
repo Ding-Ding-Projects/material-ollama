@@ -115,54 +115,6 @@ func TestCopilotArgs(t *testing.T) {
 	}
 }
 
-func TestCopilotRunPassesTokenEnvVars(t *testing.T) {
-	if runtime.GOOS == "windows" {
-		t.Skip("shell stub uses /bin/sh")
-	}
-
-	tmpDir := t.TempDir()
-	capturePath := filepath.Join(tmpDir, "capture")
-	fakeBin := filepath.Join(tmpDir, "copilot")
-	script := `#!/bin/sh
-{
-  echo "ARGS:$*"
-  echo "COPILOT_MODEL=$COPILOT_MODEL"
-  echo "COPILOT_PROVIDER_MAX_PROMPT_TOKENS=$COPILOT_PROVIDER_MAX_PROMPT_TOKENS"
-  echo "COPILOT_PROVIDER_MAX_OUTPUT_TOKENS=$COPILOT_PROVIDER_MAX_OUTPUT_TOKENS"
-} > "$COPILOT_CAPTURE"
-`
-	if err := os.WriteFile(fakeBin, []byte(script), 0o755); err != nil {
-		t.Fatal(err)
-	}
-	t.Setenv("PATH", tmpDir)
-	t.Setenv("COPILOT_CAPTURE", capturePath)
-	t.Setenv("OLLAMA_CONTEXT_LENGTH", "")
-
-	c := &Copilot{}
-	err := c.Run("gemma4:31b-nvfp4", []LaunchModel{
-		{Name: "gemma4:31b-nvfp4", ContextLength: 262_144},
-	}, []string{"-p", "hello"})
-	if err != nil {
-		t.Fatalf("Run() error = %v", err)
-	}
-
-	data, err := os.ReadFile(capturePath)
-	if err != nil {
-		t.Fatal(err)
-	}
-	got := string(data)
-	for _, want := range []string{
-		"ARGS:--model gemma4:31b-nvfp4 -p hello",
-		"COPILOT_MODEL=gemma4:31b-nvfp4",
-		"COPILOT_PROVIDER_MAX_PROMPT_TOKENS=262144",
-		"COPILOT_PROVIDER_MAX_OUTPUT_TOKENS=64000",
-	} {
-		if !strings.Contains(got, want) {
-			t.Errorf("captured output missing %q:\n%s", want, got)
-		}
-	}
-}
-
 func TestCopilotEnvVars(t *testing.T) {
 	c := &Copilot{}
 

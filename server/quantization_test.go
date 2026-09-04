@@ -8,7 +8,6 @@ import (
 	"slices"
 	"testing"
 
-	"github.com/google/go-cmp/cmp"
 	fsggml "github.com/ollama/ollama/fs/ggml"
 )
 

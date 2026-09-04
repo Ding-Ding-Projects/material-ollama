@@ -5,11 +5,6 @@ import { DisplayUpgrade } from "./DisplayUpgrade";
 import { DisplayStale } from "./DisplayStale";
 import { DisplayLogin } from "./DisplayLogin";
 import {
-  ConversationContent,
-  ConversationScrollButton,
-  ConversationWithSpacer,
-} from "./ai-elements/conversation";
-import {
   useChat,
   useSendMessage,
   useIsStreaming,
@@ -18,10 +13,16 @@ import {
   useChatError,
   useShouldShowStaleDisplay,
   useDismissStaleModel,
-  useUpdateChatMessage,
 } from "@/hooks/useChats";
 import { useHealth } from "@/hooks/useHealth";
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useMessageAutoscroll } from "@/hooks/useMessageAutoscroll";
+import {
+  useState,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useCallback,
+} from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
 import { useSelectedModel } from "@/hooks/useSelectedModel";
@@ -46,6 +47,7 @@ export default function Chat({ chatId }: { chatId: string }) {
     index: number;
     originalMessage: Message;
   } | null>(null);
+  const prevChatIdRef = useRef<string>(chatId);
 
   const chatFormCallbackRef = useRef<
     | ((
@@ -96,17 +98,33 @@ export default function Chat({ chatId }: { chatId: string }) {
   // Clear editing state when navigating to a different chat
   useEffect(() => {
     setEditingMessage(null);
-    setEditingAssistantIndex(null);
-    setAssistantEditError(null);
   }, [chatId]);
 
   const sendMessageMutation = useSendMessage(chatId);
-  const updateAssistantMessageMutation = useUpdateChatMessage(
-    chatId === "new" ? "" : chatId,
-  );
 
-  const latestMessageRef = useRef<HTMLDivElement>(null);
+  const { containerRef, handleNewUserMessage, spacerHeight } =
+    useMessageAutoscroll({
+      messages,
+      isStreaming,
+      chatId,
+    });
 
+  // Scroll to bottom only when switching to a different existing chat
+  useLayoutEffect(() => {
+    // Only scroll if the chatId actually changed (not just messages updating)
+    if (
+      prevChatIdRef.current !== chatId &&
+      containerRef.current &&
+      messages.length > 0 &&
+      chatId !== "new"
+    ) {
+      // Always scroll to the bottom when opening a chat
+      containerRef.current.scrollTop = containerRef.current.scrollHeight;
+    }
+    prevChatIdRef.current = chatId;
+  }, [chatId, messages.length]);
+
+  // Simplified submit handler - ChatForm handles all the attachment logic
   const handleChatFormSubmit = (
     message: string,
     options: {
@@ -150,6 +168,7 @@ export default function Chat({ chatId }: { chatId: string }) {
 
     // Clear edit mode after submission
     setEditingMessage(null);
+    handleNewUserMessage();
   };
 
   const handleEditMessage = (content: string, index: number) => {
@@ -167,50 +186,14 @@ export default function Chat({ chatId }: { chatId: string }) {
     }
   };
 
-  const handleAssistantEditStart = (index: number) => {
-    setAssistantEditError(null);
-    setEditingAssistantIndex(index);
-  };
-
-  const handleAssistantEditCancel = () => {
-    if (updateAssistantMessageMutation.isPending) {
-      return;
-    }
-    setAssistantEditError(null);
-    setEditingAssistantIndex(null);
-  };
-
-  const handleAssistantEditSave = async (index: number, content: string) => {
-    if (updateAssistantMessageMutation.isPending) {
-      return;
-    }
-
-    const trimmedContent = content.trim();
-    if (!trimmedContent) {
-      setAssistantEditError("Response cannot be empty.");
-      return;
-    }
-
-    try {
-      setAssistantEditError(null);
-      await updateAssistantMessageMutation.mutateAsync({
-        index,
-        content: trimmedContent,
-      });
-      setEditingAssistantIndex(null);
-    } catch (error) {
-      setAssistantEditError(
-        error instanceof Error ? error.message : "Failed to update message.",
-      );
-    }
-  };
-
   const clearChatError = () => {
     queryClient.setQueryData(
       ["chatError", chatId === "new" ? "" : chatId],
       null,
     );
   };
+
+  const isWindows = navigator.platform.toLowerCase().includes("win");
 
   return chatId === "new" || chatQuery ? (
     <FileUpload
@@ -236,29 +219,25 @@ export default function Chat({ chatId }: { chatId: string }) {
         </div>
       ) : (
         <main className="flex h-screen w-full flex-col relative allow-context-menu select-none">
-          <ConversationWithSpacer
-            key={chatId}
-            className={`flex-1 overscroll-contain select-none`}
-            isStreaming={isStreaming}
-            messageCount={messages.length}
+          <section
+            key={chatId} // This key forces React to recreate the element when chatId changes
+            ref={containerRef}
+            className={`flex-1 overflow-y-auto overscroll-contain relative min-h-0 select-none ${isWindows ? "xl:pt-4" : "xl:pt-8"}`}
           >
-            <ConversationContent isStreaming={isStreaming}>
-              <MessageList
-                messages={messages}
-                isWaitingForLoad={isWaitingForLoad}
-                isStreaming={isStreaming}
-                downloadProgress={downloadProgress}
-                onEditMessage={(content: string, index: number) => {
-                  handleEditMessage(content, index);
-                }}
-                editingMessageIndex={editingMessage?.index}
-                error={chatError}
-                browserToolResult={browserToolResult}
-                latestMessageRef={latestMessageRef}
-              />
-            </ConversationContent>
-            <ConversationScrollButton />
-          </ConversationWithSpacer>
+            <MessageList
+              messages={messages}
+              spacerHeight={spacerHeight}
+              isWaitingForLoad={isWaitingForLoad}
+              isStreaming={isStreaming}
+              downloadProgress={downloadProgress}
+              onEditMessage={(content: string, index: number) => {
+                handleEditMessage(content, index);
+              }}
+              editingMessageIndex={editingMessage?.index}
+              error={chatError}
+              browserToolResult={browserToolResult}
+            />
+          </section>
 
           <div className="flex-shrink-0 sticky bottom-0 z-20">
             {selectedModel && shouldShowStaleDisplay && (
@@ -269,6 +248,14 @@ export default function Chat({ chatId }: { chatId: string }) {
                     dismissStaleModel(selectedModel?.model || "")
                   }
                   chatId={chatId}
+                  onScrollToBottom={() => {
+                    if (containerRef.current) {
+                      containerRef.current.scrollTo({
+                        top: containerRef.current.scrollHeight,
+                        behavior: "smooth",
+                      });
+                    }
+                  }}
                 />
               </div>
             )}
@@ -295,7 +282,6 @@ export default function Chat({ chatId }: { chatId: string }) {
               onSubmit={handleChatFormSubmit}
               chatId={chatId}
               autoFocus={true}
-              initialDraft={chatQuery?.data?.chat?.draft ?? ""}
               editingMessage={editingMessage}
               onCancelEdit={handleCancelEdit}
               isDisabled={isDisabled}

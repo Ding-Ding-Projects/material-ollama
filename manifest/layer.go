@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"log/slog"
 	"os"
 	"time"
 )
@@ -120,8 +119,7 @@ func (l *Layer) Open() (io.ReadSeekCloser, error) {
 	return os.Open(blob)
 }
 
-// Prune removes the layer from the filesystem if it is not referenced any manifest.
-func (l *Layer) Prune() error {
+func (l *Layer) Remove() error {
 	if l.Digest == "" {
 		return nil
 	}
@@ -146,41 +144,5 @@ func (l *Layer) Prune() error {
 		return err
 	}
 
-	slog.Debug("pruning layer", "digest", l.Digest)
 	return os.Remove(blob)
-}
-
-func Layers() (map[string]Layer, error) {
-	blobs, err := GetBlobsPath("")
-	if err != nil {
-		return nil, err
-	}
-
-	// TODO(mxyng): use something less brittle
-	matches, err := filepath.Glob(filepath.Join(blobs, "*"))
-	if err != nil {
-		return nil, err
-	}
-
-	layers := make(map[string]Layer)
-	for _, match := range matches {
-		rel, err := filepath.Rel(blobs, match)
-		if err != nil {
-			slog.Warn("bad filepath", "path", match, "error", err)
-			continue
-		}
-
-		// TODO(mxyng): this should ideally use model.Digest but
-		// that's currently incompatible with the manifest digest
-		digest := strings.Replace(rel, "sha256-", "sha256:", 1)
-		layer, err := NewLayerFromLayer(digest, "", "")
-		if err != nil {
-			slog.Warn("bad blob", "digest", digest, "error", err)
-			layer = Layer{Digest: rel}
-		}
-
-		layers[digest] = layer
-	}
-
-	return layers, nil
 }

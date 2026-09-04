@@ -38,7 +38,7 @@ func convertFull(t *testing.T, fsys fs.FS) (*os.File, fsc.Config, ggml.Tensors) 
 	}
 	defer f.Close()
 
-	if err := ConvertModel(fsys, f, func(api.ProgressResponse) {}); err != nil {
+	if err := ConvertModel(fsys, f); err != nil {
 		t.Fatal(err)
 	}
 
@@ -92,7 +92,6 @@ func generateResultsJSON(t *testing.T, f *os.File, kv fsc.Config, tensors ggml.T
 func TestMain(m *testing.M) {
 	var level slog.Level
 	flag.TextVar(&level, "level", slog.LevelInfo, "log level")
-	flag.StringVar(&generate, "generate", "", "generate model data")
 	flag.Parse()
 	slog.SetLogLoggerLevel(level)
 	os.Exit(m.Run())
@@ -112,7 +111,6 @@ func TestConvertModel(t *testing.T) {
 		"gemma-2-9b-it",
 		"Qwen2.5-0.5B-Instruct",
 		"c4ai-command-r-v01",
-		"c4ai-command-r7b-12-2024",
 	}
 
 	for i := range cases {
@@ -129,19 +127,6 @@ func TestConvertModel(t *testing.T) {
 
 			f, kv, tensors := convertFull(t, os.DirFS(p))
 			actual := generateResultsJSON(t, f, kv, tensors)
-
-			if generate != "" && generate == tt {
-				outFile := filepath.Join("testdata", fmt.Sprintf("%s.json", tt))
-				data, err := json.MarshalIndent(actual, "", "  ")
-				if err != nil {
-					t.Fatal(err)
-				}
-				if err := os.WriteFile(outFile, data, 0o644); err != nil {
-					t.Fatal(err)
-				}
-				t.Logf("Generated expected results for %s", tt)
-				return
-			}
 
 			expectFile, err := os.Open(filepath.Join("testdata", fmt.Sprintf("%s.json", tt)))
 			if err != nil {
@@ -337,7 +322,7 @@ func TestConvertAdapter(t *testing.T) {
 			tempDir := t.TempDir()
 			generateLoraTestData(t, tempDir)
 
-			if err = ConvertAdapter(os.DirFS(tempDir), f, c.BaseKV, func(api.ProgressResponse) {}); err != nil {
+			if err = ConvertAdapter(os.DirFS(tempDir), f, c.BaseKV); err != nil {
 				t.Fatal(err)
 			}
 

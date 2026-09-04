@@ -9,9 +9,9 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/d4l3k/go-bfloat16"
 	"github.com/google/go-cmp/cmp"
-	"github.com/ollama/ollama/convert/bfloat16"
-	"github.com/ollama/ollama/convert/float16"
+	"github.com/x448/float16"
 )
 
 func TestSafetensors(t *testing.T) {
@@ -22,11 +22,6 @@ func TestSafetensors(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer root.Close()
-
-	f32s := make([]float32, 32)
-	for i := range f32s {
-		f32s[i] = float32(i)
-	}
 
 	cases := []struct {
 		name,
@@ -43,6 +38,11 @@ func TestSafetensors(t *testing.T) {
 			size:  32 * 4, // 32 floats, each 4 bytes
 			shape: []uint64{32},
 			setup: func(t *testing.T, f *os.File) {
+				f32s := make([]float32, 32)
+				for i := range f32s {
+					f32s[i] = float32(i)
+				}
+
 				if err := binary.Write(f, binary.LittleEndian, f32s); err != nil {
 					t.Fatal(err)
 				}
@@ -64,6 +64,11 @@ func TestSafetensors(t *testing.T) {
 			size:  32 * 4, // 32 floats, each 4 bytes
 			shape: []uint64{16, 2},
 			setup: func(t *testing.T, f *os.File) {
+				f32s := make([]float32, 32)
+				for i := range f32s {
+					f32s[i] = float32(i)
+				}
+
 				if err := binary.Write(f, binary.LittleEndian, f32s); err != nil {
 					t.Fatal(err)
 				}
@@ -81,7 +86,12 @@ func TestSafetensors(t *testing.T) {
 			size:  32 * 2, // 32 floats, each 2 bytes
 			shape: []uint64{16, 2},
 			setup: func(t *testing.T, f *os.File) {
-				if err := binary.Write(f, binary.LittleEndian, float16.FromFloat32s(f32s)); err != nil {
+				u16s := make([]uint16, 32)
+				for i := range u16s {
+					u16s[i] = float16.Fromfloat32(float32(i)).Bits()
+				}
+
+				if err := binary.Write(f, binary.LittleEndian, u16s); err != nil {
 					t.Fatal(err)
 				}
 			},
@@ -98,7 +108,12 @@ func TestSafetensors(t *testing.T) {
 			size:  32 * 2, // 32 floats, each 2 bytes
 			shape: []uint64{32},
 			setup: func(t *testing.T, f *os.File) {
-				if err := binary.Write(f, binary.LittleEndian, float16.FromFloat32s(f32s)); err != nil {
+				u16s := make([]uint16, 32)
+				for i := range u16s {
+					u16s[i] = float16.Fromfloat32(float32(i)).Bits()
+				}
+
+				if err := binary.Write(f, binary.LittleEndian, u16s); err != nil {
 					t.Fatal(err)
 				}
 			},
@@ -119,7 +134,12 @@ func TestSafetensors(t *testing.T) {
 			size:  32 * 2, // 32 brain floats, each 2 bytes
 			shape: []uint64{16, 2},
 			setup: func(t *testing.T, f *os.File) {
-				if err := binary.Write(f, binary.LittleEndian, bfloat16.FromFloat32s(f32s)); err != nil {
+				f32s := make([]float32, 32)
+				for i := range f32s {
+					f32s[i] = float32(i)
+				}
+
+				if err := binary.Write(f, binary.LittleEndian, bfloat16.EncodeFloat32(f32s)); err != nil {
 					t.Fatal(err)
 				}
 			},
@@ -136,7 +156,12 @@ func TestSafetensors(t *testing.T) {
 			size:  32 * 2, // 32 brain floats, each 2 bytes
 			shape: []uint64{32},
 			setup: func(t *testing.T, f *os.File) {
-				if err := binary.Write(f, binary.LittleEndian, bfloat16.FromFloat32s(f32s)); err != nil {
+				f32s := make([]float32, 32)
+				for i := range f32s {
+					f32s[i] = float32(i)
+				}
+
+				if err := binary.Write(f, binary.LittleEndian, bfloat16.EncodeFloat32(f32s)); err != nil {
 					t.Fatal(err)
 				}
 			},

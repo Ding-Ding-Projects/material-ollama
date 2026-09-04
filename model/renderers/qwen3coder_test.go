@@ -5,31 +5,8 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
-
 	"github.com/ollama/ollama/api"
 )
-
-// Helper function to create ordered arguments for tests
-func makeArgs(pairs ...any) api.ToolCallFunctionArguments {
-	args := api.NewToolCallFunctionArguments()
-	for i := 0; i < len(pairs); i += 2 {
-		key := pairs[i].(string)
-		value := pairs[i+1]
-		args.Set(key, value)
-	}
-	return args
-}
-
-// Helper function to create ordered properties for tests
-func makeProps(pairs ...any) *api.ToolProperties {
-	props := api.NewToolProperties()
-	for i := 0; i < len(pairs); i += 2 {
-		key := pairs[i].(string)
-		value := pairs[i+1].(api.ToolProperty)
-		props.Set(key, value)
-	}
-	return props
-}
 
 func TestQwen3CoderRenderer(t *testing.T) {
 	tests := []struct {
@@ -412,64 +389,5 @@ func TestQwen3ToolDefinitionTypes(t *testing.T) {
 				t.Errorf("formatToolDefinitionType() = %v, want %v", got, tt.expected)
 			}
 		})
-	}
-}
-
-func TestMultipleParametersNonDeterministic(t *testing.T) {
-	// This test demonstrates that tools with multiple parameters are rendered
-	// non-deterministically due to Go's map iteration order.
-	// See https://github.com/ollama/ollama/issues/12244
-
-	tools := []api.Tool{
-		{Function: api.ToolFunction{
-			Name:        "get_weather",
-			Description: "Get the current weather",
-			Parameters: api.NewToolFunctionParametersWithProps(
-				"object",
-				[]string{"location", "unit"},
-				makeProps(
-					"location", api.ToolProperty{Type: api.PropertyType{"string"}, Description: "The city and state"},
-					"unit", api.ToolProperty{Type: api.PropertyType{"string"}, Description: "The temperature unit"},
-					"format", api.ToolProperty{Type: api.PropertyType{"string"}, Description: "The output format"},
-				),
-			),
-		}},
-	}
-
-	msgs := []api.Message{
-		{Role: "user", Content: "What's the weather?"},
-		{Role: "assistant", ToolCalls: []api.ToolCall{
-			{Function: api.ToolCallFunction{
-				Name: "get_weather",
-				Arguments: makeArgs(
-					"location", "San Francisco, CA",
-					"unit", "fahrenheit",
-					"format", "detailed",
-				),
-			}},
-		}},
-	}
-
-	// Run the renderer multiple times and collect unique outputs
-	outputs := make(map[string]bool)
-	for i := 0; i < 15; i++ {
-		rendered, err := Qwen3CoderRenderer(msgs, tools, nil)
-		if err != nil {
-			t.Fatal(err)
-		}
-		outputs[rendered] = true
-	}
-
-	// The renderer should be deterministic - we should only get one unique output
-	if len(outputs) > 1 {
-		// Show the first two different outputs for comparison
-		count := 0
-		for output := range outputs {
-			if count < 2 {
-				t.Logf("\nOutput variant %d:\n%s", count+1, output)
-				count++
-			}
-		}
-		t.Fatalf("Renderer produced %d different outputs across 15 runs (expected deterministic output)", len(outputs))
 	}
 }

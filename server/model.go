@@ -42,21 +42,21 @@ func parseFromModel(ctx context.Context, name model.Name, fn func(api.ProgressRe
 	switch {
 	case errors.Is(err, os.ErrNotExist):
 		if err := PullModel(ctx, name.String(), &registryOptions{}, fn); err != nil {
-			return nil, version, err
+			return nil, err
 		}
 
 		m, err = manifest.ParseNamedManifest(name)
 		if err != nil {
-			return nil, version, err
+			return nil, err
 		}
 	case err != nil:
-		return nil, version, err
+		return nil, err
 	}
 
 	for _, srcLayer := range m.Layers {
 		layer, err := manifest.NewLayerFromLayer(srcLayer.Digest, srcLayer.MediaType, name.DisplayShortest())
 		if err != nil {
-			return nil, version, err
+			return nil, err
 		}
 		layer.Name = srcLayer.Name
 
@@ -67,18 +67,18 @@ func parseFromModel(ctx context.Context, name model.Name, fn func(api.ProgressRe
 			manifest.MediaTypeImageDraft:
 			blobpath, err := manifest.BlobsPath(layer.Digest)
 			if err != nil {
-				return nil, version, err
+				return nil, err
 			}
 
 			blob, err := os.Open(blobpath)
 			if err != nil {
-				return nil, version, err
+				return nil, err
 			}
 			defer blob.Close()
 
 			f, err := ggml.Decode(blob, -1)
 			if err != nil {
-				return nil, version, err
+				return nil, err
 			}
 
 			layers = append(layers, &layerGGML{Layer: layer, GGML: f})
@@ -87,7 +87,7 @@ func parseFromModel(ctx context.Context, name model.Name, fn func(api.ProgressRe
 		}
 	}
 
-	return layers, version, nil
+	return layers, nil
 }
 
 func detectChatTemplate(layers []*layerGGML) ([]*layerGGML, error) {

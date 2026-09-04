@@ -15,7 +15,6 @@ import (
 	"time"
 
 	"github.com/ollama/ollama/api"
-	"github.com/ollama/ollama/types"
 	"github.com/ollama/ollama/types/model"
 )
 
@@ -78,10 +77,10 @@ type PromptTokensDetails struct {
 }
 
 type Usage struct {
-	PromptTokens        int                 `json:"prompt_tokens"`
-	PromptTokensDetails PromptTokensDetails `json:"prompt_tokens_details"`
-	CompletionTokens    int                 `json:"completion_tokens"`
-	TotalTokens         int                 `json:"total_tokens"`
+	PromptTokens        int                  `json:"prompt_tokens"`
+	PromptTokensDetails *PromptTokensDetails `json:"prompt_tokens_details,omitempty"`
+	CompletionTokens    int                  `json:"completion_tokens"`
+	TotalTokens         int                  `json:"total_tokens"`
 }
 
 type ResponseFormat struct {
@@ -108,17 +107,11 @@ type Reasoning struct {
 	Effort string `json:"effort,omitempty"`
 }
 
-type StreamOptions struct {
-	IncludeUsage bool `json:"include_usage"`
-}
-
 type ChatCompletionRequest struct {
-	Model               string         `json:"model"`
-	Messages            []Message      `json:"messages"`
-	Stream              bool           `json:"stream"`
-	StreamOptions       *StreamOptions `json:"stream_options"`
-	MaxCompletionTokens *int           `json:"max_completion_tokens"`
-	// Deprecated: Use [ChatCompletionRequest.MaxCompletionTokens]
+	Model            string          `json:"model"`
+	Messages         []Message       `json:"messages"`
+	Stream           bool            `json:"stream"`
+	StreamOptions    *StreamOptions  `json:"stream_options"`
 	MaxTokens        *int            `json:"max_tokens"`
 	Seed             *int            `json:"seed"`
 	Stop             any             `json:"stop"`
@@ -250,12 +243,15 @@ func NewError(code int, message string) ErrorResponse {
 
 // ToUsage converts an api.ChatResponse to Usage
 func ToUsage(r api.ChatResponse) Usage {
-	return Usage{
-		PromptTokens:        r.Metrics.PromptEvalCount,
-		PromptTokensDetails: PromptTokensDetails{CachedTokens: r.Metrics.PromptEvalCachedCount},
-		CompletionTokens:    r.Metrics.EvalCount,
-		TotalTokens:         r.Metrics.PromptEvalCount + r.Metrics.EvalCount,
+	usage := Usage{
+		PromptTokens:     r.Metrics.PromptEvalCount,
+		CompletionTokens: r.Metrics.EvalCount,
+		TotalTokens:      r.Metrics.PromptEvalCount + r.Metrics.EvalCount,
 	}
+	if r.Metrics.PromptEvalCachedCount != nil {
+		usage.PromptTokensDetails = &PromptTokensDetails{CachedTokens: *r.Metrics.PromptEvalCachedCount}
+	}
+	return usage
 }
 
 // ToToolCalls converts api.ToolCall to OpenAI ToolCall format
@@ -409,12 +405,15 @@ func FinishChunk(id string, r api.ChatResponse, toolCallSent bool) ChatCompletio
 
 // ToUsageGenerate converts an api.GenerateResponse to Usage
 func ToUsageGenerate(r api.GenerateResponse) Usage {
-	return Usage{
-		PromptTokens:        r.Metrics.PromptEvalCount,
-		PromptTokensDetails: PromptTokensDetails{CachedTokens: r.Metrics.PromptEvalCachedCount},
-		CompletionTokens:    r.Metrics.EvalCount,
-		TotalTokens:         r.Metrics.PromptEvalCount + r.Metrics.EvalCount,
+	usage := Usage{
+		PromptTokens:     r.Metrics.PromptEvalCount,
+		CompletionTokens: r.Metrics.EvalCount,
+		TotalTokens:      r.Metrics.PromptEvalCount + r.Metrics.EvalCount,
 	}
+	if r.Metrics.PromptEvalCachedCount != nil {
+		usage.PromptTokensDetails = &PromptTokensDetails{CachedTokens: *r.Metrics.PromptEvalCachedCount}
+	}
+	return usage
 }
 
 // ToCompletion converts an api.GenerateResponse to Completion
@@ -481,7 +480,6 @@ func ToListCompletion(r api.ListResponse) ListCompletion {
 		Object: "list",
 		Data:   data,
 	}
-	return c
 }
 
 // ToEmbeddingList converts an api.EmbedResponse to EmbeddingList
@@ -579,8 +577,6 @@ func FromChatRequest(r ChatCompletionRequest) (*api.ChatRequest, error) {
 			}
 			messages = append(messages, api.Message{Role: msg.Role, Content: content, Thinking: msg.Reasoning, ToolCalls: toolCalls, ToolName: toolName, ToolCallID: msg.ToolCallID})
 		case []any:
-			var texts []string
-			var images []api.ImageData
 			for _, c := range content {
 				data, ok := c.(map[string]any)
 				if !ok {
@@ -592,7 +588,7 @@ func FromChatRequest(r ChatCompletionRequest) (*api.ChatRequest, error) {
 					if !ok {
 						return nil, errors.New("invalid message format")
 					}
-					texts = append(texts, text)
+					messages = append(messages, api.Message{Role: msg.Role, Content: text})
 				case "image_url":
 					var url string
 					if urlMap, ok := data["image_url"].(map[string]any); ok {
@@ -629,19 +625,18 @@ func FromChatRequest(r ChatCompletionRequest) (*api.ChatRequest, error) {
 					return nil, errors.New("invalid message format")
 				}
 			}
-			toolCalls, err := FromCompletionToolCall(msg.ToolCalls)
-			if err != nil {
-				return nil, err
+			// since we might have added multiple messages above, if we have tools
+			// calls we'll add them to the last message
+			if len(messages) > 0 && len(msg.ToolCalls) > 0 {
+				toolCalls, err := FromCompletionToolCall(msg.ToolCalls)
+				if err != nil {
+					return nil, err
+				}
+				messages[len(messages)-1].ToolCalls = toolCalls
+				messages[len(messages)-1].ToolName = toolName
+				messages[len(messages)-1].ToolCallID = msg.ToolCallID
+				messages[len(messages)-1].Thinking = msg.Reasoning
 			}
-			messages = append(messages, api.Message{
-				Role:       msg.Role,
-				Content:    strings.Join(texts, "\n\n"),
-				Images:     images,
-				Thinking:   msg.Reasoning,
-				ToolCalls:  toolCalls,
-				ToolName:   toolName,
-				ToolCallID: msg.ToolCallID,
-			})
 		default:
 			// content is only optional if tool calls are present
 			if msg.ToolCalls == nil {
@@ -671,18 +666,8 @@ func FromChatRequest(r ChatCompletionRequest) (*api.ChatRequest, error) {
 		options["stop"] = stops
 	}
 
-	if r.ContextLength != nil {
-		options["num_ctx"] = *r.ContextLength
-	}
-
-	// Deprecated: MaxTokens is deprecated, use MaxCompletionTokens instead
 	if r.MaxTokens != nil {
 		options["num_predict"] = *r.MaxTokens
-
-		// Increase context size up to max_tokens
-		if *r.MaxTokens > 2048 {
-			options["num_ctx"] = *r.MaxTokens
-		}
 	}
 
 	if r.Temperature != nil {
@@ -912,70 +897,4 @@ func FromTranscriptionRequest(r TranscriptionRequest) (*api.ChatRequest, error) 
 			"temperature": 0,
 		},
 	}, nil
-}
-
-func (w *DeleteWriter) writeError(code int, data []byte) (int, error) {
-	var serr api.StatusError
-	err := json.Unmarshal(data, &serr)
-	if err != nil {
-		return 0, err
-	}
-
-	w.ResponseWriter.Header().Set("Content-Type", "application/json")
-	err = json.NewEncoder(w.ResponseWriter).Encode(NewError(http.StatusInternalServerError, er.Err))
-	if err != nil {
-		return 0, err
-	}
-
-	return len(data), nil
-}
-
-func (w *DeleteWriter) writeResponse(data []byte) (int, error) {
-	// delete completion
-	w.ResponseWriter.Header().Set("Content-Type", "application/json")
-	err := json.NewEncoder(w.ResponseWriter).Encode(toDeleteCompletion(w.model))
-	if err != nil {
-		return 0, err
-	}
-
-	return len(data), nil
-}
-
-func (w *DeleteWriter) Write(data []byte) (int, error) {
-	code := w.ResponseWriter.Status()
-	if code != http.StatusOK {
-		return w.writeError(code, data)
-	}
-
-	return w.writeResponse(data)
-}
-
-func DeleteMiddleware() gin.HandlerFunc {
-	return func(c *gin.Context) {
-		var b bytes.Buffer
-		if err := json.NewEncoder(&b).Encode(api.DeleteRequest{Model: c.Param("model")}); err != nil {
-			c.AbortWithStatusJSON(http.StatusInternalServerError, NewError(http.StatusInternalServerError, err.Error()))
-			return
-		}
-
-		c.Request.Body = io.NopCloser(&b)
-
-		// response writer
-		w := &DeleteWriter{
-			BaseWriter: BaseWriter{ResponseWriter: c.Writer},
-			model:      c.Param("model"),
-		}
-
-		c.Writer = w
-
-		c.Next()
-
-		// If the status code is OK, write the DeleteCompletion response
-		if c.Writer.Status() == http.StatusOK {
-			_, err := w.writeResponse(nil)
-			if err != nil {
-				c.AbortWithStatusJSON(http.StatusInternalServerError, NewError(http.StatusInternalServerError, err.Error()))
-			}
-		}
-	}
 }

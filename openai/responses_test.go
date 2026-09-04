@@ -2,6 +2,7 @@ package openai
 
 import (
 	"encoding/json"
+	"strings"
 	"testing"
 	"time"
 
@@ -1750,7 +1751,7 @@ func TestToResponse_UsageIncludesCachedTokens(t *testing.T) {
 		Done:      true,
 		Metrics: api.Metrics{
 			PromptEvalCount:       10,
-			PromptEvalCachedCount: 4,
+			PromptEvalCachedCount: testIntPtr(4),
 			EvalCount:             3,
 		},
 	}, ResponsesRequest{})
@@ -1758,14 +1759,16 @@ func TestToResponse_UsageIncludesCachedTokens(t *testing.T) {
 	if response.Usage == nil {
 		t.Fatal("expected usage")
 	}
-	if response.Usage.InputTokens != 10 {
-		t.Errorf("InputTokens = %d, want 10", response.Usage.InputTokens)
+	if response.Usage.InputTokens != 10 || response.Usage.InputTokensDetails.CachedTokens != 4 || response.Usage.TotalTokens != 13 {
+		t.Errorf("unexpected usage: %+v", response.Usage)
 	}
-	if response.Usage.InputTokensDetails.CachedTokens != 4 {
-		t.Errorf("CachedTokens = %d, want 4", response.Usage.InputTokensDetails.CachedTokens)
+
+	data, err := json.Marshal(response.Usage)
+	if err != nil {
+		t.Fatal(err)
 	}
-	if response.Usage.TotalTokens != 13 {
-		t.Errorf("TotalTokens = %d, want 13", response.Usage.TotalTokens)
+	if !strings.Contains(string(data), `"input_tokens_details":{"cached_tokens":4}`) {
+		t.Errorf("unexpected usage json: %s", data)
 	}
 }
 
@@ -2121,11 +2124,6 @@ func TestResponsesStreamConverter_OutputIncludesContent(t *testing.T) {
 	events := converter.Process(api.ChatResponse{
 		Message: api.Message{},
 		Done:    true,
-		Metrics: api.Metrics{
-			PromptEvalCount:       10,
-			PromptEvalCachedCount: 4,
-			EvalCount:             3,
-		},
 	})
 
 	// Find the output_item.done event
@@ -2176,7 +2174,7 @@ func TestResponsesStreamConverter_ResponseCompletedIncludesOutput(t *testing.T) 
 		Done:    true,
 		Metrics: api.Metrics{
 			PromptEvalCount:       10,
-			PromptEvalCachedCount: 4,
+			PromptEvalCachedCount: testIntPtr(4),
 			EvalCount:             3,
 		},
 	})
@@ -2208,11 +2206,10 @@ func TestResponsesStreamConverter_ResponseCompletedIncludesOutput(t *testing.T) 
 	if item["type"] != "message" {
 		t.Errorf("output[0].type = %q, want %q", item["type"], "message")
 	}
-
 	usage := response["usage"].(map[string]any)
-	inputTokensDetails := usage["input_tokens_details"].(map[string]any)
-	if inputTokensDetails["cached_tokens"] != 4 {
-		t.Errorf("cached_tokens = %v, want 4", inputTokensDetails["cached_tokens"])
+	inputDetails := usage["input_tokens_details"].(map[string]any)
+	if inputDetails["cached_tokens"] != 4 {
+		t.Errorf("cached_tokens = %v, want 4", inputDetails["cached_tokens"])
 	}
 }
 

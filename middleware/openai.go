@@ -154,7 +154,7 @@ func (w *ChatWriter) writeResponse(data []byte) (int, error) {
 				if err != nil {
 					return 0, err
 				}
-				_, err = fmt.Fprintf(w.ResponseWriter, "data: %s\n\n", d)
+				_, err = w.ResponseWriter.Write([]byte(fmt.Sprintf("data: %s\n\n", d)))
 				if err != nil {
 					return 0, err
 				}
@@ -179,7 +179,7 @@ func (w *ChatWriter) writeResponse(data []byte) (int, error) {
 }
 
 func (w *ChatWriter) Write(data []byte) (int, error) {
-	code := w.Status()
+	code := w.ResponseWriter.Status()
 	if code != http.StatusOK {
 		return w.writeError(data)
 	}
@@ -206,7 +206,7 @@ func (w *CompleteWriter) writeResponse(data []byte) (int, error) {
 		}
 
 		w.ResponseWriter.Header().Set("Content-Type", "text/event-stream")
-		_, err = fmt.Fprintf(w.ResponseWriter, "data: %s\n\n", d)
+		_, err = w.ResponseWriter.Write([]byte(fmt.Sprintf("data: %s\n\n", d)))
 		if err != nil {
 			return 0, err
 		}
@@ -220,7 +220,7 @@ func (w *CompleteWriter) writeResponse(data []byte) (int, error) {
 				if err != nil {
 					return 0, err
 				}
-				_, err = fmt.Fprintf(w.ResponseWriter, "data: %s\n\n", d)
+				_, err = w.ResponseWriter.Write([]byte(fmt.Sprintf("data: %s\n\n", d)))
 				if err != nil {
 					return 0, err
 				}
@@ -245,7 +245,7 @@ func (w *CompleteWriter) writeResponse(data []byte) (int, error) {
 }
 
 func (w *CompleteWriter) Write(data []byte) (int, error) {
-	code := w.Status()
+	code := w.ResponseWriter.Status()
 	if code != http.StatusOK {
 		return w.writeError(data)
 	}
@@ -270,7 +270,7 @@ func (w *ListWriter) writeResponse(data []byte) (int, error) {
 }
 
 func (w *ListWriter) Write(data []byte) (int, error) {
-	code := w.Status()
+	code := w.ResponseWriter.Status()
 	if code != http.StatusOK {
 		return w.writeError(data)
 	}
@@ -296,7 +296,7 @@ func (w *RetrieveWriter) writeResponse(data []byte) (int, error) {
 }
 
 func (w *RetrieveWriter) Write(data []byte) (int, error) {
-	code := w.Status()
+	code := w.ResponseWriter.Status()
 	if code != http.StatusOK {
 		return w.writeError(data)
 	}
@@ -337,7 +337,7 @@ func (w *EmbedWriter) writeResponse(data []byte) (int, error) {
 }
 
 func (w *EmbedWriter) Write(data []byte) (int, error) {
-	code := w.Status()
+	code := w.ResponseWriter.Status()
 	if code != http.StatusOK {
 		return w.writeError(data)
 	}
@@ -742,6 +742,7 @@ func (w *WebSearchResponsesWriter) finishStream() error {
 	var toolCalls []api.ToolCall
 	for _, response := range w.buffered {
 		observed.PromptEvalCount = max(observed.PromptEvalCount, response.Metrics.PromptEvalCount)
+		observed.PromptEvalCachedCount = maxOptionalInts(observed.PromptEvalCachedCount, response.Metrics.PromptEvalCachedCount)
 		observed.EvalCount = max(observed.EvalCount, response.Metrics.EvalCount)
 		if response.Message.Content != "" {
 			contentBuilder.WriteString(response.Message.Content)
@@ -914,6 +915,7 @@ func (w *WebSearchResponsesWriter) runLoop(ctx context.Context, initial api.Chat
 			return api.ChatResponse{}, calls, usage, err
 		}
 		usage.PromptEvalCount += followUp.Metrics.PromptEvalCount
+		usage.PromptEvalCachedCount = addOptionalInts(usage.PromptEvalCachedCount, followUp.Metrics.PromptEvalCachedCount)
 		usage.EvalCount += followUp.Metrics.EvalCount
 
 		next, hasWebSearch, mixed := findWebSearchToolCall(followUp.Message.ToolCalls)
@@ -1109,6 +1111,7 @@ func (w *WebSearchResponsesWriter) writeWebSearchResponse(final api.ChatResponse
 		response.Usage.InputTokens = usage.PromptEvalCount
 		response.Usage.OutputTokens = usage.EvalCount
 		response.Usage.TotalTokens = usage.PromptEvalCount + usage.EvalCount
+		response.Usage.InputTokensDetails.CachedTokens = optionalIntValue(usage.PromptEvalCachedCount)
 	}
 	w.ResponseWriter.Header().Set("Content-Type", "application/json")
 	w.done = true
@@ -1207,7 +1210,12 @@ func (w *WebSearchResponsesWriter) writeWebSearchError(err error, usage api.Metr
 	response := map[string]any{
 		"id": w.inner.responseID, "object": "response", "status": "failed", "model": w.req.Model,
 		"output": []any{}, "error": map[string]any{"code": errorCode, "message": message},
-		"usage": map[string]any{"input_tokens": usage.PromptEvalCount, "output_tokens": usage.EvalCount, "total_tokens": usage.PromptEvalCount + usage.EvalCount},
+		"usage": map[string]any{
+			"input_tokens":         usage.PromptEvalCount,
+			"output_tokens":        usage.EvalCount,
+			"total_tokens":         usage.PromptEvalCount + usage.EvalCount,
+			"input_tokens_details": map[string]any{"cached_tokens": optionalIntValue(usage.PromptEvalCachedCount)},
+		},
 	}
 	initialEvents := w.inner.converter.Process(api.ChatResponse{})
 	for _, event := range initialEvents {
@@ -1312,116 +1320,6 @@ func ResponsesMiddleware() gin.HandlerFunc {
 		} else {
 			c.Writer = w
 		}
-		c.Next()
-	}
-}
-
-// TranscriptionWriter collects streamed chat responses and outputs a transcription response.
-type TranscriptionWriter struct {
-	BaseWriter
-	responseFormat string
-	text           strings.Builder
-}
-
-func (w *TranscriptionWriter) Write(data []byte) (int, error) {
-	code := w.ResponseWriter.Status()
-	if code != http.StatusOK {
-		return w.writeError(data)
-	}
-
-	var chatResponse api.ChatResponse
-	if err := json.Unmarshal(data, &chatResponse); err != nil {
-		return 0, err
-	}
-
-	w.text.WriteString(chatResponse.Message.Content)
-
-	if chatResponse.Done {
-		text := strings.TrimSpace(w.text.String())
-
-		if w.responseFormat == "text" {
-			w.ResponseWriter.Header().Set("Content-Type", "text/plain")
-			_, err := w.ResponseWriter.Write([]byte(text))
-			if err != nil {
-				return 0, err
-			}
-			return len(data), nil
-		}
-
-		w.ResponseWriter.Header().Set("Content-Type", "application/json")
-		resp := openai.TranscriptionResponse{Text: text}
-		if err := json.NewEncoder(w.ResponseWriter).Encode(resp); err != nil {
-			return 0, err
-		}
-	}
-
-	return len(data), nil
-}
-
-// TranscriptionMiddleware handles /v1/audio/transcriptions requests.
-// It accepts multipart/form-data with an audio file and converts it to a chat request.
-func TranscriptionMiddleware() gin.HandlerFunc {
-	return func(c *gin.Context) {
-		// Parse multipart form (limit 25MB).
-		if err := c.Request.ParseMultipartForm(25 << 20); err != nil {
-			c.AbortWithStatusJSON(http.StatusBadRequest, openai.NewError(http.StatusBadRequest, "failed to parse multipart form: "+err.Error()))
-			return
-		}
-
-		model := c.Request.FormValue("model")
-		if model == "" {
-			c.AbortWithStatusJSON(http.StatusBadRequest, openai.NewError(http.StatusBadRequest, "model is required"))
-			return
-		}
-
-		file, _, err := c.Request.FormFile("file")
-		if err != nil {
-			c.AbortWithStatusJSON(http.StatusBadRequest, openai.NewError(http.StatusBadRequest, "file is required: "+err.Error()))
-			return
-		}
-		defer file.Close()
-
-		audioData, err := io.ReadAll(file)
-		if err != nil {
-			c.AbortWithStatusJSON(http.StatusInternalServerError, openai.NewError(http.StatusInternalServerError, "failed to read audio file"))
-			return
-		}
-
-		if len(audioData) == 0 {
-			c.AbortWithStatusJSON(http.StatusBadRequest, openai.NewError(http.StatusBadRequest, "audio file is empty"))
-			return
-		}
-
-		req := openai.TranscriptionRequest{
-			Model:          model,
-			AudioData:      audioData,
-			ResponseFormat: c.Request.FormValue("response_format"),
-			Language:       c.Request.FormValue("language"),
-			Prompt:         c.Request.FormValue("prompt"),
-		}
-
-		chatReq, err := openai.FromTranscriptionRequest(req)
-		if err != nil {
-			c.AbortWithStatusJSON(http.StatusBadRequest, openai.NewError(http.StatusBadRequest, err.Error()))
-			return
-		}
-
-		var b bytes.Buffer
-		if err := json.NewEncoder(&b).Encode(chatReq); err != nil {
-			c.AbortWithStatusJSON(http.StatusInternalServerError, openai.NewError(http.StatusInternalServerError, err.Error()))
-			return
-		}
-
-		c.Request.Body = io.NopCloser(&b)
-		c.Request.ContentLength = int64(b.Len())
-		c.Request.Header.Set("Content-Type", "application/json")
-
-		w := &TranscriptionWriter{
-			BaseWriter:     BaseWriter{ResponseWriter: c.Writer},
-			responseFormat: req.ResponseFormat,
-		}
-
-		c.Writer = w
 		c.Next()
 	}
 }

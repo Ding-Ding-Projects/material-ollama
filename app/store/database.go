@@ -5,7 +5,6 @@ package store
 import (
 	"database/sql"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"log/slog"
 	"strings"
@@ -16,7 +15,7 @@ import (
 
 // currentSchemaVersion defines the current database schema version.
 // Increment this when making schema changes that require migrations.
-const currentSchemaVersion = 18
+const currentSchemaVersion = 20
 
 // database wraps the SQLite connection.
 // SQLite handles its own locking for concurrent access:
@@ -84,13 +83,15 @@ func (db *database) init() error {
 		websearch_enabled BOOLEAN NOT NULL DEFAULT 0,
 		selected_model TEXT NOT NULL DEFAULT '',
 		sidebar_open BOOLEAN NOT NULL DEFAULT 0,
-		last_home_view TEXT NOT NULL DEFAULT 'launch',
+		last_home_view TEXT NOT NULL DEFAULT 'chat',
+		onboarding_version INTEGER NOT NULL DEFAULT 0,
 		think_enabled BOOLEAN NOT NULL DEFAULT 0,
 		think_level TEXT NOT NULL DEFAULT '',
 		cloud_setting_migrated BOOLEAN NOT NULL DEFAULT 0,
 		remote TEXT NOT NULL DEFAULT '', -- deprecated
 		auto_update_enabled BOOLEAN NOT NULL DEFAULT 1,
 		ui_preferences TEXT NOT NULL DEFAULT '',
+		claude_desktop_used BOOLEAN NOT NULL DEFAULT 0,
 		schema_version INTEGER NOT NULL DEFAULT %d
 	);
 
@@ -100,11 +101,8 @@ func (db *database) init() error {
 	CREATE TABLE IF NOT EXISTS chats (
 		id TEXT PRIMARY KEY,
 		title TEXT NOT NULL DEFAULT '',
-		model_name TEXT NOT NULL DEFAULT '',
-		source TEXT NOT NULL DEFAULT 'app',
 		created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-		browser_state TEXT,
-		draft TEXT NOT NULL DEFAULT ''
+		browser_state TEXT
 	);
 
 	CREATE TABLE IF NOT EXISTS messages (
@@ -113,7 +111,6 @@ func (db *database) init() error {
 		role TEXT NOT NULL,
 		content TEXT NOT NULL DEFAULT '',
 		thinking TEXT NOT NULL DEFAULT '',
-		images TEXT NOT NULL DEFAULT '[]',
 		stream BOOLEAN NOT NULL DEFAULT 0,
 		model_name TEXT,
 		model_cloud BOOLEAN, -- deprecated
@@ -123,21 +120,15 @@ func (db *database) init() error {
 		thinking_time_start TIMESTAMP,
 		thinking_time_end TIMESTAMP,
 		tool_result TEXT,
-		tool_name TEXT NOT NULL DEFAULT '',
-		tool_call_id TEXT NOT NULL DEFAULT '',
-		archived BOOLEAN NOT NULL DEFAULT 0,
 		FOREIGN KEY (chat_id) REFERENCES chats(id) ON DELETE CASCADE
 	);
 
 	CREATE INDEX IF NOT EXISTS idx_messages_chat_id ON messages(chat_id);
-	CREATE INDEX IF NOT EXISTS idx_messages_chat_id_id ON messages(chat_id, id);
-	CREATE INDEX IF NOT EXISTS idx_messages_chat_id_archived ON messages(chat_id, archived, id);
 
 	CREATE TABLE IF NOT EXISTS tool_calls (
 		id INTEGER PRIMARY KEY AUTOINCREMENT,
 		message_id INTEGER NOT NULL,
 		type TEXT NOT NULL,
-		tool_call_id TEXT NOT NULL DEFAULT '',
 		function_name TEXT NOT NULL,
 		function_arguments TEXT NOT NULL,
 		function_result TEXT,
@@ -145,17 +136,6 @@ func (db *database) init() error {
 	);
 
 	CREATE INDEX IF NOT EXISTS idx_tool_calls_message_id ON tool_calls(message_id);
-
-	CREATE TABLE IF NOT EXISTS compactions (
-		id INTEGER PRIMARY KEY AUTOINCREMENT,
-		chat_id TEXT NOT NULL,
-		summary TEXT NOT NULL,
-		archived_message_ids TEXT NOT NULL DEFAULT '[]',
-		created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-		FOREIGN KEY (chat_id) REFERENCES chats(id) ON DELETE CASCADE
-	);
-
-	CREATE INDEX IF NOT EXISTS idx_compactions_chat_id ON compactions(chat_id, id);
 
 	CREATE TABLE IF NOT EXISTS attachments (
 		id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -321,15 +301,23 @@ func (db *database) migrate() error {
 				return fmt.Errorf("migrate v17 to v18: %w", err)
 			}
 			version = 18
+		case 18:
+			// Existing users should not be shown onboarding after an upgrade.
+			if err := db.migrateV18ToV19(); err != nil {
+				return fmt.Errorf("migrate v18 to v19: %w", err)
+			}
+			version = 19
+		case 19:
+			// Remember that Claude Desktop has been connected at least once.
+			if err := db.migrateV19ToV20(); err != nil {
+				return fmt.Errorf("migrate v19 to v20: %w", err)
+			}
+			version = 20
 		default:
 			// If we have a version we don't recognize, just set it to current
 			// This might happen during development
 			version = currentSchemaVersion
 		}
-	}
-
-	if err := db.ensureCurrentSchema(); err != nil {
-		return fmt.Errorf("ensure current schema: %w", err)
 	}
 
 	return nil
@@ -581,7 +569,7 @@ func (db *database) migrateV14ToV15() error {
 
 // migrateV15ToV16 adds the last_home_view column to the settings table
 func (db *database) migrateV15ToV16() error {
-	_, err := db.conn.Exec(`ALTER TABLE settings ADD COLUMN last_home_view TEXT NOT NULL DEFAULT 'launch'`)
+	_, err := db.conn.Exec(`ALTER TABLE settings ADD COLUMN last_home_view TEXT NOT NULL DEFAULT 'chat'`)
 	if err != nil && !duplicateColumnError(err) {
 		return fmt.Errorf("add last_home_view column: %w", err)
 	}
@@ -642,6 +630,41 @@ func (db *database) migrateV17ToV18() error {
 	return nil
 }
 
+// migrateV18ToV19 adds versioned onboarding state. Upstream shipped this as its
+// own v17; this fork had already used 17 and 18 for ui_preferences and
+// app_events, so it is renumbered here rather than dropped. The schema default
+// stays at zero for genuinely new installs, while all existing rows are marked
+// complete and moved off the retired launch home view.
+func (db *database) migrateV18ToV19() error {
+	_, err := db.conn.Exec(`ALTER TABLE settings ADD COLUMN onboarding_version INTEGER NOT NULL DEFAULT 0`)
+	if err != nil && !duplicateColumnError(err) {
+		return fmt.Errorf("add onboarding_version column: %w", err)
+	}
+
+	_, err = db.conn.Exec(`UPDATE settings SET onboarding_version = 1, last_home_view = 'chat', schema_version = 19`)
+	if err != nil {
+		return fmt.Errorf("complete onboarding for existing users: %w", err)
+	}
+
+	return nil
+}
+
+// migrateV19ToV20 adds durable Claude Desktop integration history. Upstream
+// shipped this as its own v18; see migrateV18ToV19 for why it is renumbered.
+func (db *database) migrateV19ToV20() error {
+	_, err := db.conn.Exec(`ALTER TABLE settings ADD COLUMN claude_desktop_used BOOLEAN NOT NULL DEFAULT 0`)
+	if err != nil && !duplicateColumnError(err) {
+		return fmt.Errorf("add claude_desktop_used column: %w", err)
+	}
+
+	_, err = db.conn.Exec(`UPDATE settings SET schema_version = 20`)
+	if err != nil {
+		return fmt.Errorf("update schema version: %w", err)
+	}
+
+	return nil
+}
+
 // cleanupOrphanedData removes orphaned records that may exist due to the foreign key bug
 func (db *database) cleanupOrphanedData() error {
 	_, err := db.conn.Exec(`
@@ -686,21 +709,18 @@ func (db *database) getAllChats() ([]Chat, error) {
 			c.id, 
 			c.title, 
 			c.created_at,
-			COALESCE((
-				SELECT fm.content
-				FROM messages fm
-				WHERE fm.chat_id = c.id
-					AND fm.role = 'user'
-					AND fm.archived = 0
-				ORDER BY fm.id ASC
-				LIMIT 1
-			), '') as first_user_content,
-			COALESCE(MAX(m.updated_at), c.created_at) as last_updated
+			COALESCE(first_msg.content, '') as first_user_content,
+			COALESCE(datetime(MAX(m.updated_at)), datetime(c.created_at)) as last_updated
 		FROM chats c
-		LEFT JOIN messages m ON c.id = m.chat_id AND m.archived = 0
-		WHERE c.source = 'app'
-		GROUP BY c.id, c.title, c.created_at
-		ORDER BY last_updated DESC, COALESCE(MAX(m.id), 0) DESC, c.created_at DESC, c.id DESC
+		LEFT JOIN (
+			SELECT chat_id, content, MIN(id) as min_id
+			FROM messages
+			WHERE role = 'user'
+			GROUP BY chat_id
+		) first_msg ON c.id = first_msg.chat_id
+		LEFT JOIN messages m ON c.id = m.chat_id
+		GROUP BY c.id, c.title, c.created_at, first_msg.content
+		ORDER BY last_updated DESC
 	`
 
 	rows, err := db.conn.Query(query)
@@ -723,27 +743,25 @@ func (db *database) getAllChats() ([]Chat, error) {
 			&firstUserContent,
 			&lastUpdatedStr,
 		)
+
+		// Parse the last updated time
+		lastUpdated, _ := time.Parse("2006-01-02 15:04:05", lastUpdatedStr)
 		if err != nil {
 			return nil, fmt.Errorf("scan chat: %w", err)
 		}
 
-		lastUpdated, err := parseAgentSQLiteTime(lastUpdatedStr)
-		if err != nil {
-			return nil, fmt.Errorf("parse chat updated_at: %w", err)
-		}
-
 		chat.CreatedAt = createdAt
 
-		// Add a summary message for the UI to display the excerpt and latest update.
-		// Full messages are loaded when a chat is opened.
-		summary := Message{
-			UpdatedAt: lastUpdated,
-		}
+		// Add a dummy first user message for the UI to display
+		// This is just for the excerpt, full messages are loaded when needed
+		chat.Messages = []Message{}
 		if firstUserContent != "" {
-			summary.Role = "user"
-			summary.Content = firstUserContent
+			chat.Messages = append(chat.Messages, Message{
+				Role:      "user",
+				Content:   firstUserContent,
+				UpdatedAt: lastUpdated,
+			})
 		}
-		chat.Messages = []Message{summary}
 
 		chats = append(chats, chat)
 	}
@@ -757,7 +775,7 @@ func (db *database) getAllChats() ([]Chat, error) {
 
 func (db *database) getChatWithOptions(id string, loadAttachmentData bool) (*Chat, error) {
 	query := `
-		SELECT id, title, created_at, browser_state, draft
+		SELECT id, title, created_at, browser_state
 		FROM chats
 		WHERE id = ?
 	`
@@ -765,18 +783,16 @@ func (db *database) getChatWithOptions(id string, loadAttachmentData bool) (*Cha
 	var chat Chat
 	var createdAt time.Time
 	var browserState sql.NullString
-	var draft sql.NullString
 
 	err := db.conn.QueryRow(query, id).Scan(
 		&chat.ID,
 		&chat.Title,
 		&createdAt,
 		&browserState,
-		&draft,
 	)
 	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			return nil, errors.New("chat not found")
+		if err == sql.ErrNoRows {
+			return nil, fmt.Errorf("chat not found")
 		}
 		return nil, fmt.Errorf("query chat: %w", err)
 	}
@@ -787,9 +803,6 @@ func (db *database) getChatWithOptions(id string, loadAttachmentData bool) (*Cha
 		if err := json.Unmarshal([]byte(browserState.String), &raw); err == nil {
 			chat.BrowserState = raw
 		}
-	}
-	if draft.Valid {
-		chat.Draft = draft.String
 	}
 
 	messages, err := db.getMessages(id, loadAttachmentData)
@@ -814,12 +827,11 @@ func (db *database) saveChat(chat Chat) error {
 	// UPSERT would overwrite browser_state with NULL, breaking revisit rendering that relies
 	// on the last persisted full tool state.
 	query := `
-		INSERT INTO chats (id, title, created_at, browser_state, draft)
-		VALUES (?, ?, ?, ?, ?)
+		INSERT INTO chats (id, title, created_at, browser_state)
+		VALUES (?, ?, ?, ?)
 		ON CONFLICT(id) DO UPDATE SET
 			title = excluded.title,
-			browser_state = COALESCE(excluded.browser_state, chats.browser_state),
-			draft = excluded.draft
+			browser_state = COALESCE(excluded.browser_state, chats.browser_state)
 	`
 
 	var browserState sql.NullString
@@ -832,7 +844,6 @@ func (db *database) saveChat(chat Chat) error {
 		chat.Title,
 		chat.CreatedAt,
 		browserState,
-		chat.Draft,
 	)
 	if err != nil {
 		return fmt.Errorf("save chat: %w", err)
@@ -861,23 +872,6 @@ func (db *database) saveChat(chat Chat) error {
 	}
 
 	return tx.Commit()
-}
-
-// updateChatDraft updates only the draft for a chat
-func (db *database) updateChatDraft(chatID string, draft string) error {
-	_, err := db.conn.Exec(`UPDATE chats SET draft = ? WHERE id = ?`, draft, chatID)
-	if err != nil {
-		return fmt.Errorf("update chat draft: %w", err)
-	}
-	return nil
-}
-
-func (db *database) clearAllDrafts() error {
-	_, err := db.conn.Exec(`UPDATE chats SET draft = ''`)
-	if err != nil {
-		return fmt.Errorf("clear all drafts: %w", err)
-	}
-	return nil
 }
 
 // updateChatBrowserState updates only the browser_state for a chat
@@ -911,7 +905,6 @@ func (db *database) updateLastMessage(chatID string, msg Message) error {
 	var messageID int64
 	err = tx.QueryRow(`
 		SELECT MAX(id) FROM messages WHERE chat_id = ?
-			AND archived = 0
 	`, chatID).Scan(&messageID)
 	if err != nil {
 		return fmt.Errorf("get last message id: %w", err)
@@ -964,7 +957,7 @@ func (db *database) updateLastMessage(chatID string, msg Message) error {
 		return fmt.Errorf("get rows affected: %w", err)
 	}
 	if rowsAffected == 0 {
-		return errors.New("no message found to update")
+		return fmt.Errorf("no message found to update")
 	}
 
 	_, err = tx.Exec("DELETE FROM attachments WHERE message_id = ?", messageID)
@@ -1019,7 +1012,7 @@ func (db *database) getMessages(chatID string, loadAttachmentData bool) ([]Messa
 	query := `
 		SELECT id, role, content, thinking, stream, model_name, created_at, updated_at, thinking_time_start, thinking_time_end, tool_result
 		FROM messages
-		WHERE chat_id = ? AND archived = 0
+		WHERE chat_id = ?
 		ORDER BY id ASC
 	`
 
@@ -1321,9 +1314,9 @@ func (db *database) getSettings() (Settings, error) {
 	var uiPreferencesBlob string
 
 	err := db.conn.QueryRow(`
-		SELECT expose, survey, browser, models, agent, tools, working_dir, context_length, turbo_enabled, websearch_enabled, selected_model, sidebar_open, last_home_view, think_enabled, think_level, auto_update_enabled, ui_preferences
+		SELECT expose, survey, browser, models, agent, tools, working_dir, context_length, turbo_enabled, websearch_enabled, selected_model, sidebar_open, last_home_view, onboarding_version, think_enabled, think_level, auto_update_enabled, ui_preferences, claude_desktop_used
 		FROM settings
-	`).Scan(&s.Expose, &s.Survey, &s.Browser, &s.Models, &s.Agent, &s.Tools, &s.WorkingDir, &s.ContextLength, &s.TurboEnabled, &s.WebSearchEnabled, &s.SelectedModel, &s.SidebarOpen, &s.LastHomeView, &s.ThinkEnabled, &s.ThinkLevel, &s.AutoUpdateEnabled, &uiPreferencesBlob)
+	`).Scan(&s.Expose, &s.Survey, &s.Browser, &s.Models, &s.Agent, &s.Tools, &s.WorkingDir, &s.ContextLength, &s.TurboEnabled, &s.WebSearchEnabled, &s.SelectedModel, &s.SidebarOpen, &s.LastHomeView, &s.OnboardingVersion, &s.ThinkEnabled, &s.ThinkLevel, &s.AutoUpdateEnabled, &uiPreferencesBlob, &s.ClaudeDesktopUsed)
 	if err != nil {
 		return Settings{}, fmt.Errorf("get settings: %w", err)
 	}
@@ -1380,28 +1373,14 @@ func encodeUIPreferences(p UIPreferences) string {
 
 func (db *database) setSettings(s Settings) error {
 	lastHomeView := strings.ToLower(strings.TrimSpace(s.LastHomeView))
-	validLaunchView := map[string]struct{}{
-		"launch":    {},
-		"openclaw":  {},
-		"claude":    {},
-		"hermes":    {},
-		"codex":     {},
-		"codex-app": {},
-		"copilot":   {},
-		"opencode":  {},
-		"droid":     {},
-		"pi":        {},
-	}
 	if lastHomeView != "chat" {
-		if _, ok := validLaunchView[lastHomeView]; !ok {
-			lastHomeView = "launch"
-		}
+		lastHomeView = "chat"
 	}
 
 	_, err := db.conn.Exec(`
 		UPDATE settings
-		SET expose = ?, survey = ?, browser = ?, models = ?, agent = ?, tools = ?, working_dir = ?, context_length = ?, turbo_enabled = ?, websearch_enabled = ?, selected_model = ?, sidebar_open = ?, last_home_view = ?, think_enabled = ?, think_level = ?, auto_update_enabled = ?, ui_preferences = ?
-	`, s.Expose, s.Survey, s.Browser, s.Models, s.Agent, s.Tools, s.WorkingDir, s.ContextLength, s.TurboEnabled, s.WebSearchEnabled, s.SelectedModel, s.SidebarOpen, lastHomeView, s.ThinkEnabled, s.ThinkLevel, s.AutoUpdateEnabled, encodeUIPreferences(s.UIPreferences))
+		SET expose = ?, survey = ?, browser = ?, models = ?, agent = ?, tools = ?, working_dir = ?, context_length = ?, turbo_enabled = ?, websearch_enabled = ?, selected_model = ?, sidebar_open = ?, last_home_view = ?, onboarding_version = ?, think_enabled = ?, think_level = ?, auto_update_enabled = ?, ui_preferences = ?, claude_desktop_used = ?
+	`, s.Expose, s.Survey, s.Browser, s.Models, s.Agent, s.Tools, s.WorkingDir, s.ContextLength, s.TurboEnabled, s.WebSearchEnabled, s.SelectedModel, s.SidebarOpen, lastHomeView, s.OnboardingVersion, s.ThinkEnabled, s.ThinkLevel, s.AutoUpdateEnabled, encodeUIPreferences(s.UIPreferences), s.ClaudeDesktopUsed)
 	if err != nil {
 		return fmt.Errorf("set settings: %w", err)
 	}

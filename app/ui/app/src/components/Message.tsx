@@ -1,18 +1,10 @@
 import { Message as MessageType, ToolCall, File } from "@/gotypes";
+import Thinking from "./Thinking";
 import StreamingMarkdownContent from "./StreamingMarkdownContent";
 import { ImageThumbnail } from "./ImageThumbnail";
 import { isImageFile } from "@/utils/imageUtils";
 import CopyButton from "./CopyButton";
 import React, { useState, useMemo, useRef } from "react";
-import {
-  Reasoning,
-  getThinkingMessage,
-  ReasoningContent,
-} from "@/components/ai-elements/reasoning";
-import {
-  CollapsibleContent,
-  CollapsibleTrigger,
-} from "@radix-ui/react-collapsible";
 
 const Message = React.memo(
   ({
@@ -23,12 +15,6 @@ const Message = React.memo(
     isFaded,
     browserToolResult,
     lastToolQuery,
-    onAssistantEditStart,
-    onAssistantEditSave,
-    onAssistantEditCancel,
-    assistantEditingIndex,
-    assistantEditIsSaving,
-    assistantEditError,
   }: {
     message: MessageType;
     onEditMessage?: (content: string, index: number) => void;
@@ -38,15 +24,6 @@ const Message = React.memo(
     // TODO(drifkin): this type isn't right
     browserToolResult?: BrowserToolResult;
     lastToolQuery?: string;
-    onAssistantEditStart?: (index: number) => void;
-    onAssistantEditSave?: (
-      index: number,
-      content: string,
-    ) => void | Promise<void>;
-    onAssistantEditCancel?: () => void;
-    assistantEditingIndex?: number | null;
-    assistantEditIsSaving?: boolean;
-    assistantEditError?: string | null;
   }) => {
     if (message.role === "user") {
       return (
@@ -65,13 +42,6 @@ const Message = React.memo(
           isFaded={isFaded}
           browserToolResult={browserToolResult}
           lastToolQuery={lastToolQuery}
-          messageIndex={messageIndex}
-          onAssistantEditStart={onAssistantEditStart}
-          onAssistantEditSave={onAssistantEditSave}
-          onAssistantEditCancel={onAssistantEditCancel}
-          assistantEditingIndex={assistantEditingIndex}
-          assistantEditIsSaving={assistantEditIsSaving}
-          assistantEditError={assistantEditError}
         />
       );
     }
@@ -83,10 +53,7 @@ const Message = React.memo(
       prevProps.messageIndex === nextProps.messageIndex &&
       prevProps.isStreaming === nextProps.isStreaming &&
       prevProps.isFaded === nextProps.isFaded &&
-      prevProps.browserToolResult === nextProps.browserToolResult &&
-      prevProps.assistantEditingIndex === nextProps.assistantEditingIndex &&
-      prevProps.assistantEditIsSaving === nextProps.assistantEditIsSaving &&
-      prevProps.assistantEditError === nextProps.assistantEditError
+      prevProps.browserToolResult === nextProps.browserToolResult
     );
   },
 );
@@ -306,7 +273,7 @@ function ToolRoleContent({
     );
   }
   return (
-    // collapsable tool result with raw json
+    // collapsible tool result with raw json
     <div className="space-y-2">
       {content && !rawToolResult && (
         <pre className="text-xs whitespace-pre-wrap overflow-x-auto bg-neutral-100 dark:bg-neutral-800 text-neutral-800 dark:text-neutral-200 p-2 rounded-md max-h-40">
@@ -913,13 +880,6 @@ function OtherRoleMessage({
   isFaded,
   browserToolResult,
   lastToolQuery,
-  messageIndex,
-  onAssistantEditStart,
-  onAssistantEditSave,
-  onAssistantEditCancel,
-  assistantEditingIndex,
-  assistantEditIsSaving,
-  assistantEditError,
 }: {
   message: MessageType;
   previousMessage?: MessageType;
@@ -928,182 +888,21 @@ function OtherRoleMessage({
   // TODO(drifkin): this type isn't right
   browserToolResult?: BrowserToolResult;
   lastToolQuery?: string;
-  messageIndex?: number;
-  onAssistantEditStart?: (index: number) => void;
-  onAssistantEditSave?: (
-    index: number,
-    content: string,
-  ) => void | Promise<void>;
-  onAssistantEditCancel?: () => void;
-  assistantEditingIndex?: number | null;
-  assistantEditIsSaving?: boolean;
-  assistantEditError?: string | null;
 }) {
   const messageRef = useRef<HTMLDivElement>(null);
-  const [draftContent, setDraftContent] = useState(message.content || "");
-  const [isCopied, setIsCopied] = useState(false);
-  const copyResetTimeoutRef = useRef<number | undefined>(undefined);
-
-  const isAssistantMessage = message.role === "assistant";
-  const isEditingAssistant =
-    isAssistantMessage &&
-    assistantEditingIndex !== null &&
-    assistantEditingIndex !== undefined &&
-    messageIndex !== undefined &&
-    assistantEditingIndex === messageIndex;
-
-  useEffect(() => {
-    if (isEditingAssistant) {
-      setDraftContent(message.content || "");
-    }
-  }, [isEditingAssistant, message.content]);
-
-  useEffect(() => {
-    setIsCopied(false);
-  }, [message.content]);
-
-  useEffect(() => {
-    return () => {
-      if (copyResetTimeoutRef.current !== undefined) {
-        window.clearTimeout(copyResetTimeoutRef.current);
-      }
-    };
-  }, []);
-
-  const handleAssistantEditStart = () => {
-    if (onAssistantEditStart && messageIndex !== undefined) {
-      onAssistantEditStart(messageIndex);
-    }
-  };
-
-  const handleAssistantEditSave = async () => {
-    if (!onAssistantEditSave || messageIndex === undefined) {
-      return;
-    }
-    await onAssistantEditSave(messageIndex, draftContent);
-  };
-
-  const handleAssistantEditCancel = () => {
-    onAssistantEditCancel?.();
-  };
-
-  const handleCopy = async () => {
-    const contentToCopy = message.content || "";
-    if (!contentToCopy) {
-      return;
-    }
-
-    const scheduleReset = () => {
-      if (copyResetTimeoutRef.current !== undefined) {
-        window.clearTimeout(copyResetTimeoutRef.current);
-      }
-      copyResetTimeoutRef.current = window.setTimeout(() => {
-        setIsCopied(false);
-      }, 2000);
-    };
-
-    try {
-      if (messageRef.current) {
-        const cloned = messageRef.current.cloneNode(true) as HTMLElement;
-        await navigator.clipboard.write([
-          new ClipboardItem({
-            "text/html": new Blob([cloned.innerHTML], { type: "text/html" }),
-            "text/plain": new Blob([contentToCopy], { type: "text/plain" }),
-          }),
-        ]);
-      } else {
-        await navigator.clipboard.writeText(contentToCopy);
-      }
-
-      setIsCopied(true);
-      scheduleReset();
-    } catch (error) {
-      console.error("Clipboard API failed, falling back to plain text", error);
-      try {
-        await navigator.clipboard.writeText(contentToCopy);
-        setIsCopied(true);
-        scheduleReset();
-      } catch (fallbackError) {
-        console.error("Fallback copy also failed:", fallbackError);
-      }
-    }
-  };
-
-  const startTime = message.thinkingTimeStart;
-  const endTime = message.thinkingTimeEnd;
-
-  const activelyThinking = startTime && !endTime;
-  const finishedThinking = startTime && endTime;
-
-  // Calculate duration in seconds
-  const duration = finishedThinking
-    ? Math.ceil((endTime.getTime() - startTime.getTime()) / 1000)
-    : 0;
 
   return (
     <div
       className={`flex mb-8 flex-col transition-opacity duration-300 space-y-4 ${isFaded ? "opacity-50" : "opacity-100"}`}
     >
       <div className="flex-1 flex flex-col justify-start relative group max-w-none text-wrap break-words">
-        {/* Reasoning area */}
+        {/* Thinking area */}
         {message.thinking && (
-          <Reasoning
-            isStreaming={!!activelyThinking}
-            duration={duration}
-            defaultOpen={false}
-            className={`flex mb-4 flex-col w-full ${
-              activelyThinking
-                ? "text-neutral-800 dark:text-neutral-200"
-                : "text-neutral-600 dark:text-neutral-400"
-            } hover:text-neutral-800 dark:hover:text-neutral-200 transition-colors`}
-          >
-            <CollapsibleTrigger className="flex items-center cursor-pointer group/thinking self-start relative select-text outline-none">
-              <span className="relative w-4 h-4 flex-shrink-0">
-                {/* Light bulb */}
-                <svg
-                  className="w-3 absolute left-0 top-1/2 -translate-y-1/2 transition-opacity opacity-100 group-hover/thinking:opacity-0 group-data-[state=open]:opacity-0 fill-current will-change-opacity"
-                  viewBox="0 0 14 24"
-                  fill="none"
-                >
-                  <path d="M0 6.01562C0 9.76562 2.24609 10.6934 2.87109 17.207C2.91016 17.5586 3.10547 17.7832 3.47656 17.7832H9.58984C9.9707 17.7832 10.166 17.5586 10.2051 17.207C10.8301 10.6934 13.0664 9.76562 13.0664 6.01562C13.0664 2.64648 10.1855 0 6.5332 0C2.88086 0 0 2.64648 0 6.01562ZM1.47461 6.01562C1.47461 3.37891 3.78906 1.47461 6.5332 1.47461C9.27734 1.47461 11.5918 3.37891 11.5918 6.01562C11.5918 8.81836 9.73633 9.48242 8.85742 16.3086H4.21875C3.33008 9.48242 1.47461 8.81836 1.47461 6.01562ZM3.44727 19.8926H9.62891C9.95117 19.8926 10.1953 19.6387 10.1953 19.3164C10.1953 19.0039 9.95117 18.75 9.62891 18.75H3.44727C3.125 18.75 2.87109 19.0039 2.87109 19.3164C2.87109 19.6387 3.125 19.8926 3.44727 19.8926ZM6.5332 22.7246C8.04688 22.7246 9.30664 21.9824 9.4043 20.8594H3.67188C3.74023 21.9824 5.00977 22.7246 6.5332 22.7246Z" />
-                </svg>
-                {/* Arrow */}
-                <svg
-                  className="h-4 w-4 absolute left-0 top-1/2 -translate-y-1/2 transition-all opacity-0 -rotate-90 group-hover/thinking:opacity-100 group-hover/thinking:rotate-0 group-data-[state=open]:opacity-100 group-data-[state=open]:rotate-0 will-change-[opacity,transform]"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                >
-                  <polyline points="6 9 12 15 18 9"></polyline>
-                </svg>
-              </span>
-              <h3 className="ml-2 select-text text-base">
-                {getThinkingMessage(
-                  !!activelyThinking,
-                  finishedThinking ? duration : undefined,
-                )}
-              </h3>
-            </CollapsibleTrigger>
-            <CollapsibleContent
-              forceMount
-              className={`relative ml-6 mt-3 outline-none overflow-hidden transition-all duration-300 ease-in-out data-[state=closed]:max-h-0 data-[state=closed]:opacity-0 data-[state=open]:opacity-100 ${
-                activelyThinking ? "data-[state=open]:max-h-28" : ""
-              }`}
-            >
-              <div
-                className={`text-sm rounded-md ${
-                  activelyThinking ? "max-h-28 overflow-y-auto" : ""
-                }`}
-              >
-                <ReasoningContent isStreaming={!!activelyThinking}>
-                  {message.thinking}
-                </ReasoningContent>
-              </div>
-            </CollapsibleContent>
-          </Reasoning>
+          <Thinking
+            thinking={message.thinking}
+            startTime={message.thinkingTimeStart}
+            endTime={message.thinkingTimeEnd}
+          />
         )}
 
         {/* Only render content div if there's actual content to show */}
@@ -1119,19 +918,17 @@ function OtherRoleMessage({
 
           if (
             message.role !== "tool" &&
-            !isEditingAssistant &&
             (!message.content || !message.content.trim())
           ) {
             return null;
           }
 
-          const refForContent = isEditingAssistant ? null : messageRef;
-
+          // Render appropriate content
           return (
             <div
               className="max-w-full prose dark:prose-invert assistant-message-content break-words"
               id="message-container"
-              ref={refForContent}
+              ref={messageRef}
             >
               {message.role === "tool" ? (
                 <ToolRoleContent
@@ -1139,42 +936,6 @@ function OtherRoleMessage({
                   browserToolResult={browserToolResult}
                   lastToolQuery={lastToolQuery}
                 />
-              ) : isEditingAssistant ? (
-                <>
-                  <textarea
-                    value={draftContent}
-                    onChange={(event) => setDraftContent(event.target.value)}
-                    disabled={assistantEditIsSaving}
-                    autoFocus
-                    rows={Math.min(draftContent.split("\n").length, 20)}
-                    className="w-full max-h-[500px] overflow-y-auto resize-none rounded-2xl border border-neutral-200 bg-white p-4 text-sm leading-relaxed text-neutral-900 transition-colors dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-100"
-                  />
-                  <div className="mt-3 flex flex-wrap items-center gap-2">
-                    <button
-                      type="button"
-                      onClick={handleAssistantEditSave}
-                      disabled={assistantEditIsSaving}
-                      tabIndex={0}
-                      className="rounded-2xl px-2 py-1 text-sm font-medium text-black transition-colors hover:text-neutral-700 focus-visible:ring-2 focus-visible:ring-neutral-300 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60 dark:text-neutral-200 dark:hover:text-neutral-400 dark:focus-visible:ring-neutral-500 cursor-pointer"
-                    >
-                      {assistantEditIsSaving ? "Saving…" : "Save"}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={handleAssistantEditCancel}
-                      disabled={assistantEditIsSaving}
-                      tabIndex={0}
-                      className="rounded-2xl px-2 py-1 text-sm text-neutral-500 transition-colors hover:text-neutral-700 focus-visible:ring-2 focus-visible:ring-neutral-300 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60 dark:text-neutral-400 dark:hover:text-neutral-200 dark:focus-visible:ring-neutral-500 cursor-pointer"
-                    >
-                      Cancel
-                    </button>
-                  </div>
-                  {assistantEditError && (
-                    <p className="mt-2 text-sm text-red-500 dark:text-red-400">
-                      {assistantEditError}
-                    </p>
-                  )}
-                </>
               ) : (
                 <StreamingMarkdownContent
                   content={message.content}
@@ -1211,28 +972,18 @@ function OtherRoleMessage({
         message.content &&
         message.content.trim() &&
         (!message.tool_calls || message.tool_calls.length === 0) &&
-        !message.tool_call &&
-        !isEditingAssistant && (
-          <MessageActions>
-            <MessageAction
-              onClick={handleCopy}
-              title={isCopied ? "Copied" : "Copy"}
-              aria-label={isCopied ? "Copied" : "Copy"}
-            >
-              {isCopied ? (
-                <CheckIcon className="h-4.5 w-4.5" />
-              ) : (
-                <Square2StackIcon className="h-4.5 w-4.5" />
-              )}
-            </MessageAction>
-            <MessageAction
-              onClick={handleAssistantEditStart}
-              title="Edit"
-              aria-label="Edit"
-            >
-              <PencilSquareIcon className="h-4.5 w-4.5" />
-            </MessageAction>
-          </MessageActions>
+        !message.tool_call && (
+          <div className="-ml-1">
+            <CopyButton
+              content={message.content || ""}
+              copyRef={messageRef as React.RefObject<HTMLElement>}
+              removeClasses={["copy-button"]}
+              size="md"
+              showLabels={false}
+              className="copy-button z-10 text-neutral-500 dark:text-neutral-400"
+              title="Copy"
+            />
+          </div>
         )}
     </div>
   );

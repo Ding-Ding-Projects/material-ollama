@@ -220,7 +220,7 @@ func (u *Updater) DownloadNewRelease(ctx context.Context, updateResp UpdateRespo
 	_, err = os.Stat(filepath.Dir(stageFilename))
 	if errors.Is(err, os.ErrNotExist) {
 		if err := os.MkdirAll(filepath.Dir(stageFilename), 0o755); err != nil {
-			return fmt.Errorf("create ollama dir %s: %w", filepath.Dir(stageFilename), err)
+			return fmt.Errorf("create ollama dir %s: %v", filepath.Dir(stageFilename), err)
 		}
 	}
 
@@ -243,7 +243,7 @@ func (u *Updater) DownloadNewRelease(ctx context.Context, updateResp UpdateRespo
 
 	if err := VerifyDownload(); err != nil {
 		_ = os.Remove(stageFilename)
-		return fmt.Errorf("%s - %w", resp.Request.URL.String(), err)
+		return fmt.Errorf("%s - %s", resp.Request.URL.String(), err)
 	}
 	UpdateDownloaded = true
 	return nil
@@ -352,19 +352,21 @@ func (u *Updater) TriggerImmediateCheck() {
 	}
 }
 
-func (u *Updater) StartBackgroundUpdaterChecker(ctx context.Context, cb func(string) error) <-chan struct{} {
-	stopped := make(chan struct{})
+func (u *Updater) StartBackgroundUpdaterChecker(ctx context.Context, cb func(string) error) {
+	u.startBackgroundUpdaterChecker(ctx, cb)
+}
+
+func (u *Updater) startBackgroundUpdaterChecker(ctx context.Context, cb func(string) error) <-chan struct{} {
 	u.checkNow = make(chan struct{}, 1)
 	u.checkNow <- struct{}{} // Trigger first check after initial delay
+	done := make(chan struct{})
 	go func() {
-		defer close(stopped)
-
+		defer close(done)
 		// Don't blast an update message immediately after startup
 		initialDelay := time.NewTimer(UpdateCheckInitialDelay)
+		defer initialDelay.Stop()
 		select {
 		case <-ctx.Done():
-			initialDelay.Stop()
-			slog.Debug("stopping background update checker")
 			return
 		case <-initialDelay.C:
 		}
@@ -416,5 +418,5 @@ func (u *Updater) StartBackgroundUpdaterChecker(ctx context.Context, cb func(str
 			}
 		}
 	}()
-	return stopped
+	return done
 }

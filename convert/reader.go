@@ -48,11 +48,7 @@ func (t tensorBase) Kind() uint32 {
 		strings.Contains(t.name, ".conv_dw.") || // audio depthwise conv weights are kept F32; this likely slows audio and should be revisited
 		t.name == "token_types.weight" ||
 		t.name == "v.positional_embedding_vlm" ||
-		t.name == "v.patch_embd.weight" ||
-		t.name == "v.patch_embedding.weight" ||
-		t.name == "v.patch_conv.weight" ||
 		t.name == "v.position_embd.weight" ||
-		t.name == "v.position_embedding.weight" ||
 		t.name == "v.tile_position_embd.weight" ||
 		t.name == "v.pre_tile_position_embd.weight" ||
 		t.name == "v.post_tile_position_embd.weight" ||
@@ -84,10 +80,7 @@ func parseTensors(fsys fs.FS, replacer *strings.Replacer) ([]Tensor, error) {
 		Pattern string
 		Func    func(fs.FS, *strings.Replacer, ...string) ([]Tensor, error)
 	}{
-		{"model-*-of-*.safetensors", parseSafetensors},
-		{"model.safetensors", parseSafetensors},
-		{"adapters.safetensors", parseSafetensors},
-		{"adapter_model.safetensors", parseSafetensors},
+		{"*.safetensors", parseSafetensors},
 		{"pytorch_model-*-of-*.bin", parseTorch},
 		{"pytorch_model.bin", parseTorch},
 		{"consolidated.*.pth", parseTorch},

@@ -56,11 +56,11 @@ var integrationSpecs = []*IntegrationSpec{
 		Name:        "claude-desktop",
 		Runner:      &ClaudeDesktop{},
 		Aliases:     []string{"claude-app"},
-		Description: "Claude Desktop with Ollama Cloud",
 		Hidden:      true,
+		Description: "Use Ollama models in Claude Desktop",
 		Install: IntegrationInstallSpec{
 			CheckInstalled: func() bool {
-				return claudeDesktopInstalled()
+				return ClaudeDesktopInstalled()
 			},
 			URL: "https://claude.com/download",
 		},
@@ -263,18 +263,6 @@ var integrationSpecs = []*IntegrationSpec{
 		},
 	},
 	{
-		Name:        "pool",
-		Runner:      &Poolside{},
-		Description: "Poolside's software agent for enterprise development",
-		Install: IntegrationInstallSpec{
-			CheckInstalled: func() bool {
-				_, err := exec.LookPath("pool")
-				return err == nil
-			},
-			URL: "https://github.com/poolsideai/pool",
-		},
-	},
-	{
 		Name:        "hermes",
 		Runner:      &Hermes{},
 		Description: "Self-improving AI agent built by Nous Research",
@@ -307,6 +295,7 @@ var integrationSpecs = []*IntegrationSpec{
 		Runner:      &VSCode{},
 		Aliases:     []string{"code"},
 		Description: "Microsoft's open-source AI code editor",
+		Hidden:      true,
 		Install: IntegrationInstallSpec{
 			CheckInstalled: func() bool {
 				return (&VSCode{}).findBinary() != ""
@@ -423,6 +412,9 @@ func ListVisibleIntegrationSpecs() []IntegrationSpec {
 			continue
 		}
 		if supported, ok := spec.Runner.(SupportedIntegration); ok && supported.Supported() != nil {
+			continue
+		}
+		if spec.Name == "pool" && poolsideGOOS == "windows" {
 			continue
 		}
 		visible = append(visible, *spec)
@@ -543,6 +535,10 @@ func EnsureIntegrationInstalled(name string, runner Runner) error {
 		if err := supported.Supported(); err != nil {
 			return err
 		}
+	}
+
+	if integration.spec.Name == "pool" && poolsideGOOS == "windows" {
+		return poolsideUnsupportedError()
 	}
 
 	if integration.installed {

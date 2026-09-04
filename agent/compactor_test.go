@@ -31,28 +31,6 @@ func (c *scriptedCompactionClient) Chat(_ context.Context, req *api.ChatRequest,
 	return nil
 }
 
-type scriptedCompactionClient struct {
-	responses [][]api.ChatResponse
-	errs      []error
-	requests  []*api.ChatRequest
-}
-
-func (c *scriptedCompactionClient) Chat(_ context.Context, req *api.ChatRequest, fn api.ChatResponseFunc) error {
-	c.requests = append(c.requests, req)
-	i := len(c.requests) - 1
-	if i < len(c.responses) {
-		for _, response := range c.responses[i] {
-			if err := fn(response); err != nil {
-				return err
-			}
-		}
-	}
-	if i < len(c.errs) {
-		return c.errs[i]
-	}
-	return nil
-}
-
 func assertCompactionSummaryPair(t *testing.T, messages []api.Message) {
 	t.Helper()
 	if len(messages) != 2 {

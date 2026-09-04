@@ -157,8 +157,9 @@ func cloudModelPathPassthroughMiddleware(disabledOperation string) gin.HandlerFu
 }
 
 func proxyCloudJSONRequest(c *gin.Context, payload any, disabledOperation string) {
-	// Some cloud Anthropic requests are normalized locally and then proxied to
-	// a different upstream path (`/api/chat`), so we keep the `WithPath` helper.
+	// TEMP(drifkin): we currently split out this `WithPath` method because we are
+	// mapping `/v1/messages` + web_search to `/api/chat` temporarily. Once we
+	// stop doing this, we can inline this method.
 	proxyCloudJSONRequestWithPath(c, payload, c.Request.URL.Path, disabledOperation)
 }
 
@@ -176,10 +177,16 @@ func proxyCloudRequest(c *gin.Context, body []byte, disabledOperation string) {
 	proxyCloudRequestWithPath(c, body, c.Request.URL.Path, disabledOperation)
 }
 
-func buildCloudProxyRequest(c *gin.Context, path string, body []byte) (*http.Request, error) {
+func proxyCloudRequestWithPath(c *gin.Context, body []byte, path string, disabledOperation string) {
+	if disabled, _ := internalcloud.Status(); disabled {
+		c.JSON(http.StatusForbidden, gin.H{"error": internalcloud.DisabledError(disabledOperation)})
+		return
+	}
+
 	baseURL, err := url.Parse(cloudProxyBaseURL)
 	if err != nil {
-		return nil, err
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
 	}
 
 	targetURL := baseURL.ResolveReference(&url.URL{
@@ -189,7 +196,8 @@ func buildCloudProxyRequest(c *gin.Context, path string, body []byte) (*http.Req
 
 	outReq, err := http.NewRequestWithContext(c.Request.Context(), c.Request.Method, targetURL.String(), bytes.NewReader(body))
 	if err != nil {
-		return nil, err
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
 	}
 
 	copyProxyRequestHeaders(outReq.Header, c.Request.Header)
@@ -200,10 +208,22 @@ func buildCloudProxyRequest(c *gin.Context, path string, body []byte) (*http.Req
 		outReq.Header.Set("Content-Type", "application/json")
 	}
 
-	return outReq, nil
-}
+	if err := cloudProxySignRequest(outReq.Context(), outReq); err != nil {
+		slog.Warn("cloud proxy signing failed", "error", err)
+		writeCloudUnauthorized(c)
+		return
+	}
 
-func writeCloudProxyResponse(c *gin.Context, path string, resp *http.Response) {
+	// TODO(drifkin): Add phase-specific proxy timeouts.
+	// Connect/TLS/TTFB should have bounded timeouts, but once streaming starts
+	// we should not enforce a short total timeout for long-lived responses.
+	resp, err := http.DefaultClient.Do(outReq)
+	if err != nil {
+		c.JSON(http.StatusBadGateway, gin.H{"error": err.Error()})
+		return
+	}
+	defer resp.Body.Close()
+
 	copyProxyResponseHeaders(c.Writer.Header(), resp.Header)
 	c.Status(resp.StatusCode)
 
@@ -220,7 +240,7 @@ func writeCloudProxyResponse(c *gin.Context, path string, resp *http.Response) {
 		bodyWriter = framedWriter
 	}
 
-	err := copyProxyResponseBody(bodyWriter, resp.Body)
+	err = copyProxyResponseBody(bodyWriter, resp.Body)
 	if err == nil && framedWriter != nil {
 		err = framedWriter.FlushPending()
 	}
@@ -244,38 +264,8 @@ func writeCloudProxyResponse(c *gin.Context, path string, resp *http.Response) {
 			"request_context_err", ctxErr,
 			"error", err,
 		)
-	}
-}
-
-func proxyCloudRequestWithPath(c *gin.Context, body []byte, path string, disabledOperation string) {
-	if disabled, _ := internalcloud.Status(); disabled {
-		c.JSON(http.StatusForbidden, gin.H{"error": internalcloud.DisabledError(disabledOperation)})
 		return
 	}
-
-	outReq, err := buildCloudProxyRequest(c, path, body)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-		return
-	}
-
-	if err := cloudProxySignRequest(outReq.Context(), outReq); err != nil {
-		slog.Warn("cloud proxy signing failed", "error", err)
-		writeCloudUnauthorized(c)
-		return
-	}
-
-	// TODO(drifkin): Add phase-specific proxy timeouts.
-	// Connect/TLS/TTFB should have bounded timeouts, but once streaming starts
-	// we should not enforce a short total timeout for long-lived responses.
-	resp, err := http.DefaultClient.Do(outReq)
-	if err != nil {
-		c.JSON(http.StatusBadGateway, gin.H{"error": err.Error()})
-		return
-	}
-	defer resp.Body.Close()
-
-	writeCloudProxyResponse(c, path, resp)
 }
 
 func replaceJSONModelField(body []byte, model string) ([]byte, error) {
@@ -364,82 +354,6 @@ func hasWebSearchTool(path string, body []byte) bool {
 		if strings.HasPrefix(strings.TrimSpace(tool.Type), "web_search") {
 			return true
 		}
-	}
-
-	return false
-}
-
-func requiresCloudAnthropicChatFallback(path string, body []byte) bool {
-	if path != "/v1/messages" {
-		return false
-	}
-
-	return hasAnthropicWebSearchTool(body) || hasAnthropicToolResultBase64Image(body)
-}
-
-func hasAnthropicToolResultBase64Image(body []byte) bool {
-	if len(body) == 0 {
-		return false
-	}
-
-	var payload struct {
-		Messages []struct {
-			Content json.RawMessage `json:"content"`
-		} `json:"messages"`
-	}
-	if err := json.Unmarshal(body, &payload); err != nil {
-		return false
-	}
-
-	for _, message := range payload.Messages {
-		var blocks []struct {
-			Type    string          `json:"type"`
-			Content json.RawMessage `json:"content"`
-		}
-		if err := json.Unmarshal(message.Content, &blocks); err != nil {
-			continue
-		}
-
-		for _, block := range blocks {
-			if strings.TrimSpace(block.Type) != "tool_result" {
-				continue
-			}
-			if anthropicToolResultContentHasBase64Image(block.Content) {
-				return true
-			}
-		}
-	}
-
-	return false
-}
-
-func anthropicToolResultContentHasBase64Image(raw json.RawMessage) bool {
-	if len(raw) == 0 || bytes.Equal(bytes.TrimSpace(raw), []byte("null")) {
-		return false
-	}
-
-	var blocks []struct {
-		Type   string `json:"type"`
-		Source *struct {
-			Type string `json:"type"`
-		} `json:"source"`
-	}
-	if err := json.Unmarshal(raw, &blocks); err == nil {
-		for _, block := range blocks {
-			if strings.TrimSpace(block.Type) == "image" && block.Source != nil && strings.TrimSpace(block.Source.Type) == "base64" {
-				return true
-			}
-		}
-	}
-
-	var block struct {
-		Type   string `json:"type"`
-		Source *struct {
-			Type string `json:"type"`
-		} `json:"source"`
-	}
-	if err := json.Unmarshal(raw, &block); err == nil && strings.TrimSpace(block.Type) == "image" && block.Source != nil && strings.TrimSpace(block.Source.Type) == "base64" {
-		return true
 	}
 
 	return false

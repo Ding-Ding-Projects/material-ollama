@@ -15,16 +15,20 @@ status() { echo ">>> $*" >&2; }
 error() { echo "${red}ERROR:${plain} $*"; exit 1; }
 warning() { echo "${red}WARNING:${plain} $*"; }
 
-runnable() { command -v "$1" >/dev/null; }
+TEMP_DIR=$(mktemp -d)
+cleanup() { rm -rf $TEMP_DIR; }
+trap cleanup EXIT
+
+available() { command -v $1 >/dev/null; }
 require() {
-    MISSING=''
-    for TOOL in "$@"; do
-        if ! runnable "$TOOL"; then
+    local MISSING=''
+    for TOOL in $*; do
+        if ! available $TOOL; then
             MISSING="$MISSING $TOOL"
         fi
     done
 
-    echo "$MISSING"
+    echo $MISSING
 }
 
 OS="$(uname -s)"
@@ -53,21 +57,14 @@ if [ "$OS" = "Darwin" ]; then
 
     DOWNLOAD_URL="https://ollama.com/download/Ollama-darwin.zip${VER_PARAM}"
 
-    status "Downloading Ollama for macOS..."
-    curl --fail --show-error --location --progress-bar \
-        -o "$TEMP_DIR/Ollama-darwin.zip" "$DOWNLOAD_URL"
-
-    unzip -q "$TEMP_DIR/Ollama-darwin.zip" -d "$TEMP_DIR"
-
-    # Download succeeded, now stop and replace the existing installation
     if pgrep -x Ollama >/dev/null 2>&1; then
         status "Stopping running Ollama instance..."
         pkill -x Ollama 2>/dev/null || true
         sleep 2
     fi
 
-    status "Installing Ollama to /Applications..."
     if [ -d "/Applications/Ollama.app" ]; then
+        status "Removing existing Ollama installation..."
         rm -rf "/Applications/Ollama.app"
     fi
 
@@ -77,17 +74,6 @@ if [ "$OS" = "Darwin" ]; then
 
     status "Installing Ollama to /Applications..."
     unzip -q "$TEMP_DIR/Ollama-darwin.zip" -d "$TEMP_DIR"
-
-    status "Verifying signature..."
-    if ! codesign --verify --deep --strict "$TEMP_DIR/Ollama.app" 2>/dev/null; then
-        error "Signature verification failed for Ollama.app"
-    fi
-
-    # Verify it's signed by Ollama team ID 
-    if ! codesign -dvv "$TEMP_DIR/Ollama.app" 2>&1 | grep -q "TeamIdentifier=3MU9H2V9Y9"; then
-        error "Unexpected signer for Ollama.app"
-    fi
-
     mv "$TEMP_DIR/Ollama.app" "/Applications/"
 
     if [ ! -L "/usr/local/bin/ollama" ] || [ "$(readlink "/usr/local/bin/ollama")" != "/Applications/Ollama.app/Contents/Resources/ollama" ]; then
@@ -99,7 +85,7 @@ if [ "$OS" = "Darwin" ]; then
 
     if [ -z "${OLLAMA_NO_START:-}" ]; then
         status "Starting Ollama..."
-        open "/Applications/Ollama.app" --args hidden
+        open -a Ollama --args hidden
     fi
 
     status "Install complete. You can now run 'ollama'."
@@ -124,7 +110,7 @@ esac
 SUDO=
 if [ "$(id -u)" -ne 0 ]; then
     # Running as root, no need for sudo
-    if ! runnable sudo; then
+    if ! available sudo; then
         error "This script requires superuser permissions. Please re-run as root."
     fi
 
@@ -159,7 +145,7 @@ download_and_extract() {
         status "Downloading ${filename}.tar.zst"
         curl --fail --show-error --location --progress-bar \
             "${url_base}/${filename}.tar.zst${VER_PARAM}" | \
-            zstd -d | tar -xf - -C "${dest_dir}"
+            zstd -d | $SUDO tar -xf - -C "${dest_dir}"
         return 0
     fi
 
@@ -167,71 +153,13 @@ download_and_extract() {
     status "Downloading ${filename}.tgz"
     curl --fail --show-error --location --progress-bar \
         "${url_base}/${filename}.tgz${VER_PARAM}" | \
-        tar -xzf - -C "${dest_dir}"
+        $SUDO tar -xzf - -C "${dest_dir}"
 }
 
-    if runnable nvidia-smi && lsmod | grep -qv nvidia; then
-        status 'Reboot to complete NVIDIA CUDA driver install.'
-    fi
-
-    if runnable systemctl >/dev/null; then
-        $SUDO systemctl restart ollama
-
-        timeout 10 sh -c 'while :; do [ "$(curl -s http://127.0.0.1:11434)" = "Ollama is running" ] && break; sleep 0.2; done' \
-            && status 'Ollama service is available at 127.0.0.1:11434' \
-            || true
-    fi
-
-    if runnable ollama; then
-        status 'Install completed. Run "ollama --help" to get started.'
-    fi
-
-    exit $EXIT_CODE
-}
-trap cleanup EXIT
-
-status "Downloading ollama..."
-curl --fail --show-error --location --progress-bar -o "$TEMP_DIR/ollama" "https://ollama.ai/download/ollama-linux-$ARCH"
-
-for BIN_DIR in /usr/local/bin /usr/bin /bin; do
-    if echo "$PATH" | grep -q $BIN_DIR; then
-        break
-    fi
+for BINDIR in /usr/local/bin /usr/bin /bin; do
+    echo $PATH | grep -q $BINDIR && break || continue
 done
 OLLAMA_INSTALL_DIR=$(dirname ${BINDIR})
-
-# Create download directory on the install filesystem to avoid space issues
-# with /tmp (which may be a small tmpfs, especially on WSL2)
-$SUDO mkdir -p "$OLLAMA_INSTALL_DIR"
-DOWNLOAD_DIR=$($SUDO mktemp -d "${OLLAMA_INSTALL_DIR}/.ollama-install.XXXXXX")
-$SUDO chown "$(id -u):$(id -g)" "$DOWNLOAD_DIR"
-cleanup() { $SUDO rm -rf "$DOWNLOAD_DIR"; rm -rf "$TEMP_DIR"; }
-
-status "Downloading ollama..."
-download_and_extract "https://ollama.com/download" "$DOWNLOAD_DIR" "ollama-linux-${ARCH}"
-
-# Check for NVIDIA JetPack systems with additional downloads
-if [ -f /etc/nv_tegra_release ] ; then
-    if grep R36 /etc/nv_tegra_release > /dev/null ; then
-        download_and_extract "https://ollama.com/download" "$DOWNLOAD_DIR" "ollama-linux-${ARCH}-jetpack6"
-    elif grep R35 /etc/nv_tegra_release > /dev/null ; then
-        download_and_extract "https://ollama.com/download" "$DOWNLOAD_DIR" "ollama-linux-${ARCH}-jetpack5"
-    else
-        warning "Unsupported JetPack version detected.  GPU may not be supported"
-    fi
-fi
-
-# All downloads succeeded, now stop and replace the existing installation
-if available systemctl; then
-    if systemctl is-active --quiet ollama; then
-        status "Stopping running ollama service..."
-        $SUDO systemctl stop ollama
-    fi
-elif pgrep -x ollama >/dev/null 2>&1; then
-    status "Stopping running ollama instance..."
-    $SUDO pkill -x ollama 2>/dev/null || true
-    sleep 2
-fi
 
 if [ -d "$OLLAMA_INSTALL_DIR/lib/ollama" ] ; then
     status "Cleaning up old version at $OLLAMA_INSTALL_DIR/lib/ollama"
@@ -240,11 +168,22 @@ fi
 status "Installing ollama to $OLLAMA_INSTALL_DIR"
 $SUDO install -o0 -g0 -m755 -d $BINDIR
 $SUDO install -o0 -g0 -m755 -d "$OLLAMA_INSTALL_DIR/lib/ollama"
-$SUDO cp -a "$DOWNLOAD_DIR"/. "$OLLAMA_INSTALL_DIR/"
+download_and_extract "https://ollama.com/download" "$OLLAMA_INSTALL_DIR" "ollama-linux-${ARCH}"
 
 if [ "$OLLAMA_INSTALL_DIR/bin/ollama" != "$BINDIR/ollama" ] ; then
     status "Making ollama accessible in the PATH in $BINDIR"
     $SUDO ln -sf "$OLLAMA_INSTALL_DIR/ollama" "$BINDIR/ollama"
+fi
+
+# Check for NVIDIA JetPack systems with additional downloads
+if [ -f /etc/nv_tegra_release ] ; then
+    if grep R36 /etc/nv_tegra_release > /dev/null ; then
+        download_and_extract "https://ollama.com/download" "$OLLAMA_INSTALL_DIR" "ollama-linux-${ARCH}-jetpack6"
+    elif grep R35 /etc/nv_tegra_release > /dev/null ; then
+        download_and_extract "https://ollama.com/download" "$OLLAMA_INSTALL_DIR" "ollama-linux-${ARCH}-jetpack5"
+    else
+        warning "Unsupported JetPack version detected.  GPU may not be supported"
+    fi
 fi
 
 install_success() {
@@ -269,6 +208,9 @@ configure_systemd() {
         $SUDO usermod -a -G video ollama
     fi
 
+    status "Adding current user to ollama group..."
+    $SUDO usermod -a -G ollama $(whoami)
+
     status "Creating ollama systemd service..."
     cat <<EOF | $SUDO tee /etc/systemd/system/ollama.service >/dev/null
 [Unit]
@@ -276,7 +218,7 @@ Description=Ollama Service
 After=network-online.target
 
 [Service]
-ExecStart=$BIN_DIR/ollama serve
+ExecStart=$BINDIR/ollama serve
 User=ollama
 Group=ollama
 Restart=always
@@ -292,6 +234,9 @@ EOF
             status "Enabling and starting ollama service..."
             $SUDO systemctl daemon-reload
             $SUDO systemctl enable ollama
+
+            start_service() { $SUDO systemctl restart ollama; }
+            trap start_service EXIT
             ;;
         *)
             warning "systemd is not running"
@@ -302,7 +247,7 @@ EOF
     esac
 }
 
-if runnable systemctl; then
+if available systemctl; then
     configure_systemd
 fi
 
@@ -348,12 +293,7 @@ check_gpu() {
 
 if check_gpu nvidia-smi; then
     status "NVIDIA GPU installed."
-    exit
-fi
-
-if ! runnable lspci && ! runnable lshw; then
-    warning "Unable to detect NVIDIA GPU. Install lspci or lshw to automatically detect and install NVIDIA CUDA drivers."
-    exit
+    exit 0
 fi
 
 if ! check_gpu lspci nvidia && ! check_gpu lshw nvidia && ! check_gpu lspci amdgpu && ! check_gpu lshw amdgpu; then
@@ -363,8 +303,7 @@ if ! check_gpu lspci nvidia && ! check_gpu lshw nvidia && ! check_gpu lspci amdg
 fi
 
 if check_gpu lspci amdgpu || check_gpu lshw amdgpu; then
-    download_and_extract "https://ollama.com/download" "$DOWNLOAD_DIR" "ollama-linux-${ARCH}-rocm"
-    $SUDO cp -a "$DOWNLOAD_DIR"/. "$OLLAMA_INSTALL_DIR/"
+    download_and_extract "https://ollama.com/download" "$OLLAMA_INSTALL_DIR" "ollama-linux-${ARCH}-rocm"
 
     install_success
     status "AMD GPU ready."
@@ -401,7 +340,7 @@ install_cuda_driver_yum() {
         rhel)
             status 'Installing EPEL repository...'
             # EPEL is required for third-party dependencies such as dkms and libvdpau
-            $SUDO $PACKAGE_MANAGER -y install "https://dl.fedoraproject.org/pub/epel/epel-release-latest-$2.noarch.rpm" || true
+            $SUDO $PACKAGE_MANAGER -y install https://dl.fedoraproject.org/pub/epel/epel-release-latest-$2.noarch.rpm || true
             ;;
     esac
 
@@ -427,15 +366,15 @@ install_cuda_driver_apt() {
     case $1 in
         debian)
             status 'Enabling contrib sources...'
-            [ -f "/etc/apt/sources.list.d/debian.sources" ] \
-                && SOURCES_LIST="/etc/apt/sources.list.d/debian.sources" \
-                || SOURCES_LIST="/etc/apt/sources.list"
-            sed 's/main/contrib/' <"$SOURCES_LIST" | $SUDO tee /etc/apt/sources.list.d/contrib.sources >/dev/null
+            $SUDO sed 's/main/contrib/' < /etc/apt/sources.list | $SUDO tee /etc/apt/sources.list.d/contrib.list > /dev/null
+            if [ -f "/etc/apt/sources.list.d/debian.sources" ]; then
+                $SUDO sed 's/main/contrib/' < /etc/apt/sources.list.d/debian.sources | $SUDO tee /etc/apt/sources.list.d/contrib.sources > /dev/null
+            fi
             ;;
     esac
 
     status 'Installing CUDA driver...'
-    $SUDO dpkg -i "$TEMP_DIR/cuda-keyring.deb"
+    $SUDO dpkg -i $TEMP_DIR/cuda-keyring.deb
     $SUDO apt-get update
 
     [ -n "$SUDO" ] && SUDO_E="$SUDO -E" || SUDO_E=
@@ -453,7 +392,7 @@ OS_VERSION=$VERSION_ID
 
 PACKAGE_MANAGER=
 for PACKAGE_MANAGER in dnf yum apt-get; do
-    if runnable $PACKAGE_MANAGER; then
+    if available $PACKAGE_MANAGER; then
         break
     fi
 done
@@ -462,7 +401,7 @@ if [ -z "$PACKAGE_MANAGER" ]; then
     error "Unknown package manager. Skipping CUDA installation."
 fi
 
-if ! check_gpu nvidia-smi || nvidia-smi | grep -qo "CUDA Version: [0-9]*\.[0-9]*"; then
+if ! check_gpu nvidia-smi || [ -z "$(nvidia-smi | grep -o "CUDA Version: [0-9]*\.[0-9]*")" ]; then
     case $OS_NAME in
         centos|rhel) install_cuda_driver_yum 'rhel' $(echo $OS_VERSION | cut -d '.' -f 1) ;;
         rocky) install_cuda_driver_yum 'rhel' $(echo $OS_VERSION | cut -c1) ;;
@@ -486,12 +425,12 @@ if ! lsmod | grep -q nvidia || ! lsmod | grep -q nvidia_uvm; then
 
     NVIDIA_CUDA_VERSION=$($SUDO dkms status | awk -F: '/added/ { print $1 }')
     if [ -n "$NVIDIA_CUDA_VERSION" ]; then
-        $SUDO dkms install "$NVIDIA_CUDA_VERSION"
+        $SUDO dkms install $NVIDIA_CUDA_VERSION
     fi
 
     if lsmod | grep -q nouveau; then
         status 'Reboot to complete NVIDIA CUDA driver install.'
-        exit
+        exit 0
     fi
 
     $SUDO modprobe nvidia

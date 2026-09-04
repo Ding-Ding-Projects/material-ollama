@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"path/filepath"
 	"slices"
-	"strconv"
 	"strings"
 	"unicode/utf8"
 
@@ -74,7 +73,7 @@ func extractPDFText(data []byte) (string, error) {
 		if strings.TrimSpace(text) != "" {
 			if textBuilder.Len() > 0 {
 				textBuilder.WriteString("\n\n--- Page ")
-				textBuilder.WriteString(strconv.Itoa(i))
+				textBuilder.WriteString(fmt.Sprintf("%d", i))
 				textBuilder.WriteString(" ---\n")
 			}
 			textBuilder.WriteString(text)

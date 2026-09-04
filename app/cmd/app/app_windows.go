@@ -74,11 +74,12 @@ func maybeMoveAndRestart() appMove {
 }
 
 // handleExistingInstance checks for existing instances and optionally focuses them
-func handleExistingInstance(startHidden bool) {
+func handleExistingInstance(startHidden bool) bool {
 	if wintray.CheckAndFocusExistingInstance(!startHidden) {
 		slog.Info("existing instance found, exiting")
 		os.Exit(0)
 	}
+	return true
 }
 
 func installSymlink() {}
@@ -95,11 +96,15 @@ func (ac *appCallbacks) UIRun(path string) {
 }
 
 func (*appCallbacks) UIShow() {
-	if wv.webview != nil {
+	openUI("/")
+}
+
+func openUI(path string) {
+	if wv.IsRunning() && wv.webview != nil {
 		showWindow(wv.webview.Window())
-	} else {
-		wv.Run("/")
+		return
 	}
+	wv.Run(path)
 }
 
 func (*appCallbacks) UITerminate() {
@@ -110,12 +115,11 @@ func (*appCallbacks) UIRunning() bool {
 	return wv.IsRunning()
 }
 
+func (*appCallbacks) UIOnboarding() bool {
+	return wv.OnboardingActive()
+}
+
 func (app *appCallbacks) Quit() {
-	if wv.Store != nil {
-		if err := wv.Store.ClearAllDrafts(); err != nil {
-			slog.Warn("failed to clear drafts on quit", "error", err)
-		}
-	}
 	app.t.Quit()
 	wv.Terminate()
 }
@@ -131,7 +135,7 @@ func (app *appCallbacks) DoUpdate() {
 
 	app.shutdown()
 
-	if err := updater.DoUpgrade(true); err != nil {
+	if err := updater.DoUpgrade(true); err != nil { //nolint:staticcheck,nolintlint // DoUpgrade may always return non-nil on Windows
 		slog.Warn(fmt.Sprintf("upgrade attempt failed: %s", err))
 	}
 }
@@ -143,19 +147,7 @@ func (app *appCallbacks) HandleURLScheme(urlScheme string) {
 
 // handleURLSchemeRequest processes URL scheme requests from other instances
 func handleURLSchemeRequest(urlScheme string) {
-	isConnect, err := parseURLScheme(urlScheme)
-	if err != nil {
-		slog.Error("failed to parse URL scheme request", "url", urlScheme, "error", err)
-		return
-	}
-
-	if isConnect {
-		handleConnectURLScheme()
-	} else {
-		if wv.webview != nil {
-			showWindow(wv.webview.Window())
-		}
-	}
+	handleURLSchemeInCurrentInstance(urlScheme)
 }
 
 func UpdateAvailable(ver string) error {
@@ -166,7 +158,7 @@ func UpdateAvailable(ver string) error {
 	return app.t.UpdateAvailable(ver)
 }
 
-func osRun(shutdown func(), hasCompletedFirstRun, startHidden bool) {
+func osRun(shutdown func(), hasCompletedFirstRun, startHidden, showOnboarding bool, urlSchemeRequest string) {
 	var err error
 	app.shutdown = shutdown
 	app.t, err = wintray.NewTray(app)
@@ -210,10 +202,8 @@ func osRun(shutdown func(), hasCompletedFirstRun, startHidden bool) {
 			}
 		}
 	}
-	if startHidden {
-		startHiddenTasks()
-	} else {
-		ptr := wv.Run(initialRoute)
+	showUI := func(path string) {
+		ptr := wv.Run(path)
 
 		// Set the window icon using the tray icon
 		if ptr != nil {
@@ -230,6 +220,16 @@ func osRun(shutdown func(), hasCompletedFirstRun, startHidden bool) {
 		}
 
 		centerWindow(ptr)
+	}
+
+	// An explicit -route wins over upstream's onboarding and connect routing.
+	// The capture harness launches a cold process precisely to land on one
+	// exact screen, so sending it to /connect instead would photograph the
+	// wrong surface and nothing would say so.
+	if initialRoute != "/" {
+		showUI(initialRoute)
+	} else {
+		runInitialWindowsUI(startHidden, showOnboarding, urlSchemeRequest, startHiddenTasks, handleURLSchemeInCurrentInstance, showUI)
 	}
 
 	if !hasCompletedFirstRun {
@@ -413,6 +413,8 @@ func hideWindow(ptr unsafe.Pointer) {
 	}
 }
 
+func setOnboardingWindowStyle(_ unsafe.Pointer, _ bool) {}
+
 func runInBackground() {
 	exe, err := os.Executable()
 	if err != nil {
@@ -437,17 +439,13 @@ func drag(ptr unsafe.Pointer) {}
 func doubleClick(ptr unsafe.Pointer) {}
 
 // checkAndHandleExistingInstance checks if another instance is running and sends the URL to it
-func checkAndHandleExistingInstance(urlSchemeRequest string) bool {
+func checkAndHandleExistingInstance(urlSchemeRequest string) {
 	if urlSchemeRequest == "" {
-		return false
+		return
 	}
 
 	// Try to send URL to existing instance using wintray messaging
 	if wintray.CheckAndSendToExistingInstance(urlSchemeRequest) {
 		os.Exit(0)
-		return true
 	}
-
-	// No existing instance, we'll handle it ourselves
-	return false
 }

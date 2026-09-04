@@ -4,10 +4,12 @@ import (
 	"encoding/json"
 	"errors"
 	"math"
+	"reflect"
 	"strings"
 	"testing"
 	"time"
 
+	"github.com/ollama/ollama/types/model"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -214,6 +216,22 @@ func TestMainGPUParsingFromJSON(t *testing.T) {
 	}
 }
 
+func TestGenerationDefaultMappingsAreOptions(t *testing.T) {
+	jsonOpts := make(map[string]struct{})
+	for _, field := range reflect.VisibleFields(reflect.TypeOf(Options{})) {
+		jsonTag := strings.Split(field.Tag.Get("json"), ",")[0]
+		if jsonTag != "" {
+			jsonOpts[jsonTag] = struct{}{}
+		}
+	}
+
+	for _, option := range model.GenerationDefaultOptions() {
+		if _, ok := jsonOpts[option]; !ok {
+			t.Fatalf("%s should be defined on api.Options", option)
+		}
+	}
+}
+
 func TestUseMmapFormatParams(t *testing.T) {
 	tr := true
 	fa := false
@@ -267,7 +285,7 @@ func TestUseMmapFormatParams(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			resp, err := FormatParameters(test.req)
+			resp, err := FormatParams(test.req)
 			require.Equal(t, test.err, err)
 			respVal, ok := resp["use_mmap"]
 			if test.exp != nil {
@@ -711,9 +729,9 @@ func TestToolFunctionParameters_String(t *testing.T) {
 		},
 		{
 			name: "marshal failure returns empty string",
-			params: func() ToolFunctionParameters {
-				p := NewToolFunctionParametersWithProps("object", nil, NewToolProperties())
-				p.Defs = func() any {
+			params: ToolFunctionParameters{
+				Type: "object",
+				Defs: func() any {
 					// Create a cycle that will cause json.Marshal to fail
 					type selfRef struct {
 						Self *selfRef

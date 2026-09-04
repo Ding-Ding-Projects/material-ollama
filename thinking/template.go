@@ -68,7 +68,8 @@ func InferTags(t *template.Template) (string, string) {
 	enterFn := func(n parse.Node) bool {
 		ancestors = append(ancestors, n)
 
-		if x, ok := n.(*parse.FieldNode); ok {
+		switch x := n.(type) {
+		case *parse.FieldNode:
 			if len(x.Ident) > 0 && x.Ident[0] == "Thinking" {
 				var mostRecentRange *parse.RangeNode
 				for i := len(ancestors) - 1; i >= 0; i-- {
@@ -120,13 +121,14 @@ func InferTags(t *template.Template) (string, string) {
 func rangeUsesField(rangeNode *parse.RangeNode, field string) bool {
 	found := false
 	enterFn := func(n parse.Node) bool {
-		if x, ok := n.(*parse.FieldNode); ok {
+		switch x := n.(type) {
+		case *parse.FieldNode:
 			if x.Ident[0] == field {
 				found = true
 			}
 		}
 		return true
 	}
-	templateVisit(rangeNode.Pipe, enterFn, nil)
+	templateVisit(rangeNode.BranchNode.Pipe, enterFn, nil)
 	return found
 }

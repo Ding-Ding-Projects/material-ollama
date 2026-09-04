@@ -14,8 +14,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/gin-gonic/gin"
 	"github.com/google/go-cmp/cmp"
-	"github.com/google/go-cmp/cmp/cmpopts"
 
 	"github.com/ollama/ollama/api"
 	"github.com/ollama/ollama/fs/ggml"
@@ -99,7 +99,7 @@ func (m *mockRunner) Detokenize(ctx context.Context, tokens []int) (string, erro
 }
 
 func (mockRunner) Tokenize(_ context.Context, s string) (tokens []int, err error) {
-	for range strings.FieldsSeq(s) {
+	for range strings.Fields(s) {
 		tokens = append(tokens, len(tokens))
 	}
 
@@ -279,13 +279,14 @@ func TestChatHandlerChatTemplateRoute(t *testing.T) {
 	mock := mockRunner{
 		ChatFn: func(_ context.Context, req llm.ChatRequest, fn func(llm.ChatResponse)) error {
 			fn(llm.ChatResponse{
-				Message:            api.Message{Role: "assistant", Content: "chat template response"},
-				Done:               true,
-				DoneReason:         llm.DoneReasonStop,
-				PromptEvalCount:    1,
-				PromptEvalDuration: time.Millisecond,
-				EvalCount:          2,
-				EvalDuration:       2 * time.Millisecond,
+				Message:               api.Message{Role: "assistant", Content: "chat template response"},
+				Done:                  true,
+				DoneReason:            llm.DoneReasonStop,
+				PromptEvalCount:       2,
+				PromptEvalCachedCount: testIntPtr(1),
+				PromptEvalDuration:    time.Millisecond,
+				EvalCount:             2,
+				EvalDuration:          2 * time.Millisecond,
 			})
 			return nil
 		},
@@ -313,6 +314,9 @@ func TestChatHandlerChatTemplateRoute(t *testing.T) {
 	}
 	if actual.Message.Content != "chat template response" {
 		t.Fatalf("expected chat template response, got %q", actual.Message.Content)
+	}
+	if actual.PromptEvalCount != 2 || actual.PromptEvalCachedCount == nil || *actual.PromptEvalCachedCount != 1 {
+		t.Errorf("prompt counts = (%d, %v), want (2, 1)", actual.PromptEvalCount, actual.PromptEvalCachedCount)
 	}
 	if len(mock.ChatRequest.Messages) != 1 || mock.ChatRequest.Messages[0].Content != "hello" {
 		t.Fatalf("chat_template request messages = %#v", mock.ChatRequest.Messages)
@@ -673,39 +677,19 @@ func TestGenerateChatRemote(t *testing.T) {
 		if r.Method != http.MethodPost {
 			t.Errorf("Expected POST request, got %s", r.Method)
 		}
+		if r.URL.Path != "/api/chat" {
+			t.Errorf("Expected path '/api/chat', got %s", r.URL.Path)
+		}
 
 		w.WriteHeader(http.StatusOK)
 		w.Header().Set("Content-Type", "application/json")
-
-		switch r.URL.Path {
-		case "/api/chat":
-			resp := api.ChatResponse{
-				Model:      "test",
-				Done:       true,
-				DoneReason: "load",
-				Metrics: api.Metrics{
-					PromptEvalCount: 10,
-					EvalCount:       20,
-				},
-			}
-			if err := json.NewEncoder(w).Encode(&resp); err != nil {
-				t.Fatal(err)
-			}
-		case "/api/generate":
-			resp := api.GenerateResponse{
-				Model:      "test",
-				Done:       true,
-				DoneReason: "stop",
-				Metrics: api.Metrics{
-					PromptEvalCount: 5,
-					EvalCount:       15,
-				},
-			}
-			if err := json.NewEncoder(w).Encode(&resp); err != nil {
-				t.Fatal(err)
-			}
-		default:
-			t.Errorf("unexpected path %s", r.URL.Path)
+		resp := api.ChatResponse{
+			Model:      "test",
+			Done:       true,
+			DoneReason: "load",
+		}
+		if err := json.NewEncoder(w).Encode(&resp); err != nil {
+			t.Fatal(err)
 		}
 	}))
 	defer rs.Close()
@@ -716,7 +700,7 @@ func TestGenerateChatRemote(t *testing.T) {
 	}
 
 	t.Setenv("OLLAMA_REMOTES", p.Hostname())
-	s := Server{usage: NewUsageTracker()}
+	s := Server{}
 	w := createRequest(t, s.CreateHandler, api.CreateRequest{
 		Model:      "test-cloud",
 		RemoteHost: rs.URL,
@@ -764,61 +748,6 @@ func TestGenerateChatRemote(t *testing.T) {
 			t.Errorf("expected done reason load, got %s", actual.DoneReason)
 		}
 	})
-
-	t.Run("remote chat usage tracking", func(t *testing.T) {
-		stats := s.usage.Stats()
-		found := false
-		for _, m := range stats.Usage {
-			if m.Model == "test-cloud" {
-				found = true
-				if m.Requests != 1 {
-					t.Errorf("expected 1 request, got %d", m.Requests)
-				}
-				if m.PromptTokens != 10 {
-					t.Errorf("expected 10 prompt tokens, got %d", m.PromptTokens)
-				}
-				if m.CompletionTokens != 20 {
-					t.Errorf("expected 20 completion tokens, got %d", m.CompletionTokens)
-				}
-			}
-		}
-		if !found {
-			t.Error("expected usage entry for test-cloud")
-		}
-	})
-
-	t.Run("remote generate usage tracking", func(t *testing.T) {
-		// Reset the tracker for a clean test
-		s.usage = NewUsageTracker()
-
-		w := createRequest(t, s.GenerateHandler, api.GenerateRequest{
-			Model:  "test-cloud",
-			Prompt: "hello",
-		})
-		if w.Code != http.StatusOK {
-			t.Fatalf("expected status 200, got %d", w.Code)
-		}
-
-		stats := s.usage.Stats()
-		found := false
-		for _, m := range stats.Usage {
-			if m.Model == "test-cloud" {
-				found = true
-				if m.Requests != 1 {
-					t.Errorf("expected 1 request, got %d", m.Requests)
-				}
-				if m.PromptTokens != 5 {
-					t.Errorf("expected 5 prompt tokens, got %d", m.PromptTokens)
-				}
-				if m.CompletionTokens != 15 {
-					t.Errorf("expected 15 completion tokens, got %d", m.CompletionTokens)
-				}
-			}
-		}
-		if !found {
-			t.Error("expected usage entry for test-cloud")
-		}
-	})
 }
 
 func TestGenerateChat(t *testing.T) {
@@ -830,8 +759,8 @@ func TestGenerateChat(t *testing.T) {
 		CompletionResponse: llm.CompletionResponse{
 			Done:                  true,
 			DoneReason:            llm.DoneReasonStop,
-			PromptEvalCount:       1,
-			PromptEvalCachedCount: 1,
+			PromptEvalCount:       2,
+			PromptEvalCachedCount: testIntPtr(1),
 			PromptEvalDuration:    1,
 			EvalCount:             1,
 			EvalDuration:          1,
@@ -839,7 +768,6 @@ func TestGenerateChat(t *testing.T) {
 	}
 
 	s := Server{
-		usage: NewUsageTracker(),
 		sched: &Scheduler{
 			pendingReqCh:    make(chan *LlmRequest, 1),
 			finishedReqCh:   make(chan *LlmRequest, 1),
@@ -853,12 +781,8 @@ func TestGenerateChat(t *testing.T) {
 			loadFn: func(req *LlmRequest, _ ml.SystemInfo, _ []ml.DeviceInfo, _ bool) bool {
 				// add small delay to simulate loading
 				time.Sleep(time.Millisecond)
-				opts := api.DefaultOptions()
-				opts.NumCtx = 4096
 				req.successCh <- &runnerRef{
-					llama:       &mock,
-					numParallel: 1,
-					Options:     &opts,
+					llama: &mock,
 				}
 				return false
 			},
@@ -893,7 +817,7 @@ func TestGenerateChat(t *testing.T) {
 
 	w := createRequest(t, s.CreateHandler, api.CreateRequest{
 		Model: "test",
-		Files: []api.File{{Name: "file.gguf", Digest: digest}},
+		Files: map[string]string{"file.gguf": digest},
 		Template: `
 {{- if .Tools }}
 {{ .Tools }}
@@ -903,7 +827,7 @@ func TestGenerateChat(t *testing.T) {
 {{- range .ToolCalls }}{"name": "{{ .Function.Name }}", "arguments": {{ .Function.Arguments }}}
 {{- end }}
 {{ end }}`,
-		Stream: streamFalse,
+		Stream: &stream,
 	})
 
 	if w.Code != http.StatusOK {
@@ -974,7 +898,7 @@ func TestGenerateChat(t *testing.T) {
 		w := createRequest(t, s.CreateHandler, api.CreateRequest{
 			Model:  "bert",
 			Files:  map[string]string{"bert.gguf": digest},
-			Stream: streamFalse,
+			Stream: &stream,
 		})
 
 		if w.Code != http.StatusOK {
@@ -996,8 +920,7 @@ func TestGenerateChat(t *testing.T) {
 
 	t.Run("load model", func(t *testing.T) {
 		w := createRequest(t, s.ChatHandler, api.ChatRequest{
-			Model:   "test",
-			Options: map[string]any{"num_ctx": 2048},
+			Model: "test",
 		})
 
 		if w.Code != http.StatusOK {
@@ -1052,9 +975,8 @@ func TestGenerateChat(t *testing.T) {
 		if actual.PromptEvalCount == 0 {
 			t.Errorf("expected prompt eval count > 0, got 0")
 		}
-
-		if actual.PromptEvalCachedCount != 1 {
-			t.Errorf("expected prompt eval cached count 1, got %d", actual.PromptEvalCachedCount)
+		if actual.PromptEvalCachedCount == nil || *actual.PromptEvalCachedCount != 1 {
+			t.Errorf("expected cached prompt eval count 1, got %v", actual.PromptEvalCachedCount)
 		}
 
 		if actual.PromptEvalDuration == 0 {
@@ -1078,21 +1000,21 @@ func TestGenerateChat(t *testing.T) {
 		}
 	}
 
-	mock.Content = "Hi!"
+	mock.CompletionResponse.Content = "Hi!"
 	t.Run("messages", func(t *testing.T) {
 		w := createRequest(t, s.ChatHandler, api.ChatRequest{
 			Model: "test",
 			Messages: []api.Message{
 				{Role: "user", Content: "Hello!"},
 			},
-			Stream: streamFalse,
+			Stream: &stream,
 		})
 
 		if w.Code != http.StatusOK {
 			t.Errorf("expected status 200, got %d", w.Code)
 		}
 
-		if diff := cmp.Diff(mock.Prompt, "user: Hello!\n"); diff != "" {
+		if diff := cmp.Diff(mock.CompletionRequest.Prompt, "user: Hello!\n"); diff != "" {
 			t.Errorf("mismatch (-got +want):\n%s", diff)
 		}
 
@@ -1115,21 +1037,21 @@ func TestGenerateChat(t *testing.T) {
 			Messages: []api.Message{
 				{Role: "user", Content: "Hello!"},
 			},
-			Stream: streamFalse,
+			Stream: &stream,
 		})
 
 		if w.Code != http.StatusOK {
 			t.Errorf("expected status 200, got %d", w.Code)
 		}
 
-		if diff := cmp.Diff(mock.Prompt, "system: You are a helpful assistant.\nuser: Hello!\n"); diff != "" {
+		if diff := cmp.Diff(mock.CompletionRequest.Prompt, "system: You are a helpful assistant.\nuser: Hello!\n"); diff != "" {
 			t.Errorf("mismatch (-got +want):\n%s", diff)
 		}
 
 		checkChatResponse(t, w.Body, "test-system", "Hi!")
 	})
 
-	mock.Content = "Abra kadabra!"
+	mock.CompletionResponse.Content = "Abra kadabra!"
 	t.Run("messages with system", func(t *testing.T) {
 		w := createRequest(t, s.ChatHandler, api.ChatRequest{
 			Model: "test-system",
@@ -1137,14 +1059,14 @@ func TestGenerateChat(t *testing.T) {
 				{Role: "system", Content: "You can perform magic tricks."},
 				{Role: "user", Content: "Hello!"},
 			},
-			Stream: streamFalse,
+			Stream: &stream,
 		})
 
 		if w.Code != http.StatusOK {
 			t.Errorf("expected status 200, got %d", w.Code)
 		}
 
-		if diff := cmp.Diff(mock.Prompt, "system: You can perform magic tricks.\nuser: Hello!\n"); diff != "" {
+		if diff := cmp.Diff(mock.CompletionRequest.Prompt, "system: You can perform magic tricks.\nuser: Hello!\n"); diff != "" {
 			t.Errorf("mismatch (-got +want):\n%s", diff)
 		}
 
@@ -1160,14 +1082,14 @@ func TestGenerateChat(t *testing.T) {
 				{Role: "system", Content: "You can perform magic tricks."},
 				{Role: "user", Content: "Help me write tests."},
 			},
-			Stream: streamFalse,
+			Stream: &stream,
 		})
 
 		if w.Code != http.StatusOK {
 			t.Errorf("expected status 200, got %d", w.Code)
 		}
 
-		if diff := cmp.Diff(mock.Prompt, "system: You are a helpful assistant.\nuser: Hello!\nassistant: I can help you with that.\nsystem: You can perform magic tricks.\nuser: Help me write tests.\n"); diff != "" {
+		if diff := cmp.Diff(mock.CompletionRequest.Prompt, "system: You are a helpful assistant.\nuser: Hello!\nassistant: I can help you with that.\nsystem: You can perform magic tricks.\nuser: Help me write tests.\n"); diff != "" {
 			t.Errorf("mismatch (-got +want):\n%s", diff)
 		}
 
@@ -1192,8 +1114,8 @@ func TestGenerateChat(t *testing.T) {
 							"location": {
 								Type:        api.PropertyType{"string"},
 								Description: "The city and state",
-							})
-							props.Set("unit", api.ToolProperty{
+							},
+							"unit": {
 								Type: api.PropertyType{"string"},
 								Enum: []any{"celsius", "fahrenheit"},
 							},
@@ -1213,13 +1135,15 @@ func TestGenerateChat(t *testing.T) {
 			EvalDuration:       1,
 		}
 
+		streamRequest := true
+
 		w := createRequest(t, s.ChatHandler, api.ChatRequest{
 			Model: "test-system",
 			Messages: []api.Message{
 				{Role: "user", Content: "What's the weather in Seattle?"},
 			},
 			Tools:  tools,
-			Stream: streamTrue,
+			Stream: &streamRequest,
 		})
 
 		if w.Code != http.StatusOK {
@@ -1284,8 +1208,8 @@ func TestGenerateChat(t *testing.T) {
 							"location": {
 								Type:        api.PropertyType{"string"},
 								Description: "The city and state",
-							})
-							props.Set("unit", api.ToolProperty{
+							},
+							"unit": {
 								Type: api.PropertyType{"string"},
 								Enum: []any{"celsius", "fahrenheit"},
 							},
@@ -1343,7 +1267,7 @@ func TestGenerateChat(t *testing.T) {
 				{Role: "user", Content: "What's the weather in Seattle?"},
 			},
 			Tools:  tools,
-			Stream: streamFalse,
+			Stream: &stream,
 		})
 
 		wg.Wait()
@@ -1554,18 +1478,16 @@ func TestGenerate(t *testing.T) {
 
 	mock := mockRunner{
 		CompletionResponse: llm.CompletionResponse{
-			Done:                  true,
-			DoneReason:            llm.DoneReasonStop,
-			PromptEvalCount:       1,
-			PromptEvalCachedCount: 1,
-			PromptEvalDuration:    1,
-			EvalCount:             1,
-			EvalDuration:          1,
+			Done:               true,
+			DoneReason:         llm.DoneReasonStop,
+			PromptEvalCount:    1,
+			PromptEvalDuration: 1,
+			EvalCount:          1,
+			EvalDuration:       1,
 		},
 	}
 
 	s := Server{
-		usage: NewUsageTracker(),
 		sched: &Scheduler{
 			pendingReqCh:    make(chan *LlmRequest, 1),
 			finishedReqCh:   make(chan *LlmRequest, 1),
@@ -1580,9 +1502,7 @@ func TestGenerate(t *testing.T) {
 				// add small delay to simulate loading
 				time.Sleep(time.Millisecond)
 				req.successCh <- &runnerRef{
-					llama:       &mock,
-					Options:     &api.Options{},
-					numParallel: 1,
+					llama: &mock,
 				}
 				return false
 			},
@@ -1617,13 +1537,13 @@ func TestGenerate(t *testing.T) {
 
 	w := createRequest(t, s.CreateHandler, api.CreateRequest{
 		Model: "test",
-		Files: []api.File{{Name: "file.gguf", Digest: digest}},
+		Files: map[string]string{"file.gguf": digest},
 		Template: `
 {{- if .System }}System: {{ .System }} {{ end }}
 {{- if .Prompt }}User: {{ .Prompt }} {{ end }}
 {{- if .Response }}Assistant: {{ .Response }} {{ end }}
 `,
-		Stream: streamFalse,
+		Stream: &stream,
 	})
 
 	if w.Code != http.StatusOK {
@@ -1661,7 +1581,7 @@ func TestGenerate(t *testing.T) {
 		w := createRequest(t, s.CreateHandler, api.CreateRequest{
 			Model:  "bert",
 			Files:  map[string]string{"file.gguf": digest},
-			Stream: streamFalse,
+			Stream: &stream,
 		})
 
 		if w.Code != http.StatusOK {
@@ -1699,8 +1619,7 @@ func TestGenerate(t *testing.T) {
 
 	t.Run("load model", func(t *testing.T) {
 		w := createRequest(t, s.GenerateHandler, api.GenerateRequest{
-			Model:   "test",
-			Options: map[string]any{"num_ctx": 2048},
+			Model: "test",
 		})
 
 		if w.Code != http.StatusOK {
@@ -1757,10 +1676,6 @@ func TestGenerate(t *testing.T) {
 			t.Errorf("expected prompt eval count > 0, got 0")
 		}
 
-		if actual.PromptEvalCachedCount != 1 {
-			t.Errorf("expected prompt eval cached count 1, got %d", actual.PromptEvalCachedCount)
-		}
-
 		if actual.PromptEvalDuration == 0 {
 			t.Errorf("expected prompt eval duration > 0, got 0")
 		}
@@ -1782,19 +1697,19 @@ func TestGenerate(t *testing.T) {
 		}
 	}
 
-	mock.Content = "Hi!"
+	mock.CompletionResponse.Content = "Hi!"
 	t.Run("prompt", func(t *testing.T) {
 		w := createRequest(t, s.GenerateHandler, api.GenerateRequest{
 			Model:  "test",
 			Prompt: "Hello!",
-			Stream: streamFalse,
+			Stream: &stream,
 		})
 
 		if w.Code != http.StatusOK {
 			t.Errorf("expected status 200, got %d", w.Code)
 		}
 
-		if diff := cmp.Diff(mock.Prompt, "User: Hello! "); diff != "" {
+		if diff := cmp.Diff(mock.CompletionRequest.Prompt, "User: Hello! "); diff != "" {
 			t.Errorf("mismatch (-got +want):\n%s", diff)
 		}
 
@@ -1815,34 +1730,34 @@ func TestGenerate(t *testing.T) {
 		w := createRequest(t, s.GenerateHandler, api.GenerateRequest{
 			Model:  "test-system",
 			Prompt: "Hello!",
-			Stream: streamFalse,
+			Stream: &stream,
 		})
 
 		if w.Code != http.StatusOK {
 			t.Errorf("expected status 200, got %d", w.Code)
 		}
 
-		if diff := cmp.Diff(mock.Prompt, "System: You are a helpful assistant. User: Hello! "); diff != "" {
+		if diff := cmp.Diff(mock.CompletionRequest.Prompt, "System: You are a helpful assistant. User: Hello! "); diff != "" {
 			t.Errorf("mismatch (-got +want):\n%s", diff)
 		}
 
 		checkGenerateResponse(t, w.Body, "test-system", "Hi!")
 	})
 
-	mock.Content = "Abra kadabra!"
+	mock.CompletionResponse.Content = "Abra kadabra!"
 	t.Run("prompt with system", func(t *testing.T) {
 		w := createRequest(t, s.GenerateHandler, api.GenerateRequest{
 			Model:  "test-system",
 			Prompt: "Hello!",
 			System: "You can perform magic tricks.",
-			Stream: streamFalse,
+			Stream: &stream,
 		})
 
 		if w.Code != http.StatusOK {
 			t.Errorf("expected status 200, got %d", w.Code)
 		}
 
-		if diff := cmp.Diff(mock.Prompt, "System: You can perform magic tricks. User: Hello! "); diff != "" {
+		if diff := cmp.Diff(mock.CompletionRequest.Prompt, "System: You can perform magic tricks. User: Hello! "); diff != "" {
 			t.Errorf("mismatch (-got +want):\n%s", diff)
 		}
 
@@ -1857,14 +1772,14 @@ func TestGenerate(t *testing.T) {
 			Template: `{{- if .System }}{{ .System }} {{ end }}
 {{- if .Prompt }}### USER {{ .Prompt }} {{ end }}
 {{- if .Response }}### ASSISTANT {{ .Response }} {{ end }}`,
-			Stream: streamFalse,
+			Stream: &stream,
 		})
 
 		if w.Code != http.StatusOK {
 			t.Errorf("expected status 200, got %d", w.Code)
 		}
 
-		if diff := cmp.Diff(mock.Prompt, "You can perform magic tricks. ### USER Help me write tests. "); diff != "" {
+		if diff := cmp.Diff(mock.CompletionRequest.Prompt, "You can perform magic tricks. ### USER Help me write tests. "); diff != "" {
 			t.Errorf("mismatch (-got +want):\n%s", diff)
 		}
 
@@ -1894,7 +1809,7 @@ func TestGenerate(t *testing.T) {
 			t.Errorf("expected status 200, got %d", w.Code)
 		}
 
-		if diff := cmp.Diff(mock.Prompt, "<PRE> def add( <SUF>    return c <MID>"); diff != "" {
+		if diff := cmp.Diff(mock.CompletionRequest.Prompt, "<PRE> def add( <SUF>    return c <MID>"); diff != "" {
 			t.Errorf("mismatch (-got +want):\n%s", diff)
 		}
 	})
@@ -1909,7 +1824,7 @@ func TestGenerate(t *testing.T) {
 			t.Errorf("expected status 200, got %d", w.Code)
 		}
 
-		if diff := cmp.Diff(mock.Prompt, "def add("); diff != "" {
+		if diff := cmp.Diff(mock.CompletionRequest.Prompt, "def add("); diff != "" {
 			t.Errorf("mismatch (-got +want):\n%s", diff)
 		}
 	})
@@ -1919,14 +1834,14 @@ func TestGenerate(t *testing.T) {
 			Model:  "test-system",
 			Prompt: "Help me write tests.",
 			Raw:    true,
-			Stream: streamFalse,
+			Stream: &stream,
 		})
 
 		if w.Code != http.StatusOK {
 			t.Errorf("expected status 200, got %d", w.Code)
 		}
 
-		if diff := cmp.Diff(mock.Prompt, "Help me write tests."); diff != "" {
+		if diff := cmp.Diff(mock.CompletionRequest.Prompt, "Help me write tests."); diff != "" {
 			t.Errorf("mismatch (-got +want):\n%s", diff)
 		}
 	})
@@ -2057,7 +1972,6 @@ func TestGenerateLogprobs(t *testing.T) {
 		}
 
 		s := &Server{
-			usage: NewUsageTracker(),
 			sched: &Scheduler{
 				pendingReqCh:    make(chan *LlmRequest, 1),
 				finishedReqCh:   make(chan *LlmRequest, 1),
@@ -2352,7 +2266,6 @@ func TestChatLogprobs(t *testing.T) {
 		}
 
 		s := &Server{
-			usage: NewUsageTracker(),
 			sched: &Scheduler{
 				pendingReqCh:    make(chan *LlmRequest, 1),
 				finishedReqCh:   make(chan *LlmRequest, 1),
@@ -2464,7 +2377,6 @@ func TestChatWithPromptEndingInThinkTag(t *testing.T) {
 		}
 
 		s := &Server{
-			usage: NewUsageTracker(),
 			sched: &Scheduler{
 				pendingReqCh:    make(chan *LlmRequest, 1),
 				finishedReqCh:   make(chan *LlmRequest, 1),
@@ -2513,12 +2425,12 @@ func TestChatWithPromptEndingInThinkTag(t *testing.T) {
 		// Create model with thinking template that adds <think> at the end
 		w := createRequest(t, s.CreateHandler, api.CreateRequest{
 			Model: "test-thinking",
-			Files: []api.File{{Name: "file.gguf", Digest: digest}},
+			Files: map[string]string{"file.gguf": digest},
 			Template: `{{- range .Messages }}
 {{- if eq .Role "user" }}user: {{ .Content }}
 {{ else if eq .Role "assistant" }}assistant: {{ if .Thinking }}<think>{{ .Thinking }}</think>{{ end }}{{ .Content }}
 {{ end }}{{ end }}<think>`,
-			Stream: streamFalse,
+			Stream: &stream,
 		})
 
 		if w.Code != http.StatusOK {
@@ -2544,12 +2456,13 @@ func TestChatWithPromptEndingInThinkTag(t *testing.T) {
 			}
 			mock.CompletionFn = nil
 
+			streamRequest := false
 			req := api.ChatRequest{
 				Model: "test-thinking",
 				Messages: []api.Message{
 					{Role: "user", Content: userContent},
 				},
-				Stream: streamFalse,
+				Stream: &streamRequest,
 			}
 			if think {
 				req.Think = &api.ThinkValue{Value: think}
@@ -2635,7 +2548,7 @@ func TestChatWithPromptEndingInThinkTag(t *testing.T) {
 			Model:    "test-thinking",
 			Messages: []api.Message{{Role: "user", Content: "Analyze this complex problem"}},
 			Think:    &api.ThinkValue{Value: think},
-			Stream:   streamFalse,
+			Stream:   &stream,
 		})
 
 		wg.Wait()
@@ -2669,6 +2582,35 @@ func TestChatWithPromptEndingInThinkTag(t *testing.T) {
 		}
 	})
 
+	earlyFirstPassMetrics := api.Metrics{
+		PromptEvalCount:       4,
+		PromptEvalCachedCount: testIntPtr(1),
+		PromptEvalDuration:    5 * time.Millisecond,
+		EvalCount:             6,
+		EvalDuration:          7 * time.Millisecond,
+	}
+	firstPassMetrics := api.Metrics{
+		PromptEvalCount:       10,
+		PromptEvalCachedCount: testIntPtr(4),
+		PromptEvalDuration:    11 * time.Millisecond,
+		EvalCount:             12,
+		EvalDuration:          13 * time.Millisecond,
+	}
+	secondPassMetrics := api.Metrics{
+		PromptEvalCount:       20_000,
+		PromptEvalCachedCount: testIntPtr(19_000),
+		PromptEvalDuration:    21 * time.Millisecond,
+		EvalCount:             22,
+		EvalDuration:          23 * time.Millisecond,
+	}
+	wantMetrics := api.Metrics{
+		PromptEvalCount:       firstPassMetrics.PromptEvalCount,
+		PromptEvalCachedCount: firstPassMetrics.PromptEvalCachedCount,
+		PromptEvalDuration:    firstPassMetrics.PromptEvalDuration,
+		EvalCount:             firstPassMetrics.EvalCount + secondPassMetrics.EvalCount,
+		EvalDuration:          firstPassMetrics.EvalDuration + secondPassMetrics.PromptEvalDuration + secondPassMetrics.EvalDuration,
+	}
+
 	t.Run("structured outputs restart non-stream", func(t *testing.T) {
 		var (
 			requestsMu sync.Mutex
@@ -2691,10 +2633,22 @@ func TestChatWithPromptEndingInThinkTag(t *testing.T) {
 			switch callNum {
 			case 1:
 				fn(llm.CompletionResponse{
-					Content:            " I am thinking through this problem. </think> {\"answer\":\"42\"}",
-					Done:               false,
-					PromptEvalCount:    1,
-					PromptEvalDuration: 1,
+					Content:               " I am thinking through this problem.",
+					Done:                  false,
+					PromptEvalCount:       earlyFirstPassMetrics.PromptEvalCount,
+					PromptEvalCachedCount: earlyFirstPassMetrics.PromptEvalCachedCount,
+					PromptEvalDuration:    earlyFirstPassMetrics.PromptEvalDuration,
+					EvalCount:             earlyFirstPassMetrics.EvalCount,
+					EvalDuration:          earlyFirstPassMetrics.EvalDuration,
+				})
+				fn(llm.CompletionResponse{
+					Content:               " </think> {\"answer\":\"42\"}",
+					Done:                  false,
+					PromptEvalCount:       firstPassMetrics.PromptEvalCount,
+					PromptEvalCachedCount: firstPassMetrics.PromptEvalCachedCount,
+					PromptEvalDuration:    firstPassMetrics.PromptEvalDuration,
+					EvalCount:             firstPassMetrics.EvalCount,
+					EvalDuration:          firstPassMetrics.EvalDuration,
 				})
 
 				select {
@@ -2706,13 +2660,14 @@ func TestChatWithPromptEndingInThinkTag(t *testing.T) {
 				}
 			case 2:
 				fn(llm.CompletionResponse{
-					Content:            `{"answer":"42"}`,
-					Done:               true,
-					DoneReason:         llm.DoneReasonStop,
-					PromptEvalCount:    1,
-					PromptEvalDuration: 1,
-					EvalCount:          1,
-					EvalDuration:       1,
+					Content:               `{"answer":"42"}`,
+					Done:                  true,
+					DoneReason:            llm.DoneReasonStop,
+					PromptEvalCount:       secondPassMetrics.PromptEvalCount,
+					PromptEvalCachedCount: secondPassMetrics.PromptEvalCachedCount,
+					PromptEvalDuration:    secondPassMetrics.PromptEvalDuration,
+					EvalCount:             secondPassMetrics.EvalCount,
+					EvalDuration:          secondPassMetrics.EvalDuration,
 				})
 				return nil
 			default:
@@ -2745,9 +2700,15 @@ func TestChatWithPromptEndingInThinkTag(t *testing.T) {
 		if requests[0].Format != nil {
 			t.Errorf("expected first completion format to be nil, got %q", requests[0].Format)
 		}
+		if !requests[0].IncludeIntermediateMetrics {
+			t.Error("expected first completion to request per-token metrics")
+		}
 
 		if !bytes.Equal([]byte(format), []byte(requests[1].Format)) {
 			t.Errorf("expected second completion format to match original format")
+		}
+		if requests[1].IncludeIntermediateMetrics {
+			t.Error("expected second completion to use terminal metrics")
 		}
 
 		var resp api.ChatResponse
@@ -2769,6 +2730,15 @@ func TestChatWithPromptEndingInThinkTag(t *testing.T) {
 
 		if resp.DoneReason != "stop" {
 			t.Errorf("expected done reason stop, got %s", resp.DoneReason)
+		}
+		if resp.PromptEvalCount != wantMetrics.PromptEvalCount || resp.EvalCount != wantMetrics.EvalCount {
+			t.Errorf("response counts = (%d, %d), want (%d, %d)", resp.PromptEvalCount, resp.EvalCount, wantMetrics.PromptEvalCount, wantMetrics.EvalCount)
+		}
+		if diff := cmp.Diff(wantMetrics.PromptEvalCachedCount, resp.PromptEvalCachedCount); diff != "" {
+			t.Errorf("response cached prompt count mismatch (-want +got):\n%s", diff)
+		}
+		if resp.PromptEvalDuration != wantMetrics.PromptEvalDuration || resp.EvalDuration != wantMetrics.EvalDuration {
+			t.Errorf("response durations = (%s, %s), want (%s, %s)", resp.PromptEvalDuration, resp.EvalDuration, wantMetrics.PromptEvalDuration, wantMetrics.EvalDuration)
 		}
 	})
 
@@ -2794,10 +2764,22 @@ func TestChatWithPromptEndingInThinkTag(t *testing.T) {
 			switch callNum {
 			case 1:
 				fn(llm.CompletionResponse{
-					Content:            " I am thinking through this problem. </think> {\"answer\":\"42\"}",
-					Done:               false,
-					PromptEvalCount:    1,
-					PromptEvalDuration: 1,
+					Content:               " I am thinking through this problem.",
+					Done:                  false,
+					PromptEvalCount:       earlyFirstPassMetrics.PromptEvalCount,
+					PromptEvalCachedCount: earlyFirstPassMetrics.PromptEvalCachedCount,
+					PromptEvalDuration:    earlyFirstPassMetrics.PromptEvalDuration,
+					EvalCount:             earlyFirstPassMetrics.EvalCount,
+					EvalDuration:          earlyFirstPassMetrics.EvalDuration,
+				})
+				fn(llm.CompletionResponse{
+					Content:               " </think> {\"answer\":\"42\"}",
+					Done:                  false,
+					PromptEvalCount:       firstPassMetrics.PromptEvalCount,
+					PromptEvalCachedCount: firstPassMetrics.PromptEvalCachedCount,
+					PromptEvalDuration:    firstPassMetrics.PromptEvalDuration,
+					EvalCount:             firstPassMetrics.EvalCount,
+					EvalDuration:          firstPassMetrics.EvalDuration,
 				})
 
 				select {
@@ -2809,13 +2791,14 @@ func TestChatWithPromptEndingInThinkTag(t *testing.T) {
 				}
 			case 2:
 				fn(llm.CompletionResponse{
-					Content:            `{"answer":"42"}`,
-					Done:               true,
-					DoneReason:         llm.DoneReasonStop,
-					PromptEvalCount:    1,
-					PromptEvalDuration: 1,
-					EvalCount:          1,
-					EvalDuration:       1,
+					Content:               `{"answer":"42"}`,
+					Done:                  true,
+					DoneReason:            llm.DoneReasonStop,
+					PromptEvalCount:       secondPassMetrics.PromptEvalCount,
+					PromptEvalCachedCount: secondPassMetrics.PromptEvalCachedCount,
+					PromptEvalDuration:    secondPassMetrics.PromptEvalDuration,
+					EvalCount:             secondPassMetrics.EvalCount,
+					EvalDuration:          secondPassMetrics.EvalDuration,
 				})
 				return nil
 			default:
@@ -2848,9 +2831,15 @@ func TestChatWithPromptEndingInThinkTag(t *testing.T) {
 		if requests[0].Format != nil {
 			t.Errorf("expected first completion format to be nil, got %q", requests[0].Format)
 		}
+		if !requests[0].IncludeIntermediateMetrics {
+			t.Error("expected first completion to request per-token metrics")
+		}
 
 		if !bytes.Equal([]byte(format), []byte(requests[1].Format)) {
 			t.Errorf("expected second completion format to match original format")
+		}
+		if requests[1].IncludeIntermediateMetrics {
+			t.Error("expected second completion to use terminal metrics")
 		}
 
 		decoder := json.NewDecoder(w.Body)
@@ -2873,8 +2862,15 @@ func TestChatWithPromptEndingInThinkTag(t *testing.T) {
 		}
 
 		first := events[0]
-		if first.Message.Thinking != "I am thinking through this problem. " {
-			t.Errorf("expected first event thinking %q, got %q", "I am thinking through this problem. ", first.Message.Thinking)
+		var thinking strings.Builder
+		for _, event := range events {
+			thinking.WriteString(event.Message.Thinking)
+			if !event.Done && (event.PromptEvalCount != 0 || event.PromptEvalCachedCount != nil || event.PromptEvalDuration != 0 || event.EvalCount != 0 || event.EvalDuration != 0) {
+				t.Errorf("non-terminal event unexpectedly exposed metrics: %+v", event.Metrics)
+			}
+		}
+		if got := thinking.String(); got != "I am thinking through this problem. " {
+			t.Errorf("thinking = %q, want %q", got, "I am thinking through this problem. ")
 		}
 
 		if first.Message.Content != "" {
@@ -2884,7 +2880,6 @@ func TestChatWithPromptEndingInThinkTag(t *testing.T) {
 		if first.Done {
 			t.Error("expected first event to be non-terminal")
 		}
-
 		last := events[len(events)-1]
 		if last.Message.Thinking != "" {
 			t.Errorf("expected final event thinking to be empty, got %q", last.Message.Thinking)
@@ -2900,6 +2895,15 @@ func TestChatWithPromptEndingInThinkTag(t *testing.T) {
 
 		if last.DoneReason != "stop" {
 			t.Errorf("expected final done reason stop, got %s", last.DoneReason)
+		}
+		if last.PromptEvalCount != wantMetrics.PromptEvalCount || last.EvalCount != wantMetrics.EvalCount {
+			t.Errorf("final counts = (%d, %d), want (%d, %d)", last.PromptEvalCount, last.EvalCount, wantMetrics.PromptEvalCount, wantMetrics.EvalCount)
+		}
+		if diff := cmp.Diff(wantMetrics.PromptEvalCachedCount, last.PromptEvalCachedCount); diff != "" {
+			t.Errorf("final cached prompt count mismatch (-want +got):\n%s", diff)
+		}
+		if last.PromptEvalDuration != wantMetrics.PromptEvalDuration || last.EvalDuration != wantMetrics.EvalDuration {
+			t.Errorf("final durations = (%s, %s), want (%s, %s)", last.PromptEvalDuration, last.EvalDuration, wantMetrics.PromptEvalDuration, wantMetrics.EvalDuration)
 		}
 	})
 }
@@ -3039,7 +3043,6 @@ func TestGenerateUnload(t *testing.T) {
 	var loadFnCalled bool
 
 	s := Server{
-		usage: NewUsageTracker(),
 		sched: &Scheduler{
 			pendingReqCh:    make(chan *LlmRequest, 1),
 			finishedReqCh:   make(chan *LlmRequest, 1),
@@ -3141,7 +3144,6 @@ func TestGenerateWithImages(t *testing.T) {
 	}
 
 	s := Server{
-		usage: NewUsageTracker(),
 		sched: &Scheduler{
 			pendingReqCh:    make(chan *LlmRequest, 1),
 			finishedReqCh:   make(chan *LlmRequest, 1),

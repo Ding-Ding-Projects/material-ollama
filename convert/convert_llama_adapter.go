@@ -31,8 +31,8 @@ func (p *llamaAdapter) KV(baseKV fs.Config) KV {
 }
 
 func (p *llamaAdapter) Tensors(ts []Tensor) []*ggml.Tensor {
-	out := make([]*ggml.Tensor, len(ts))
-	for i, t := range ts {
+	var out []*ggml.Tensor
+	for _, t := range ts {
 		shape := t.Shape()
 		if (strings.HasSuffix(t.Name(), "weight.lora_a") && shape[0] > shape[1]) ||
 			(strings.HasSuffix(t.Name(), "weight.lora_b") && shape[0] < shape[1]) {
@@ -42,12 +42,12 @@ func (p *llamaAdapter) Tensors(ts []Tensor) []*ggml.Tensor {
 			t.SetRepacker(p.repack)
 		}
 
-		out[i] = &ggml.Tensor{
+		out = append(out, &ggml.Tensor{
 			Name:     t.Name(),
 			Kind:     t.Kind(),
 			Shape:    shape,
 			WriterTo: t,
-		}
+		})
 	}
 
 	return out

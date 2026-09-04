@@ -5,15 +5,15 @@
     <key>CFBundleDevelopmentRegion</key>
     <string>English</string>
     <key>CFBundleExecutable</key>
-    <string>Ollama</string>
+    <string>Squirrel</string>
     <key>CFBundleIconFile</key>
     <string/>
     <key>CFBundleIdentifier</key>
-    <string>ai.ollama.ollama</string>
+    <string>com.github.Squirrel</string>
     <key>CFBundleInfoDictionaryVersion</key>
     <string>6.0</string>
     <key>CFBundleName</key>
-    <string>Ollama</string>
+    <string>Squirrel</string>
     <key>CFBundlePackageType</key>
     <string>FMWK</string>
     <key>CFBundleShortVersionString</key>

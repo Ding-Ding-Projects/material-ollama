@@ -132,10 +132,10 @@ func (ModelParameters) KV(t *Tokenizer) KV {
 		"general.file_type":            uint32(1),
 		"general.quantization_version": uint32(2),
 		"tokenizer.ggml.pre":           t.Pre,
-		"tokenizer.ggml.model":         t.Model,
-		"tokenizer.ggml.tokens":        t.Tokens,
-		"tokenizer.ggml.scores":        t.Scores,
-		"tokenizer.ggml.token_type":    t.Types,
+		"tokenizer.ggml.model":         t.Vocabulary.Model,
+		"tokenizer.ggml.tokens":        t.Vocabulary.Tokens,
+		"tokenizer.ggml.scores":        t.Vocabulary.Scores,
+		"tokenizer.ggml.token_type":    t.Vocabulary.Types,
 	}
 
 	if len(t.Merges) > 0 {
@@ -294,7 +294,7 @@ func LoadModelMetadata(fsys fs.FS) (ModelKV, *Tokenizer, error) {
 
 	var conv ModelConverter
 	switch p.Architectures[0] {
-	case "LlamaForCausalLM", "MistralForCausalLM":
+	case "LlamaForCausalLM":
 		conv = &llamaModel{}
 	case "MllamaForConditionalGeneration":
 		conv = &mllamaModel{}
@@ -310,7 +310,7 @@ func LoadModelMetadata(fsys fs.FS) (ModelKV, *Tokenizer, error) {
 		conv = &gemmaModel{}
 	case "Gemma2ForCausalLM":
 		conv = &gemma2Model{}
-	case "Gemma3ForCausalLM", "Gemma3ForConditionalGeneration", "Gemma3TextModel":
+	case "Gemma3ForCausalLM", "Gemma3ForConditionalGeneration":
 		conv = &gemma3Model{Architecture: p.Architectures[0]}
 	case "Gemma3TextModel":
 		conv = &embeddingGemmaModel{}
@@ -378,40 +378,24 @@ func LoadModelMetadata(fsys fs.FS) (ModelKV, *Tokenizer, error) {
 		ta.adjustTokenizer(t)
 	}
 
-	// Allow converters to override the vocab size (e.g., to exclude multimodal tokens
-	// from text-only models where tokenizer.json includes them but the model doesn't use them).
-	// NOTE: if multiple models need this, consider making truncation the default behavior
-	// in the vocabSize < len(tokens) case below instead of per-model opt-in.
-	if vs, ok := conv.(vocabSizer); ok {
-		if maxVocab := vs.VocabSize(); maxVocab > 0 && maxVocab < len(t.Vocabulary.Tokens) {
-			slog.Debug("converter requested vocab truncation", "from", len(t.Vocabulary.Tokens), "to", maxVocab)
-			t.Vocabulary.Tokens = t.Vocabulary.Tokens[:maxVocab]
-			t.Vocabulary.Scores = t.Vocabulary.Scores[:maxVocab]
-			t.Vocabulary.Types = t.Vocabulary.Types[:maxVocab]
-			// Also update config so the padding logic below doesn't re-add the truncated tokens
-			p.VocabSize = uint32(maxVocab)
-			p.TextModel.VocabSize = uint32(maxVocab)
-		}
-	}
-
 	vocabSize := int(cmp.Or(p.VocabSize, p.TextModel.VocabSize))
 
 	switch {
 	case vocabSize == 0:
-		slog.Debug("vocabulary size was not explicitly set by the model", "default size", len(t.Tokens))
-	case vocabSize > len(t.Tokens):
-		slog.Debug("vocabulary is smaller than expected, padding with dummy tokens", "expect", vocabSize, "actual", len(t.Tokens))
-		for i := range vocabSize - len(t.Tokens) {
-			t.Tokens = append(t.Tokens, fmt.Sprintf("[PAD%d]", i))
-			t.Scores = append(t.Scores, -1)
-			t.Types = append(t.Types, tokenTypeUserDefined)
+		slog.Debug("vocabulary size was not explicitly set by the model", "default size", len(t.Vocabulary.Tokens))
+	case vocabSize > len(t.Vocabulary.Tokens):
+		slog.Debug("vocabulary is smaller than expected, padding with dummy tokens", "expect", vocabSize, "actual", len(t.Vocabulary.Tokens))
+		for i := range vocabSize - len(t.Vocabulary.Tokens) {
+			t.Vocabulary.Tokens = append(t.Vocabulary.Tokens, fmt.Sprintf("[PAD%d]", i))
+			t.Vocabulary.Scores = append(t.Vocabulary.Scores, -1)
+			t.Vocabulary.Types = append(t.Vocabulary.Types, tokenTypeUserDefined)
 		}
-	case vocabSize < len(t.Tokens):
-		slog.Debug("vocabulary is larger than expected", "want", vocabSize, "got", len(t.Tokens))
-		p.VocabSize = uint32(len(t.Tokens))
-		p.TextModel.VocabSize = uint32(len(t.Tokens))
+	case vocabSize < len(t.Vocabulary.Tokens):
+		slog.Debug("vocabulary is larger than expected", "want", vocabSize, "got", len(t.Vocabulary.Tokens))
+		p.VocabSize = uint32(len(t.Vocabulary.Tokens))
+		p.TextModel.VocabSize = uint32(len(t.Vocabulary.Tokens))
 	default:
-		slog.Debug("vocabulary", "size", len(t.Tokens))
+		slog.Debug("vocabulary", "size", len(t.Vocabulary.Tokens))
 	}
 	return conv, t, nil
 }

@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"encoding/binary"
-	"errors"
 	"fmt"
 	"math"
 	"slices"
@@ -20,9 +19,6 @@ type Backend interface {
 
 	Load(ctx context.Context, progress func(float32)) error
 
-	// BackendMemory returns the memory allocations that were made for this model
-	BackendMemory() BackendMemory
-
 	Config() fs.Config
 	Get(name string) Tensor
 	NewContext() Context
@@ -34,7 +30,7 @@ type Backend interface {
 
 // BackendCacheConfig should be implemented by backends that need special output
 // from the cache to meet specific requirements. It is frequently implemented in
-// conjunction with [nn.fastAttention].
+// conjunction with ScaledDotProductAttention.
 type BackendCacheConfig interface {
 	CacheConfig() CacheConfig
 }
@@ -67,9 +63,6 @@ type BackendParams struct {
 	// NumThreads sets the number of threads to use if running on the CPU
 	NumThreads int
 
-	// GPULayers is the set of layers to offload to GPUs
-	GPULayers GPULayersList
-
 	// FlashAttention indicates that we should use a fused flash attention kernel
 	FlashAttention FlashAttentionType
 }
@@ -89,79 +82,7 @@ func NewBackend(modelPath string, params BackendParams) (Backend, error) {
 		return backend(modelPath, params)
 	}
 
-	return nil, errors.New("unsupported backend")
-}
-
-// RopeType specifies the type of RoPE (Rotary Position Embedding) to use, these types are implemented in the backend
-type RopeType int
-
-const (
-	RopeTypeStandard RopeType = iota
-	_                         // not yet used
-	RopeTypeNeoX
-)
-
-// RopeConfig contains all configuration for the RoPE (Rotary Position Embedding) operation
-type RopeConfig struct {
-	// PositionIDs contains the position indices for each token in the sequence
-	// These indices are used to calculate the rotary embeddings
-	PositionIDs Tensor
-
-	// RopeFactors is an optional tensor containing pre-computed rotation factors
-	RopeFactors Tensor
-
-	// RopeDim specifies the dimension size for the rotary embeddings
-	RopeDim uint32
-
-	// RopeType indicates which RoPE variant to use (e.g. normal or neox)
-	RopeType RopeType
-
-	// OrigCtxLen stores the original context length the model was trained with
-	OrigCtxLen int
-
-	// RopeBase is the base value used in the frequency calculation
-	RopeBase float32
-
-	// RopeScale is a scaling factor applied to position indices
-	RopeScale float32
-
-	// YaRN parameters can be added here if they need to be configurable
-}
-
-// RopeType specifies the type of RoPE (Rotary Position Embedding) to use, these types are implemented in the backend
-type RopeType int
-
-const (
-	RopeTypeStandard RopeType = iota
-	_                         // not yet used
-	RopeTypeNeoX
-)
-
-// RopeConfig contains all configuration for the RoPE (Rotary Position Embedding) operation
-type RopeConfig struct {
-	// PositionIDs contains the position indices for each token in the sequence
-	// These indices are used to calculate the rotary embeddings
-	PositionIDs Tensor
-
-	// RopeFactors is an optional tensor containing pre-computed rotation factors
-	RopeFactors Tensor
-
-	// RopeDim specifies the dimension size for the rotary embeddings
-	RopeDim uint32
-
-	// RopeType indicates which RoPE variant to use (e.g. normal or neox)
-	RopeType RopeType
-
-	// OrigCtxLen stores the original context length the model was trained with
-	OrigCtxLen int
-
-	// RopeBase is the base value used in the frequency calculation
-	RopeBase float32
-
-	// RopeScale is a scaling factor applied to position indices
-	RopeScale float32
-
-	// YaRN parameters can be added here if they need to be configurable
+	return nil, fmt.Errorf("unsupported backend")
 }
 
 type Context interface {
@@ -200,25 +121,6 @@ type Context interface {
 	Layer(int) Context
 }
 
-// RopeOpts contains optional parameters for RoPE function
-type RopeOpts struct {
-	DefaultContextLen uint32
-	YarnExtFactor     float32
-	YarnAttnFactor    float32
-	YarnBetaFast      float32
-	YarnBetaSlow      float32
-}
-
-// RopeOption defines a function that modifies RopeOpts
-type RopeOption func(*RopeOpts)
-
-// WithContextLen sets a custom context length
-func WithContextLen(len uint32) RopeOption {
-	return func(opts *RopeOpts) {
-		opts.DefaultContextLen = len
-	}
-}
-
 type Tensor interface {
 	Dim(n int) int
 	Stride(n int) int
@@ -241,6 +143,7 @@ type Tensor interface {
 	Div(ctx Context, t2 Tensor) Tensor
 
 	Mulmat(ctx Context, t2 Tensor) Tensor
+	MulmatFullPrec(ctx Context, t2 Tensor) Tensor
 	MulmatID(ctx Context, t2, ids Tensor) Tensor
 	AddID(ctx Context, t2, ids Tensor) Tensor
 
@@ -334,6 +237,32 @@ type Tensor interface {
 	SolveTri(ctx Context, b Tensor, lower, left, unitDiag bool) Tensor
 
 	Interpolate(ctx Context, dims [4]int, samplingMode SamplingMode) Tensor
+}
+
+// ScaledDotProductAttention implements a fused attention
+// operation equivalent to following code on a tensor named
+// query:
+//
+// query = query.Permute(ctx, 0, 2, 1, 3)
+// key = key.Permute(ctx, 0, 2, 1, 3)
+// value = value.Permute(ctx, 1, 2, 0, 3).Contiguous(ctx)
+//
+// kq := key.MulmatFullPrec(ctx, query)
+//
+// kq = kq.Scale(ctx, scale)
+//
+//	if mask != nil {
+//		kq = kq.Add(ctx, mask)
+//	}
+//
+// kq = kq.Softmax(ctx)
+//
+// kqv := value.Mulmat(ctx, kq)
+// return kqv.Permute(ctx, 0, 2, 1, 3).Contiguous(ctx)
+//
+// cacheConfigApplied indicates whether the optimizations requested through CacheConfig have been performed
+type ScaledDotProductAttention interface {
+	ScaledDotProductAttention(ctx Context, key, value, mask, sinks Tensor, vmla Tensor, scale float64, cacheConfigApplied bool) Tensor
 }
 
 type number interface {
@@ -431,10 +360,10 @@ func dump[S ~[]E, E number](ctx Context, t Tensor, items int, fn func(E) string)
 		sb.WriteString("[")
 		defer func() { sb.WriteString("]") }()
 		for i := 0; i < dims[0]; i++ {
-			if i >= opts[0].Items && i < dims[0]-opts[0].Items {
+			if i >= items && i < dims[0]-items {
 				sb.WriteString("..., ")
 				// skip to next printable element
-				skip := dims[0] - 2*opts[0].Items
+				skip := dims[0] - 2*items
 				if len(dims) > 1 {
 					stride += mul(append(dims[1:], skip)...)
 					fmt.Fprint(&sb, strings.Repeat("\n", len(dims)-1), prefix)
@@ -447,8 +376,7 @@ func dump[S ~[]E, E number](ctx Context, t Tensor, items int, fn func(E) string)
 					fmt.Fprint(&sb, ",", strings.Repeat("\n", len(dims)-1), prefix)
 				}
 			} else {
-				// Format the value based on precision
-				text := strconv.FormatFloat(float64(data[stride+i]), 'f', opts[0].Precision, 32)
+				text := fn(s[stride+i])
 				if len(text) > 0 && text[0] != '-' {
 					sb.WriteString(" ")
 				}
@@ -463,49 +391,6 @@ func dump[S ~[]E, E number](ctx Context, t Tensor, items int, fn func(E) string)
 	f(shape, 0)
 
 	return sb.String()
-}
-
-// ExtractTensorData extracts the tensor data as a float32 slice
-func ExtractTensorData(ctx Context, t Tensor) ([]float32, error) {
-	// Make sure tensor data is computed
-	if t.Bytes() == nil {
-		ctx.Forward(t).Compute(t)
-	}
-
-	var result []float32
-
-	switch t.DType() {
-	case DTypeF32:
-		// For float32, we can read directly
-		result = make([]float32, mul(t.Shape()...))
-		if err := binary.Read(bytes.NewBuffer(t.Bytes()), binary.LittleEndian, &result); err != nil {
-			return nil, fmt.Errorf("failed to read float32 tensor data: %w", err)
-		}
-
-	case DTypeF16, DTypeQ80, DTypeQ40:
-		// For other floating point types, convert to float32 first
-		f32 := ctx.Input().Empty(DTypeF32, t.Shape()...)
-		f32 = t.Copy(ctx, f32)
-		return ExtractTensorData(ctx, f32)
-
-	case DTypeI32:
-		// For int32, read then convert to float32
-		i32Data := make([]int32, mul(t.Shape()...))
-		if err := binary.Read(bytes.NewBuffer(t.Bytes()), binary.LittleEndian, &i32Data); err != nil {
-			return nil, fmt.Errorf("failed to read int32 tensor data: %w", err)
-		}
-
-		// Convert int32 to float32
-		result = make([]float32, len(i32Data))
-		for i, v := range i32Data {
-			result[i] = float32(v)
-		}
-
-	default:
-		return nil, fmt.Errorf("unsupported tensor data type: %v", t.DType())
-	}
-
-	return result, nil
 }
 
 type DType int

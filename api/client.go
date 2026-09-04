@@ -17,14 +17,12 @@ import (
 	"bufio"
 	"bytes"
 	"context"
-	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
 	"net/url"
-	"os"
-	"path/filepath"
 	"runtime"
 	"strconv"
 	"time"
@@ -35,28 +33,6 @@ import (
 	"github.com/ollama/ollama/version"
 )
 
-// StatusError is an error with an HTTP status code and message,
-// it is parsed on the client-side and not returned from the API
-type StatusError struct {
-	StatusCode int    // e.g. 200
-	Status     string // e.g. "200 OK"
-	ErrorResponse
-}
-
-func (e StatusError) Error() string {
-	switch {
-	case e.Status != "" && e.Err != "":
-		return fmt.Sprintf("%s: %s", e.Status, e.Err)
-	case e.Status != "":
-		return e.Status
-	case e.Err != "":
-		return e.Err
-	default:
-		// this should not happen
-		return "something went wrong, please see the ollama server logs for details"
-	}
-}
-
 // Client encapsulates client state for interacting with the ollama
 // service. Use [ClientFromEnvironment] to create new Clients.
 type Client struct {
@@ -66,23 +42,6 @@ type Client struct {
 
 func checkError(resp *http.Response, body []byte) error {
 	if resp.StatusCode < http.StatusBadRequest {
-		if len(body) == 0 {
-			return nil
-		}
-
-		// streams can contain error message even with StatusOK
-		var errorResponse struct {
-			Error string `json:"error,omitempty"`
-		}
-
-		if err := json.Unmarshal(body, &errorResponse); err != nil {
-			return fmt.Errorf("unmarshal: %w", err)
-		}
-
-		if errorResponse.Error != "" {
-			return errors.New(errorResponse.Error)
-		}
-
 		return nil
 	}
 
@@ -97,7 +56,7 @@ func checkError(resp *http.Response, body []byte) error {
 	err := json.Unmarshal(body, &apiError)
 	if err != nil {
 		// Use the full body as the message if we fail to decode a response.
-		apiError.Err = string(body)
+		apiError.ErrorMessage = string(body)
 	}
 
 	return apiError
@@ -203,8 +162,7 @@ func (c *Client) do(ctx context.Context, method, path string, reqData, respData 
 			return err
 		}
 	}
-
-	return ctx.Err()
+	return nil
 }
 
 const maxBufferSize = 8 * format.MegaByte
@@ -267,8 +225,6 @@ func (c *Client) stream(ctx context.Context, method, path string, data any, fn f
 		}
 
 		bts := scanner.Bytes()
-
-		var errorResponse ErrorResponse
 		if err := json.Unmarshal(bts, &errorResponse); err != nil {
 			if response.StatusCode >= http.StatusBadRequest {
 				return StatusError{
@@ -288,21 +244,14 @@ func (c *Client) stream(ctx context.Context, method, path string, data any, fn f
 			}
 		} else if response.StatusCode >= http.StatusBadRequest {
 			return StatusError{
-				StatusCode:    response.StatusCode,
-				Status:        response.Status,
-				ErrorResponse: errorResponse,
+				StatusCode:   response.StatusCode,
+				Status:       response.Status,
+				ErrorMessage: errorResponse.Error,
 			}
 		}
 
-		switch errorResponse.Code {
-		case ErrCodeUnknownKey:
-			return ErrUnknownOllamaKey{
-				Message: errorResponse.Message,
-				Key:     errorResponse.Data["key"].(string),
-			}
-		}
-		if errorResponse.Message != "" {
-			return errors.New(errorResponse.Message)
+		if errorResponse.Error != "" {
+			return errors.New(errorResponse.Error)
 		}
 
 		if err := fn(bts); err != nil {
@@ -356,6 +305,25 @@ func (c *Client) Chat(ctx context.Context, req *ChatRequest, fn ChatResponseFunc
 	})
 }
 
+// PullProgressFunc is a function that [Client.Pull] invokes every time there
+// is progress with a "pull" request sent to the service. If this function
+// returns an error, [Client.Pull] will stop the process and return this error.
+type PullProgressFunc func(ProgressResponse) error
+
+// Pull downloads a model from the ollama library. fn is called each time
+// progress is made on the request and can be used to display a progress bar,
+// etc.
+func (c *Client) Pull(ctx context.Context, req *PullRequest, fn PullProgressFunc) error {
+	return c.stream(ctx, http.MethodPost, "/api/pull", req, func(bts []byte) error {
+		var resp ProgressResponse
+		if err := json.Unmarshal(bts, &resp); err != nil {
+			return err
+		}
+
+		return fn(resp)
+	})
+}
+
 // PushProgressFunc is a function that [Client.Push] invokes when progress is
 // made.
 // It's similar to other progress function types like [PullProgressFunc].
@@ -398,7 +366,7 @@ func (c *Client) Create(ctx context.Context, req *CreateRequest, fn CreateProgre
 // List lists models that are available locally.
 func (c *Client) List(ctx context.Context) (*ListResponse, error) {
 	var lr ListResponse
-	if err := c.do(ctx, http.MethodGet, "/api/list", nil, &lr); err != nil {
+	if err := c.do(ctx, http.MethodGet, "/api/tags", nil, &lr); err != nil {
 		return nil, err
 	}
 	return &lr, nil
@@ -423,24 +391,6 @@ func (c *Client) ListRunning(ctx context.Context) (*ProcessResponse, error) {
 	return &lr, nil
 }
 
-// WebSearch performs a web search using the ollama service.
-func (c *Client) WebSearch(ctx context.Context, req *SearchRequest) (*SearchResponse, error) {
-	var sr SearchResponse
-	if err := c.do(ctx, http.MethodPost, "/api/web_search", req, &sr); err != nil {
-		return nil, err
-	}
-	return &sr, nil
-}
-
-// Fetch retrieves content from a URL using the ollama service.
-func (c *Client) Fetch(ctx context.Context, req *FetchRequest) (*FetchResponse, error) {
-	var fr FetchResponse
-	if err := c.do(ctx, http.MethodPost, "/api/web_fetch", req, &fr); err != nil {
-		return nil, err
-	}
-	return &fr, nil
-}
-
 // Copy copies a model - creating a model with another name from an existing
 // model.
 func (c *Client) Copy(ctx context.Context, req *CopyRequest) error {
@@ -450,25 +400,18 @@ func (c *Client) Copy(ctx context.Context, req *CopyRequest) error {
 	return nil
 }
 
+// Delete deletes a model and its data.
+func (c *Client) Delete(ctx context.Context, req *DeleteRequest) error {
+	if err := c.do(ctx, http.MethodDelete, "/api/delete", req, nil); err != nil {
+		return err
+	}
+	return nil
+}
+
 // Show obtains model information, including details, modelfile, license etc.
 func (c *Client) Show(ctx context.Context, req *ShowRequest) (*ShowResponse, error) {
 	var resp ShowResponse
 	if err := c.do(ctx, http.MethodPost, "/api/show", req, &resp); err != nil {
-		return nil, err
-	}
-	return &resp, nil
-}
-
-// ShowManifests obtains model information for all manifests in a manifest list.
-func (c *Client) ShowManifests(ctx context.Context, req *ShowRequest) (*ShowManifestsResponse, error) {
-	showReq := &ShowRequest{AllManifests: true}
-	if req != nil {
-		*showReq = *req
-		showReq.AllManifests = true
-	}
-
-	var resp ShowManifestsResponse
-	if err := c.do(ctx, http.MethodPost, "/api/show", showReq, &resp); err != nil {
 		return nil, err
 	}
 	return &resp, nil
@@ -492,46 +435,10 @@ func (c *Client) Embed(ctx context.Context, req *EmbedRequest) (*EmbedResponse, 
 	return &resp, nil
 }
 
-// WebSearch performs a web search via the Ollama server.
-func (c *Client) WebSearch(ctx context.Context, req *WebSearchRequest) (*WebSearchResponse, error) {
-	var resp WebSearchResponse
-	if err := c.do(ctx, http.MethodPost, "/api/web_search", req, &resp); err != nil {
-		return nil, err
-	}
-	return &resp, nil
-}
-
-// WebFetch fetches the contents of a web page via the Ollama server.
-func (c *Client) WebFetch(ctx context.Context, req *WebFetchRequest) (*WebFetchResponse, error) {
-	var resp WebFetchResponse
-	if err := c.do(ctx, http.MethodPost, "/api/web_fetch", req, &resp); err != nil {
-		return nil, err
-	}
-	return &resp, nil
-}
-
 // Embeddings generates an embedding from a model.
 func (c *Client) Embeddings(ctx context.Context, req *EmbeddingRequest) (*EmbeddingResponse, error) {
 	var resp EmbeddingResponse
 	if err := c.do(ctx, http.MethodPost, "/api/embeddings", req, &resp); err != nil {
-		return nil, err
-	}
-	return &resp, nil
-}
-
-// Tokenize returns the tokens for a given text.
-func (c *Client) Tokenize(ctx context.Context, req *TokenizeRequest) (*TokenizeResponse, error) {
-	var resp TokenizeResponse
-	if err := c.do(ctx, http.MethodPost, "/api/tokenize", req, &resp); err != nil {
-		return nil, err
-	}
-	return &resp, nil
-}
-
-// Detokenize returns the text for a given list of tokens.
-func (c *Client) Detokenize(ctx context.Context, req *DetokenizeRequest) (*DetokenizeResponse, error) {
-	var resp DetokenizeResponse
-	if err := c.do(ctx, http.MethodPost, "/api/detokenize", req, &resp); err != nil {
 		return nil, err
 	}
 	return &resp, nil
@@ -599,16 +506,6 @@ func (c *Client) Disconnect(ctx context.Context, encodedKey string) error {
 func (c *Client) Whoami(ctx context.Context) (*UserResponse, error) {
 	var resp UserResponse
 	if err := c.do(ctx, http.MethodPost, "/api/me", nil, &resp); err != nil {
-		return nil, err
-	}
-	return &resp, nil
-}
-
-// Usage returns the authenticated user's recent activity and included-usage
-// limits.
-func (c *Client) Usage(ctx context.Context) (*UsageResponse, error) {
-	var resp UsageResponse
-	if err := c.do(ctx, http.MethodGet, "/api/usage", nil, &resp); err != nil {
 		return nil, err
 	}
 	return &resp, nil

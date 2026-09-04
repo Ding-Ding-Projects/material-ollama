@@ -7,8 +7,8 @@ import (
 	"strings"
 	"unicode"
 
+	"github.com/ollama/ollama/api"
 	"github.com/ollama/ollama/logutil"
-	"github.com/ollama/ollama/template"
 )
 
 type harmonyParserState int
@@ -34,13 +34,12 @@ func (s harmonyParserState) String() string {
 }
 
 type HarmonyParser struct {
-	state              harmonyParserState
-	MessageStartTag    string
-	MessageEndTag      string
-	HeaderEndTag       string
-	constraintsAllowed bool
-	acc                strings.Builder
-	lifetimeAcc        strings.Builder
+	state           harmonyParserState
+	MessageStartTag string
+	MessageEndTag   string
+	HeaderEndTag    string
+	acc             strings.Builder
+	lifetimeAcc     strings.Builder
 }
 
 type HarmonyEvent interface {
@@ -77,18 +76,17 @@ func (s *HarmonyParser) AddImplicitStart() {
 	s.acc.WriteString("<|start|>assistant")
 }
 
-// AddImplicitStartOrPrefill adds content or thinking to the accumulator else adds start tag
-func (s *HarmonyParser) AddImplicitStartOrPrefill(prefillContentOrThinking *bool) {
-	if prefillContentOrThinking != nil {
-		if *prefillContentOrThinking {
+func (s *HarmonyParser) AddImplicitStartOrPrefill(lastMessage *api.Message) {
+	if lastMessage != nil && lastMessage.Role == "assistant" {
+		// handle prefilling conditions
+		if lastMessage.Content != "" {
 			s.acc.WriteString("<|start|>assistant<|channel|>final<|message|>")
 			return
-		} else {
+		} else if lastMessage.Thinking != "" {
 			s.acc.WriteString("<|start|>assistant<|channel|>analysis<|message|>")
 			return
 		}
 	}
-
 	s.AddImplicitStart()
 }
 
@@ -202,7 +200,9 @@ func (s *HarmonyParser) parseHeader(raw string) HarmonyHeader {
 		before := raw[:channelIndex]
 		after := raw[channelIndex+len("<|channel|>"):]
 		// the channel name is `after` all the way up to the first (if any) whitespace character
-		idx := strings.IndexFunc(after, unicode.IsSpace)
+		idx := strings.IndexFunc(after, func(r rune) bool {
+			return unicode.IsSpace(r)
+		})
 		if idx == -1 {
 			idx = len(after)
 		}
@@ -316,16 +316,14 @@ func (h *HarmonyMessageHandler) AddContent(content string, toolParser *HarmonyTo
 				}
 			case "final":
 				h.state = harmonyMessageState_Normal
-				h.HarmonyParser.constraintsAllowed = true
 			}
 		case HarmonyEventContentEmitted:
 			logutil.Trace("harmony event content", "content", event.Content, "state", h.state)
-			switch h.state {
-			case harmonyMessageState_Normal:
+			if h.state == harmonyMessageState_Normal {
 				contentSb.WriteString(event.Content)
-			case harmonyMessageState_Thinking:
+			} else if h.state == harmonyMessageState_Thinking {
 				thinkingSb.WriteString(event.Content)
-			case harmonyMessageState_ToolCalling:
+			} else if h.state == harmonyMessageState_ToolCalling {
 				toolContentSb.WriteString(event.Content)
 			}
 		case HarmonyEventMessageEnd:
@@ -381,38 +379,6 @@ func (a *HarmonyToolCallAccumulator) Content() string {
 type FunctionNameMap struct {
 	userToHarmony map[string]string
 	harmonyToUser map[string]string
-}
-
-func (m FunctionNameMap) MarshalJSON() ([]byte, error) {
-	// necessary to avoid exposing map internals
-	type alias struct {
-		UserToHarmony map[string]string `json:"userToHarmony"`
-		HarmonyToUser map[string]string `json:"harmonyToUser"`
-	}
-	return json.Marshal(alias{
-		UserToHarmony: m.userToHarmony,
-		HarmonyToUser: m.harmonyToUser,
-	})
-}
-
-func (m *FunctionNameMap) UnmarshalJSON(b []byte) error {
-	type alias struct {
-		UserToHarmony map[string]string `json:"userToHarmony"`
-		HarmonyToUser map[string]string `json:"harmonyToUser"`
-	}
-	var a alias
-	if err := json.Unmarshal(b, &a); err != nil {
-		return err
-	}
-	if m.userToHarmony == nil {
-		m.userToHarmony = make(map[string]string)
-	}
-	if m.harmonyToUser == nil {
-		m.harmonyToUser = make(map[string]string)
-	}
-	maps.Copy(m.userToHarmony, a.UserToHarmony)
-	maps.Copy(m.harmonyToUser, a.HarmonyToUser)
-	return nil
 }
 
 func NewFunctionNameMap() *FunctionNameMap {

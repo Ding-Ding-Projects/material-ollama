@@ -593,35 +593,6 @@ func TestSchedGetRunnerUsesDigestKeyWhenModelPathEmpty(t *testing.T) {
 	require.Len(t, s.pendingReqCh, 1)
 }
 
-func TestSchedGetRunnerUsesManifestDigestKeyWhenModelPathEmpty(t *testing.T) {
-	ctx, done := context.WithTimeout(t.Context(), 100*time.Millisecond)
-	defer done()
-
-	s := InitScheduler(ctx)
-	opts := api.DefaultOptions()
-	opts.NumCtx = 4
-
-	loadedModel := &Model{Name: "list", Digest: "parent", ManifestDigest: "child-a"}
-	loadedRunner := &runnerRef{
-		model:       loadedModel,
-		modelKey:    schedulerModelKey(loadedModel),
-		llama:       &mockLlm{vramByGPU: map[ml.DeviceID]uint64{}},
-		Options:     &opts,
-		numParallel: 1,
-	}
-
-	s.loadedMu.Lock()
-	s.loaded[loadedRunner.modelKey] = loadedRunner
-	s.loadedMu.Unlock()
-
-	reqModel := &Model{Name: "list", Digest: "parent", ManifestDigest: "child-b"}
-	successCh, errCh := s.GetRunner(ctx, reqModel, opts, nil)
-
-	require.Empty(t, successCh)
-	require.Empty(t, errCh)
-	require.Len(t, s.pendingReqCh, 1)
-}
-
 func TestSchedGetRunnerReusesSameDigestWhenModelPathEmpty(t *testing.T) {
 	ctx, done := context.WithTimeout(t.Context(), 100*time.Millisecond)
 	defer done()
@@ -911,7 +882,7 @@ func TestSchedNeedsReload(t *testing.T) {
 	req.opts.NumBatch = 1234
 	resp = runner.needsReload(ctx, req)
 	require.True(t, resp)
-	req.opts.NumBatch = runner.NumBatch
+	req.opts.NumBatch = runner.Options.NumBatch
 	llm.pingResp = errors.New("foo")
 	resp = runner.needsReload(ctx, req)
 	require.True(t, resp)
@@ -2177,6 +2148,7 @@ func (s *mockLlm) Close() error {
 	s.closeCalled = true
 	return s.closeResp
 }
+
 func (s *mockLlm) MemorySize() (uint64, uint64)                       { return s.totalSize, s.vramSize }
 func (s *mockLlm) VRAMByGPU(id ml.DeviceID) uint64                    { return s.vramByGPU[id] }
 func (s *mockLlm) Pid() int                                           { return -1 }

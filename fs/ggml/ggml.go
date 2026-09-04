@@ -124,7 +124,7 @@ func (kv KV) EmbeddingHeadCountMax() uint64 {
 		return kv.EmbeddingLength() / heads
 	}
 
-	return embeddingHeadCount
+	return 0
 }
 
 func (kv KV) EmbeddingHeadCountK() uint64 {
@@ -238,41 +238,6 @@ func (kv KV) UintOrArrayValueAsArray(key string, defaultValue uint32) []uint32 {
 	return []uint32{defaultValue}
 }
 
-func (kv KV) UintOrArrayAsArray(key string, n uint64, defaultSingleValue ...uint64) []uint64 {
-	var singleValue *uint64
-	if v, ok := keyValueUntyped(kv, key); ok {
-		switch v := v.(type) {
-		case *array:
-			switch v.values[0].(type) {
-			case int32, uint32, uint64:
-				values, ok := AsUint64Array(v.values)
-				if ok {
-					return values
-				}
-			default:
-				slog.Warn("unexpected array value type", "key", key, "type", reflect.TypeOf(v))
-			}
-		case uint32:
-			val := uint64(v)
-			singleValue = &val
-		case int32:
-			val := uint64(v)
-			singleValue = &val
-		}
-	}
-	if singleValue == nil {
-		slog.Warn("falling back to default")
-		singleValue = &defaultSingleValue[0]
-	}
-
-	values := make([]uint64, n)
-	for i := range values {
-		values[i] = *singleValue
-	}
-
-	return values
-}
-
 func (kv KV) Strings(key string, defaultValue ...[]string) []string {
 	val, _ := keyValue(kv, key, &array[string]{values: append(defaultValue, []string(nil))[0]})
 	return val.values
@@ -311,10 +276,6 @@ func (kv KV) Value(key string) any {
 }
 
 func (kv KV) OllamaEngineRequired() bool {
-	if kv.Uint("pooling_type") > 0 {
-		return false
-	}
-
 	return slices.Contains([]string{
 		"bert",
 		"deepseek2",
@@ -367,18 +328,6 @@ func keyValue[T valueTypes | arrayValueTypes](kv KV, key string, defaultValue ..
 	return defaultValue[0], false
 }
 
-func keyValueUntyped(kv KV, key string) (any, bool) {
-	if !strings.HasPrefix(key, "tokenizer.") && !strings.HasPrefix(key, "general.") {
-		key = kv.Architecture() + "." + key
-	}
-
-	if val, ok := kv[key]; ok {
-		return val, true
-	}
-
-	return nil, false
-}
-
 type Tensors struct {
 	items  []*Tensor
 	Offset uint64
@@ -399,9 +348,9 @@ func (s Tensors) Items(prefix ...string) []*Tensor {
 	return items
 }
 
-func (s Tensors) GroupLayers() map[string]Layer {
+func (ts Tensors) GroupLayers() map[string]Layer {
 	layers := make(map[string]Layer)
-	for _, t := range s.items {
+	for _, t := range ts.items {
 		parts := strings.Split(t.Name, ".")
 		if index := slices.IndexFunc(parts, func(s string) bool { return s == "blk" || s == "mm" }); index != -1 {
 			if len(parts) > index+2 {
@@ -708,11 +657,6 @@ func (f GGML) GraphSize(context, batch uint64, numParallel int, kvCacheType stri
 
 	embeddingHeads := f.KV().EmbeddingHeadCountMax()
 	embeddingHeadsK := f.KV().EmbeddingHeadCountK()
-	maxEmbeddingHeadsK, ok := MaxValue(embeddingHeadsK)
-	if !ok {
-		maxEmbeddingHeadsK = 1
-		slog.Warn("failed to get max embedding headsK")
-	}
 	embeddingHeadsV := f.KV().EmbeddingHeadCountV()
 
 	layers := f.Tensors().GroupLayers()
@@ -767,13 +711,13 @@ func (f GGML) GraphSize(context, batch uint64, numParallel int, kvCacheType stri
 	switch f.KV().Architecture() {
 	case "llama", "llama4":
 		fullOffload = max(
-			4*batch*(1+4*embedding+context*(1+maxHeads)),
+			4*batch*(1+4*embedding+context*(1+heads)),
 			4*batch*(embedding+vocab),
 		)
 
 		partialOffload = 4 * batch * embedding
 		partialOffload += max(
-			4*batch*(1+embedding+max(context, embedding))+embedding*embedding*9/16+4*context*(batch*maxHeads+maxEmbeddingHeads*maxHeadsKV),
+			4*batch*(1+embedding+max(context, embedding))+embedding*embedding*9/16+4*context*(batch*heads+embeddingHeads*headsKV),
 			4*batch*(embedding+vocab)+embedding*vocab*105/128,
 		)
 
@@ -781,16 +725,16 @@ func (f GGML) GraphSize(context, batch uint64, numParallel int, kvCacheType stri
 			// mixtral 8x22b
 			ff := uint64(f.KV().Uint("feed_forward_length"))
 			partialOffload = max(
-				3*ffnGateExpsWeight.Size()+4*batch*(2*ff+maxHeadsKV+embedding+context+maxEmbeddingHeads*maxHeadsKV),
-				4*(context*batch*maxHeads+context*maxEmbeddingHeads*maxHeadsKV+batch*1024+maxEmbeddingHeads*maxHeadsKV*batch),
+				3*ffnGateExpsWeight.Size()+4*batch*(2*ff+headsKV+embedding+context+embeddingHeads*headsKV),
+				4*(context*batch*heads+context*embeddingHeads*headsKV+batch*1024+embeddingHeads*headsKV*batch),
 			)
 		} else if ffnGateWeight, ok := layers["blk.0"]["ffn_gate.0.weight"]; ok {
 			// mixtral 8x7b
 			ffnGateWeight1 := ffnGateWeight.Shape[1]
-			fullOffload = 4 * batch * (2 + 3*embedding + context*(1+maxHeads) + 2*maxHeadsKV + ffnGateWeight1)
+			fullOffload = 4 * batch * (2 + 3*embedding + context*(1+heads) + 2*headsKV + ffnGateWeight1)
 			partialOffload = max(
-				4*batch*(3+maxEmbeddingHeads*maxHeadsKV+embedding+context*(1+maxHeads)+ffnGateWeight1)+(embedding*embedding+3*embedding*maxHeadsKV*ffnGateWeight1)*9/16,
-				4*batch*(1+2*embedding+context*(1+maxHeads))+embedding*(6*context*maxHeadsKV/maxHeads+embedding*9/16),
+				4*batch*(3+embeddingHeads*headsKV+embedding+context*(1+heads)+ffnGateWeight1)+(embedding*embedding+3*embedding*headsKV*ffnGateWeight1)*9/16,
+				4*batch*(1+2*embedding+context*(1+heads))+embedding*(6*context*headsKV/heads+embedding*9/16),
 			)
 		}
 	case "mllama":
@@ -807,7 +751,7 @@ func (f GGML) GraphSize(context, batch uint64, numParallel int, kvCacheType stri
 		}
 
 		fullOffload = max(
-			4*batch*(2+3*embedding+maxEmbeddingHeadsK*maxHeads+context*(1+maxHeads)),
+			4*batch*(2+3*embedding+embeddingHeadsK*heads+context*(1+heads)),
 			// vocab graph
 			4*batch*(embedding+vocab),
 		)
@@ -821,23 +765,23 @@ func (f GGML) GraphSize(context, batch uint64, numParallel int, kvCacheType stri
 
 		partialOffload = max(
 			4*(batch*
-				(2*embedding+1+context*(1+maxHeads)+maxEmbeddingHeadsK*maxHeads)+
+				(2*embedding+1+context*(1+heads)+embeddingHeadsK*heads)+
 				ropeFreqsCount+
-				maxEmbeddingHeadsK*context*maxHeadsKV),
+				embeddingHeadsK*context*headsKV),
 			// vocab graph
 			4*batch*(embedding+vocab)+embedding*vocab*105/128,
 		)
 	case "gemma", "gemma2", "gemma3", "gemma3n":
 		fullOffload = max(
 			4*batch*(embedding+vocab),
-			4*batch*(2+context+context*maxHeads+2*embedding+2*maxEmbeddingHeadsK*maxHeads),
+			4*batch*(2+context+context*heads+2*embedding+2*embeddingHeadsK*heads),
 		)
 
 		partialOffload = max(
 			4*embedding*batch+embedding*vocab*105/128+4*vocab*batch,
-			4*batch*(2*embedding+1+2*maxEmbeddingHeadsK*maxHeads+context+context*maxHeads)+
-				4*maxEmbeddingHeadsK*context*8+
-				embedding*embedding*maxEmbeddingHeadsK*maxHeads*9/16,
+			4*batch*(2*embedding+1+2*embeddingHeadsK*heads+context+context*heads)+
+				4*embeddingHeadsK*context*8+
+				embedding*embeddingHeadsK*heads*9/16,
 		)
 
 		if f.KV().Architecture() == "gemma3n" {
@@ -854,42 +798,42 @@ func (f GGML) GraphSize(context, batch uint64, numParallel int, kvCacheType stri
 				// Every 6th layer is a global layer, which is the full context size that has already been set. The other
 				// layers are the smaller local (sliding) layers.
 				if (i+1)%gemma3GlobalCacheCount != 0 {
-					kv[i] = uint64(float64(slidingWindow*(embeddingHeadsK[i]+embeddingHeadsV[i])*headsKV[i]) * bytesPerElement)
+					kv[i] = uint64(float64(slidingWindow*(embeddingHeadsK+embeddingHeadsV)*headsKV) * bytesPerElement)
 				}
 			}
 		}
 	case "command-r":
 		fullOffload = max(
 			4*batch*(embedding+vocab),
-			4*batch*(2+4*embedding+context*(1+maxHeads)),
+			4*batch*(2+4*embedding+context*(1+heads)),
 		)
 
 		partialOffload = max(
 			4*batch*(embedding+vocab)+embedding*vocab*105/128,
-			4*batch*(1+2*embedding+context*(1+maxHeads))+4*embedding*context+embedding*embedding*9/16,
+			4*batch*(1+2*embedding+context*(1+heads))+4*embedding*context+embedding*embedding*9/16,
 		)
 	case "qwen2":
 		fullOffload = max(
 			4*batch*(embedding+vocab),
-			4*batch*(1+2*embedding+context+context*maxHeads),
+			4*batch*(1+2*embedding+context+context*heads),
 		)
 
 		partialOffload = max(
 			4*batch*(embedding+vocab)+embedding*vocab*105/128,
-			4*(batch*(1+2*embedding+context*(1+maxHeads))+embedding*(1+context)),
+			4*(batch*(1+2*embedding+context*(1+heads))+embedding*(1+context)),
 		)
 	case "phi2":
 		fullOffload = max(
 			4*batch*(embedding+vocab),
-			4*batch*(1+4*embedding+context+context*maxHeads),
+			4*batch*(1+4*embedding+context+context*heads),
 		)
 
 		partialOffload = max(
 			4*batch*(2*embedding+vocab)+embedding*vocab*105/128,
-			4*batch*(2+3*embedding+context+context*maxHeads),
+			4*batch*(2+3*embedding+context+context*heads),
 		)
 	case "stablelm":
-		fullOffload = 4 * batch * (context*(1+maxHeads) + 3*embedding + 2)
+		fullOffload = 4 * batch * (context*(1+heads) + 3*embedding + 2)
 		partialOffload = max(
 			4*batch*(vocab+2*embedding),
 			fullOffload,
@@ -897,12 +841,12 @@ func (f GGML) GraphSize(context, batch uint64, numParallel int, kvCacheType stri
 	case "deepseek2":
 		fullOffload = max(
 			4*batch*(3*embedding+vocab),
-			4*batch*(3*embedding+2+context*(1+maxHeadsKV)+2*maxEmbeddingHeadsK*maxHeadsKV),
+			4*batch*(3*embedding+2+context*(1+headsKV)+2*embeddingHeadsK*headsKV),
 		)
 
 		partialOffload = max(
 			4*batch*(3*embedding+vocab)+embedding*vocab*105/128,
-			4*batch*(2*embedding+1+2*maxEmbeddingHeadsK*maxHeadsKV+context+context*maxHeadsKV)+4*maxEmbeddingHeadsK*context*maxHeadsKV+embedding*embedding*maxEmbeddingHeadsK*maxHeadsKV*9/16,
+			4*batch*(2*embedding+1+2*embeddingHeadsK*headsKV+context+context*headsKV)+4*embeddingHeadsK*context*headsKV+embedding*embeddingHeadsK*headsKV*9/16,
 		)
 	case "chatglm":
 		fullOffload = 4 * batch * (embedding + vocab)
@@ -913,8 +857,8 @@ func (f GGML) GraphSize(context, batch uint64, numParallel int, kvCacheType stri
 				4*batch*(2+
 					2*embedding+
 					context+
-					context*maxHeads+
-					maxEmbeddingHeadsK*maxHeads+
+					context*heads+
+					embeddingHeadsK*heads+
 					qkvBias.Shape[0]),
 			)
 
@@ -922,11 +866,11 @@ func (f GGML) GraphSize(context, batch uint64, numParallel int, kvCacheType stri
 				partialOffload,
 				4*batch*(1+
 					2*embedding+
-					maxEmbeddingHeadsK*maxHeads+
+					embeddingHeadsK*heads+
 					context+
-					context*maxHeads)+
-					4*maxEmbeddingHeadsK*context+
-					4*context*maxEmbeddingHeadsK+
+					context*heads)+
+					4*embeddingHeadsK*context+
+					4*context*embeddingHeadsK+
 					4*qkvBias.Shape[0],
 			)
 		}
@@ -970,7 +914,8 @@ func (f GGML) KVCacheTypeIsQuantized(cacheType string) bool {
 
 // SupportsFlashAttention checks if the model supports flash attention
 func (f GGML) SupportsFlashAttention() bool {
-	if f.KV().Uint("pooling_type") > 0 {
+	_, isEmbedding := f.KV()[fmt.Sprintf("%s.pooling_type", f.KV().Architecture())]
+	if isEmbedding {
 		return false
 	}
 
@@ -984,15 +929,9 @@ func (f GGML) SupportsFlashAttention() bool {
 	}
 
 	// Check head counts match and are non-zero
-	headCount := f.KV().HeadCounts()
-	embeddingHeadCountK := f.KV().EmbeddingHeadCountK()
-	embeddingHeadCountV := f.KV().EmbeddingHeadCountV()
-	for i := range headCount {
-		if embeddingHeadCountK[i] != embeddingHeadCountV[i] {
-			return false
-		}
-	}
-	return true
+	headCountK := f.KV().EmbeddingHeadCountK()
+	headCountV := f.KV().EmbeddingHeadCountV()
+	return headCountK != 0 && headCountV != 0 && headCountK == headCountV
 }
 
 // FlashAttention checks if the model should enable flash attention
@@ -1028,55 +967,4 @@ func kvCacheBytesPerElement(cacheType string) float64 {
 	default:
 		return 2 // f16 (default)
 	}
-}
-
-func AsUint64Array(v []any) ([]uint64, bool) {
-	switch v[0].(type) {
-	case uint32:
-		values := make([]uint64, len(v))
-		for i, v := range v {
-			values[i] = uint64(v.(uint32))
-		}
-		return values, true
-	case uint64:
-		values := make([]uint64, len(v))
-		for i, v := range v {
-			values[i] = v.(uint64)
-		}
-		return values, true
-	case int32:
-		values := make([]uint64, len(v))
-		for i, val := range v {
-			val := val.(int32)
-			if val < 0 {
-				slog.Warn("negative value in int32 array", "value", val)
-				return nil, false
-			}
-			values[i] = uint64(val)
-		}
-		return values, true
-	}
-	return nil, false
-}
-
-func MaxValue(values []uint64) (uint64, bool) {
-	if len(values) == 0 {
-		return 0, false
-	}
-
-	max := values[0]
-	for _, v := range values {
-		if v > max {
-			max = v
-		}
-	}
-	return max, true
-}
-
-func FillArray[T any](value T, n int) []T {
-	values := make([]T, n)
-	for i := range values {
-		values[i] = value
-	}
-	return values
 }
