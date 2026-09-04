@@ -67,6 +67,13 @@ const (
 )
 
 func main() {
+	if handled, err := handleSquirrelLifecycle(os.Args[1:]); handled {
+		if err != nil {
+			fmt.Fprintln(os.Stderr, "Installer lifecycle could not complete")
+			os.Exit(1)
+		}
+		return
+	}
 	startHidden := false
 	var urlSchemeRequest string
 	if len(os.Args) > 1 {
@@ -273,6 +280,11 @@ func main() {
 
 	// ctx is the app-level context that will be used to stop the app
 	ctx, cancel := context.WithCancel(context.Background())
+	if err := ensureBundledWebView2(ctx); err != nil {
+		slog.Error("Bundled browser runtime could not become ready", "error", err)
+		cancel()
+		return
+	}
 
 	// octx is the ollama server context that will be used to stop the ollama server
 	octx, ocancel := context.WithCancel(ctx)
@@ -301,11 +313,13 @@ func main() {
 				done <- osrv.Run(octx)
 			}()
 		},
-		Store:        st,
-		ToolRegistry: toolRegistry,
-		Dev:          devMode,
-		Logger:       slog.Default(),
-		Updater:      upd,
+		Store:         st,
+		ToolRegistry:  toolRegistry,
+		Dev:           devMode,
+		Logger:        slog.Default(),
+		Updater:       upd,
+		UpdateContext: ctx,
+		QuitForUpdate: quit,
 		UpdateAvailableFunc: func() {
 			UpdateAvailable("")
 		},
@@ -335,7 +349,11 @@ func main() {
 		slog.Debug("background desktop server done")
 	}()
 
-	upd.StartBackgroundUpdaterChecker(ctx, UpdateAvailable)
+	if runtime.GOOS == "windows" {
+		upd.StartBackgroundUpdateStateChecker(ctx, func(st updater.UpdateStatus) { _ = UpdateAvailable(st.Version) })
+	} else {
+		upd.StartBackgroundUpdaterChecker(ctx, UpdateAvailable)
+	}
 
 	// Check for pending updates on startup (show tray notification if update is ready)
 	if updater.IsUpdatePending() {
@@ -436,36 +454,10 @@ func runInitialWindowsUI(
 }
 
 func startHiddenTasks() {
-	// If an upgrade is ready and we're in hidden mode, perform it at startup.
-	// If we're not in hidden mode, we want to start as fast as possible and not
-	// slow the user down with an upgrade.
+	// A staged package is never installed silently at startup. The user must
+	// choose Restart to install update, and the UI owns unsaved-work refusal.
 	if updater.IsUpdatePending() {
-		if fastStartup {
-			// CLI triggered app startup use-case
-			slog.Info("deferring pending update for fast startup")
-		} else {
-			// Check if auto-update is enabled before automatically upgrading
-			settings, err := appStore.Settings()
-			if err != nil {
-				slog.Warn("failed to load settings for upgrade check", "error", err)
-			} else if !settings.AutoUpdateEnabled {
-				slog.Info("auto-update disabled, skipping automatic upgrade at startup")
-				// Still show tray notification so user knows update is ready
-				UpdateAvailable("")
-				return
-			}
-
-			if err := updater.DoUpgradeAtStartup(); err != nil { //nolint:staticcheck,nolintlint // DoUpgradeAtStartup may always return non-nil on Windows
-				slog.Info("unable to perform upgrade at startup", "error", err)
-				// Make sure the restart to upgrade menu shows so we can attempt an interactive upgrade to get authorization
-				UpdateAvailable("")
-			} else {
-				slog.Debug("launching new version...")
-				// TODO - consider a timer that aborts if this takes too long and we haven't been killed yet...
-				LaunchNewApp()
-				os.Exit(0)
-			}
-		}
+		UpdateAvailable("")
 	}
 }
 

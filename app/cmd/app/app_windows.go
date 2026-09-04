@@ -126,18 +126,16 @@ func (app *appCallbacks) Quit() {
 
 // TODO - reconcile with above for consistency between mac/windows
 func quit() {
+	if app.t != nil {
+		app.t.Quit()
+	}
 	wv.Terminate()
 }
 
 func (app *appCallbacks) DoUpdate() {
-	// Safeguard in case we have requests in flight that need to drain...
-	slog.Info("Waiting for server to shutdown")
-
-	app.shutdown()
-
-	if err := updater.DoUpgrade(true); err != nil { //nolint:staticcheck,nolintlint // DoUpgrade may always return non-nil on Windows
-		slog.Warn(fmt.Sprintf("upgrade attempt failed: %s", err))
-	}
+	// The tray opens the status surface. Only the explicit renderer action
+	// may authorize installation after draft and active-work checks.
+	openUI("/status")
 }
 
 // HandleURLScheme implements the URLSchemeHandler interface

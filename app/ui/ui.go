@@ -113,6 +113,9 @@ type Server struct {
 
 	// Updater for checking and downloading updates
 	Updater              *updater.Updater
+	UpdateContext        context.Context
+	QuitForUpdate        func()
+	updateWork           sync.RWMutex
 	UpdateAvailableFunc  func()
 	IntegrationInstalled func(string) bool
 	ListCloudModels      func(context.Context) (*api.ListResponse, error)
@@ -330,6 +333,13 @@ func (s *Server) Handler() http.Handler {
 
 	mux.Handle("GET /api/v1/settings", handle(s.getSettings))
 	mux.Handle("POST /api/v1/settings", handle(s.settings))
+	// Package-format-neutral unsigned Squirrel updater state and actions.
+	mux.Handle("GET /api/v1/update", handle(s.updateStatus))
+	mux.Handle("POST /api/v1/update/check", handle(s.updateCheck))
+	mux.Handle("POST /api/v1/update/download", handle(s.updateDownload))
+	mux.Handle("POST /api/v1/update/cancel", handle(s.updateCancel))
+	mux.Handle("POST /api/v1/update/later", handle(s.updateLater))
+	mux.Handle("POST /api/v1/update/restart", handle(s.updateRestart))
 	mux.Handle("GET /api/v1/capabilities", handle(s.capabilities))
 
 	// Build-time release metadata (version, commit, dim-sum code name,
@@ -448,7 +458,18 @@ func (s *Server) Handler() http.Handler {
 	mux.Handle("PATCH /", s.appHandler())
 	mux.Handle("DELETE /", s.appHandler())
 
-	return mux
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// A restart cannot race an active mutation or chat stream. Read-only
+		// polling and the updater's own actions remain available during staging.
+		if r.Method != http.MethodGet && !strings.HasPrefix(r.URL.Path, "/api/v1/update") {
+			if !s.updateWork.TryRLock() {
+				http.Error(w, "Update installation is in progress", http.StatusConflict)
+				return
+			}
+			defer s.updateWork.RUnlock()
+		}
+		mux.ServeHTTP(w, r)
+	})
 }
 
 func (s *Server) getIntegrationStatuses(w http.ResponseWriter, _ *http.Request) error {

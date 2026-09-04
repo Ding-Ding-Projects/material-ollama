@@ -3,98 +3,77 @@
 package updater
 
 import (
-	"log/slog"
+	"context"
+	"errors"
 	"os"
 	"path/filepath"
-	"strings"
 	"testing"
 )
 
-func TestVerifyDownloadRejectsUnsignedWindowsInstaller(t *testing.T) {
-	oldUpdateStageDir := UpdateStageDir
-	defer func() {
-		UpdateStageDir = oldUpdateStageDir
-	}()
-
-	t.Setenv("LOCALAPPDATA", t.TempDir())
-	UpdateStageDir = t.TempDir()
-	bundle := filepath.Join(UpdateStageDir, "etag", "OllamaSetup.exe")
-	if err := os.MkdirAll(filepath.Dir(bundle), 0o755); err != nil {
-		t.Fatal(err)
+func TestSquirrelInstallOrdersUpdateThenRestart(t *testing.T) {
+	updateTestConfig(t)
+	f := newFeedFixture(t)
+	u := &Updater{}
+	if _, e := u.DownloadValidatedPackage(t.Context(), f.pkg); e != nil {
+		t.Fatal(e)
 	}
-	if err := os.WriteFile(bundle, []byte("not a signed installer"), 0o755); err != nil {
-		t.Fatal(err)
+	oldExe, oldUpdate, oldRestart := squirrelUpdateExecutable, squirrelUpdateCommand, squirrelRestartCommand
+	t.Cleanup(func() {
+		squirrelUpdateExecutable, squirrelUpdateCommand, squirrelRestartCommand = oldExe, oldUpdate, oldRestart
+	})
+	squirrelUpdateExecutable = func() string { return "installed/Update.exe" }
+	order := []string{}
+	squirrelUpdateCommand = func(_ context.Context, exe, dir string) error {
+		if exe != "installed/Update.exe" || dir != u.machine().directory {
+			t.Fatal("wrong command target")
+		}
+		if _, e := os.Stat(filepath.Join(dir, "RELEASES")); e != nil {
+			t.Fatal(e)
+		}
+		order = append(order, "update")
+		return nil
 	}
-
-	err := verifyDownload()
-	if err == nil || !strings.Contains(err.Error(), "signature verification failed") {
-		t.Fatalf("expected signature verification failure, got %v", err)
+	squirrelRestartCommand = func(string) error { order = append(order, "restart"); return nil }
+	if st, e := u.InstallUpdate(t.Context(), false); e != nil || st.State != UpdateRestarting {
+		t.Fatalf("%v %v", st, e)
 	}
-}
-
-func TestDoUpgradeAtStartupRejectsUnsignedWindowsInstaller(t *testing.T) {
-	oldUpdateStageDir := UpdateStageDir
-	oldRunningInstaller := runningInstaller
-	oldUpgradeLogFile := UpgradeLogFile
-	oldUpgradeMarkerFile := UpgradeMarkerFile
-	oldVerifyDownload := VerifyDownload
-	defer func() {
-		UpdateStageDir = oldUpdateStageDir
-		runningInstaller = oldRunningInstaller
-		UpgradeLogFile = oldUpgradeLogFile
-		UpgradeMarkerFile = oldUpgradeMarkerFile
-		VerifyDownload = oldVerifyDownload
-	}()
-
-	t.Setenv("LOCALAPPDATA", t.TempDir())
-	UpdateStageDir = t.TempDir()
-	runDir := t.TempDir()
-	runningInstaller = filepath.Join(runDir, "OllamaSetup.exe")
-	UpgradeLogFile = filepath.Join(runDir, "upgrade.log")
-	UpgradeMarkerFile = filepath.Join(runDir, "upgraded")
-	VerifyDownload = verifyDownload
-
-	bundle := filepath.Join(UpdateStageDir, "etag", "OllamaSetup.exe")
-	if err := os.MkdirAll(filepath.Dir(bundle), 0o755); err != nil {
-		t.Fatal(err)
+	if len(order) != 2 || order[0] != "update" || order[1] != "restart" {
+		t.Fatal(order)
 	}
-	if err := os.WriteFile(bundle, []byte("not a signed installer"), 0o755); err != nil {
-		t.Fatal(err)
-	}
-
-	err := DoUpgradeAtStartup()
-	if err == nil || !strings.Contains(err.Error(), "signature verification failed") {
-		t.Fatalf("expected signature verification failure, got %v", err)
-	}
-	if _, err := os.Stat(runningInstaller); !os.IsNotExist(err) {
-		t.Fatalf("unsigned installer was moved before verification failed: %v", err)
-	}
-	if _, err := os.Stat(bundle); !os.IsNotExist(err) {
-		t.Fatalf("unsigned staged installer was not removed after verification failure: %v", err)
+	if _, e := u.InstallUpdate(t.Context(), false); e == nil {
+		t.Fatal("duplicate install accepted")
 	}
 }
-
-func TestIsInstallerRunning(t *testing.T) {
-	oldInstaller := Installer
-	defer func() {
-		Installer = oldInstaller
-	}()
-
-	slog.SetLogLoggerLevel(slog.LevelDebug)
-	Installer = "go.exe"
-	if !isInstallerRunning() {
-		t.Fatal("not running")
+func TestSquirrelInstallFailureDoesNotClaimRollbackOrRestart(t *testing.T) {
+	updateTestConfig(t)
+	f := newFeedFixture(t)
+	u := &Updater{}
+	u.DownloadValidatedPackage(t.Context(), f.pkg)
+	oldExe, oldUpdate, oldRestart := squirrelUpdateExecutable, squirrelUpdateCommand, squirrelRestartCommand
+	t.Cleanup(func() {
+		squirrelUpdateExecutable, squirrelUpdateCommand, squirrelRestartCommand = oldExe, oldUpdate, oldRestart
+	})
+	squirrelUpdateExecutable = func() string { return "Update.exe" }
+	squirrelUpdateCommand = func(context.Context, string, string) error { return errors.New("failed") }
+	squirrelRestartCommand = func(string) error { t.Fatal("restart after failed installation"); return nil }
+	if st, e := u.InstallUpdate(t.Context(), false); e == nil || st.State != UpdateError {
+		t.Fatalf("%v %v", st, e)
 	}
 }
-
-func TestIsInstallerRunningUsesProcessByteCountAsElements(t *testing.T) {
-	oldInstaller := Installer
-	defer func() {
-		Installer = oldInstaller
-	}()
-
-	Installer = "go.exe"
-	if got := len(IsProcRunning(Installer)); got == 0 {
-		t.Fatal("expected the running Go test process to be found")
+func TestSquirrelStartupAndLegacyUpgradeCannotInstall(t *testing.T) {
+	if e := DoUpgradeAtStartup(); e == nil {
+		t.Fatal("startup installation accepted")
+	}
+	if e := DoUpgrade(true); e == nil {
+		t.Fatal("legacy bypass accepted")
+	}
+}
+func TestProcessEnumerationFindsTestExecutable(t *testing.T) {
+	exe, e := os.Executable()
+	if e != nil {
+		t.Fatal(e)
+	}
+	if len(IsProcRunning(filepath.Base(exe))) == 0 {
+		t.Fatal("running test executable absent")
 	}
 }
