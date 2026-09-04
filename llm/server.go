@@ -209,12 +209,13 @@ type CompletionRequest struct {
 	Media   []MediaData
 	Options *api.Options
 
-	Grammar         string // set before sending the request to the subprocess
 	Shift           bool
 	Truncate        bool
 	PreservedTokens []string // parser tokens to render as text; ignored by non-llama-server runners
 	ToolCallTag     string   // raw generic tool parser tag, if any
 	LeadingBOS      string   // textual BOS emitted by Go rendering, if any
+	// IncludeIntermediateMetrics adds cumulative metrics to non-final responses; final responses always include metrics.
+	IncludeIntermediateMetrics bool
 
 	// Logprobs specifies whether to include log probabilities in the response
 	Logprobs bool
@@ -240,7 +241,7 @@ type ChatResponse struct {
 	DoneReason            DoneReason    `json:"done_reason"`
 	Done                  bool          `json:"done"`
 	PromptEvalCount       int           `json:"prompt_eval_count"`
-	PromptEvalCachedCount int           `json:"prompt_eval_cached_count"`
+	PromptEvalCachedCount *int          `json:"prompt_eval_cached_count,omitempty"`
 	PromptEvalDuration    time.Duration `json:"prompt_eval_duration"`
 	EvalCount             int           `json:"eval_count"`
 	EvalDuration          time.Duration `json:"eval_duration"`
@@ -284,7 +285,7 @@ type CompletionResponse struct {
 	DoneReason            DoneReason    `json:"done_reason"`
 	Done                  bool          `json:"done"`
 	PromptEvalCount       int           `json:"prompt_eval_count"`
-	PromptEvalCachedCount int           `json:"prompt_eval_cached_count"`
+	PromptEvalCachedCount *int          `json:"prompt_eval_cached_count,omitempty"`
 	PromptEvalDuration    time.Duration `json:"prompt_eval_duration"`
 	EvalCount             int           `json:"eval_count"`
 	EvalDuration          time.Duration `json:"eval_duration"`

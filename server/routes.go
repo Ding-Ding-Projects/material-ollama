@@ -20,7 +20,6 @@ import (
 	"net/url"
 	"os"
 	"os/signal"
-	"runtime"
 	"slices"
 	"strings"
 	"sync/atomic"
@@ -61,7 +60,6 @@ const (
 	cloudErrRemoteModelDetailsUnavailable = "remote model details are unavailable"
 	cloudErrWebSearchUnavailable          = "web search is unavailable"
 	cloudErrWebFetchUnavailable           = "web fetch is unavailable"
-	cloudErrUsageUnavailable              = "usage is unavailable"
 	copilotChatUserAgentPrefix            = "GitHubCopilotChat/"
 )
 
@@ -140,6 +138,9 @@ func (s *Server) modelOptionsWithEmbeddingBatchDefault(model *Model, requestOpts
 	draftNumPredictSet := hasOption(requestOpts, "draft_num_predict")
 	if model != nil {
 		draftNumPredictSet = draftNumPredictSet || hasOption(model.Options, "draft_num_predict")
+		if err := opts.FromMap(model.GenerationDefaults); err != nil {
+			return api.Options{}, err
+		}
 		if err := opts.FromMap(model.Options); err != nil {
 			return api.Options{}, err
 		}
@@ -201,14 +202,9 @@ func usesAutomaticNumBatch(model *Model, requestOpts map[string]any) bool {
 
 // scheduleRunner schedules a runner after validating inputs such as capabilities and model options.
 // It returns the allocated runner, model instance, and consolidated options if successful and error otherwise.
-func (s *Server) scheduleRunner(ctx context.Context, name string, caps []model.Capability, requestOpts map[string]any, keepAlive *api.Duration, shift *bool) (llm.LlamaServer, *Model, *api.Options, error) {
-	if name == "" {
+func (s *Server) scheduleRunner(ctx context.Context, model *Model, caps []model.Capability, requestOpts map[string]any, keepAlive *api.Duration, shift *bool) (llm.LlamaServer, *Model, *api.Options, error) {
+	if model == nil || model.Name == "" {
 		return nil, nil, nil, fmt.Errorf("model %w", errRequired)
-	}
-
-	model, err := GetModel(name)
-	if err != nil {
-		return nil, nil, nil, err
 	}
 
 	if slices.Contains(model.Config.ModelFamilies, "mllama") && len(model.ProjectorPaths) > 0 {
@@ -216,7 +212,7 @@ func (s *Server) scheduleRunner(ctx context.Context, name string, caps []model.C
 	}
 
 	if err := model.CheckCapabilities(caps...); err != nil {
-		return nil, nil, nil, fmt.Errorf("%s %w", name, err)
+		return nil, nil, nil, fmt.Errorf("%s %w", model.Name, err)
 	}
 
 	numCtxAuto := usesAutomaticNumCtx(model, requestOpts)
@@ -289,7 +285,7 @@ func (s *Server) GenerateHandler(c *gin.Context) {
 		return
 	}
 
-	m, err := GetModel(name.String())
+	m, err := s.getModel(name.String())
 	if err != nil {
 		switch {
 		case errors.Is(err, fs.ErrNotExist):
@@ -470,7 +466,7 @@ func (s *Server) GenerateHandler(c *gin.Context) {
 		}
 	}
 
-	r, m, opts, err := s.scheduleRunner(c.Request.Context(), name.String(), caps, req.Options, req.KeepAlive, req.Shift)
+	r, m, opts, err := s.scheduleRunner(c.Request.Context(), m, caps, req.Options, req.KeepAlive, req.Shift)
 	if errors.Is(err, errCapabilityCompletion) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": fmt.Sprintf("%q does not support generate", req.Model)})
 		return
@@ -658,7 +654,12 @@ func (s *Server) GenerateHandler(c *gin.Context) {
 		// TODO (jmorganca): avoid building the response twice both here and below
 		var sb strings.Builder
 		defer close(ch)
-		if err := r.Completion(c.Request.Context(), llm.CompletionRequest{
+
+		ctx, cancel := context.WithCancel(c.Request.Context())
+		defer cancel()
+		var parserErr error
+
+		if err := r.Completion(ctx, llm.CompletionRequest{
 			Prompt:          prompt,
 			Media:           media,
 			Format:          req.Format,
@@ -688,7 +689,8 @@ func (s *Server) GenerateHandler(c *gin.Context) {
 			if builtinParser != nil {
 				content, thinking, toolCalls, err := builtinParser.Add(cr.Content, cr.Done)
 				if err != nil {
-					ch <- gin.H{"error": err.Error()}
+					parserErr = err
+					cancel()
 					return
 				}
 				res.Response = content
@@ -734,13 +736,18 @@ func (s *Server) GenerateHandler(c *gin.Context) {
 
 			ch <- res
 		}); err != nil {
-			s.sched.expireRunnersForRuntimeOOM(m, err)
-			var serr api.StatusError
-			if errors.As(err, &serr) {
-				ch <- gin.H{"error": serr.ErrorMessage, "status": serr.StatusCode}
-			} else {
-				ch <- gin.H{"error": err.Error()}
+			if parserErr == nil {
+				s.sched.expireRunnersForRuntimeOOM(m, err)
+				var serr api.StatusError
+				if errors.As(err, &serr) {
+					ch <- gin.H{"error": serr.ErrorMessage, "status": serr.StatusCode}
+				} else {
+					ch <- gin.H{"error": err.Error()}
+				}
 			}
+		}
+		if parserErr != nil {
+			ch <- gin.H{"error": parserErr.Error()}
 		}
 	}()
 
@@ -842,7 +849,13 @@ func (s *Server) EmbedHandler(c *gin.Context) {
 		return
 	}
 
-	r, m, opts, err := s.scheduleRunner(c.Request.Context(), name.String(), []model.Capability{}, req.Options, req.KeepAlive, nil)
+	m, err := s.getModel(name.String())
+	if err != nil {
+		handleScheduleError(c, req.Model, err)
+		return
+	}
+
+	r, m, opts, err := s.scheduleRunner(c.Request.Context(), m, []model.Capability{}, req.Options, req.KeepAlive, nil)
 	if err != nil {
 		handleScheduleError(c, req.Model, err)
 		return
@@ -1054,7 +1067,13 @@ func (s *Server) EmbeddingsHandler(c *gin.Context) {
 
 	name := modelRef.Name
 
-	r, m, _, err := s.scheduleRunner(c.Request.Context(), name.String(), []model.Capability{}, req.Options, req.KeepAlive, nil)
+	m, err := s.getModel(name.String())
+	if err != nil {
+		handleScheduleError(c, req.Model, err)
+		return
+	}
+
+	r, m, _, err := s.scheduleRunner(c.Request.Context(), m, []model.Capability{}, req.Options, req.KeepAlive, nil)
 	if err != nil {
 		handleScheduleError(c, req.Model, err)
 		return
@@ -1670,108 +1689,6 @@ func (s *Server) CopyHandler(c *gin.Context) {
 	}
 }
 
-func (s *Server) WebSearchHandler(c *gin.Context) {
-	var req api.SearchRequest
-	if err := c.ShouldBindJSON(&req); errors.Is(err, io.EOF) {
-		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"error": "missing request body"})
-		return
-	} else if err != nil {
-		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-		return
-	}
-
-	if req.Query == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "query is required"})
-		return
-	}
-
-	if req.MaxResults <= 0 {
-		req.MaxResults = 5
-	}
-
-	results, err := s.callWebSearchAPI(req.Query, req.MaxResults)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-		return
-	}
-
-	if len(results) > req.MaxResults {
-		results = results[:req.MaxResults]
-	}
-
-	resp := api.SearchResponse{
-		Results: results,
-	}
-
-	c.JSON(http.StatusOK, resp)
-}
-
-func (s *Server) callWebSearchAPI(query string, maxResults int) ([]api.SearchResult, error) {
-	searchReq := api.SearchRequest{
-		Query:      query,
-		MaxResults: maxResults,
-	}
-
-	client := api.NewClient(&url.URL{Scheme: "https", Host: "ollama.com"}, http.DefaultClient)
-
-	searchResp, err := client.WebSearch(context.Background(), &searchReq)
-	if err != nil {
-		return nil, err
-	}
-
-	return searchResp.Results, nil
-}
-
-func (s *Server) FetchHandler(c *gin.Context) {
-	var req api.FetchRequest
-	if err := c.ShouldBindJSON(&req); errors.Is(err, io.EOF) {
-		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"error": "missing request body"})
-		return
-	} else if err != nil {
-		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-		return
-	}
-
-	// Validate required fields
-	if req.URL == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "url is required"})
-		return
-	}
-
-	// Call the real web fetch API
-	content, title, err := s.callWebFetchAPI(req.URL)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-		return
-	}
-
-	resp := api.FetchResponse{
-		Content: content,
-		Title:   title,
-		URL:     req.URL,
-	}
-
-	c.JSON(http.StatusOK, resp)
-}
-
-func (s *Server) callWebFetchAPI(targetURL string) (string, string, error) {
-	// Create request to ollama.com web fetch API
-	fetchReq := api.FetchRequest{
-		URL: targetURL,
-	}
-
-	// Create client to call ollama.com
-	client := api.NewClient(&url.URL{Scheme: "https", Host: "ollama.com"}, http.DefaultClient)
-
-	// Call the web fetch API
-	fetchResp, err := client.Fetch(context.Background(), &fetchReq)
-	if err != nil {
-		return "", "", err
-	}
-
-	return fetchResp.Content, fetchResp.Title, nil
-}
-
 func (s *Server) HeadBlobHandler(c *gin.Context) {
 	path, err := manifest.BlobsPath(c.Param("digest"))
 	if err != nil {
@@ -1906,11 +1823,6 @@ func allowedHostsMiddleware(addr net.Addr) gin.HandlerFunc {
 
 		if addr, err := netip.ParseAddr(host); err == nil {
 			if addr.IsLoopback() || addr.IsPrivate() || addr.IsUnspecified() || isLocalIP(addr) {
-				if c.Request.Method == http.MethodOptions {
-					c.AbortWithStatus(http.StatusNoContent)
-					return
-				}
-
 				c.Next()
 				return
 			}
@@ -1981,7 +1893,7 @@ func (s *Server) GenerateRoutes() (http.Handler, error) {
 	r.DELETE("/api/delete", s.DeleteHandler)
 
 	r.POST("/api/me", s.WhoamiHandler)
-	r.GET("/api/usage", s.UsageHandler)
+
 	r.POST("/api/signout", s.SignoutHandler)
 	// deprecated
 	r.DELETE("/api/user/keys/:encodedKey", s.SignoutHandler)
@@ -2001,8 +1913,6 @@ func (s *Server) GenerateRoutes() (http.Handler, error) {
 	r.POST("/api/chat", s.withInferenceRequestLogging("/api/chat", s.ChatHandler)...)
 	r.POST("/api/embed", s.EmbedHandler)
 	r.POST("/api/embeddings", s.EmbeddingsHandler)
-	r.POST("/api/web_search", s.WebSearchHandler)
-	r.POST("/api/web_fetch", s.FetchHandler)
 
 	// Inference (OpenAI compatibility)
 	// TODO(cloud-stage-a): apply Modelfile overlay deltas for local models with cloud
@@ -2012,7 +1922,6 @@ func (s *Server) GenerateRoutes() (http.Handler, error) {
 	r.POST("/v1/embeddings", cloudPassthroughMiddleware(cloudErrRemoteInferenceUnavailable), middleware.EmbeddingsMiddleware(), s.EmbedHandler)
 	r.GET("/v1/models", middleware.ListMiddleware(), s.ListHandler)
 	r.GET("/v1/models/:model", cloudModelPathPassthroughMiddleware(cloudErrRemoteModelDetailsUnavailable), middleware.RetrieveMiddleware(), s.ShowHandler)
-	r.DELETE("/v1/models/:model", middleware.DeleteMiddleware(), s.DeleteHandler)
 	r.POST("/v1/responses", s.withInferenceRequestLogging("/v1/responses", cloudPassthroughMiddleware(cloudErrRemoteInferenceUnavailable), middleware.ResponsesMiddleware(), s.ChatHandler)...)
 	// OpenAI-compatible audio endpoint
 	r.POST("/v1/audio/transcriptions", middleware.TranscriptionMiddleware(), s.ChatHandler)
@@ -2024,7 +1933,7 @@ func (s *Server) GenerateRoutes() (http.Handler, error) {
 }
 
 func (s *Server) ModelRecommendationsExperimentalHandler(c *gin.Context) {
-	recs := applyPlatformTags(defaultModelRecommendations, runtime.GOOS, runtime.GOARCH)
+	recs := defaultModelRecommendations
 	source := "default"
 	if s.modelCaches != nil && s.modelCaches.recommendations != nil {
 		ctx := context.Background()
@@ -2240,16 +2149,11 @@ func streamResponse(c *gin.Context, ch chan any) {
 
 func (s *Server) StatusHandler(c *gin.Context) {
 	disabled, source := internalcloud.Status()
-	contextLength := int(envconfig.ContextLength())
-	if contextLength == 0 {
-		contextLength = s.defaultNumCtx
-	}
 	c.JSON(http.StatusOK, api.StatusResponse{
 		Cloud: api.CloudStatus{
 			Disabled: disabled,
 			Source:   source,
 		},
-		ContextLength: contextLength,
 	})
 }
 
@@ -2333,10 +2237,6 @@ func (s *Server) WhoamiHandler(c *gin.Context) {
 		user.Plan = "free"
 	}
 	c.JSON(http.StatusOK, user)
-}
-
-func (s *Server) UsageHandler(c *gin.Context) {
-	proxyCloudRequest(c, nil, cloudErrUsageUnavailable)
 }
 
 func (s *Server) SignoutHandler(c *gin.Context) {
@@ -2582,7 +2482,7 @@ func (s *Server) ChatHandler(c *gin.Context) {
 		return
 	}
 
-	m, err := GetModel(name.String())
+	m, err := s.getModel(name.String())
 	if err != nil {
 		switch {
 		case os.IsNotExist(err):
@@ -2735,7 +2635,7 @@ func (s *Server) ChatHandler(c *gin.Context) {
 		}
 	}
 
-	r, m, opts, err := s.scheduleRunner(c.Request.Context(), name.String(), caps, req.Options, req.KeepAlive, req.Shift)
+	r, m, opts, err := s.scheduleRunner(c.Request.Context(), m, caps, req.Options, req.KeepAlive, req.Shift)
 	if errors.Is(err, errCapabilityCompletion) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": fmt.Sprintf("%q does not support chat", req.Model)})
 		return
@@ -2851,6 +2751,7 @@ func (s *Server) ChatHandler(c *gin.Context) {
 		defer close(ch)
 
 		structuredOutputsState := structuredOutputsState_None
+		var firstPassMetrics api.Metrics
 
 		for {
 			var tb strings.Builder
@@ -2869,36 +2770,55 @@ func (s *Server) ChatHandler(c *gin.Context) {
 			if req.Format != nil && structuredOutputsState == structuredOutputsState_None && !forceImmediate && ((builtinParser != nil || thinkingState != nil) && slices.Contains(m.Capabilities(), model.CapabilityThinking)) {
 				currentFormat = nil
 			}
+			includeIntermediateMetrics := req.Format != nil && currentFormat == nil
 
 			// sets up new context given parent context per request
 			ctx, cancel := context.WithCancel(c.Request.Context())
 
+			var parserErr error
+
 			err := r.Completion(ctx, llm.CompletionRequest{
-				Prompt:          prompt,
-				Media:           media,
-				Format:          currentFormat,
-				Options:         opts,
-				Shift:           req.Shift == nil || *req.Shift,
-				Truncate:        truncate,
-				Logprobs:        req.Logprobs,
-				TopLogprobs:     req.TopLogprobs,
-				PreservedTokens: preservedTokensForCompletion(builtinParser),
-				ToolCallTag:     toolCallTagForCompletion(toolParser),
-				LeadingBOS:      leadingBOSForModel(m),
+				Prompt:                     prompt,
+				Media:                      media,
+				Format:                     currentFormat,
+				Options:                    opts,
+				Shift:                      req.Shift == nil || *req.Shift,
+				Truncate:                   truncate,
+				Logprobs:                   req.Logprobs,
+				TopLogprobs:                req.TopLogprobs,
+				PreservedTokens:            preservedTokensForCompletion(builtinParser),
+				ToolCallTag:                toolCallTagForCompletion(toolParser),
+				LeadingBOS:                 leadingBOSForModel(m),
+				IncludeIntermediateMetrics: includeIntermediateMetrics,
 			}, func(r llm.CompletionResponse) {
+				metrics := api.Metrics{
+					PromptEvalCount:       r.PromptEvalCount,
+					PromptEvalCachedCount: r.PromptEvalCachedCount,
+					PromptEvalDuration:    r.PromptEvalDuration,
+					EvalCount:             r.EvalCount,
+					EvalDuration:          r.EvalDuration,
+				}
+				if includeIntermediateMetrics {
+					firstPassMetrics = metrics
+					if !r.Done {
+						metrics = api.Metrics{}
+					}
+				} else if structuredOutputsState == structuredOutputsState_Applying && r.Done {
+					// Treat the restart as generation work: retain the original prompt metrics and fold in the second prefill.
+					metrics.PromptEvalCount = firstPassMetrics.PromptEvalCount
+					metrics.PromptEvalCachedCount = firstPassMetrics.PromptEvalCachedCount
+					metrics.PromptEvalDuration = firstPassMetrics.PromptEvalDuration
+					metrics.EvalCount += firstPassMetrics.EvalCount
+					metrics.EvalDuration += firstPassMetrics.EvalDuration + r.PromptEvalDuration
+				}
+
 				res := api.ChatResponse{
 					Model:     req.Model,
 					CreatedAt: time.Now().UTC(),
 					Message:   api.Message{Role: "assistant", Content: r.Content},
 					Done:      r.Done,
-					Metrics: api.Metrics{
-						PromptEvalCount:       r.PromptEvalCount,
-						PromptEvalCachedCount: r.PromptEvalCachedCount,
-						PromptEvalDuration:    r.PromptEvalDuration,
-						EvalCount:             r.EvalCount,
-						EvalDuration:          r.EvalDuration,
-					},
-					Logprobs: toAPILogprobs(r.Logprobs),
+					Metrics:   metrics,
+					Logprobs:  toAPILogprobs(r.Logprobs),
 				}
 
 				if r.Done {
@@ -2912,7 +2832,8 @@ func (s *Server) ChatHandler(c *gin.Context) {
 
 					content, thinking, toolCalls, err := builtinParser.Add(r.Content, r.Done)
 					if err != nil {
-						ch <- gin.H{"error": err.Error()}
+						parserErr = err
+						cancel()
 						return
 					}
 
@@ -2991,6 +2912,10 @@ func (s *Server) ChatHandler(c *gin.Context) {
 
 				ch <- res
 			})
+			if parserErr != nil {
+				ch <- gin.H{"error": parserErr.Error()}
+				return
+			}
 			if err != nil {
 				if structuredOutputsState == structuredOutputsState_ReadyToApply && strings.Contains(err.Error(), "context canceled") && c.Request.Context().Err() == nil {
 					// only ignores error if it's a context cancellation due to setting structured outputs

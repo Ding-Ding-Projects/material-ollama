@@ -2,14 +2,17 @@ package server
 
 import (
 	"context"
+	"crypto/ed25519"
+	"crypto/rand"
+	"encoding/base64"
 	"encoding/json"
+	"encoding/pem"
 	"errors"
 	"io"
 	"net/http"
 	"net/http/httptest"
 	"os"
 	"path/filepath"
-	"runtime"
 	"slices"
 	"strings"
 	"sync/atomic"
@@ -21,6 +24,7 @@ import (
 	"github.com/ollama/ollama/api"
 	"github.com/ollama/ollama/envconfig"
 	"github.com/ollama/ollama/format"
+	"golang.org/x/crypto/ssh"
 )
 
 func TestModelRecommendationsDefaultOrder(t *testing.T) {
@@ -35,49 +39,6 @@ func TestModelRecommendationsDefaultOrder(t *testing.T) {
 
 	if got := modelRecommendationNames(defaultModelRecommendations); !slices.Equal(got, want) {
 		t.Fatalf("recommendations = %v, want %v", got, want)
-	}
-}
-
-func TestModelRecommendationsDefaultOrderByPlatform(t *testing.T) {
-	neutral := []string{
-		"kimi-k2.6:cloud",
-		"glm-5.1:cloud",
-		"qwen3.5:cloud",
-		"minimax-m2.7:cloud",
-		"gemma4",
-		"qwen3.5",
-	}
-
-	cases := []struct {
-		name   string
-		goos   string
-		goarch string
-		want   []string
-	}{
-		{
-			name:   "darwin arm64",
-			goos:   "darwin",
-			goarch: "arm64",
-			want: []string{
-				"kimi-k2.6:cloud",
-				"glm-5.1:cloud",
-				"qwen3.5:cloud",
-				"minimax-m2.7:cloud",
-				"gemma4:e4b-mlx",
-				"qwen3.5:9b-mlx",
-			},
-		},
-		{name: "darwin amd64", goos: "darwin", goarch: "amd64", want: neutral},
-		{name: "linux arm64", goos: "linux", goarch: "arm64", want: neutral},
-	}
-
-	for _, tc := range cases {
-		t.Run(tc.name, func(t *testing.T) {
-			got := modelRecommendationNames(applyPlatformTags(defaultModelRecommendations, tc.goos, tc.goarch))
-			if !slices.Equal(got, tc.want) {
-				t.Fatalf("recommendations = %v, want %v", got, tc.want)
-			}
-		})
 	}
 }
 
@@ -99,9 +60,13 @@ func TestModelRecommendationsCacheRefreshAppliesServerSideChanges(t *testing.T) 
 		if req.Method != http.MethodGet {
 			t.Fatalf("method = %q, want GET", req.Method)
 		}
-		if req.URL.String() != modelRecommendationsURL {
-			t.Fatalf("url = %q, want %q", req.URL.String(), modelRecommendationsURL)
+		if got := req.URL.Scheme + "://" + req.URL.Host + req.URL.Path; got != modelRecommendationsURL {
+			t.Fatalf("url = %q, want %q", got, modelRecommendationsURL)
 		}
+		if query := req.URL.Query(); len(query) != 1 || query.Get("ts") == "" {
+			t.Fatalf("query does not contain only the signed timestamp: %q", req.URL.RawQuery)
+		}
+		verifySignedOllamaRequest(t, req)
 
 		calls++
 		payload := api.ModelRecommendationsResponse{Recommendations: first}
@@ -150,95 +115,35 @@ func TestModelRecommendationsCacheRefreshAppliesServerSideChanges(t *testing.T) 
 	}
 }
 
-func TestModelRecommendationsCacheRefreshAppliesDarwinArm64MLXTags(t *testing.T) {
+func TestModelRecommendationsCacheSigningFailurePreservesCurrentData(t *testing.T) {
 	setupModelRecommendationsTestEnv(t, "")
 
-	raw := []api.ModelRecommendation{
-		{Model: "gemma4", Description: "local", VRAMBytes: 12884901888},
-		{Model: "qwen3.5", Description: "local", VRAMBytes: 15032385536},
-		{Model: "qwen3.6", Description: "local", VRAMBytes: 25769803776},
+	previousSigner := cloudProxySignRequest
+	cloudProxySignRequest = func(context.Context, *http.Request) error {
+		return errors.New("signing unavailable")
 	}
+	t.Cleanup(func() {
+		cloudProxySignRequest = previousSigner
+	})
+
+	called := false
 	cache := newModelRecommendationsCache()
-	cache.goos = "darwin"
-	cache.goarch = "arm64"
+	stable := []api.ModelRecommendation{{Model: "stable-local", Description: "stable desc", VRAMBytes: 2 * format.GigaByte}}
+	cache.set(stable)
 	cache.client = &http.Client{Transport: roundTripFunc(func(*http.Request) (*http.Response, error) {
-		data, err := json.Marshal(api.ModelRecommendationsResponse{Recommendations: raw})
-		if err != nil {
-			t.Fatalf("marshal payload failed: %v", err)
-		}
-		return jsonHTTPResponse(http.StatusOK, string(data)), nil
+		called = true
+		return jsonHTTPResponse(http.StatusOK, `{"recommendations":[{"model":"unexpected","description":"unexpected"}]}`), nil
 	})}
 
-	if err := cache.refresh(context.Background()); err != nil {
-		t.Fatalf("refresh failed: %v", err)
+	err := cache.refresh(context.Background())
+	if err == nil || !strings.Contains(err.Error(), "signing unavailable") {
+		t.Fatalf("refresh error = %v, want signing failure", err)
 	}
-
-	want := []string{"gemma4:e4b-mlx", "qwen3.5:9b-mlx", "qwen3.6:35b-mlx"}
-	if got := modelRecommendationNames(cache.Get()); !slices.Equal(got, want) {
-		t.Fatalf("recommendations = %v, want %v", got, want)
+	if called {
+		t.Fatal("model recommendations request was sent unsigned")
 	}
-
-	path, err := modelRecommendationsSnapshotPath()
-	if err != nil {
-		t.Fatalf("snapshot path failed: %v", err)
-	}
-	snapshotData, err := os.ReadFile(path)
-	if err != nil {
-		t.Fatalf("read snapshot failed: %v", err)
-	}
-	var snapshot api.ModelRecommendationsResponse
-	if err := json.Unmarshal(snapshotData, &snapshot); err != nil {
-		t.Fatalf("unmarshal snapshot failed: %v", err)
-	}
-	if !slices.Equal(snapshot.Recommendations, raw) {
-		t.Fatalf("snapshot recommendations = %#v, want raw %#v", snapshot.Recommendations, raw)
-	}
-}
-
-func TestModelRecommendationsPlatformTagsDedupesAfterReplacement(t *testing.T) {
-	input := []api.ModelRecommendation{
-		{Model: "gemma4", Description: "base"},
-		{Model: "gemma4:e4b-mlx", Description: "explicit"},
-	}
-
-	got := applyPlatformTags(input, "darwin", "arm64")
-	wantNames := []string{"gemma4:e4b-mlx"}
-	if !slices.Equal(modelRecommendationNames(got), wantNames) {
-		t.Fatalf("models = %v, want %v", modelRecommendationNames(got), wantNames)
-	}
-}
-
-func TestModelRecommendationsPlatformTagsUsesCurrentRecommendationReplacements(t *testing.T) {
-	input := []api.ModelRecommendation{
-		{Model: "gemma4", Description: "local"},
-		{Model: "qwen3.5", Description: "local"},
-		{Model: "qwen3.6", Description: "local"},
-	}
-
-	got := applyPlatformTags(input, "darwin", "arm64")
-	wantNames := []string{
-		"gemma4:e4b-mlx",
-		"qwen3.5:9b-mlx",
-		"qwen3.6:35b-mlx",
-	}
-	if !slices.Equal(modelRecommendationNames(got), wantNames) {
-		t.Fatalf("models = %v, want %v", modelRecommendationNames(got), wantNames)
-	}
-}
-
-func TestModelRecommendationsPlatformTagsDoesNotSynthesizeMLXTags(t *testing.T) {
-	input := []api.ModelRecommendation{
-		{Model: "llama3.2", Description: "local"},
-		{Model: "gemma4:latest", Description: "tagged"},
-		{Model: "gemma4:26b", Description: "tagged"},
-		{Model: "qwen3.5:9b", Description: "tagged"},
-		{Model: "qwen3.6:14b", Description: "not published"},
-		{Model: "qwen3.6:35b-a3b", Description: "no plain mlx tag"},
-	}
-
-	got := applyPlatformTags(input, "darwin", "arm64")
-	if !slices.Equal(got, input) {
-		t.Fatalf("recommendations = %#v, want %#v", got, input)
+	if got := cache.Get(); !slices.Equal(got, stable) {
+		t.Fatalf("recommendations changed on signing failure: got %#v, want %#v", got, stable)
 	}
 }
 
@@ -365,40 +270,6 @@ func TestModelRecommendationsSnapshotPersistAndLoad(t *testing.T) {
 	}
 }
 
-func TestModelRecommendationsSnapshotLoadAppliesReaderPlatform(t *testing.T) {
-	setupModelRecommendationsTestEnv(t, "")
-
-	raw := []api.ModelRecommendation{
-		{Model: "gemma4", Description: "local", VRAMBytes: 12884901888},
-		{Model: "qwen3.5", Description: "local", VRAMBytes: 15032385536},
-	}
-
-	writer := newModelRecommendationsCache()
-	writer.goos = "darwin"
-	writer.goarch = "arm64"
-	if err := writer.persistSnapshot(raw); err != nil {
-		t.Fatalf("persistSnapshot failed: %v", err)
-	}
-
-	darwinLoader := newModelRecommendationsCache()
-	darwinLoader.goos = "darwin"
-	darwinLoader.goarch = "arm64"
-	darwinLoader.set([]api.ModelRecommendation{{Model: "old", Description: "old"}})
-	darwinLoader.loadSnapshot()
-	if got, want := modelRecommendationNames(darwinLoader.Get()), []string{"gemma4:e4b-mlx", "qwen3.5:9b-mlx"}; !slices.Equal(got, want) {
-		t.Fatalf("darwin loaded recommendations = %v, want %v", got, want)
-	}
-
-	linuxLoader := newModelRecommendationsCache()
-	linuxLoader.goos = "linux"
-	linuxLoader.goarch = "arm64"
-	linuxLoader.set([]api.ModelRecommendation{{Model: "old", Description: "old"}})
-	linuxLoader.loadSnapshot()
-	if got, want := modelRecommendationNames(linuxLoader.Get()), []string{"gemma4", "qwen3.5"}; !slices.Equal(got, want) {
-		t.Fatalf("linux loaded recommendations = %v, want %v", got, want)
-	}
-}
-
 func TestModelRecommendationsLoadSnapshotInvalidDoesNotOverwrite(t *testing.T) {
 	setupModelRecommendationsTestEnv(t, "")
 
@@ -491,7 +362,7 @@ func TestModelRecommendationsHandlerReturnsDefaults(t *testing.T) {
 	}
 
 	got := decodeRecommendationNames(t, w)
-	want := modelRecommendationNames(applyPlatformTags(defaultModelRecommendations, runtime.GOOS, runtime.GOARCH))
+	want := modelRecommendationNames(defaultModelRecommendations)
 	if !slices.Equal(got, want) {
 		t.Fatalf("models = %v, want %v", got, want)
 	}
@@ -720,6 +591,7 @@ func setupModelRecommendationsTestEnv(t *testing.T, noCloudEnv string) {
 	t.Setenv("USERPROFILE", home)
 	t.Setenv("HOMEDRIVE", filepath.VolumeName(home))
 	t.Setenv("HOMEPATH", strings.TrimPrefix(home, filepath.VolumeName(home)))
+	writeTestOllamaPrivateKey(t, home)
 
 	// Use explicit false rather than empty to avoid platform/env ambiguity.
 	if noCloudEnv == "" {
@@ -728,6 +600,49 @@ func setupModelRecommendationsTestEnv(t *testing.T, noCloudEnv string) {
 	t.Setenv("OLLAMA_NO_CLOUD", noCloudEnv)
 	envconfig.ReloadServerConfig()
 	t.Cleanup(envconfig.ReloadServerConfig)
+}
+
+func writeTestOllamaPrivateKey(t *testing.T, home string) {
+	t.Helper()
+	_, privateKey, err := ed25519.GenerateKey(rand.Reader)
+	if err != nil {
+		t.Fatal(err)
+	}
+	privateKeyBlock, err := ssh.MarshalPrivateKey(privateKey, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	keyPath := filepath.Join(home, ".ollama", "id_ed25519")
+	if err := os.MkdirAll(filepath.Dir(keyPath), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(keyPath, pem.EncodeToMemory(privateKeyBlock), 0o600); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func verifySignedOllamaRequest(t *testing.T, req *http.Request) {
+	t.Helper()
+	parts := strings.Split(req.Header.Get("Authorization"), ":")
+	if len(parts) != 2 {
+		t.Fatal("model recommendations request is missing public-key identity")
+	}
+	publicKeyData, err := base64.StdEncoding.DecodeString(parts[0])
+	if err != nil {
+		t.Fatal("model recommendations request contains an invalid public key")
+	}
+	publicKey, err := ssh.ParsePublicKey(publicKeyData)
+	if err != nil {
+		t.Fatal("model recommendations request contains an invalid public key")
+	}
+	signatureData, err := base64.StdEncoding.DecodeString(parts[1])
+	if err != nil {
+		t.Fatal("model recommendations request contains an invalid signature")
+	}
+	challenge := []byte(req.Method + "," + req.URL.RequestURI())
+	if err := publicKey.Verify(challenge, &ssh.Signature{Format: publicKey.Type(), Blob: signatureData}); err != nil {
+		t.Fatal("model recommendations signature does not cover its complete request URI")
+	}
 }
 
 func withModelRecommendationsReadRefreshCooldown(t *testing.T, d time.Duration) {

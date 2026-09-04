@@ -558,7 +558,7 @@ type Metrics struct {
 	TotalDuration         time.Duration `json:"total_duration,omitempty"`
 	LoadDuration          time.Duration `json:"load_duration,omitempty"`
 	PromptEvalCount       int           `json:"prompt_eval_count,omitempty"`
-	PromptEvalCachedCount int           `json:"prompt_eval_cached_count,omitempty"`
+	PromptEvalCachedCount *int          `json:"prompt_eval_cached_count,omitempty"`
 	PromptEvalDuration    time.Duration `json:"prompt_eval_duration,omitempty"`
 	EvalCount             int           `json:"eval_count,omitempty"`
 	EvalDuration          time.Duration `json:"eval_duration,omitempty"`
@@ -801,8 +801,18 @@ type ListResponse struct {
 
 // ModelRecommendationsResponse is the response from [Client.ModelRecommendationsExperimental].
 type ModelRecommendationsResponse struct {
-	Recommendations []ModelRecommendation `json:"recommendations"`
+	Recommendations []ModelRecommendation        `json:"recommendations"`
+	Mappings        *ModelRecommendationMappings `json:"mappings,omitempty"`
 }
+
+// ModelRecommendationMapping defines one app-specific route preference.
+type ModelRecommendationMapping struct {
+	Model        string `json:"model"`
+	RequiredPlan string `json:"required_plan,omitempty"`
+}
+
+// ModelRecommendationMappings defines the app-specific model routes.
+type ModelRecommendationMappings map[string]ModelRecommendationMapping
 
 // ModelRecommendation is a single recommendation entry in [ModelRecommendationsResponse].
 type ModelRecommendation struct {
@@ -855,8 +865,7 @@ type CloudStatus struct {
 
 // StatusResponse is the response from [Client.CloudStatusExperimental].
 type StatusResponse struct {
-	Cloud         CloudStatus `json:"cloud"`
-	ContextLength int         `json:"context_length,omitempty"`
+	Cloud CloudStatus `json:"cloud"`
 }
 
 // WebSearchRequest is the request for [Client.WebSearchExperimental].
@@ -955,45 +964,6 @@ type UserResponse struct {
 	Plan      string    `json:"plan,omitempty"`
 }
 
-// UsageResponse reports recent activity and included-usage limits.
-type UsageResponse struct {
-	Activity UsageActivity `json:"activity"`
-	Limits   UsageLimits   `json:"limits"`
-}
-
-// UsageActivity reports usage activity over a period.
-type UsageActivity struct {
-	Cost   string       `json:"cost"`
-	Period UsagePeriod  `json:"period"`
-	Models []UsageModel `json:"models"`
-}
-
-// UsagePeriod describes the time window the usage covers.
-type UsagePeriod struct {
-	Type       string    `json:"type"`
-	StartingAt time.Time `json:"starting_at"`
-	EndingAt   time.Time `json:"ending_at"`
-}
-
-// UsageLimits reports included usage for the current session and week.
-type UsageLimits struct {
-	Session UsageLimit `json:"session"`
-	Weekly  UsageLimit `json:"weekly"`
-}
-
-// UsageLimit reports the consumed fraction of an included-usage limit.
-type UsageLimit struct {
-	Usage  float64      `json:"usage"`
-	Models []UsageModel `json:"models"`
-}
-
-// UsageModel reports a model's activity.
-type UsageModel struct {
-	Name         string `json:"name"`
-	RequestCount int    `json:"request_count"`
-	Cost         string `json:"cost,omitempty"`
-}
-
 // Tensor describes the metadata for a given tensor.
 type Tensor struct {
 	Name  string   `json:"name"`
@@ -1014,13 +984,18 @@ func (m *Metrics) Summary() {
 		fmt.Fprintf(os.Stderr, "prompt eval count:    %d token(s)\n", m.PromptEvalCount)
 	}
 
-	if m.PromptEvalCachedCount > 0 {
-		fmt.Fprintf(os.Stderr, "prompt eval cached:   %d token(s)\n", m.PromptEvalCachedCount)
+	cached := 0
+	if m.PromptEvalCachedCount != nil {
+		cached = *m.PromptEvalCachedCount
+	}
+	if cached > 0 {
+		fmt.Fprintf(os.Stderr, "prompt eval cached:   %d token(s)\n", cached)
 	}
 
 	if m.PromptEvalDuration > 0 {
 		fmt.Fprintf(os.Stderr, "prompt eval duration: %s\n", m.PromptEvalDuration)
-		fmt.Fprintf(os.Stderr, "prompt eval rate:     %.2f tokens/s\n", float64(m.PromptEvalCount)/m.PromptEvalDuration.Seconds())
+		uncached := max(0, m.PromptEvalCount-cached)
+		fmt.Fprintf(os.Stderr, "prompt eval rate:     %.2f tokens/s\n", float64(uncached)/m.PromptEvalDuration.Seconds())
 	}
 
 	if m.EvalCount > 0 {
@@ -1390,31 +1365,4 @@ func FormatParams(params map[string][]string) (map[string]any, error) {
 	}
 
 	return out, nil
-}
-
-// Web search types
-type SearchRequest struct {
-	Query      string `json:"query"`
-	MaxResults int    `json:"max_results,omitempty"`
-}
-
-type SearchResult struct {
-	Title   string `json:"title"`
-	URL     string `json:"url"`
-	Content string `json:"content"`
-}
-
-type SearchResponse struct {
-	Results []SearchResult `json:"results"`
-}
-
-// Web fetch types
-type FetchRequest struct {
-	URL string `json:"url"`
-}
-
-type FetchResponse struct {
-	Content string `json:"content"`
-	Title   string `json:"title,omitempty"`
-	URL     string `json:"url"`
 }

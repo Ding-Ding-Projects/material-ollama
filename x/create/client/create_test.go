@@ -554,6 +554,67 @@ func TestNewManifestWriter_PopulatesFileTypeFromEffectiveQuantize(t *testing.T) 
 	}
 }
 
+func TestNewManifestWriter_PopulatesGenerationDefaults(t *testing.T) {
+	t.Setenv("OLLAMA_MODELS", t.TempDir())
+
+	modelDir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(modelDir, "generation_config.json"), []byte(`{
+		"temperature": 0,
+		"top_k": 12,
+		"top_p": 0.7,
+		"min_p": 0.05,
+		"repetition_penalty": 1.2,
+		"penalty_last_n": -1
+	}`), 0o644); err != nil {
+		t.Fatalf("WriteFile() error = %v", err)
+	}
+
+	opts := CreateOptions{
+		ModelName: "test-generation-defaults",
+		ModelDir:  modelDir,
+	}
+
+	writer := newManifestWriter(opts, []string{"completion"}, "qwen3", "qwen3")
+	if err := writer(opts.ModelName, create.LayerInfo{}, nil, create.Classification{}); err != nil {
+		t.Fatalf("newManifestWriter() error = %v", err)
+	}
+
+	name := model.ParseName(opts.ModelName)
+	mf, err := manifest.ParseNamedManifest(name)
+	if err != nil {
+		t.Fatalf("ParseNamedManifest() error = %v", err)
+	}
+
+	configPath, err := manifest.BlobsPath(mf.Config.Digest)
+	if err != nil {
+		t.Fatalf("BlobsPath() error = %v", err)
+	}
+
+	data, err := os.ReadFile(configPath)
+	if err != nil {
+		t.Fatalf("ReadFile() error = %v", err)
+	}
+
+	var cfg model.ConfigV2
+	if err := json.Unmarshal(data, &cfg); err != nil {
+		t.Fatalf("Unmarshal() error = %v", err)
+	}
+
+	check := func(key string, want any) {
+		t.Helper()
+		if got := cfg.GenerationDefaults[key]; got != want {
+			t.Fatalf("%s = %#v, want %#v", key, got, want)
+		}
+	}
+
+	check("temperature", float64(0))
+	check("top_k", float64(12))
+	check("top_p", float64(0.7))
+	check("min_p", float64(0.05))
+	check("repeat_penalty", float64(1.2))
+	check("repeat_last_n", float64(-1))
+}
+
 func TestNewManifestWriter_PopulatesDraftMetadata(t *testing.T) {
 	t.Setenv("OLLAMA_MODELS", t.TempDir())
 
@@ -641,6 +702,11 @@ func TestDetectCapabilities(t *testing.T) {
 			name:       "qwen3-next always thinks",
 			configJSON: `{"architectures": ["Qwen3NextForCausalLM"]}`,
 			want:       modelCapabilities{thinking: true},
+		},
+		{
+			name:       "qwen4 always thinks",
+			configJSON: `{"architectures": ["Qwen4ExpForConditionalGeneration"], "model_type": "qwen4_exp"}`,
+			want:       modelCapabilities{vision: false, thinking: true},
 		},
 		{
 			name:       "vision config",
@@ -787,6 +853,11 @@ func TestGetParserName(t *testing.T) {
 			want:       "qwen3.5",
 		},
 		{
+			name:       "qwen4 model",
+			configJSON: `{"architectures": ["Qwen4ExpForConditionalGeneration"], "model_type": "qwen4_exp"}`,
+			want:       "qwen3.5",
+		},
+		{
 			name:       "deepseek model",
 			configJSON: `{"architectures": ["DeepseekV3ForCausalLM"]}`,
 			want:       "deepseek3",
@@ -867,6 +938,11 @@ func TestGetRendererName(t *testing.T) {
 			name:       "qwen3.5 model",
 			configJSON: `{"architectures": ["Qwen3_5ForConditionalGeneration"]}`,
 			want:       "qwen3.5",
+		},
+		{
+			name:       "qwen4 model",
+			configJSON: `{"architectures": ["Qwen4ExpForConditionalGeneration"], "model_type": "qwen4_exp"}`,
+			want:       "qwen3.8",
 		},
 		{
 			name:         "qwen3.8 embedded template",
