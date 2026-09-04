@@ -325,7 +325,6 @@ func (s *Server) GenerateHandler(c *gin.Context) {
 		remoteURL, err := url.Parse(m.Config.RemoteHost)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-			return
 		}
 
 		if !slices.Contains(envconfig.Remotes(), remoteURL.Hostname()) {
