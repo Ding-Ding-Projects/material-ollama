@@ -313,7 +313,28 @@ func CreateHandler(cmd *cobra.Command, args []string) error {
 		defer f.Close()
 	}
 
-	modelfile, err := parser.ParseFile(reader)
+	var r, fallback io.Reader
+	switch filename {
+	case "-":
+		r = os.Stdin
+	case "":
+		filename = "Modelfile"
+		fallback = strings.NewReader("FROM .")
+		fallthrough
+	default:
+		r, err = os.Open(filename)
+		if errors.Is(err, os.ErrNotExist) && fallback != nil {
+			r = fallback
+		} else if errors.Is(err, os.ErrNotExist) {
+			return fmt.Errorf("%w: Modelfile %q does not exist, please create it or use --file to specify a different file", err, filename)
+		} else if err != nil {
+			return err
+		} else {
+			defer r.(*os.File).Close()
+		}
+	}
+
+	modelfile, err := parser.ParseFile(r)
 	if err != nil {
 		return err
 	}
