@@ -109,6 +109,8 @@ type GenerateRequest struct {
 	// request, for multimodal models.
 	Images []ImageData `json:"images,omitempty"`
 
+	LogProbs int `json:"logprobs,omitempty"`
+
 	// Options lists model-specific options. For example, temperature can be
 	// set through this field, if the model supports it.
 	Options map[string]any `json:"options"`
@@ -1150,6 +1152,8 @@ type GenerateResponse struct {
 	// Context is an encoding of the conversation used in this response; this
 	// can be sent in the next request to keep a conversational memory.
 	Context []int `json:"context,omitempty"`
+
+	LogProbs []TokenProbs `json:"logprobs,omitempty"`
 
 	Metrics
 

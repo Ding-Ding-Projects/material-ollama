@@ -18,6 +18,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"runtime"
+	"sort"
 	"strconv"
 	"strings"
 	"sync"
@@ -57,8 +58,9 @@ type Sequence struct {
 	// inputs that have been added to a batch but not yet submitted to Decode
 	pendingInputs []input
 
+	// TODO: update this comment
 	// tokens that have been generated but not returned yet (e.g. for stop sequences)
-	pendingResponses []string
+	pendingResponses []CompletionResponse
 
 	// input cache being used by this sequence
 	cache *InputCacheSlot
@@ -88,6 +90,11 @@ type Sequence struct {
 	embeddingOnly bool
 
 	doneReason string
+
+	logits []float32
+
+	// number of logprobs to return with the completion response
+	logprobs int
 
 	// Metrics
 	startProcessingTime time.Time
@@ -310,6 +317,30 @@ func flushPending(seq *Sequence) bool {
 	case <-seq.quit:
 		return false
 	}
+	seq.pendingResponses = []CompletionResponse{}
+
+	// TODO: figure out this result logic
+	result := false
+	for _, resp := range resps {
+		// Check if there are any partial UTF-8 characters remaining.
+		// We already check and queue as we are generating but some may
+		// still make it here:
+		// - Sequence is ending, e.g. generation limit has been hit
+		// - Invalid characters in the middle of a string
+		// This is a stricter check to ensure we never output invalid Unicode.
+		for !utf8.ValidString(resp.Content) {
+			resp.Content = resp.Content[:len(resp.Content)-1]
+		}
+
+		select {
+		case seq.responses <- resp:
+			result = true
+		case <-seq.quit:
+			result = false
+		}
+	}
+
+	return result
 }
 
 func (s *Server) removeSequence(seqIndex int, reason string) {
@@ -497,12 +528,17 @@ func (s *Server) processBatch() error {
 			seq.inputs = append(seq.inputs, input{token: id})
 		}
 
-		seq.pendingResponses = append(seq.pendingResponses, piece)
-		sequence := strings.Join(seq.pendingResponses, "")
+		// TODO: add probs here
+		seq.pendingResponses = append(seq.pendingResponses, resp)
+		var sequence string
+		for _, r := range seq.pendingResponses {
+			sequence += r.Content
+		}
 
 		if ok, stop := common.FindStop(sequence, seq.stop); ok {
 			slog.Debug("hit stop token", "pending", seq.pendingResponses, "stop", stop)
 
+			// TODO: fix this stop sequence caching
 			var tokenTruncated bool
 			origLen := len(seq.pendingResponses)
 			seq.pendingResponses, tokenTruncated = common.TruncateStop(seq.pendingResponses, stop)
@@ -598,8 +634,10 @@ type CompletionResponse struct {
 	Tokens  []string  `json:"tokens,omitempty"`
 	Stop    bool      `json:"stop"`
 
-	Model        string  `json:"model,omitempty"`
-	Prompt       string  `json:"prompt,omitempty"`
+	Model    string       `json:"model,omitempty"`
+	Prompt   string       `json:"prompt,omitempty"`
+	LogProbs []TokenProbs `json:"logprobs,omitempty"`
+
 	StoppedLimit bool    `json:"stopped_limit,omitempty"`
 	PredictedN   int     `json:"predicted_n,omitempty"`
 	PredictedMS  float64 `json:"predicted_ms,omitempty"`
@@ -636,10 +674,6 @@ func (s *Server) completion(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Bad request", http.StatusBadRequest)
 		return
 	}
-
-	// Set the headers to indicate streaming
-	w.Header().Set("Content-Type", "application/json")
-	w.Header().Set("Transfer-Encoding", "chunked")
 
 	flusher, ok := w.(http.Flusher)
 	if !ok {
@@ -707,7 +741,7 @@ func (s *Server) completion(w http.ResponseWriter, r *http.Request) {
 		case <-r.Context().Done():
 			close(seq.quit)
 			return
-		case content, ok := <-seq.responses:
+		case resp, ok := <-seq.responses:
 			if ok {
 				// slog.Info("content", "content", content.Content)
 				if err := json.NewEncoder(w).Encode(&content); err != nil {

@@ -725,6 +725,7 @@ func (s *Server) GenerateHandler(c *gin.Context) {
 			PreservedTokens: preservedTokensForCompletion(builtinParser),
 			LeadingBOS:      leadingBOS,
 		}, func(cr llm.CompletionResponse) {
+			fmt.Printf("banana: %#v\n", cr)
 			res := api.GenerateResponse{
 				Model:     req.Model,
 				CreatedAt: time.Now().UTC(),
@@ -755,6 +756,13 @@ func (s *Server) GenerateHandler(c *gin.Context) {
 				thinking, content := thinkingState.AddContent(cr.Content)
 				res.Thinking = thinking
 				res.Response = content
+			}
+			for _, p := range cr.LogProbs {
+				res.LogProbs = append(res.LogProbs, api.TokenProbs{
+					TokenID: p.TokenID,
+					LogProb: p.LogProb,
+					Token:   p.Token,
+				})
 			}
 
 			if _, err := sb.WriteString(cr.Content); err != nil {
@@ -3709,6 +3717,13 @@ func (s *Server) handleNativeChat(c *gin.Context, req api.ChatRequest, m *Model,
 
 			if res.Message.Role == "" {
 				res.Message.Role = "assistant"
+			}
+			for _, p := range r.LogProbs {
+				res.LogProbs = append(res.LogProbs, api.TokenProbs{
+					TokenID: p.TokenID,
+					LogProb: p.LogProb,
+					Token:   p.Token,
+				})
 			}
 
 			if r.Done {
