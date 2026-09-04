@@ -622,6 +622,13 @@ func (s *Server) completion(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// TODO: if grammar is provided, load it
+	// if req.Grammar != "" {
+	// 	grammar := llama.NewGrammarWithTokens(req.Grammar, "root", s.model.Vocabulary)
+	// }
+	// defer grammar.Close()
+	// sampler := sample.WithGrammar(sample.Greedy(), grammar)
+
 	seq, err := s.NewSequence(req.Prompt, req.Images, NewSequenceParams{
 		numPredict: req.NumPredict,
 		stop:       req.Stop,

@@ -41,6 +41,7 @@ package llama
 #include "clip.h"
 #include "llava.h"
 #include "sampling_ext.h"
+#include "grammar_ext.h"
 
 bool llamaProgressCallback(float progress, void *user_data);
 */
