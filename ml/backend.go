@@ -91,6 +91,42 @@ func NewBackend(modelPath string, params BackendParams) (Backend, error) {
 	return nil, fmt.Errorf("unsupported backend")
 }
 
+// RopeType specifies the type of RoPE (Rotary Position Embedding) to use, these types are implemented in the backend
+type RopeType int
+
+const (
+	RopeTypeStandard RopeType = iota
+	_                         // not yet used
+	RopeTypeNeoX
+)
+
+// RopeConfig contains all configuration for the RoPE (Rotary Position Embedding) operation
+type RopeConfig struct {
+	// PositionIDs contains the position indices for each token in the sequence
+	// These indices are used to calculate the rotary embeddings
+	PositionIDs Tensor
+
+	// RopeFactors is an optional tensor containing pre-computed rotation factors
+	RopeFactors Tensor
+
+	// RopeDim specifies the dimension size for the rotary embeddings
+	RopeDim uint32
+
+	// RopeType indicates which RoPE variant to use (e.g. normal or neox)
+	RopeType RopeType
+
+	// OrigCtxLen stores the original context length the model was trained with
+	OrigCtxLen int
+
+	// RopeBase is the base value used in the frequency calculation
+	RopeBase float32
+
+	// RopeScale is a scaling factor applied to position indices
+	RopeScale float32
+
+	// YaRN parameters can be added here if they need to be configurable
+}
+
 type Context interface {
 	Empty(dtype DType, shape ...int) Tensor
 	Zeros(dtype DType, shape ...int) Tensor

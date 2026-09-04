@@ -536,13 +536,9 @@ func (t *Tensor) View(ctx ml.Context, offset int, shape ...int) ml.Tensor {
 	}
 }
 
-const (
-	ropeTypeNorm C.int = iota
-)
-
-func (t *Tensor) RoPE(ctx ml.Context, positionIDs, ropeFactors ml.Tensor, ropeDim uint32, ropeBase, ropeScale float32) ml.Tensor {
-	if ropeFactors == nil {
-		ropeFactors = &Tensor{}
+func (t *Tensor) RoPE(ctx ml.Context, rc ml.RopeConfig) ml.Tensor {
+	if rc.RopeFactors == nil {
+		rc.RopeFactors = &Tensor{}
 	}
 
 	return &Tensor{
