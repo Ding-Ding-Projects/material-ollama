@@ -242,6 +242,9 @@ func (s *Scheduler) processPending(ctx context.Context) {
 		case pending := <-s.pendingReqCh:
 			// Block other requests until we get this pending request running
 			pending.schedAttempts++
+			if pending.origNumCtx == 0 {
+				pending.origNumCtx = pending.opts.NumCtx
+			}
 
 			if pending.ctx.Err() != nil {
 				slog.Debug("pending request cancelled or timed out, skipping scheduling")
