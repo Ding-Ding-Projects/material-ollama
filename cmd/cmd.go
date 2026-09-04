@@ -33,6 +33,8 @@ import (
 	"text/tabwriter"
 	"time"
 
+	"github.com/minio/sha256-simd"
+
 	"github.com/containerd/console"
 	"github.com/mattn/go-runewidth"
 	"github.com/olekukonko/tablewriter"
