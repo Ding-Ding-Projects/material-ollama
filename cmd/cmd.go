@@ -2833,6 +2833,7 @@ func NewCLI() *cobra.Command {
 	runCmd.Flags().Bool("hidethinking", false, "Hide thinking output (if provided)")
 	runCmd.Flags().Bool("truncate", false, "For embedding models: truncate inputs exceeding context length (default: true). Set --truncate=false to error instead")
 	runCmd.Flags().Int("dimensions", 0, "Truncate output embeddings to specified dimension (embedding models only)")
+	runCmd.Flags().Bool("experimental", false, "Enable experimental agent loop with tools")
 
 	stopCmd := &cobra.Command{
 		Use:         "stop MODEL",
