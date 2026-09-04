@@ -3309,6 +3309,24 @@ func countChatImages(msgs []api.Message) int {
 	return count
 }
 
+func (s *Server) versionHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	data := struct {
+		Version string `json:"version"`
+	}{
+		Version: version.Version,
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	if err := json.NewEncoder(w).Encode(data); err != nil {
+		http.Error(w, "Failed to encode version", http.StatusInternalServerError)
+	}
+}
+
 func handleScheduleError(c *gin.Context, name string, err error) {
 	switch {
 	case errors.Is(err, errCapabilities), errors.Is(err, errRequired):
