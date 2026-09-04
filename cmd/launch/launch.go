@@ -796,6 +796,21 @@ func (c *launcherClient) launchEditorIntegration(ctx context.Context, name strin
 	return c.launchAfterConfiguration(ctx, name, runner, models[0], launchModels, req)
 }
 
+// The launcher stores selected models in ~/.ollama/config.json, but editor
+// integrations also keep state on disk. If the editor state is missing,
+// unreadable, no longer Ollama-managed, or no longer aligned with the launcher
+// selection, rewrite it before launch.
+func editorConfigNeedsRepair(editor Editor, models []string) bool {
+	if len(models) == 0 {
+		return false
+	}
+	current := editor.Models()
+	if current == nil {
+		return true
+	}
+	return !slices.Equal(current, models)
+}
+
 func (c *launcherClient) launchManagedSingleIntegration(ctx context.Context, name string, runner Runner, managed ManagedSingleModel, saved *config.IntegrationConfig, req IntegrationLaunchRequest) error {
 	current := managed.CurrentModel()
 	selectionCurrent := current

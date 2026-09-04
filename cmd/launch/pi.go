@@ -584,20 +584,18 @@ func (p *Pi) Edit(models []LaunchModel) error {
 	for _, m := range existingModels {
 		if modelObj, ok := m.(map[string]any); ok {
 			if id, ok := modelObj["id"].(string); ok {
-				// User-managed model (no _launch marker) - always preserve
 				if !isPiOllamaModel(modelObj) {
-					newModels = append(newModels, m)
-				} else if selectedSet[id] {
-					// Rebuild stale managed cloud entries so createConfig refreshes
-					// the whole entry instead of patching it in place.
-					if !hasContextWindow(modelObj) {
-						if _, ok := lookupCloudModelLimit(id); ok {
-							continue
-						}
-					}
-					newModels = append(newModels, m)
-					selectedSet[id] = false
+					userModels = append(userModels, m)
+					continue
 				}
+				// Rebuild stale managed cloud entries so createConfig refreshes
+				// the whole entry instead of patching it in place.
+				if !hasContextWindow(modelObj) {
+					if _, ok := lookupCloudModelLimit(id); ok {
+						continue
+					}
+				}
+				existingByID[id] = modelObj
 			}
 		}
 	}
@@ -607,6 +605,7 @@ func (p *Pi) Edit(models []LaunchModel) error {
 		if selectedSet[model.Name] {
 			newModels = append(newModels, createConfig(model))
 		}
+		newModels = append(newModels, createConfig(ctx, client, model))
 	}
 
 	ollama["models"] = newModels
@@ -644,6 +643,19 @@ func (p *Pi) Models() []string {
 		return nil
 	}
 
+	settingsPath := filepath.Join(home, ".pi", "agent", "settings.json")
+	settings, err := fileutil.ReadJSON(settingsPath)
+	if err != nil {
+		return nil
+	}
+	if settings["defaultProvider"] != "ollama" {
+		return nil
+	}
+	defaultModel, _ := settings["defaultModel"].(string)
+	if defaultModel == "" {
+		return nil
+	}
+
 	configPath := filepath.Join(home, ".pi", "agent", "models.json")
 	config, err := fileutil.ReadJSON(configPath)
 	if err != nil {
@@ -655,14 +667,31 @@ func (p *Pi) Models() []string {
 	models, _ := ollama["models"].([]any)
 
 	var result []string
+	defaultIndex := -1
 	for _, m := range models {
 		if modelObj, ok := m.(map[string]any); ok {
 			if id, ok := modelObj["id"].(string); ok {
+				if !isPiOllamaModel(modelObj) {
+					continue
+				}
+				if id == defaultModel {
+					defaultIndex = len(result)
+				}
 				result = append(result, id)
 			}
 		}
 	}
-	slices.Sort(result)
+	if len(result) == 0 || defaultIndex == -1 {
+		return nil
+	}
+	if defaultIndex > 0 {
+		defaultModel := result[defaultIndex]
+		ordered := make([]string, 0, len(result))
+		ordered = append(ordered, defaultModel)
+		ordered = append(ordered, result[:defaultIndex]...)
+		ordered = append(ordered, result[defaultIndex+1:]...)
+		result = ordered
+	}
 	return result
 }
 

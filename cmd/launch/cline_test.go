@@ -8,6 +8,8 @@ import (
 	"runtime"
 	"strings"
 	"testing"
+
+	"github.com/ollama/ollama/cmd/config"
 )
 
 func TestClineIntegration(t *testing.T) {
@@ -408,7 +410,7 @@ func TestClinePaths(t *testing.T) {
 	tmpDir := t.TempDir()
 	setTestHome(t, tmpDir)
 
-	t.Run("returns nil when no config exists", func(t *testing.T) {
+	t.Run("returns nil when config is missing", func(t *testing.T) {
 		if paths := c.Paths(); paths != nil {
 			t.Errorf("Paths() = %v, want nil", paths)
 		}
