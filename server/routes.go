@@ -2305,6 +2305,51 @@ func CopyModelHandler(c *gin.Context) {
 	}
 }
 
+func list(c *gin.Context) {
+	var models []api.ListResponseModel
+	fp, err := GetManifestPath()
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	err = filepath.Walk(fp, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+		if !info.IsDir() {
+			fi, err := os.Stat(path)
+			if err != nil {
+				return err
+			}
+			path := path[len(fp)+1:]
+			slashIndex := strings.LastIndex(path, "/")
+			if slashIndex == -1 {
+				return nil
+			}
+			tag := path[:slashIndex] + ":" + path[slashIndex+1:]
+			mp := ParseModelPath(tag)
+			manifest, err := GetManifest(mp)
+			if err != nil {
+				log.Printf("couldn't get manifest: %v", err)
+				return err
+			}
+			model := api.ListResponseModel{
+				Name:       mp.GetShortTagname(),
+				Size:       manifest.GetTotalSize(),
+				ModifiedAt: fi.ModTime(),
+			}
+			models = append(models, model)
+		}
+		return nil
+	})
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, api.ListResponse{models})
+}
+
 func Serve(ln net.Listener) error {
 	slog.SetDefault(logutil.NewLogger(os.Stderr, envconfig.LogLevel()))
 	slog.Info("server config", "env", envconfig.Values())
