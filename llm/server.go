@@ -259,6 +259,29 @@ type ChatResponse struct {
 	Logprobs              []Logprob     `json:"logprobs,omitempty"`
 }
 
+type ChatRequest struct {
+	Messages []api.Message
+	Tools    api.Tools
+	Format   json.RawMessage
+	Options  *api.Options
+	Think    *api.ThinkValue
+	Shift    bool
+
+	Logprobs    bool
+	TopLogprobs int
+}
+
+type ChatResponse struct {
+	Message            api.Message   `json:"message"`
+	DoneReason         DoneReason    `json:"done_reason"`
+	Done               bool          `json:"done"`
+	PromptEvalCount    int           `json:"prompt_eval_count"`
+	PromptEvalDuration time.Duration `json:"prompt_eval_duration"`
+	EvalCount          int           `json:"eval_count"`
+	EvalDuration       time.Duration `json:"eval_duration"`
+	Logprobs           []Logprob     `json:"logprobs,omitempty"`
+}
+
 // DoneReason represents the reason why a completion response is done
 type DoneReason int
 

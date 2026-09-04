@@ -670,6 +670,7 @@ func (s *Server) GenerateHandler(c *gin.Context) {
 				}
 				leadingBOS = leadingBOSForModel(m)
 			}
+			leadingBOS = leadingBOSForModel(m)
 		} else {
 			// Direct template execution flow.
 			if err := tmpl.Execute(&b, values); err != nil {
@@ -1934,6 +1935,15 @@ func getModelData(digest string, verbose bool) ([]gguf.KeyValue, []gguf.TensorIn
 	}
 
 	return keyValues, tensorInfos, nil
+}
+
+func selectedModelTemplate(m *Model, kv ggml.KV) string {
+	if m.HasChatTemplate && chatModeForModel(m) == chatExecutionModeNative {
+		if chatTemplate := kv.String("tokenizer.chat_template"); chatTemplate != "" {
+			return chatTemplate
+		}
+	}
+	return m.Template.String()
 }
 
 func selectedModelTemplate(m *Model, kv ggml.KV) string {

@@ -20,6 +20,10 @@ func (r *Nemotron3NanoRenderer) LeadingBOS() string {
 	return ""
 }
 
+func (r *Nemotron3NanoRenderer) LeadingBOS() string {
+	return ""
+}
+
 func (r *Nemotron3NanoRenderer) Render(messages []api.Message, tools []api.Tool, thinkValue *api.ThinkValue) (string, error) {
 	var sb strings.Builder
 	imageOffset := 0

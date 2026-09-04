@@ -831,12 +831,11 @@ func createModel(r api.CreateRequest, name model.Name, baseLayers []*layerGGML, 
 						config.Renderer = cmp.Or(config.Renderer, "nemotron-3-nano")
 						config.Parser = cmp.Or(config.Parser, "nemotron-3-nano")
 					}
-				case "laguna":
-					config.Renderer = cmp.Or(config.Renderer, "laguna")
-					config.Parser = cmp.Or(config.Parser, "laguna")
-				case "nemotron_h", "nemotron_h_moe", "nemotron_h_omni":
-					config.Renderer = cmp.Or(config.Renderer, "nemotron-3-nano")
-					config.Parser = cmp.Or(config.Parser, "nemotron-3-nano")
+				}
+			case manifest.MediaTypeImageDraft:
+				config.Draft = &model.Draft{
+					ModelFormat:  layer.GGML.Name(),
+					Architecture: layer.GGML.KV().Architecture(),
 				}
 			case manifest.MediaTypeImageDraft:
 				config.Draft = &model.Draft{

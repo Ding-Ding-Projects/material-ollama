@@ -913,6 +913,9 @@ func (m *Model) LoadWeights(tensors map[string]*mlx.Array) error {
 		}
 		m.Layers[i] = layer
 	}
+	for _, summary := range moeLoadSummaries {
+		slog.Debug("qwen3.5 moe load", "summary", summary)
+	}
 
 	// Load the MTP head only when its tensors are present: a config may declare
 	// num_nextn_predict_layers while a package ships without them. mtp.* names

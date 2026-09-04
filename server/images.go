@@ -196,7 +196,12 @@ func chatTemplateCapabilities(capabilities []model.Capability, chatTemplate stri
 	// until multimodal runtime pipeline lands. Remove when imageproc.go is wired up.
 	if m.Config.ModelFormat == "safetensors" && m.Config.Renderer == "gemma4" {
 		capabilities = slices.DeleteFunc(capabilities, func(c model.Capability) bool {
-			return c == model.CapabilityVision || c == "audio"
+			return c == model.CapabilityAudio
+		})
+	}
+	if isGemma4Renderer(m.Config.Renderer) && m.Config.ModelFormat == "safetensors" {
+		capabilities = slices.DeleteFunc(capabilities, func(c model.Capability) bool {
+			return c == model.CapabilityVision
 		})
 	}
 
