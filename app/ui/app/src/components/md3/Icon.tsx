@@ -40,6 +40,7 @@ export const ICON_NAMES = [
   'code',
   'confirmation_number',
   'construction',
+  'content_copy',
   'dark_mode',
   'delete',
   'delete_sweep',

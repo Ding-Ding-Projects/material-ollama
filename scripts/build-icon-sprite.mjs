@@ -89,7 +89,30 @@ const FILL_ICON_NAMES = [
 // --- 2. Scan real source for `<Icon name="..." />` usages. -----------------
 function scanSourceForIconNames(dir) {
   const found = new Set()
-  const nameAttr = /<Icon\b[^>]*\bname\s*=\s*["']([a-zA-Z0-9_]+)["']/g
+  // Two forms, because only one of them was ever scanned and that was not the
+  // one most call sites use.
+  //
+  //   <Icon name="check" />                     <- direct, was matched
+  //   <Button icon="check">  <Chip icon="x">    <- the prop form, was NOT
+  //
+  // Measured before this changed: 55 distinct names reach the sprite through
+  // the prop form and none of them were being scanned. They shipped only
+  // because DESIGN_ICON_NAMES happened to seed them by hand -- so the header
+  // note calling that seed "redundant (harmless) rather than load-bearing"
+  // had it backwards, and any new prop-form icon would have rendered as an
+  // empty box with nothing failing.
+  const patterns = [
+    /<Icon\b[^>]*\bname\s*=\s*["']([a-zA-Z0-9_]+)["']/g,
+    /\b(?:icon|trailingIcon)\s*=\s*["']([a-z0-9_]+)["']/g,
+    /\b(?:icon|trailingIcon)\s*:\s*["']([a-z0-9_]+)["']/g,
+  ]
+  // A braced expression -- icon={busy ? "check" : "close"} -- carries real literals
+  // that none of the patterns above can reach, because the value is not the
+  // whole attribute. Pull every quoted name out of the braces. A false
+  // positive here is safe: an unknown name fails this build loudly rather
+  // than shipping a symbol nobody asked for.
+  const bracedIcon = /\b(?:icon|trailingIcon)\s*=\s*\{([^}]*)}/g
+  const quoted = /["']([a-z0-9_]+)["']/g
   const walk = (d) => {
     for (const entry of readdirSync(d, { withFileTypes: true })) {
       if (entry.name === 'node_modules' || entry.name.startsWith('.')) continue
@@ -98,7 +121,12 @@ function scanSourceForIconNames(dir) {
         walk(full)
       } else if (/\.(tsx?|jsx?)$/.test(entry.name) && full !== iconComponentFile) {
         const text = readFileSync(full, 'utf8')
-        for (const m of text.matchAll(nameAttr)) found.add(m[1])
+        for (const pattern of patterns) {
+          for (const m of text.matchAll(pattern)) found.add(m[1])
+        }
+        for (const braced of text.matchAll(bracedIcon)) {
+          for (const m of braced[1].matchAll(quoted)) found.add(m[1])
+        }
       }
     }
   }

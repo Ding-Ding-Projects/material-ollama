@@ -10,7 +10,7 @@ import type { ShellEvent } from "./useShellEvents";
 // This exercises exactly those three claims through the real HeadlessUI
 // Popover trigger, not a pre-opened/forced-visible panel.
 const EVENTS: ShellEvent[] = [
-  { id: "evt-2", icon: "push_pin", text: "Pinned the Models tab", time: Date.now() },
+  { id: "evt-2", icon: "keep", text: "Pinned the Models tab", time: Date.now() },
   { id: "evt-1", icon: "close", text: "Closed the Chat tab", time: Date.now() - 60_000 },
 ];
 
