@@ -1257,7 +1257,7 @@ func ListRunningHandler(cmd *cobra.Command, args []string) error {
 	var data [][]string
 
 	for _, m := range models.Models {
-		if len(args) == 0 || strings.HasPrefix(m.Name, args[0]) {
+		if len(args) == 0 || strings.HasPrefix(m.Model, args[0]) {
 			var procStr string
 			switch {
 			case m.SizeVRAM == 0:
