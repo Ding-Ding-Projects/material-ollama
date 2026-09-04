@@ -2209,6 +2209,17 @@ func TestListIntegrationInfos(t *testing.T) {
 		}
 	})
 }
+func TestListIntegrationInfos_HidesPoolsideOnWindows(t *testing.T) {
+	prev := poolsideGOOS
+	poolsideGOOS = "windows"
+	t.Cleanup(func() { poolsideGOOS = prev })
+
+	for _, info := range ListIntegrationInfos() {
+		if info.Name == "pool" {
+			t.Fatal("expected pool to be hidden on Windows")
+		}
+	}
+}
 
 func TestListIntegrationInfos_HidesClaudeDesktop(t *testing.T) {
 	for _, info := range ListIntegrationInfos() {
@@ -2327,6 +2338,20 @@ func TestIntegration_AutoInstallable(t *testing.T) {
 				t.Errorf("integrationFor(%q).autoInstallable = %v, want %v", tt.name, got, tt.want)
 			}
 		})
+	}
+}
+
+func TestEnsureIntegrationInstalled_PoolsideUnsupportedOnWindows(t *testing.T) {
+	prev := poolsideGOOS
+	poolsideGOOS = "windows"
+	t.Cleanup(func() { poolsideGOOS = prev })
+
+	err := EnsureIntegrationInstalled("pool", &Poolside{})
+	if err == nil {
+		t.Fatal("expected Windows unsupported error")
+	}
+	if !strings.Contains(err.Error(), "not currently supported on Windows") {
+		t.Fatalf("expected Windows warning, got %v", err)
 	}
 }
 

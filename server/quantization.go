@@ -333,3 +333,16 @@ func llamaQuantizeArgs(arch string, newFileType fsggml.FileType, input, output, 
 	}
 	return append(args, input, output, typeName)
 }
+
+func sourceFP8TensorSet(kv fsggml.KV) map[string]struct{} {
+	names := kv.Strings("source_fp8_tensors")
+	if len(names) == 0 {
+		return nil
+	}
+
+	out := make(map[string]struct{}, len(names))
+	for _, name := range names {
+		out[name] = struct{}{}
+	}
+	return out
+}

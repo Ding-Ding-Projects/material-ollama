@@ -263,6 +263,18 @@ var integrationSpecs = []*IntegrationSpec{
 		},
 	},
 	{
+		Name:        "pool",
+		Runner:      &Poolside{},
+		Description: "Poolside's software agent for enterprise development",
+		Install: IntegrationInstallSpec{
+			CheckInstalled: func() bool {
+				_, err := exec.LookPath("pool")
+				return err == nil
+			},
+			URL: "https://github.com/poolsideai/pool",
+		},
+	},
+	{
 		Name:        "hermes",
 		Runner:      &Hermes{},
 		Description: "Self-improving AI agent built by Nous Research",
