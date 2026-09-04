@@ -469,6 +469,30 @@ func buildChatRequest(opts RunOptions, messages []api.Message, tools api.Tools) 
 	return req
 }
 
+// emitToolCallDetected announces tool calls the model produced (or a synthetic
+// run injected) before they are executed. Shared by every tool lifecycle so the
+// transcript and event stream stay consistent regardless of who originated the
+// call.
+func (s *Session) emitToolCallDetected(runID string, opts RunOptions, calls []api.ToolCall) error {
+	return s.emit(Event{Type: EventToolCallDetected, RunID: runID, ChatID: opts.ChatID, Model: opts.Model, ToolCalls: calls})
+}
+
+// emitToolStarted marks a single tool call as running.
+func (s *Session) emitToolStarted(runID string, opts RunOptions, callID, toolName, workingDir string, args map[string]any) error {
+	return s.emit(Event{Type: EventToolStarted, RunID: runID, ChatID: opts.ChatID, Model: opts.Model, ToolStatus: ToolStatusRunning, ToolCallID: callID, ToolName: toolName, WorkingDir: workingDir, Args: args})
+}
+
+// emitToolFinished reports the terminal outcome of a tool call. errMsg, when
+// non-empty, populates the Error field. Cancellation is tolerated so a sink
+// closing mid-shutdown does not surface as a user-facing failure.
+func (s *Session) emitToolFinished(ctx context.Context, runID string, opts RunOptions, status ToolStatus, callID, toolName, workingDir string, args map[string]any, content, errMsg string) error {
+	ev := Event{Type: EventToolFinished, RunID: runID, ChatID: opts.ChatID, Model: opts.Model, ToolStatus: status, ToolCallID: callID, ToolName: toolName, WorkingDir: workingDir, Args: args, Content: content}
+	if errMsg != "" {
+		ev.Error = errMsg
+	}
+	return s.emitIgnoringCanceled(ctx, ev)
+}
+
 func (s *Session) executeToolCalls(ctx context.Context, runID string, opts RunOptions, messages []api.Message, calls []api.ToolCall) (toolBatchResult, error) {
 	meta := newEventMetadata(runID, opts)
 	batch := toolBatchResult{
