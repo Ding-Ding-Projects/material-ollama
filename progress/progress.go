@@ -73,6 +73,10 @@ func (p *Progress) Stop() bool {
 	return stopped
 }
 
+func (p *Progress) StopWithoutClear() bool {
+	return p.stop()
+}
+
 func (p *Progress) StopAndClear() bool {
 	defer p.w.Flush()
 

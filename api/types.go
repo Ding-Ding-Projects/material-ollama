@@ -969,6 +969,7 @@ type WhisperCompletion struct {
 // ModelDetails provides details about a model.
 type ModelDetails struct {
 	ParentModel       string   `json:"parent_model"`
+	Digest            string   `json:"digest"`
 	Format            string   `json:"format"`
 	Family            string   `json:"family"`
 	Families          []string `json:"families"`

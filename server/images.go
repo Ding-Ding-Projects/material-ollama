@@ -1011,7 +1011,9 @@ func PullModel(ctx context.Context, name string, regOpts *registryOptions, fn fu
 		return errInsecureProtocol
 	}
 
-	fn(api.ProgressResponse{Status: "pulling manifest"})
+	if currentDigest == "" {
+		fn(api.ProgressResponse{Status: "pulling manifest"})
+	}
 
 	mf, manifestData, err := pullModelManifest(ctx, n, regOpts)
 	if err != nil {
