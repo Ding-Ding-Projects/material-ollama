@@ -1522,6 +1522,11 @@ func ShowHandler(cmd *cobra.Command, args []string) error {
 	flagsSet := 0
 	showType := ""
 
+	if model {
+		flagsSet++
+		showType = "model"
+	}
+
 	if license {
 		flagsSet++
 		showType = "license"
@@ -1795,6 +1800,38 @@ func showInfo(resp *api.ShowResponse, verbose bool, w io.Writer) error {
 	}
 
 	return nil
+}
+
+func truncate(s string) string {
+	lines := strings.Split(s, "\n")
+	var truncated strings.Builder
+
+	for _, line := range lines {
+		line = strings.TrimSpace(line)
+		if line != "" {
+			truncated.WriteString(line + " ")
+			if truncated.Len() > 60 {
+				return truncated.String()[:57] + "..."
+			}
+		}
+	}
+	return strings.TrimSpace(truncated.String())
+}
+
+// temporary fix for buggy params #4918
+func handleParams(s string) string {
+	lines := strings.Split(s, "\n")
+	var truncated strings.Builder
+
+	truncated.WriteString("{")
+	for _, line := range lines {
+		line = strings.Join(strings.Fields(line), ":")
+		truncated.WriteString(line + ",")
+		if truncated.Len() > 60 {
+			return truncated.String()[:57] + "..."
+		}
+	}
+	return strings.TrimSpace(truncated.String()) + "}"
 }
 
 func CopyHandler(cmd *cobra.Command, args []string) error {
@@ -2806,6 +2843,7 @@ func NewCLI() *cobra.Command {
 		Annotations: envconfig.Usage("OLLAMA_HOST"),
 	}
 
+	showCmd.Flags().Bool("model", false, "Show basic stats of a model")
 	showCmd.Flags().Bool("license", false, "Show license of a model")
 	showCmd.Flags().Bool("modelfile", false, "Show Modelfile of a model")
 	showCmd.Flags().Bool("parameters", false, "Show parameters of a model")
