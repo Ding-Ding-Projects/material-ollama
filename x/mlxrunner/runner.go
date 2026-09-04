@@ -50,6 +50,38 @@ type Runner struct {
 	spec *speculation
 }
 
+func releaseTensorMap(tensors map[string]*mlx.Array, keep map[*mlx.Array]struct{}) (count int, bytes int) {
+	if len(tensors) == 0 {
+		return 0, 0
+	}
+
+	seen := make(map[*mlx.Array]bool, len(tensors))
+	toRelease := make([]*mlx.Array, 0, len(tensors))
+	for name, arr := range tensors {
+		if arr == nil || !arr.Valid() {
+			delete(tensors, name)
+			continue
+		}
+		if keep != nil {
+			if _, ok := keep[arr]; ok {
+				continue
+			}
+		}
+		delete(tensors, name)
+		if seen[arr] {
+			continue
+		}
+		seen[arr] = true
+		toRelease = append(toRelease, arr)
+	}
+
+	if len(toRelease) == 0 {
+		return 0, 0
+	}
+
+	return len(toRelease), mlx.Release(toRelease...)
+}
+
 func (r *Runner) Load(modelName string) error {
 	root, err := model.Open(modelName)
 	if err != nil {

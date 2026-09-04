@@ -95,6 +95,9 @@ func (p *pendingSnapshots) prepare(currentOffset int, offsets []int) {
 		if i > 0 && o <= offsets[i-1] {
 			panic(fmt.Sprintf("PrepareSnapshots: offsets must be sorted and unique, got %v", offsets))
 		}
+		if kvCacheGrowDebugEnabled() {
+			slog.Info("KVCache grow", "prev", prev, "new_capacity", c.keys.Dim(2), "step", c.step)
+		}
 	}
 	p.offsets = append([]int(nil), offsets...)
 	p.captured = make([]Snapshot, len(offsets))

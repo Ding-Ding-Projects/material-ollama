@@ -55,6 +55,7 @@ func (r *Runner) Prepare(request *Request) error {
 	if len(tokens) == 0 {
 		return errors.New("empty prompt")
 	}
+	logMemory("prefill_done", -1)
 
 	if len(tokens) >= r.contextLength {
 		return fmt.Errorf("input length (%d tokens) exceeds the model's maximum context length (%d tokens)", len(tokens), r.contextLength)

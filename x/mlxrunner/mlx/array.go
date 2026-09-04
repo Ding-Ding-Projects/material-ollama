@@ -319,3 +319,39 @@ func LogArrays() {
 	}
 	logutil.Trace(fmt.Sprintf("tensors total: %d, size: %s, active: %s", len(arrays), PrettyBytes(total), PrettyBytes(ActiveMemory())))
 }
+
+// Release forcibly frees arrays regardless of reference accounting.
+// Use only for arrays that are known to be unreachable by any live model state.
+func Release(s ...*Array) (n int) {
+	seen := make(map[*Array]bool, len(s))
+	for _, t := range s {
+		if t == nil || !t.Valid() || seen[t] {
+			continue
+		}
+		seen[t] = true
+		n += t.NumBytes()
+		C.mlx_array_free(t.ctx)
+		t.ctx.ctx = nil
+		t.desc.inputs = nil
+		t.desc.numRefs = 0
+	}
+	return n
+}
+
+const pinnedNumRefs = 1 << 30
+
+// Pin keeps arrays alive for the process lifetime by setting a very high
+// reference count floor. Use for model parameter tensors shared across many
+// decode steps, where recursive Free traversals must never reclaim them.
+func Pin(s ...*Array) {
+	seen := make(map[*Array]bool, len(s))
+	for _, t := range s {
+		if t == nil || !t.Valid() || seen[t] {
+			continue
+		}
+		seen[t] = true
+		if t.desc.numRefs < pinnedNumRefs {
+			t.desc.numRefs = pinnedNumRefs
+		}
+	}
+}
