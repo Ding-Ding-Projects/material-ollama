@@ -2,12 +2,13 @@
 title: Codex CLI
 ---
 
+Codex is OpenAI's agentic coding tool for the command line.
 
 ## Install
 
 Install the [Codex CLI](https://developers.openai.com/codex/cli/). For the desktop app, see [Codex App](/integrations/codex-app).
 
-```
+```shell
 npm install -g @openai/codex
 ```
 
@@ -40,19 +41,19 @@ ollama launch codex --restore
 
 To use `codex` with Ollama, use the `--oss` flag:
 
-```
+```shell
 codex --oss
 ```
 
 To use a specific model, pass the `-m` flag:
 
-```
+```shell
 codex --oss -m gpt-oss:120b
 ```
 
 To use a cloud model:
 
-```
+```shell
 codex --oss -m gpt-oss:120b-cloud
 ```
 
