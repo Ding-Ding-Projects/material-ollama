@@ -3238,6 +3238,14 @@ func (s *Server) handleNativeChat(c *gin.Context, req api.ChatRequest, m *Model,
 			}
 
 			if r.Done {
+				slog.Debug("min duration", "duration", minDuration)
+				slog.Debug("max duration", "duration", maxDuration)
+				slog.Debug("total duration", "duration", totalDuration)
+				slog.Debug("check count", "count", checkCount)
+				// slog.Debug("average duration", "duration", totalDuration/time.Duration(checkCount))
+				// if sb.Len() > 0 {
+				// 	res.Message.Content = sb.String()
+				// }
 				res.DoneReason = r.DoneReason.String()
 				res.TotalDuration = time.Since(checkpointStart)
 				res.LoadDuration = checkpointLoaded.Sub(checkpointStart)
