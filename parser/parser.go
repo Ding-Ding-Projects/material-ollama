@@ -68,7 +68,7 @@ func (f Modelfile) CreateRequest(relativeDir string) (*api.CreateRequest, error)
 		case "model":
 			files, err := filesMap(c.Args, relativeDir)
 			if errors.Is(err, os.ErrNotExist) {
-				req.From = c.Args
+				req.From = name
 				continue
 			} else if err != nil {
 				return nil, err
@@ -115,9 +115,11 @@ func (f Modelfile) CreateRequest(relativeDir string) (*api.CreateRequest, error)
 
 			maps.Copy(req.Adapters, files)
 		case "template":
-			req.Template = c.Args
+			template := c.Args.(string)
+			req.Template = template
 		case "system":
-			req.System = c.Args
+			system := c.Args.(string)
+			req.System = system
 		case "license":
 			licenses = append(licenses, c.Args)
 		case "renderer":
@@ -135,15 +137,16 @@ func (f Modelfile) CreateRequest(relativeDir string) (*api.CreateRequest, error)
 			}
 			req.Requires = strings.TrimPrefix(requires, "v")
 		case "message":
-			role, msg, _ := strings.Cut(c.Args, ": ")
-			messages = append(messages, api.Message{Role: role, Content: msg})
-		default:
+			msg := c.Args.(*Message)
+			messages = append(messages, api.Message{Role: msg.Role, Content: msg.Content})
+		case "parameter":
 			if slices.Contains(deprecatedParameters, c.Name) {
-				fmt.Printf("warning: parameter %s is deprecated\n", c.Name)
+				fmt.Printf("warning: parameter '%s' is deprecated\n", c.Name)
 				break
 			}
 
-			ps, err := api.FormatParams(map[string][]string{c.Name: {c.Args}})
+			param := c.Args.(*Parameter)
+			ps, err := api.FormatParams(map[string][]string{param.Name: {param.Value}})
 			if err != nil {
 				return nil, err
 			}
@@ -157,6 +160,8 @@ func (f Modelfile) CreateRequest(relativeDir string) (*api.CreateRequest, error)
 					params[k] = v
 				}
 			}
+		default:
+			return nil, fmt.Errorf("warning: unknown command '%s'", c.Name)
 		}
 	}
 
@@ -426,7 +431,17 @@ func collect[E any](it iter.Seq2[E, error]) (s []E, _ error) {
 
 type Command struct {
 	Name string
-	Args string
+	Args any
+}
+
+type Parameter struct {
+	Name  string
+	Value string
+}
+
+type Message struct {
+	Role    string
+	Content string
 }
 
 func (c Command) String() string {
@@ -442,7 +457,7 @@ func (c Command) String() string {
 	case "ollama":
 		fmt.Fprintf(&sb, "OLLAMA %s", c.Args)
 	default:
-		fmt.Fprintf(&sb, "PARAMETER %s %s", c.Name, quote(c.Args))
+		fmt.Printf("unknown command '%s'\n", c.Name)
 	}
 
 	return sb.String()
@@ -483,7 +498,6 @@ func ParseFile(r io.Reader) (*Modelfile, error) {
 	var curr state
 	var currLine int = 1
 	var b bytes.Buffer
-	var role string
 
 	var f Modelfile
 
@@ -530,6 +544,7 @@ func ParseFile(r io.Reader) (*Modelfile, error) {
 				case "parameter":
 					// transition to stateParameter which sets command name
 					next = stateParameter
+					cmd.Name = s
 				case "message":
 					// transition to stateMessage which validates the message role
 					next = stateMessage
@@ -541,16 +556,37 @@ func ParseFile(r io.Reader) (*Modelfile, error) {
 					cmd.Name = s
 				}
 			case stateParameter:
-				cmd.Name = b.String()
+				s, ok := unquote(strings.TrimSpace(b.String()))
+				if !ok || isSpace(r) {
+					if _, err := b.WriteRune(r); err != nil {
+						return nil, err
+					}
+
+					continue
+				}
+				cmd.Args = &Parameter{
+					Name: s,
+				}
 			case stateMessage:
-				if !isValidMessageRole(b.String()) {
+				s, ok := unquote(strings.TrimSpace(b.String()))
+				if !ok || isSpace(r) {
+					if _, err := b.WriteRune(r); err != nil {
+						return nil, err
+					}
+
+					continue
+				}
+
+				if !isValidMessageRole(s) {
 					return nil, &ParserError{
 						LineNumber: currLine,
 						Msg:        errInvalidMessageRole.Error(),
 					}
 				}
 
-				role = b.String()
+				cmd.Args = &Message{
+					Role: s,
+				}
 			case stateComment, stateNil:
 				// pass
 			case stateVersion:
@@ -586,12 +622,16 @@ func ParseFile(r io.Reader) (*Modelfile, error) {
 					continue
 				}
 
-				if role != "" {
-					s = role + ": " + s
-					role = ""
+				switch cmd.Name {
+				case "parameter":
+					p := cmd.Args.(*Parameter)
+					p.Value = s
+				case "message":
+					m := cmd.Args.(*Message)
+					m.Content = s
+				default:
+					cmd.Args = s
 				}
-
-				cmd.Args = s
 				f.Commands = append(f.Commands, cmd)
 			}
 
@@ -632,11 +672,16 @@ func ParseFile(r io.Reader) (*Modelfile, error) {
 			return nil, io.ErrUnexpectedEOF
 		}
 
-		if role != "" {
-			s = role + ": " + s
+		switch cmd.Name {
+		case "parameter":
+			c := cmd.Args.(*Parameter)
+			c.Value = s
+		case "message":
+			c := cmd.Args.(*Message)
+			c.Content = s
+		default:
+			cmd.Args = s
 		}
-
-		cmd.Args = s
 		f.Commands = append(f.Commands, cmd)
 	default:
 		return nil, io.ErrUnexpectedEOF
