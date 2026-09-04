@@ -3,9 +3,12 @@ package launch
 import (
 	"encoding/json"
 	"fmt"
+	"net/http"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"slices"
+	"strconv"
 	"strings"
 
 	"github.com/ollama/ollama/cmd/internal/fileutil"
@@ -750,6 +753,110 @@ func buildCodexModelEntry(launchModel LaunchModel) map[string]any {
 		"supported_reasoning_levels":   []any{},
 		"experimental_supported_tools": []any{},
 	}
+}
+
+func writeCodexModelCatalog(catalogPath, modelName string) error {
+	entry := buildCodexModelEntry(modelName)
+
+	catalog := map[string]any{
+		"models": []any{entry},
+	}
+
+	data, err := json.MarshalIndent(catalog, "", "  ")
+	if err != nil {
+		return err
+	}
+
+	return os.WriteFile(catalogPath, data, 0o644)
+}
+
+func buildCodexModelEntry(modelName string) map[string]any {
+	contextWindow := 0
+	hasVision := false
+	hasThinking := false
+	systemPrompt := ""
+
+	if l, ok := lookupCloudModelLimit(modelName); ok {
+		contextWindow = l.Context
+	}
+
+	client := api.NewClient(envconfig.Host(), http.DefaultClient)
+	resp, err := client.Show(context.Background(), &api.ShowRequest{Model: modelName})
+	if err == nil {
+		systemPrompt = resp.System
+		if slices.Contains(resp.Capabilities, model.CapabilityVision) {
+			hasVision = true
+		}
+		if slices.Contains(resp.Capabilities, model.CapabilityThinking) {
+			hasThinking = true
+		}
+
+		if !isCloudModelName(modelName) {
+			if n, ok := modelInfoContextLength(resp.ModelInfo); ok {
+				contextWindow = n
+			}
+			if resp.Details.Format != "safetensors" {
+				if ctxLen := envconfig.ContextLength(); ctxLen > 0 {
+					contextWindow = int(ctxLen)
+				}
+				if numCtx := parseNumCtx(resp.Parameters); numCtx > 0 {
+					contextWindow = numCtx
+				}
+			}
+		}
+	}
+
+	modalities := []string{"text"}
+	if hasVision {
+		modalities = append(modalities, "image")
+	}
+
+	reasoningLevels := []any{}
+	if hasThinking {
+		reasoningLevels = []any{
+			map[string]any{"effort": "low", "description": "Fast responses with lighter reasoning"},
+			map[string]any{"effort": "medium", "description": "Balances speed and reasoning depth"},
+			map[string]any{"effort": "high", "description": "Greater reasoning depth for complex problems"},
+		}
+	}
+
+	truncationMode := "bytes"
+	if isCloudModelName(modelName) {
+		truncationMode = "tokens"
+	}
+
+	return map[string]any{
+		"slug":                         modelName,
+		"display_name":                 modelName,
+		"context_window":               contextWindow,
+		"apply_patch_tool_type":        "function",
+		"shell_type":                   "default",
+		"visibility":                   "list",
+		"supported_in_api":             true,
+		"priority":                     0,
+		"truncation_policy":            map[string]any{"mode": truncationMode, "limit": 10000},
+		"input_modalities":             modalities,
+		"base_instructions":            systemPrompt,
+		"support_verbosity":            true,
+		"default_verbosity":            "low",
+		"supports_parallel_tool_calls": false,
+		"supports_reasoning_summaries": hasThinking,
+		"supported_reasoning_levels":   reasoningLevels,
+		"experimental_supported_tools": []any{},
+	}
+}
+
+func parseNumCtx(parameters string) int {
+	for _, line := range strings.Split(parameters, "\n") {
+		fields := strings.Fields(line)
+		if len(fields) == 2 && fields[0] == "num_ctx" {
+			if v, err := strconv.ParseFloat(fields[1], 64); err == nil {
+				return int(v)
+			}
+		}
+	}
+
+	return 0
 }
 
 func checkCodexVersion() error {
