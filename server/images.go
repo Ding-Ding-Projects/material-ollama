@@ -14,6 +14,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"path"
 	"path/filepath"
 	"runtime"
 	"slices"
@@ -842,12 +843,9 @@ func deleteUnusedLayers(deleteMap map[string]struct{}) error {
 		return err
 	}
 
-	for _, manifest := range manifests {
-		for _, layer := range manifest.Layers {
-			delete(deleteMap, layer.Digest)
-		}
-
-		delete(deleteMap, manifest.Config.Digest)
+	scheme := "https"
+	if opts.Insecure {
+		scheme = "http"
 	}
 
 	// only delete the files which are still in the deleteMap
@@ -979,7 +977,7 @@ func PushModel(ctx context.Context, name string, regOpts *registryOptions, fn fu
 
 	headers := make(http.Header)
 	headers.Set("Content-Type", "application/vnd.docker.distribution.manifest.v2+json")
-	resp, err := makeRequestWithRetry(ctx, http.MethodPut, requestURL, headers, bytes.NewReader(manifestJSON), regOpts)
+	resp, err := makeRequestWithRetry(ctx, http.MethodPut, requestURL, headers, bytes.NewReader(manifestJSON), &opts)
 	if err != nil {
 		return err
 	}
@@ -1054,7 +1052,7 @@ func PullModel(ctx context.Context, name string, regOpts *registryOptions, fn fu
 		cacheHit, err := downloadBlob(ctx, downloadOpts{
 			n:       n,
 			digest:  layer.Digest,
-			regOpts: regOpts,
+			regOpts: opts,
 			fn:      fn,
 		})
 		if err != nil {
@@ -1084,11 +1082,13 @@ func PullModel(ctx context.Context, name string, regOpts *registryOptions, fn fu
 				if err != nil {
 					return err
 				}
+
 				if err := os.Remove(fp); err != nil {
 					slog.Info(fmt.Sprintf("couldn't remove file with digest mismatch '%s': %v", fp, err))
 				}
+			} else if err != nil {
+				return err
 			}
-			return err
 		}
 	}
 
@@ -1123,7 +1123,6 @@ func PullModel(ctx context.Context, name string, regOpts *registryOptions, fn fu
 	}
 
 	fn(api.ProgressResponse{Status: "success"})
-
 	return nil
 }
 
@@ -1277,7 +1276,7 @@ func pullModelManifest(ctx context.Context, n model.Name, regOpts *registryOptio
 
 	headers := make(http.Header)
 	headers.Set("Accept", "application/vnd.docker.distribution.manifest.v2+json")
-	resp, err := makeRequestWithRetry(ctx, http.MethodGet, requestURL, headers, nil, regOpts)
+	resp, err := makeRequestWithRetry(ctx, http.MethodGet, requestURL, headers, nil, opts)
 	if err != nil {
 		return nil, nil, err
 	}

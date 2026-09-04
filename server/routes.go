@@ -1127,13 +1127,11 @@ func (s *Server) EmbeddingsHandler(c *gin.Context) {
 }
 
 func (s *Server) PullHandler(c *gin.Context) {
-	var req api.PullRequest
-	err := c.ShouldBindJSON(&req)
-	switch {
-	case errors.Is(err, io.EOF):
+	var r api.PullRequest
+	if err := c.ShouldBindJSON(&r); errors.Is(err, io.EOF) {
 		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"error": "missing request body"})
 		return
-	case err != nil:
+	} else if err != nil {
 		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
@@ -1164,14 +1162,10 @@ func (s *Server) PullHandler(c *gin.Context) {
 			ch <- r
 		}
 
-		regOpts := &registryOptions{
-			Insecure: req.Insecure,
-		}
-
 		ctx, cancel := context.WithCancel(c.Request.Context())
 		defer cancel()
 
-		if err := PullModel(ctx, name.DisplayShortest(), regOpts, fn); err != nil {
+		if err := PullModel(ctx, n, &registryOptions{Insecure: r.Insecure}, fn); err != nil {
 			ch <- gin.H{"error": err.Error()}
 			return
 		}
@@ -1179,7 +1173,7 @@ func (s *Server) PullHandler(c *gin.Context) {
 		s.refreshModelListCache(name)
 	}()
 
-	if req.Stream != nil && !*req.Stream {
+	if r.Stream != nil && !*r.Stream {
 		waitForStream(c, ch)
 		return
 	}
@@ -1188,13 +1182,11 @@ func (s *Server) PullHandler(c *gin.Context) {
 }
 
 func (s *Server) PushHandler(c *gin.Context) {
-	var req api.PushRequest
-	err := c.ShouldBindJSON(&req)
-	switch {
-	case errors.Is(err, io.EOF):
+	var r api.PushRequest
+	if err := c.ShouldBindJSON(&r); errors.Is(err, io.EOF) {
 		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"error": "missing request body"})
 		return
-	case err != nil:
+	} else if err != nil {
 		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
@@ -1216,10 +1208,6 @@ func (s *Server) PushHandler(c *gin.Context) {
 			ch <- r
 		}
 
-		regOpts := &registryOptions{
-			Insecure: req.Insecure,
-		}
-
 		ctx, cancel := context.WithCancel(c.Request.Context())
 		defer cancel()
 
@@ -1234,7 +1222,7 @@ func (s *Server) PushHandler(c *gin.Context) {
 		}
 	}()
 
-	if req.Stream != nil && !*req.Stream {
+	if r.Stream != nil && !*r.Stream {
 		waitForStream(c, ch)
 		return
 	}
