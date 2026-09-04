@@ -203,7 +203,8 @@ func (c *Client) do(ctx context.Context, method, path string, reqData, respData 
 			return err
 		}
 	}
-	return nil
+
+	return ctx.Err()
 }
 
 const maxBufferSize = 8 * format.MegaByte
