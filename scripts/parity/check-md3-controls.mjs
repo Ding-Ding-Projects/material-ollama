@@ -73,7 +73,7 @@ const EXCEPTIONS = [
  * Controls that should become kit primitives and have not yet. This number may
  * only go down. It is debt, recorded so it cannot hide.
  */
-const BACKLOG_LIMIT = 44
+const BACKLOG_LIMIT = 39
 
 async function* walk(dir) {
   for (const entry of await readdir(dir, { withFileTypes: true })) {

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react"
-import { Button, Surface, useSnackbar } from "@/components/md3"
+import { Button, Surface, Switch, useSnackbar } from "@/components/md3"
 import { Icon } from "@/components/md3/Icon"
 import { Txt, fact, useT } from "@/uh"
 import { ConvertCategoryList } from "./ConvertCategoryList"
@@ -196,9 +196,9 @@ export function ConverterSection() {
         {pickError ? (
           <div className="flex items-center justify-between gap-2 rounded-lg bg-error-container px-3 py-2 text-[11.5px] text-on-error-container">
             <span>{fact(pickError, "user-input")}</span>
-            <button type="button" className="font-semibold underline" onClick={handlePick}>
+            <Button variant="text" size="sm" onClick={handlePick}>
               {t("errorRetry")}
-            </button>
+            </Button>
           </div>
         ) : null}
       </div>
@@ -209,9 +209,9 @@ export function ConverterSection() {
       ) : catalogError ? (
         <div className="flex items-center justify-between gap-2 rounded-lg bg-error-container px-3 py-2 text-[11.5px] text-on-error-container">
           <span>{fact(catalogError, "user-input")}</span>
-          <button type="button" className="font-semibold underline" onClick={loadCatalog}>
+          <Button variant="text" size="sm" onClick={loadCatalog}>
             {t("errorRetry")}
-          </button>
+          </Button>
         </div>
       ) : (
         <div className="flex flex-col gap-4">
@@ -236,9 +236,9 @@ export function ConverterSection() {
           ) : lossError ? (
             <div className="flex items-center justify-between gap-2 text-[11.5px] text-error">
               <span>{fact(lossError, "user-input")}</span>
-              <button type="button" className="font-semibold underline" onClick={() => handleSelectTarget(targetFormatId)}>
+              <Button variant="text" size="sm" onClick={() => handleSelectTarget(targetFormatId)}>
                 {t("errorRetry")}
-              </button>
+              </Button>
             </div>
           ) : lossReport?.lossy ? (
             <div className="flex flex-col gap-2">
@@ -252,24 +252,20 @@ export function ConverterSection() {
                 ))}
               </ul>
               {lossReport.irreversible ? <p className="text-[11px] font-semibold text-error">{t("irreversibleNotice")}</p> : null}
-              <label className="flex items-center gap-2 text-[12px]">
-                <input
-                  type="checkbox"
-                  checked={acknowledged}
-                  onChange={(event) => setAcknowledged(event.target.checked)}
-                  className="h-4 w-4 accent-[var(--p)]"
-                />
-                {t("acknowledgeLossy")}
-              </label>
+              <Switch
+                checked={acknowledged}
+                onChange={setAcknowledged}
+                label={t("acknowledgeLossy")}
+              />
             </div>
           ) : null}
 
           {startError ? (
             <div className="flex items-center justify-between gap-2 rounded-lg bg-error-container px-3 py-2 text-[11.5px] text-on-error-container">
               <span>{fact(startError, "user-input")}</span>
-              <button type="button" className="font-semibold underline" onClick={handleConvert}>
+              <Button variant="text" size="sm" onClick={handleConvert}>
                 {t("errorRetry")}
-              </button>
+              </Button>
             </div>
           ) : null}
 
