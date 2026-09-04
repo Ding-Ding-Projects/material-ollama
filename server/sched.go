@@ -107,13 +107,17 @@ func InitScheduler(ctx context.Context) *Scheduler {
 
 // schedulerModelKey returns the scheduler map key for a model.
 // GGUF-backed models use ModelPath; safetensors/image models without a
-// ModelPath use manifest digest so distinct models don't collide.
+// ModelPath use the selected manifest digest so distinct child manifests don't
+// collide.
 func schedulerModelKey(m *Model) string {
 	if m == nil {
 		return ""
 	}
 	if m.ModelPath != "" {
 		return m.ModelPath
+	}
+	if m.ManifestDigest != "" {
+		return "manifest:" + m.ManifestDigest
 	}
 	if m.Digest != "" {
 		return "digest:" + m.Digest

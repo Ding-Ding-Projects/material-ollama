@@ -72,6 +72,9 @@ type GenerateRequest struct {
 	// the library at https://ollama.com/library
 	Model string `json:"model"`
 
+	// Runner selects a runner variant from a manifest list.
+	Runner string `json:"runner,omitempty"`
+
 	// Prompt is the textual prompt to send to the model.
 	Prompt string `json:"prompt"`
 
@@ -788,6 +791,9 @@ type CreateRequest struct {
 	// From is the name of the model or file to use as the source.
 	From string `json:"from,omitempty"`
 
+	// List is the list of local model tags to include in a manifest list.
+	List []string `json:"list,omitempty"`
+
 	// RemoteHost is the URL of the upstream ollama API for the model (if any).
 	RemoteHost string `json:"remote_host,omitempty"`
 
@@ -843,8 +849,10 @@ type DeleteRequest struct {
 
 // ShowRequest is the request passed to [Client.Show].
 type ShowRequest struct {
-	Model  string `json:"model"`
-	System string `json:"system"`
+	Model        string `json:"model"`
+	Runner       string `json:"runner,omitempty"`
+	AllManifests bool   `json:"all_manifests,omitempty"`
+	System       string `json:"system"`
 
 	// Template is deprecated
 	Template string `json:"template"`
@@ -875,6 +883,18 @@ type ShowResponse struct {
 	Capabilities  []model.Capability `json:"capabilities,omitempty"`
 	ModifiedAt    time.Time          `json:"modified_at,omitempty"`
 	Requires      string             `json:"requires,omitempty"`
+}
+
+// ShowManifest is a single manifest summary returned from [Client.ShowManifests].
+type ShowManifest struct {
+	Runner string `json:"runner,omitempty"`
+	ShowResponse
+}
+
+// ShowManifestsResponse is the response returned from [Client.ShowManifests].
+type ShowManifestsResponse struct {
+	Manifests []ShowManifest `json:"manifests"`
+	License   string         `json:"license,omitempty"`
 }
 
 // CopyRequest is the request passed to [Client.Copy].
@@ -991,6 +1011,7 @@ type ProcessModelResponse struct {
 	ExpiresAt     time.Time    `json:"expires_at"`
 	SizeVRAM      int64        `json:"size_vram"`
 	ContextLength int          `json:"context_length"`
+	Runner        string       `json:"runner,omitempty"`
 }
 
 type TokenResponse struct {

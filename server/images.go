@@ -671,17 +671,30 @@ func (m *Model) String() string {
 }
 
 func GetModel(name string) (*Model, error) {
+	return GetModelForRunner(name, "")
+}
+
+// GetModelForRunner returns model metadata for name, selecting runner from a
+// manifest list when one is specified.
+func GetModelForRunner(name, runner string) (*Model, error) {
 	n := model.ParseName(name)
-	mf, err := manifest.ParseNamedManifest(n)
+	mf, err := manifest.ParseNamedManifestForRunner(n, runner)
 	if err != nil {
 		return nil, err
 	}
 
+	manifestDigest := mf.SelectedDigest()
+	if manifestDigest == "" {
+		manifestDigest = mf.Digest()
+	}
+
 	m := &Model{
-		Name:      n.String(),
-		ShortName: n.DisplayShortest(),
-		Digest:    mf.Digest(),
-		Template:  template.DefaultTemplate,
+		Name:           n.String(),
+		ShortName:      n.DisplayShortest(),
+		Digest:         mf.Digest(),
+		ManifestDigest: manifestDigest,
+		Runner:         mf.Runner,
+		Template:       template.DefaultTemplate,
 	}
 
 	if mf.Config.Digest != "" {
@@ -846,7 +859,7 @@ func deleteUnusedLayers(deleteMap map[string]struct{}) error {
 }
 
 func PruneLayers() error {
-	deleteMap := make(map[string]struct{})
+	var candidates []string
 	p, err := manifest.BlobsPath("")
 	if err != nil {
 		return err
@@ -887,17 +900,18 @@ func PruneLayers() error {
 			continue
 		}
 
-		deleteMap[name] = struct{}{}
+		candidates = append(candidates, name)
 	}
 
-	slog.Info(fmt.Sprintf("total blobs: %d", len(deleteMap)))
+	slog.Info(fmt.Sprintf("total blobs: %d", len(candidates)))
 
-	if err := deleteUnusedLayers(deleteMap); err != nil {
+	removed, err := manifest.RemoveUnreferencedBlobs(candidates...)
+	if err != nil {
 		slog.Error(fmt.Sprintf("couldn't remove unused layers: %v", err))
 		return nil
 	}
 
-	slog.Info(fmt.Sprintf("total unused blobs removed: %d", len(deleteMap)))
+	slog.Info(fmt.Sprintf("total unused blobs removed: %d", removed))
 
 	return nil
 }
@@ -916,25 +930,49 @@ func PushModel(ctx context.Context, name string, regOpts *registryOptions, fn fu
 		return fmt.Errorf("model name must be lowercase, but is %s", mp.Repository)
 	}
 
-	mf, err := manifest.ParseNamedManifest(n)
+	manifestJSON, err := manifest.ReadManifestData(n)
 	if err != nil {
 		fn(api.ProgressResponse{Status: "couldn't retrieve manifest"})
 		return err
 	}
 
+	var stored manifest.Manifest
+	if err := json.Unmarshal(manifestJSON, &stored); err != nil {
+		fn(api.ProgressResponse{Status: "couldn't retrieve manifest"})
+		return err
+	}
+
 	var layers []manifest.Layer
-	layers = append(layers, mf.Layers...)
-	if mf.Config.Digest != "" {
-		layers = append(layers, mf.Config)
+	manifestMediaType := manifest.MediaTypeManifest
+
+	if stored.MediaType == manifest.MediaTypeManifestList {
+		layers, err = pushLayersForManifestList(stored)
+		if err != nil {
+			return err
+		}
+		manifestMediaType = manifest.MediaTypeManifestList
+	} else {
+		mf, err := manifest.ParseNamedManifest(n)
+		if err != nil {
+			fn(api.ProgressResponse{Status: "couldn't retrieve manifest"})
+			return err
+		}
+
+		layers = append(layers, mf.Layers...)
+		if mf.Config.Digest != "" {
+			layers = append(layers, mf.Config)
+		}
+
+		if !hasTensorLayers(layers) {
+			manifestJSON, err = json.Marshal(mf)
+			if err != nil {
+				return err
+			}
+		}
 	}
 
 	// Use fast transfer for models with tensor layers (many small blobs)
 	if hasTensorLayers(layers) {
-		// Read raw manifest JSON to preserve tensor metadata fields
-		manifestJSON, err := manifest.ReadManifestData(n)
-		if err != nil {
-			return err
-		}
 		if err := pushWithTransfer(ctx, n, layers, manifestJSON, regOpts, fn); err != nil {
 			return err
 		}
@@ -953,11 +991,6 @@ func PushModel(ctx context.Context, name string, regOpts *registryOptions, fn fu
 	requestURL := n.BaseURL()
 	requestURL = requestURL.JoinPath("v2", n.DisplayNamespaceModel(), "manifests", n.Tag)
 
-	manifestJSON, err := json.Marshal(mf)
-	if err != nil {
-		return err
-	}
-
 	headers := make(http.Header)
 	headers.Set("Content-Type", "application/vnd.docker.distribution.manifest.v2+json")
 	resp, err := makeRequestWithRetry(ctx, http.MethodPut, requestURL, headers, bytes.NewReader(manifestJSON), &opts)
@@ -971,25 +1004,74 @@ func PushModel(ctx context.Context, name string, regOpts *registryOptions, fn fu
 	return nil
 }
 
+func pushLayersForManifestList(parent manifest.Manifest) ([]manifest.Layer, error) {
+	seen := make(map[string]struct{})
+	var layers []manifest.Layer
+
+	addLayer := func(layer manifest.Layer) error {
+		if layer.Digest == "" {
+			return nil
+		}
+		if _, ok := seen[layer.Digest]; ok {
+			return nil
+		}
+		if layer.Size == 0 {
+			p, err := manifest.BlobsPath(layer.Digest)
+			if err != nil {
+				return err
+			}
+			fi, err := os.Stat(p)
+			if err != nil {
+				return err
+			}
+			layer.Size = fi.Size()
+		}
+		seen[layer.Digest] = struct{}{}
+		layers = append(layers, layer)
+		return nil
+	}
+
+	for _, child := range parent.Manifests {
+		childDigest := child.BlobDigest()
+		if childDigest == "" {
+			return nil, errors.New("manifest list child is missing digest")
+		}
+		if err := addLayer(manifest.Layer{
+			MediaType: manifest.MediaTypeManifest,
+			Digest:    childDigest,
+		}); err != nil {
+			return nil, err
+		}
+
+		resolved, err := resolveShowManifestChild(child)
+		if err != nil {
+			return nil, err
+		}
+		for _, layer := range resolved.Layers {
+			if err := addLayer(layer); err != nil {
+				return nil, err
+			}
+		}
+		if err := addLayer(resolved.Config); err != nil {
+			return nil, err
+		}
+	}
+
+	return layers, nil
+}
+
 func PullModel(ctx context.Context, name string, regOpts *registryOptions, fn func(api.ProgressResponse)) error {
 	n := model.ParseName(name)
 
 	// build deleteMap to prune unused layers
 	deleteMap := make(map[string]struct{})
-	existingMf, err := manifest.ParseNamedManifest(n)
+	existingDigests, err := manifest.ReferencedBlobDigestsForName(n)
 	if errors.Is(err, os.ErrNotExist) {
 		// noop
 	} else if err != nil {
 		slog.Warn("pulling model with bad existing manifest", "name", name, "error", err)
 	} else {
-		for _, l := range existingMf.Layers {
-			deleteMap[l.Digest] = struct{}{}
-		}
-		if existingMf.Config.Digest != "" {
-			deleteMap[existingMf.Config.Digest] = struct{}{}
-		}
-		if existingMf.BlobDigest() != "" {
-			digest := existingMf.BlobDigest()
+		for _, digest := range existingDigests {
 			if blob, err := manifest.BlobsPath(digest); err == nil {
 				if _, err := os.Stat(blob); err == nil {
 					deleteMap[digest] = struct{}{}
@@ -1022,6 +1104,13 @@ func PullModel(ctx context.Context, name string, regOpts *registryOptions, fn fu
 		if err := mlx.CheckInit(); err != nil {
 			slog.Debug("MLX is unavailable for safetensors model pull", "error", err)
 			return errors.New("this model requires MLX support, but the MLX runtime is not available")
+		}
+	}
+
+	if mf.MediaType == manifest.MediaTypeManifestList {
+		mf, err = pullSelectedManifest(ctx, n, mf, regOpts, fn)
+		if err != nil {
+			return err
 		}
 	}
 
@@ -1099,7 +1188,7 @@ func PullModel(ctx context.Context, name string, regOpts *registryOptions, fn fu
 
 	if !envconfig.NoPrune() && len(deleteMap) > 0 {
 		fn(api.ProgressResponse{Status: "removing unused layers"})
-		if err := deleteUnusedLayers(deleteMap); err != nil {
+		if _, err := manifest.RemoveUnreferencedBlobs(candidateBlobDigests(deleteMap)...); err != nil {
 			fn(api.ProgressResponse{Status: fmt.Sprintf("couldn't remove unused layers: %v", err)})
 		}
 	}
@@ -1118,8 +1207,85 @@ func hasTensorLayers(layers []manifest.Layer) bool {
 	return false
 }
 
-// pullWithTransfer uses the simplified x/transfer package for downloading blobs.
-func pullWithTransfer(ctx context.Context, n model.Name, layers []manifest.Layer, manifestData []byte, regOpts *registryOptions, fn func(api.ProgressResponse)) error {
+func candidateBlobDigests(m map[string]struct{}) []string {
+	digests := make([]string, 0, len(m))
+	for digest := range m {
+		digests = append(digests, digest)
+	}
+
+	return digests
+}
+
+func pullSelectedManifest(ctx context.Context, n model.Name, parent *manifest.Manifest, regOpts *registryOptions, fn func(api.ProgressResponse)) (*manifest.Manifest, error) {
+	child, err := manifest.SelectManifestReference(parent.Manifests)
+	if err != nil {
+		return nil, err
+	}
+
+	childDigest := child.BlobDigest()
+	if childDigest == "" {
+		return nil, errors.New("manifest list child is missing digest")
+	}
+
+	layer, err := remoteBlobLayer(ctx, n, childDigest, manifest.MediaTypeManifest, regOpts)
+	if err != nil {
+		return nil, err
+	}
+
+	if err := downloadWithTransfer(ctx, n, []manifest.Layer{layer}, regOpts, fn); err != nil {
+		return nil, err
+	}
+
+	if err := verifyBlob(childDigest); err != nil {
+		return nil, err
+	}
+	blobPath, err := manifest.BlobsPath(childDigest)
+	if err != nil {
+		return nil, err
+	}
+	data, err := os.ReadFile(blobPath)
+	if err != nil {
+		return nil, err
+	}
+
+	var mf manifest.Manifest
+	if err := json.Unmarshal(data, &mf); err != nil {
+		return nil, err
+	}
+	if mf.MediaType == manifest.MediaTypeManifestList {
+		return nil, errors.New("nested manifest lists are not supported")
+	}
+	if mf.Runner == "" {
+		mf.Runner = child.Runner
+	}
+	if mf.Format == "" {
+		mf.Format = child.Format
+	}
+
+	return &mf, nil
+}
+
+func remoteBlobLayer(ctx context.Context, n model.Name, digest, mediaType string, regOpts *registryOptions) (manifest.Layer, error) {
+	requestURL := n.BaseURL().JoinPath("v2", n.DisplayNamespaceModel(), "blobs", digest)
+	resp, err := makeRequestWithRetry(ctx, http.MethodHead, requestURL, nil, nil, regOpts)
+	if err != nil {
+		return manifest.Layer{}, err
+	}
+	defer resp.Body.Close()
+
+	size, err := strconv.ParseInt(resp.Header.Get("Content-Length"), 10, 64)
+	if err != nil {
+		return manifest.Layer{}, err
+	}
+
+	return manifest.Layer{
+		MediaType: mediaType,
+		Digest:    digest,
+		Size:      size,
+	}, nil
+}
+
+func downloadWithTransfer(ctx context.Context, n model.Name, layers []manifest.Layer, regOpts *registryOptions, fn func(api.ProgressResponse)) error {
 	blobs := make([]transfer.Blob, len(layers))
 	for i, layer := range layers {
 		blobs[i] = transfer.Blob{
@@ -1172,6 +1338,15 @@ func pullWithTransfer(ctx context.Context, n model.Name, layers []manifest.Layer
 		GetToken:        getToken,
 		Logger:          slog.Default(),
 	}); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// pullWithTransfer uses the simplified x/transfer package for downloading blobs.
+func pullWithTransfer(ctx context.Context, n model.Name, layers []manifest.Layer, manifestData []byte, regOpts *registryOptions, fn func(api.ProgressResponse)) error {
+	if err := downloadWithTransfer(ctx, n, layers, regOpts, fn); err != nil {
 		return err
 	}
 

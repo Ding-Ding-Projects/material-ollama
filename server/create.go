@@ -119,7 +119,24 @@ func (s *Server) CreateHandler(c *gin.Context) {
 			ch <- resp
 		}
 
-		oldManifest, _ := manifest.ParseNamedManifest(name)
+		oldManifestDigests, _ := manifest.ReferencedBlobDigestsForName(name)
+
+		if len(r.List) > 0 {
+			if err := createManifestList(r, name, fn); err != nil {
+				ch <- gin.H{"error": err.Error()}
+				return
+			}
+
+			if !envconfig.NoPrune() && len(oldManifestDigests) > 0 {
+				if _, err := manifest.RemoveUnreferencedBlobs(oldManifestDigests...); err != nil {
+					ch <- gin.H{"error": err.Error()}
+					return
+				}
+			}
+
+			ch <- api.ProgressResponse{Status: "success"}
+			return
+		}
 
 		var baseLayers []*layerGGML
 		var err error
@@ -336,8 +353,8 @@ func (s *Server) CreateHandler(c *gin.Context) {
 			return
 		}
 
-		if !envconfig.NoPrune() && oldManifest != nil {
-			if err := oldManifest.RemoveLayers(); err != nil {
+		if !envconfig.NoPrune() && len(oldManifestDigests) > 0 {
+			if _, err := manifest.RemoveUnreferencedBlobs(oldManifestDigests...); err != nil {
 				ch <- gin.H{"error": err.Error()}
 			}
 		}
@@ -887,7 +904,8 @@ func createModel(r api.CreateRequest, name model.Name, baseLayers []*layerGGML, 
 	}
 
 	fn(api.ProgressResponse{Status: "writing manifest"})
-	if err := manifest.WriteManifest(name, *configLayer, layers); err != nil {
+	runner, format := manifestMetadataForConfig(*config)
+	if err := manifest.WriteManifestWithMetadata(name, *configLayer, layers, runner, format); err != nil {
 		return err
 	}
 

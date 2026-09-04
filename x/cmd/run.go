@@ -153,6 +153,7 @@ func promptCloudModelSuggestion() string {
 // RunOptions contains options for running an interactive agent session.
 type RunOptions struct {
 	Model        string
+	Runner       string
 	Messages     []api.Message
 	WordWrap     bool
 	Format       string
@@ -701,7 +702,7 @@ func checkModelCapabilities(ctx context.Context, modelName string) (supportsTool
 		return false, false, err
 	}
 
-	resp, err := client.Show(ctx, &api.ShowRequest{Model: modelName})
+	resp, err := client.Show(ctx, &api.ShowRequest{Model: modelName, Runner: runner})
 	if err != nil {
 		return false, false, err
 	}
