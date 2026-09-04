@@ -102,6 +102,7 @@ func imageTaggedMessages(m *Model, msgs []api.Message, start int, clearImages bo
 
 		var prefix string
 		prompt := msg.Content
+		firstImageID := len(images)
 
 		for _, i := range msg.Images {
 			mediaData := llm.NewMediaData(len(media), i)
@@ -130,6 +131,20 @@ func imageTaggedMessages(m *Model, msgs []api.Message, start int, clearImages bo
 	}
 
 	return renderMsgs, media, nil
+}
+
+func rewriteMessageWithImageTags(content string, firstImageID int, imageCount int) string {
+	var prefix strings.Builder
+	for i := range imageCount {
+		imgTag := fmt.Sprintf("[img-%d]", firstImageID+i)
+		if strings.Contains(content, "[img]") {
+			content = strings.Replace(content, "[img]", imgTag, 1)
+			continue
+		}
+		prefix.WriteString(imgTag)
+	}
+
+	return prefix.String() + content
 }
 
 func renderPrompt(m *Model, msgs []api.Message, tools []api.Tool, think *api.ThinkValue) (string, error) {
