@@ -2061,6 +2061,7 @@ func chat(cmd *cobra.Command, opts runOptions) (*api.Message, *api.Metrics, erro
 
 	req := &api.ChatRequest{
 		Model:    opts.Model,
+		Template: opts.Template,
 		Messages: opts.Messages,
 		Format:   format,
 		Options:  opts.Options,
