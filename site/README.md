@@ -4,7 +4,7 @@ This directory is the hosted landing, documentation, status, settings, and downl
 
 ## Boundary
 
-The site introduces the installed desktop application. It does not run Ollama, host a model, execute a command, or pretend to be the desktop application. The download surface stays pending until a verified release manifest supplies an immutable version, commit, platform, asset, size, and hash.
+The site introduces the installed desktop application. It does not run Ollama, host a model, execute a command, or pretend to be the desktop application. Its current download surface records the immutable `v0.0.0-build.47` version, commit, platform, asset, size, and hash from the verified public release.
 
 ## Local state and privacy
 
@@ -32,4 +32,4 @@ The build emits the Vinext standalone bundle and copies `.openai/hosting.json` i
 
 ## Hosting state
 
-The production URL is intentionally not written here until a deployment succeeds and its exact URL is verified. The repository README carries the same boundary and pending-download statement.
+The verified production URL is `https://ding-ding-projects.github.io/material-ollama/`. The repository README and the static landing source carry the same public-release facts and retain the open Squirrel.Windows and current-capture boundaries.
