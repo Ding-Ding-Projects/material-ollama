@@ -1,7 +1,6 @@
 import clsx from "clsx"
 import { useId } from "react"
-import { Chip } from "@/components/md3"
-import { Icon } from "@/components/md3/Icon"
+import { Button, Chip } from "@/components/md3"
 import { FOCUS_RING_WITHIN } from "@/components/md3/tokens"
 import { Txt, useT } from "@/uh"
 import type { DateRange } from "./dateRange"
@@ -31,11 +30,20 @@ function isoStartOfWeek(): string {
 
 /**
  * The date-range filter shared by the changelog viewer and local version
- * history: two native `<input type="date">` fields (browser-native
- * anchored calendar popover *and* free typing -- both required by the
- * changelog-viewer contract, and a native control gets both for free
- * with none of the custom-calendar-grid bug surface) plus a row of
- * one-tap presets. "From" after "To" is reported inline rather than
+ * history: two native `<input type="date">` fields plus a row of one-tap
+ * presets.
+ *
+ * Those two date fields are a deliberate, recorded exception to the
+ * "Material Design 3 primitives only" rule, not an oversight. The
+ * changelog-viewer contract requires BOTH an anchored calendar popover and
+ * free typing in the locale's format. The Material kit has no date-picker
+ * primitive, and a hand-built calendar grid would have to reimplement
+ * keyboard navigation, locale parsing and the popover -- losing the native
+ * picker entirely if any of that is wrong. The native control gives both
+ * behaviours, and it wears the real Material tokens (outline-variant
+ * border, surface-low fill, the shared focus ring), so it carries the
+ * correct anatomy even though it is not a kit component. Every other
+ * control on this surface is a kit primitive. "From" after "To" is reported inline rather than
  * silently swapped or ignored, so a mistyped range never silently filters
  * to nothing without saying why.
  */
@@ -98,18 +106,16 @@ export function DateRangeFilter({ value, onChange, className }: DateRangeFilterP
             {t("dateFilterAll")}
           </Chip>
           {value.from || value.to ? (
-            <button
-              type="button"
+            <Button
+              variant="text"
+              size="sm"
+              shape="pill"
+              icon="close"
               onClick={() => setPreset(null, null)}
               aria-label={t("dateFilterClear")}
-              className={clsx(
-                "relative inline-flex items-center gap-1 rounded-full px-2 py-1 text-[11.5px] text-on-surface-variant hover:bg-surface-high",
-                FOCUS_RING_WITHIN,
-              )}
             >
-              <Icon name="close" size={13} />
               {t("dateFilterClear")}
-            </button>
+            </Button>
           ) : null}
         </div>
       </div>

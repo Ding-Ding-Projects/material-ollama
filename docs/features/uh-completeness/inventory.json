@@ -2133,7 +2133,7 @@
       "surfaces": {
         "desktop-app": {
           "status": "verified",
-          "implementation": "app/ui/app/src/components/CodexHarness.tsx#L1-L332,app/ui/app/src/screens/launch/LaunchIntegrationCard.tsx#L1-L104,app/ui/codex.go#L1-L225",
+          "implementation": "app/ui/app/src/screens/CodexScreen.tsx#L1-L226,app/ui/app/src/screens/launch/LaunchIntegrationCard.tsx#L1-L104,app/ui/codex.go#L1-L225",
           "documentation": "docs/features/uh-completeness/articles/harness-profiles.md#behaviour",
           "localizedCopy": "app/ui/app/src/screens/launch/LaunchIntegrationCard.tsx#launchAction",
           "persistence": "app/ui/codex.go",
