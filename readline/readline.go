@@ -327,6 +327,9 @@ func (i *Instance) Readline() (string, error) {
 			fmt.Println()
 			i.Prompt.UseAlt = false
 
+			if r == CharCtrlJ {
+				return output, ErrNewLineDetected
+			}
 			return output, nil
 		default:
 			if metaDel {
