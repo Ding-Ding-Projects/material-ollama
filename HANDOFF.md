@@ -2,9 +2,11 @@
 
 Last updated: 2026-09-04. This handoff distinguishes the current published
 baseline, `v0.0.0-build.47` at `be7a750e41730cc756ab94f05551687a1402e006`,
-from the unreleased native-package source. At the start of this handoff update,
-that source was integrated at `5dbbf0c8a5572ac7a9ad11cd6d29435a7c749ba8`.
-It includes the clean workflow repair (`49d4cf53`), unsigned Squirrel package
+from the unreleased native-package source. The current combined source reference
+is `89d5b3e307c539466a22677d92b84ac10e50ca48`, which integrates
+`5dbbf0c8a5572ac7a9ad11cd6d29435a7c749ba8` with monotonic reachable-commit
+package versioning from `9dab660cf2f09fc952886ccb2d69a54476942d98`. It
+includes the clean workflow repair (`49d4cf53`), unsigned Squirrel package
 path (`17ee94ba`), root build activation (`361341e8`), lifecycle support
 (`0286388c`), updater work (`104e091e` and its integrated follow-ups), and the
 combined workflow and native-update integration. No installer built from this
@@ -17,7 +19,10 @@ source has been published, and no future tag, asset size, or hash is claimed her
 | Root build activation | [`361341e830d2dc3d329c15a65326be7b0b811305`](https://github.com/Ding-Ding-Projects/material-ollama/commit/361341e830d2dc3d329c15a65326be7b0b811305) |
 | Lifecycle support | [`0286388cbbd246bb3a8816c2d9d5ff8d218a43a9`](https://github.com/Ding-Ding-Projects/material-ollama/commit/0286388cbbd246bb3a8816c2d9d5ff8d218a43a9) |
 | Fast release bundle command | [`104e091e475bd6178c7462cd53ed6db2f1ad9ec5`](https://github.com/Ding-Ding-Projects/material-ollama/commit/104e091e475bd6178c7462cd53ed6db2f1ad9ec5) |
+| Monotonic package versions | [`9dab660cf2f09fc952886ccb2d69a54476942d98`](https://github.com/Ding-Ding-Projects/material-ollama/commit/9dab660cf2f09fc952886ccb2d69a54476942d98) |
 | Combined source integration | [`5dbbf0c8a5572ac7a9ad11cd6d29435a7c749ba8`](https://github.com/Ding-Ding-Projects/material-ollama/commit/5dbbf0c8a5572ac7a9ad11cd6d29435a7c749ba8) |
+| Combined candidate reference | [`89d5b3e307c539466a22677d92b84ac10e50ca48`](https://github.com/Ding-Ding-Projects/material-ollama/commit/89d5b3e307c539466a22677d92b84ac10e50ca48) |
+| Host PowerShell module repair | [`7c8589b8f2126b7da05fdfdfd0366d4119af6a8b`](https://github.com/Ding-Ding-Projects/material-ollama/commit/7c8589b8f2126b7da05fdfdfd0366d4119af6a8b) |
 
 ## Published baseline
 
@@ -82,11 +87,26 @@ verified release before it can be used as current product evidence.
 - The updater source is not a verified ready-to-restart result. The existing
   earlier updater and UI build evidence predates the ultra-speed delivery
   boundary and the user-interface bundle has since changed.
+- The first native PowerShell bootstrap attempt exposed a host-module hashing
+  problem. The host-module repair is ready, but its retry and the candidate
+  package build are pending. No build outcome is inferred from source changes.
 - The local Pages release card is corrected from `v0.0.0-build.9` to the
   current verified release. Deployment and served-byte verification remain open.
 - The root `social-preview.png` still needs the manual repository setting
   action at Settings, General, Social preview. The file is committed, but the
   setting is not verified by a supported API.
+
+## Public delivery boundary
+
+- The public GitHub release, immutable download link, and installer hash remain
+  the verified v47 baseline. They must not be relabelled as candidate evidence.
+- The public site source contains the corrected v47 release-card content, but
+  the served site still advertises `v0.0.0-build.9` until deployment and
+  anonymous served-byte verification complete.
+- No candidate installer download, served download control, release asset, or
+  social metadata is verified for the current source. The root social-preview
+  file is committed, while the repository social-preview setting is still a
+  manual pending action.
 
 ## Release candidate and next actions
 
@@ -108,12 +128,14 @@ The next owner should complete these items in order:
 3. Publish only if the resulting candidate has the required release assets and
    a new unique tag. Record the actual tag, commit, asset names, sizes, and
    hashes only after publication and readback.
-4. Complete the 51 in-progress desktop rows and the 85 missing landing-page
+4. Deploy the corrected public site source, verify served bytes anonymously,
+   then expose only the actual immutable release download and matching social
+   metadata.
+5. Complete the 51 in-progress desktop rows and the 85 missing landing-page
    rows with implementation, documentation, localization, focused checks,
    built-artifact interaction, and real capture evidence.
-5. Refresh the current capture matrix and close the 18 design parity gaps with
+6. Refresh the current capture matrix and close the 18 design parity gaps with
    identical reference and built-artifact tuples.
-6. Deploy the corrected Pages release card and verify the served bytes again.
 7. Add verified updater ready-to-restart proof for the unsigned package path.
 8. Complete the upstream onboarding surfaces.
 9. Upload `social-preview.png` through the repository settings and record the

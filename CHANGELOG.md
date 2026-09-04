@@ -5,8 +5,11 @@ supplied the evidence. Local work remains separate from published releases.
 
 ## [Unreleased]
 
-The unreleased source was integrated at
-[`5dbbf0c8a5572ac7a9ad11cd6d29435a7c749ba8`](https://github.com/Ding-Ding-Projects/material-ollama/commit/5dbbf0c8a5572ac7a9ad11cd6d29435a7c749ba8).
+The unreleased source reference is
+[`89d5b3e307c539466a22677d92b84ac10e50ca48`](https://github.com/Ding-Ding-Projects/material-ollama/commit/89d5b3e307c539466a22677d92b84ac10e50ca48),
+integrating [`5dbbf0c8a5572ac7a9ad11cd6d29435a7c749ba8`](https://github.com/Ding-Ding-Projects/material-ollama/commit/5dbbf0c8a5572ac7a9ad11cd6d29435a7c749ba8)
+with monotonic package versioning at
+[`9dab660cf2f09fc952886ccb2d69a54476942d98`](https://github.com/Ding-Ding-Projects/material-ollama/commit/9dab660cf2f09fc952886ccb2d69a54476942d98).
 It includes the workflow repair at
 [`49d4cf53`](https://github.com/Ding-Ding-Projects/material-ollama/commit/49d4cf53),
 native Squirrel packaging at
@@ -26,6 +29,9 @@ asset hash yet.
   that no native Squirrel installer has yet been built or published.
 - Added the root build command and fast release commands to the project build
   documentation, with the native Go payload boundary made explicit.
+- Recorded the public delivery boundary: v47 remains the only verified public
+  release, while the corrected site source, candidate downloads, and social
+  metadata all await actual deployment or release readback.
 
 ## [v0.0.0-build.47]
 

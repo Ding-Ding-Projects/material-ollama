@@ -28,7 +28,10 @@ complete for the stated scope and commit. An unchecked item remains open.
 - [ ] Integrate the current clean release source, including workflow repair
   `49d4cf53`, Squirrel package source `17ee94ba`, root build activation
   `361341e8`, lifecycle support `0286388c`, updater work beginning at
-  `104e091e`, and combined integration `5dbbf0c8`, into the default branch.
+  `104e091e`, combined integration `5dbbf0c8`, and monotonic package version
+  integration `89d5b3e` with `9dab660c`, into the default branch.
+- [ ] Apply the ready host PowerShell module repair `7c8589b` and complete the
+  pending native PowerShell bootstrap retry before interpreting any build result.
 - [ ] Build the final integrated commit with
   `MATERIAL_OLLAMA_BUILD_MODE=release-fast`, `build.bat /s --release-fast`,
   and `build-installer.bat /s`. The output is native Go and Squirrel package
@@ -39,6 +42,17 @@ complete for the stated scope and commit. An unchecked item remains open.
 - [ ] Update this roadmap and `HANDOFF.md` from the actual publication result.
 - [ ] Keep Issue #1 open until the published release evidence and its stated
   completion criteria exist.
+
+## Public delivery and site boundary
+
+- [ ] Keep the v47 release download and hash as the only verified public
+  baseline. Do not present a candidate download before an actual release asset
+  exists and is read back.
+- [ ] Deploy the corrected public site source and verify its served bytes. The
+  deployed release card still advertises `v0.0.0-build.9`.
+- [ ] Verify the repository social-preview setting and the served public social
+  metadata after a real release is available. The committed root image alone is
+  not proof of either public surface.
 
 ## Current ultra-speed evidence boundary
 
