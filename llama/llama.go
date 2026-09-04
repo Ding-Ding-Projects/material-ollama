@@ -50,6 +50,7 @@ import (
 	_ "embed"
 	"errors"
 	"fmt"
+	"math"
 	"runtime"
 	"runtime/cgo"
 	"strings"
@@ -399,6 +400,9 @@ func NewSamplingContext(params SamplingParams) *SamplingContext {
 
 	grammar := C.CString(params.Grammar)
 	defer C.free(unsafe.Pointer(grammar))
+	root := C.CString("root")
+	defer C.free(unsafe.Pointer(root))
+	s.grammar = C.llama_sampler_init_grammar(model.c, grammar, root)
 
 	cparams.grammar = grammar
 	return &SamplingContext{c: C.llama_sampling_cinit(&cparams)}
