@@ -1,4 +1,11 @@
-# Shared packaging contracts. This file performs no work when dot-sourced.
+# Shared packaging contracts. Load the running host's standard modules explicitly.
+$squirrelUtilityModule = Join-Path $PSHOME 'Modules\Microsoft.PowerShell.Utility\Microsoft.PowerShell.Utility.psd1'
+if (-not (Test-Path -LiteralPath $squirrelUtilityModule -PathType Leaf)) { throw "Microsoft.PowerShell.Utility module manifest was not found under PSHOME: $squirrelUtilityModule" }
+Import-Module -Name $squirrelUtilityModule -Force -ErrorAction Stop
+$squirrelSecurityModule = Join-Path $PSHOME 'Modules\Microsoft.PowerShell.Security\Microsoft.PowerShell.Security.psd1'
+if (-not (Test-Path -LiteralPath $squirrelSecurityModule -PathType Leaf)) { throw "Microsoft.PowerShell.Security module manifest was not found under PSHOME: $squirrelSecurityModule" }
+Import-Module -Name $squirrelSecurityModule -Force -ErrorAction Stop
+
 function Get-SquirrelVersion {
     param([string]$SourceRoot, [string]$ExplicitVersion = $env:PACKAGE_VERSION)
     if ($ExplicitVersion) {

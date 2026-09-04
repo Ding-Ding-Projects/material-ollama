@@ -15,8 +15,8 @@ param(
 
 $ErrorActionPreference = 'Stop'
 $ProgressPreference = 'SilentlyContinue'
-Add-Type -AssemblyName System.IO.Compression.FileSystem
 . (Join-Path $PSScriptRoot 'squirrel-contract.ps1')
+Add-Type -AssemblyName System.IO.Compression.FileSystem
 
 function Fail([string]$Message) { throw "Squirrel artifact verification failed: $Message" }
 function Resolve-SafeFile([string]$Root, [string]$Name) {

@@ -9,6 +9,16 @@ param(
 )
 $ErrorActionPreference = 'Stop'
 $ProgressPreference = 'SilentlyContinue'
+# A caller running a different PowerShell edition can pass an incompatible
+# module search path. Resolve native modules before using their cmdlets, and
+# keep the corrected search path local to this process and its children.
+$nativeModuleRoot = [IO.Path]::Combine($PSHOME, 'Modules')
+$env:PSModulePath = $nativeModuleRoot + [IO.Path]::PathSeparator + $env:PSModulePath
+foreach ($moduleName in @('Microsoft.PowerShell.Utility', 'Microsoft.PowerShell.Management')) {
+    $moduleManifest = [IO.Path]::Combine($nativeModuleRoot, $moduleName, "$moduleName.psd1")
+    if (-not [IO.File]::Exists($moduleManifest)) { throw "Required native PowerShell module manifest is missing: $moduleManifest" }
+    Import-Module -Name $moduleManifest -Force -ErrorAction Stop
+}
 $root = Split-Path -Parent $PSScriptRoot
 $powershell = Join-Path $PSHOME 'powershell.exe'
 

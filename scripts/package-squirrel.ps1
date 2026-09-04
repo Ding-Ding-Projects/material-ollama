@@ -15,9 +15,9 @@ param(
 
 $ErrorActionPreference = 'Stop'
 $ProgressPreference = 'SilentlyContinue'
+. (Join-Path $PSScriptRoot 'squirrel-contract.ps1')
 Add-Type -AssemblyName System.IO.Compression.FileSystem
 Add-Type -AssemblyName System.IO.Compression
-. (Join-Path $PSScriptRoot 'squirrel-contract.ps1')
 $sourceState = Get-SquirrelSourceState $SourceRoot $ExpectedCommit
 if ((Get-SquirrelVersion $SourceRoot $Version) -cne $Version) { throw 'Invalid package version.' }
 $payloadReceiptPath = Get-ContainedPath $PayloadRoot 'payload-receipt.json'

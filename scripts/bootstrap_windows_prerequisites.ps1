@@ -2,11 +2,22 @@
 [CmdletBinding()]
 param(
   [switch]$Silent,
-  [string]$ManifestPath = (Join-Path $PSScriptRoot 'root-prerequisites.json')
+  [string]$ManifestPath = ''
 )
 
 $ErrorActionPreference = 'Stop'
 $ProgressPreference = 'SilentlyContinue'
+
+# A parent PowerShell edition can leave its own module directories inherited.
+# Load this process's canonical modules before invoking module-owned commands.
+$nativeModules = [IO.Path]::Combine($PSHOME, 'Modules')
+$env:PSModulePath = $nativeModules + [IO.Path]::PathSeparator + $env:PSModulePath
+foreach ($moduleName in @('Microsoft.PowerShell.Utility', 'Microsoft.PowerShell.Management')) {
+  $moduleManifest = [IO.Path]::Combine([IO.Path]::Combine($nativeModules, $moduleName), $moduleName + '.psd1')
+  if (-not [IO.File]::Exists($moduleManifest)) { throw "Required native PowerShell module manifest is missing: $moduleManifest" }
+  Import-Module -Name $moduleManifest -Force -ErrorAction Stop
+}
+if (-not $ManifestPath) { $ManifestPath = Join-Path $PSScriptRoot 'root-prerequisites.json' }
 
 function Refresh-UserPath {
   # Preserve the caller's process-only tools and ordering.

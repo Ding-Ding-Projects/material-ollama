@@ -23,23 +23,49 @@ complete for the stated scope and commit. An unchecked item remains open.
   and 0 verified parity rows; and 0 generic-control findings with 4
   documented exceptions.
 
-## Local reconciliation candidate
+## Native Squirrel release candidate
 
-- [ ] Integrate `task/finish-handoff-20260904`, including reconciliation
-  `a963b3e8f9b1079faebc3f3a20cac94821ff43e7`, root records
-  `3dcea8c504940e81aeeeff2fc6e1adc4ce7e2dfe`, and Pages source
-  `91dafefec6bca9f6904a55ef424c175cb96f6662`, into the default branch.
-- [ ] Push the integrated default branch and verify its remote commit and
-  workflow results.
-- [ ] Refresh this roadmap and the handoff after that integration is actually
-  verified.
+- [ ] Integrate the current clean release source, including workflow repair
+  `49d4cf53`, Squirrel package source `17ee94ba`, root build activation
+  `361341e8`, lifecycle support `0286388c`, updater work beginning at
+  `104e091e`, combined integration `5dbbf0c8`, and monotonic package version
+  integration `89d5b3e` with `9dab660c`, into the default branch.
+- [ ] Apply the ready host PowerShell module repair `7c8589b` and complete the
+  pending native PowerShell bootstrap retry before interpreting any build result.
+- [ ] Build the final integrated commit with
+  `MATERIAL_OLLAMA_BUILD_MODE=release-fast`, `build.bat /s --release-fast`,
+  and `build-installer.bat /s`. The output is native Go and Squirrel package
+  content, not an Electron archive.
+- [ ] Publish one new unique release only after a candidate installer exists.
+  Record the actual tag, target commit, asset names, nonzero sizes, hashes, and
+  downloadable URLs after readback.
+- [ ] Update this roadmap and `HANDOFF.md` from the actual publication result.
+- [ ] Keep Issue #1 open until the published release evidence and its stated
+  completion criteria exist.
+
+## Public delivery and site boundary
+
+- [ ] Keep the v47 release download and hash as the only verified public
+  baseline. Do not present a candidate download before an actual release asset
+  exists and is read back.
+- [ ] Deploy the corrected public site source and verify its served bytes. The
+  deployed release card still advertises `v0.0.0-build.9`.
+- [ ] Verify the repository social-preview setting and the served public social
+  metadata after a real release is available. The committed root image alone is
+  not proof of either public surface.
+
+## Current ultra-speed evidence boundary
+
+- [x] Keep the fast delivery boundary: no additional tests, lint, reviews, audits, or captures were run for this
+  release candidate. Earlier workflow coverage (15 tests at `49d4cf53`),
+  lifecycle coverage (9 tests before the later resource follow-up), and a Go
+  updater/UI build are historical evidence only. The UI bundle is superseded.
 
 ## Packaging and updater
 
-- [ ] Migrate the unsigned installer from Inno Setup to Squirrel.Windows and
-  verify the required installer set.
-- [ ] Remove the current updater signature-validation requirement and prove
-  the unsigned ready-to-restart state.
+- [ ] Build and publish the unsigned Squirrel.Windows installer set from the
+  current candidate. The published v47 Inno Setup installer remains historical.
+- [ ] Prove the unsigned updater ready-to-restart state from a built package.
 
 ## Feature inventory and capture evidence
 

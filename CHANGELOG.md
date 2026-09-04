@@ -5,23 +5,33 @@ supplied the evidence. Local work remains separate from published releases.
 
 ## [Unreleased]
 
-The local handoff branch contains reconciliation commit
-[`a963b3e8f9b1079faebc3f3a20cac94821ff43e7`](https://github.com/Ding-Ding-Projects/material-ollama/commit/a963b3e8f9b1079faebc3f3a20cac94821ff43e7), root-record commit
-[`3dcea8c504940e81aeeeff2fc6e1adc4ce7e2dfe`](https://github.com/Ding-Ding-Projects/material-ollama/commit/3dcea8c504940e81aeeeff2fc6e1adc4ce7e2dfe), and Pages-source commit
-[`91dafefec6bca9f6904a55ef424c175cb96f6662`](https://github.com/Ding-Ding-Projects/material-ollama/commit/91dafefec6bca9f6904a55ef424c175cb96f6662). It is not published and has not been merged to the default branch in this lane.
+The unreleased source reference is
+[`89d5b3e307c539466a22677d92b84ac10e50ca48`](https://github.com/Ding-Ding-Projects/material-ollama/commit/89d5b3e307c539466a22677d92b84ac10e50ca48),
+integrating [`5dbbf0c8a5572ac7a9ad11cd6d29435a7c749ba8`](https://github.com/Ding-Ding-Projects/material-ollama/commit/5dbbf0c8a5572ac7a9ad11cd6d29435a7c749ba8)
+with monotonic package versioning at
+[`9dab660cf2f09fc952886ccb2d69a54476942d98`](https://github.com/Ding-Ding-Projects/material-ollama/commit/9dab660cf2f09fc952886ccb2d69a54476942d98).
+It includes the workflow repair at
+[`49d4cf53`](https://github.com/Ding-Ding-Projects/material-ollama/commit/49d4cf53),
+native Squirrel packaging at
+[`17ee94ba`](https://github.com/Ding-Ding-Projects/material-ollama/commit/17ee94ba),
+root build activation at
+[`361341e8`](https://github.com/Ding-Ding-Projects/material-ollama/commit/361341e8),
+lifecycle support at
+[`0286388c`](https://github.com/Ding-Ding-Projects/material-ollama/commit/0286388c),
+and the production-only fast release bundle command at
+[`104e091e`](https://github.com/Ding-Ding-Projects/material-ollama/commit/104e091e).
+This source is not a published release and has no candidate installer or release
+asset hash yet.
 
-- Reconciled the documentation baseline around the published v47 release and
-  separated it from the local candidate.
-- Rewrote `HANDOFF.md` with the published release, workflow, Pages, installer,
-  line-count, verification, inventory, capture, packaging, and updater facts.
-- Rewrote `ROADMAP.md` with evidence-backed v47 checks and explicit open work
-  for local integration, packaging, updater proof, inventory completion,
-  capture refresh, parity gaps, Pages content, social preview settings, and
-  onboarding surfaces.
-- Updated `README.md` to link the v47 installer and to label the 12-capture
-  matrix as historical evidence from `040f34d322906dcb1ef9dab25d45454a520797c9`.
-- Updated the static Pages release card and hosting documentation to v47 while
-  keeping deployment and served-byte verification open.
+- Documented the fast native release-candidate route and its explicit boundary:
+  no post-switch tests, lint, reviews, audits, or captures were run.
+- Recorded that `v0.0.0-build.47` remains the published Inno Setup baseline and
+  that no native Squirrel installer has yet been built or published.
+- Added the root build command and fast release commands to the project build
+  documentation, with the native Go payload boundary made explicit.
+- Recorded the public delivery boundary: v47 remains the only verified public
+  release, while the corrected site source, candidate downloads, and social
+  metadata all await actual deployment or release readback.
 
 ## [v0.0.0-build.47]
 

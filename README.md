@@ -92,6 +92,30 @@ These 12 captures are the complete historical real-capture evidence currently re
 
 The desktop project follows the upstream Go/CMake toolchain. The hosted landing source has its own `package.json`, Vinext/Vite configuration, Cloudflare-compatible worker entry, and `.openai/hosting.json` metadata. Build dependencies must remain outside the desktop dependency tree.
 
+## Windows build and candidate packaging
+
+For a fresh Windows build and explicit launch from the repository root:
+
+```powershell
+.\build.bat --run
+```
+
+For the current accelerated release-candidate path, use the final integrated
+commit only:
+
+```powershell
+$env:MATERIAL_OLLAMA_BUILD_MODE = 'release-fast'
+.\build.bat /s --release-fast
+.\build-installer.bat /s
+```
+
+The commands produce native Go payloads and unsigned Squirrel.Windows package
+content. They do not build an Electron `app.asar` payload, do not publish a
+release, and do not imply an installer has been tested, installed, launched, or
+captured. The accelerated path intentionally omits tests, lint, reviews, audits,
+and captures. See [the build documentation index](./docs/features/build/README.md)
+for the build receipt, lifecycle, package, and release boundaries.
+
 From the repository root, `build.bat` runs the required inventory and vocabulary checks before the supported Windows build. Use `build.bat /s` (also `--silent` or `SILENT=1`) for a touchless full build. Optional step names follow the silent switch, for example `build.bat /s app`; the wrapper consumes silent switches instead of forwarding them as build step names.
 
 The landing site uses the existing local mark and social-preview assets. It has no remote fonts, analytics, tracking scripts, or runtime model connection.
@@ -103,7 +127,7 @@ The landing site uses the existing local mark and social-preview assets. It has 
 
 Release notes identify the exact source commit, artifact names, hashes, line-count evidence, and unsigned status. The verified release is [v0.0.0-build.47](https://github.com/Ding-Ding-Projects/material-ollama/releases/tag/v0.0.0-build.47), targeting `be7a750e41730cc756ab94f05551687a1402e006`; its Windows installer is [OllamaSetup.exe](https://github.com/Ding-Ding-Projects/material-ollama/releases/download/v0.0.0-build.47/OllamaSetup.exe), 472,699,515 bytes, SHA-256 `2765d6703bfba4d32b673a10e5df530dc76dee75dcf9b6f193169cfc53f986d1`. It is unsigned and may trigger an unknown-publisher or SmartScreen warning. The release workflow run `33834466784` completed successfully.
 
-The v9 release code name was **Scallop Har Gow · 帶子蝦餃** (dish ID `hk-dish-0002`). Its authoritative public image is [hk-dish-0002-scallop-har-gow.png](https://github.com/Ding-Ding-Projects/dim-sum-photos/releases/download/catalog-v1/hk-dish-0002-scallop-har-gow.png); this project links to the public catalog asset and does not copy or vendor the image. The v47 Pages workflow run `33834466774` completed successfully, and the public landing URL returned anonymous HTTP 200. The served release card still advertises v9 and requires a content correction.
+The v9 release code name was **Scallop Har Gow · 帶子蝦餃** (dish ID `hk-dish-0002`). Its authoritative public image is [hk-dish-0002-scallop-har-gow.png](https://github.com/Ding-Ding-Projects/dim-sum-photos/releases/download/catalog-v1/hk-dish-0002-scallop-har-gow.png); this project links to the public catalog asset and does not copy or vendor the image. The v47 Pages workflow run `33834466774` completed successfully, and the public landing URL returned anonymous HTTP 200. The served release card still advertises v9 and requires a content correction. The corrected public source is pending deployment and served-byte verification. Until a new release is published and read back, the site must expose only the verified v47 download, never a candidate installer URL or unverified social metadata.
 
 </details>
 
