@@ -127,6 +127,25 @@ type Context interface {
 	Layer(int) Context
 }
 
+// RopeOpts contains optional parameters for RoPE function
+type RopeOpts struct {
+	DefaultContextLen uint32
+	YarnExtFactor     float32
+	YarnAttnFactor    float32
+	YarnBetaFast      float32
+	YarnBetaSlow      float32
+}
+
+// RopeOption defines a function that modifies RopeOpts
+type RopeOption func(*RopeOpts)
+
+// WithContextLen sets a custom context length
+func WithContextLen(len uint32) RopeOption {
+	return func(opts *RopeOpts) {
+		opts.DefaultContextLen = len
+	}
+}
+
 type Tensor interface {
 	Dim(n int) int
 	Stride(n int) int
