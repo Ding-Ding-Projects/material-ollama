@@ -1,8 +1,11 @@
 package main
 
 import (
+	"fmt"
 	"reflect"
 	"testing"
+
+	"github.com/ollama/ollama/llm"
 )
 
 func TestTruncateStop(t *testing.T) {
@@ -46,4 +49,5 @@ func TestTruncateStop(t *testing.T) {
 			}
 		})
 	}
+	return s
 }

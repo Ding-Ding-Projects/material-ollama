@@ -2,6 +2,8 @@ package main
 
 import (
 	"strings"
+
+	"github.com/ollama/ollama/llm"
 )
 
 func FindStop(sequence string, stops []string) (bool, string) {
@@ -40,12 +42,9 @@ func truncateStop(pieces []string, stop string) []string {
 		return pieces
 	}
 
-	joined = joined[:index]
-
-	// Split truncated string back into pieces of original lengths
-	lengths := make([]int, len(pieces))
-	for i, piece := range pieces {
-		lengths[i] = len(piece)
+	idx := strings.Index(sequence, stop)
+	if idx < 0 {
+		return resps, false
 	}
 
 	var result []string
@@ -59,8 +58,10 @@ func truncateStop(pieces []string, stop string) []string {
 		if end > len(joined) {
 			end = len(joined)
 		}
-		result = append(result, joined[start:end])
-		start = end
+		if len(chunk) > 0 {
+			result = append(result, llm.CompletionResponse{Content: chunk})
+		}
+		pos += len(resp.Content)
 	}
 
 	return result
