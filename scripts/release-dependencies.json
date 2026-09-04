@@ -92,7 +92,7 @@
       "user": {
         "provider": "NuGet squirrel.windows release package",
         "url": "https://api.nuget.org/v3-flatcontainer/squirrel.windows/2.0.1/squirrel.windows.2.0.1.nupkg",
-        "sha256": "923e18abb4fd50b5a4878a39bdcd042ed3f7eb68fc0f82c0955cd5380c921ac7",
+        "sha256": "923e18abb4fd50b5a4878a39dbcd042ed3f7eb68fc0f82c0955cd5380c921ac7",
         "archive": "zip",
         "directory": "squirrel.windows-2.0.1",
         "relativeExecutable": "tools/Squirrel.exe",
