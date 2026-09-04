@@ -1,7 +1,6 @@
 package mllama
 
 import (
-	"math"
 	"slices"
 
 	"github.com/ollama/ollama/ml"
