@@ -17,7 +17,7 @@ const WORKFLOW_INVENTORY = Object.freeze([
     uploads: [
       {
         name: 'build-only-windows-${{ matrix.preset }}',
-        paths: ['${{ matrix.superbuild_dir }}\\lib\\ollama\\**', 'ollama.exe', 'build-receipt-windows-${{ matrix.preset }}.txt'],
+        paths: ['${{ env.OLLAMA_SUPERBUILD_DIR }}\\lib\\ollama\\**', '${{ env.OLLAMA_SUPERBUILD_DIR }}\\ollama.exe', '${{ env.OLLAMA_SUPERBUILD_DIR }}\\build-receipt-windows-${{ matrix.preset }}.txt'],
       },
     ],
   }),
@@ -35,7 +35,7 @@ const WORKFLOW_INVENTORY = Object.freeze([
       'setup-environment': [],
       'windows-depends': ['setup-environment'],
       'windows-build': ['setup-environment'],
-      'windows-package': ['setup-environment', 'windows-build', 'windows-depends'],
+      'windows-package': ['setup-environment'],
     },
     collectorCount: 3,
     receipts: [
@@ -52,11 +52,18 @@ const WORKFLOW_INVENTORY = Object.freeze([
         name: 'build-windows-amd64',
         paths: ['dist\\windows-amd64\\**', 'dist\\windows-arm64\\**', 'dist\\windows-ollama-app-amd64.exe', 'dist\\windows-ollama-app-arm64.exe', 'dist\\build-receipt-windows-build.txt'],
       },
-      { name: 'ollama-windows-amd64.zip', paths: ['dist/ollama-windows-amd64.zip', 'dist/build-receipt-windows-package.txt'] },
-      { name: 'ollama-windows-arm64.zip', paths: ['dist/ollama-windows-arm64.zip', 'dist/build-receipt-windows-package.txt'] },
-      { name: 'ollama-windows-amd64-rocm.zip', paths: ['dist/ollama-windows-amd64-rocm.zip', 'dist/build-receipt-windows-package.txt'] },
-      { name: 'OllamaSetup.exe', paths: ['dist/OllamaSetup.exe', 'dist/build-receipt-windows-package.txt'] },
-      { name: 'install.ps1', paths: ['dist/install.ps1', 'dist/build-receipt-windows-package.txt'] },
+      {
+        name: 'squirrel-windows-x64',
+        paths: ['dist/squirrel-windows/x64/Setup.exe', 'dist/squirrel-windows/x64/RELEASES', 'dist/squirrel-windows/x64/*.nupkg', 'dist/squirrel-windows/x64/build-provenance.json', 'dist/squirrel-windows/x64/artifact-receipt.json', 'dist/build-receipt-windows-package.txt'],
+      },
+      {
+        name: 'squirrel-windows-arm64',
+        paths: ['dist/squirrel-windows/arm64/Setup.exe', 'dist/squirrel-windows/arm64/RELEASES', 'dist/squirrel-windows/arm64/*.nupkg', 'dist/squirrel-windows/arm64/build-provenance.json', 'dist/squirrel-windows/arm64/artifact-receipt.json', 'dist/build-receipt-windows-package.txt'],
+      },
+      {
+        name: 'squirrel-release-assets',
+        paths: ['dist/squirrel-windows/release-assets-*/*', 'dist/squirrel-windows/release-assets-path.txt', 'dist/build-receipt-windows-package.txt'],
+      },
     ],
   }),
 ])
@@ -382,6 +389,6 @@ test('each receipt collector retains its failure collection flags', () => {
 test('removing or substituting a required needs edge turns the graph policy red', () => {
   const entry = WORKFLOW_INVENTORY[1]
   const base = readWorkflow(entry.relativePath)
-  expectPolicyFailure(base.replace(/^    needs: \[setup-environment, windows-build, windows-depends\]\r?\n/m, ''), entry)
-  expectPolicyFailure(base.replace(/^    needs: \[setup-environment, windows-build, windows-depends\]\r?\n/m, '    needs: [setup-environment, windows-build, setup-environment]\n'), entry)
+  expectPolicyFailure(base.replace(/^    needs: setup-environment\r?\n/m, ''), entry)
+  expectPolicyFailure(base.replace(/^    needs: setup-environment\r?\n/m, '    needs: [setup-environment, windows-build]\n'), entry)
 })

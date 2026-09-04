@@ -109,20 +109,18 @@ jobs:
       GOFLAGS: ${{ needs.setup-environment.outputs.GOFLAGS }}
       VERSION: ${{ needs.setup-environment.outputs.VERSION }}
     steps:
+      - uses: actions/checkout@v4
+      - name: Bootstrap pinned Windows dependencies
+        shell: cmd
+        run: |
+          call "%GITHUB_WORKSPACE%\download-dependencies.bat" /s
+          if errorlevel 1 exit /b %errorlevel%
+          set PATH>>"%GITHUB_ENV%"
       - name: Install system dependencies
         run: |
-          choco install -y --no-progress ccache ninja
+          choco install -y --no-progress ccache
           if (Get-Command ccache -ErrorAction SilentlyContinue) {
             ccache -o cache_dir=${{ github.workspace }}\.ccache
-          }
-      - if: matrix.preset == 'CPU'
-        name: Install Windows ARM64 cross compiler
-        run: |
-          Invoke-WebRequest -Uri "https://github.com/mstorsjo/llvm-mingw/releases/download/20240619/llvm-mingw-20240619-ucrt-x86_64.zip" -OutFile "${{ runner.temp }}\llvm-mingw-ucrt.zip"
-          Expand-Archive -Path ${{ runner.temp }}\llvm-mingw-ucrt.zip -DestinationPath "C:\Program Files\"
-          $installPath=(Resolve-Path -Path "C:\Program Files\llvm-mingw-*-ucrt-x86_64").path
-          if (!(Test-Path "$installPath\bin\aarch64-w64-mingw32-gcc.exe")) {
-            throw "llvm-mingw x86_64 package is missing the aarch64 cross compiler"
           }
       - if: startsWith(matrix.preset, 'CUDA ') || startsWith(matrix.preset, 'ROCm ') || startsWith(matrix.preset, 'Vulkan')
         id: cache-install
@@ -195,7 +193,6 @@ jobs:
             C:\Program Files\AMD\ROCm
             C:\VulkanSDK
           key: ${{ matrix.install }}
-      - uses: actions/checkout@v4
       - uses: actions/cache@v4
         with:
           path: ${{ github.workspace }}\.ccache
@@ -259,18 +256,13 @@ jobs:
       GOFLAGS: ${{ needs.setup-environment.outputs.GOFLAGS }}
       VERSION: ${{ needs.setup-environment.outputs.VERSION }}
     steps:
-      - name: Install clang and gcc-compat
-        run: |
-          $ErrorActionPreference = "Stop"
-          Set-ExecutionPolicy Bypass -Scope Process -Force
-          Invoke-WebRequest -Uri "https://github.com/mstorsjo/llvm-mingw/releases/download/20240619/llvm-mingw-20240619-ucrt-x86_64.zip" -OutFile "${{ runner.temp }}\llvm-mingw-ucrt.zip"
-          Expand-Archive -Path ${{ runner.temp }}\llvm-mingw-ucrt.zip -DestinationPath "C:\Program Files\"
-          $installPath=(Resolve-Path -Path "C:\Program Files\llvm-mingw-*-ucrt-x86_64").path
-          echo "$installPath\bin" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
-          if (!(Test-Path "$installPath\bin\aarch64-w64-mingw32-gcc.exe")) {
-            throw "llvm-mingw x86_64 package is missing the aarch64 cross compiler"
-          }
       - uses: actions/checkout@v4
+      - name: Bootstrap pinned Windows dependencies
+        shell: cmd
+        run: |
+          call "%GITHUB_WORKSPACE%\download-dependencies.bat" /s
+          if errorlevel 1 exit /b %errorlevel%
+          set PATH>>"%GITHUB_ENV%"
       - uses: actions/setup-go@v5
         with:
           go-version-file: go.mod
@@ -290,10 +282,6 @@ jobs:
             exit 1
           }
           $ErrorActionPreference='Stop'
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: "20"
       - name: Build Windows binaries and app launchers
         run: ./scripts/build_windows.ps1 ollama ollamaArm64 app appArm64
       - name: Verify Windows build payloads
@@ -343,74 +331,16 @@ jobs:
 
   windows-package:
     runs-on: windows-2022
-    needs: [setup-environment, windows-build, windows-depends]
+    needs: setup-environment
     env:
       GOFLAGS: ${{ needs.setup-environment.outputs.GOFLAGS }}
       VERSION: ${{ needs.setup-environment.outputs.VERSION }}
+      MATERIAL_OLLAMA_BUILD_MODE: release-fast
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
-        with:
-          go-version-file: go.mod
-          cache-dependency-path: |
-            go.sum
-            LLAMA_CPP_VERSION
-            MLX_VERSION
-            MLX_C_VERSION
-      - uses: actions/download-artifact@v4
-        with:
-          pattern: depends-windows*
-          path: dist
-          merge-multiple: true
-      - uses: actions/download-artifact@v4
-        with:
-          pattern: build-windows*
-          path: dist
-          merge-multiple: true
-      - name: Copy unsigned install script
-        run: Copy-Item -Path .\scripts\install.ps1 -Destination .\dist\install.ps1 -ErrorAction Stop
-      - name: Log dist contents after download
-        run: gci -path .\dist -recurse
-      - name: Verify Windows package inputs
-        shell: bash
-        run: |
-          set -euo pipefail
-          for payload in \
-            dist/windows-amd64/ollama.exe \
-            dist/windows-amd64/lib/ollama/llama-server.exe \
-            dist/windows-arm64/ollama.exe \
-            dist/windows-arm64/lib/ollama/llama-server.exe
-          do
-            [ -f "$payload" ] || { echo "missing $payload"; exit 1; }
-          done
-      - name: Collect Go licenses
-        shell: bash
-        run: |
-          set -euo pipefail
-          for arch in amd64 arm64; do
-            cmake -S . -B build/go-license -DOLLAMA_LLAMA_BACKENDS= -DOLLAMA_MLX_BACKENDS= \
-              "-DOLLAMA_PAYLOAD_INSTALL_PREFIX=dist/windows-${arch}" \
-              "-DOLLAMA_GO_LICENSE_TARGETS=windows/${arch}"
-            cmake --build build/go-license --target ollama-go-license
-          done
-      - name: Build unsigned Windows installer and zips
-        run: ./scripts/build_windows.ps1 deps installer zip
-      - name: Log contents after build
-        run: |
-          gci -path .\dist -Recurse -File | ForEach-Object { get-filehash -path $_.FullName -Algorithm SHA256 } | format-list
-      - name: Verify Windows package outputs
-        shell: bash
-        run: |
-          set -euo pipefail
-          for payload in \
-            dist/ollama-windows-amd64.zip \
-            dist/ollama-windows-arm64.zip \
-            dist/ollama-windows-amd64-rocm.zip \
-            dist/OllamaSetup.exe \
-            dist/install.ps1
-          do
-            [ -f "$payload" ] || { echo "missing $payload"; exit 1; }
-          done
+      - name: Build unsigned Squirrel packages from canonical source
+        shell: cmd
+        run: call "%GITHUB_WORKSPACE%\build-installer.bat" /s
       - name: Collect Windows package receipt
         if: ${{ always() }}
         continue-on-error: true
@@ -432,9 +362,13 @@ jobs:
         continue-on-error: true
         uses: actions/upload-artifact@v4
         with:
-          name: ollama-windows-amd64.zip
+          name: squirrel-windows-x64
           path: |
-            dist/ollama-windows-amd64.zip
+            dist/squirrel-windows/x64/Setup.exe
+            dist/squirrel-windows/x64/RELEASES
+            dist/squirrel-windows/x64/*.nupkg
+            dist/squirrel-windows/x64/build-provenance.json
+            dist/squirrel-windows/x64/artifact-receipt.json
             dist/build-receipt-windows-package.txt
           compression-level: 0
           if-no-files-found: warn
@@ -443,9 +377,13 @@ jobs:
         continue-on-error: true
         uses: actions/upload-artifact@v4
         with:
-          name: ollama-windows-arm64.zip
+          name: squirrel-windows-arm64
           path: |
-            dist/ollama-windows-arm64.zip
+            dist/squirrel-windows/arm64/Setup.exe
+            dist/squirrel-windows/arm64/RELEASES
+            dist/squirrel-windows/arm64/*.nupkg
+            dist/squirrel-windows/arm64/build-provenance.json
+            dist/squirrel-windows/arm64/artifact-receipt.json
             dist/build-receipt-windows-package.txt
           compression-level: 0
           if-no-files-found: warn
@@ -454,31 +392,10 @@ jobs:
         continue-on-error: true
         uses: actions/upload-artifact@v4
         with:
-          name: ollama-windows-amd64-rocm.zip
+          name: squirrel-release-assets
           path: |
-            dist/ollama-windows-amd64-rocm.zip
-            dist/build-receipt-windows-package.txt
-          compression-level: 0
-          if-no-files-found: warn
-          retention-days: 7
-      - if: ${{ always() }}
-        continue-on-error: true
-        uses: actions/upload-artifact@v4
-        with:
-          name: OllamaSetup.exe
-          path: |
-            dist/OllamaSetup.exe
-            dist/build-receipt-windows-package.txt
-          compression-level: 0
-          if-no-files-found: warn
-          retention-days: 7
-      - if: ${{ always() }}
-        continue-on-error: true
-        uses: actions/upload-artifact@v4
-        with:
-          name: install.ps1
-          path: |
-            dist/install.ps1
+            dist/squirrel-windows/release-assets-*/*
+            dist/squirrel-windows/release-assets-path.txt
             dist/build-receipt-windows-package.txt
           compression-level: 0
           if-no-files-found: warn
