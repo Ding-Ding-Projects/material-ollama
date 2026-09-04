@@ -9,10 +9,11 @@
     "locale": "en-US",
     "seed": "#8a5a00",
     "radius": "16px",
-    "schoolMode": "off"
+    "schoolMode": "off",
+    "tabDock": "top"
   },
   "frozenTime": "2026-01-01T00:00:00Z",
-  "capturedAt": "2026-09-04T02:14:13.002Z",
+  "capturedAt": "2026-09-04T02:16:16.238Z",
   "builtArtifact": "dist/windows-ollama-app-amd64.exe",
   "builtArtifactSha256": "ac2c28c842bdf8af52ba8bc0d6777ca204361c1c45057f1a3473cf7026ed1e36",
   "captured": 1,
@@ -25,8 +26,8 @@
       "resolvedBuiltRoute": "/models",
       "builtInteraction": "none -- the route alone reaches this state",
       "path": "docs/features/design-parity/captures/built/models.png",
-      "sha256": "444c428934e1bc6f449ce988cd81dd35e4af5301a6c267f031533fe2b422cd1b",
-      "bytes": 80832,
+      "sha256": "c7c1c3e9f8acde51e35306f1f5af764a3dcad0c134e148806950f3a009084d5d",
+      "bytes": 82824,
       "width": 816,
       "height": 639,
       "builtArtifactSha256": "ac2c28c842bdf8af52ba8bc0d6777ca204361c1c45057f1a3473cf7026ed1e36"

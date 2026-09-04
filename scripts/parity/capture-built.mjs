@@ -101,6 +101,14 @@ async function captureState(state, { cliPath, runId, index, outDir, artifactSha 
       width: TUPLE.width, height: TUPLE.height, deviceScaleFactor: TUPLE.scale, mobile: false,
     })
     await client.send('Page.addScriptToEvaluateOnNewDocument', { source: DETERMINISM_SCRIPT })
+    // Pin the tab dock to the tuple's edge before the reload, so the built
+    // side renders the layout the reference renders rather than the shipped
+    // default. Written through localStorage, which is where the shell reads
+    // it from -- see useShellTabs.
+    await cdpEvaluate(
+      client,
+      `(() => { try { window.localStorage.setItem('material-ollama:tab-dock', ${JSON.stringify(TUPLE.tabDock)}); return 'OK' } catch { return 'OK' } })()`,
+    )
     await client.send('Page.reload', { ignoreCache: false })
 
     await waitFor(client, `document.readyState`, (v) => v === 'complete', { label: `${state.id}: page load` })

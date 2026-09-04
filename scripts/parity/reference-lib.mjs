@@ -24,6 +24,13 @@ export const TUPLE = Object.freeze({
   seed: '#8a5a00',
   radius: '16px',
   schoolMode: 'off',
+  // The design reference renders the tab strip in one position and has no
+  // docking control; the built app ships 'left' as its default, per the
+  // shared instruction that names left the default edge. Neither is wrong --
+  // they are two states of the same feature -- but a pair captured in two
+  // different states compares two different layouts and every diff after
+  // that is noise. Both sides are pinned to the edge the reference renders.
+  tabDock: 'top',
 })
 
 /** Frozen instant every capture renders at, so a clock cannot move a pixel. */
