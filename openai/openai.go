@@ -109,10 +109,12 @@ type Reasoning struct {
 }
 
 type ChatCompletionRequest struct {
-	Model            string          `json:"model"`
-	Messages         []Message       `json:"messages"`
-	Stream           bool            `json:"stream"`
-	StreamOptions    *StreamOptions  `json:"stream_options"`
+	Model               string         `json:"model"`
+	Messages            []Message      `json:"messages"`
+	Stream              bool           `json:"stream"`
+	StreamOptions       *StreamOptions `json:"stream_options"`
+	MaxCompletionTokens *int           `json:"max_completion_tokens"`
+	// Deprecated: Use [ChatCompletionRequest.MaxCompletionTokens]
 	MaxTokens        *int            `json:"max_tokens"`
 	Seed             *int            `json:"seed"`
 	Stop             any             `json:"stop"`
@@ -661,6 +663,11 @@ func FromChatRequest(r ChatCompletionRequest) (*api.ChatRequest, error) {
 		options["stop"] = stops
 	}
 
+	if r.ContextLength != nil {
+		options["num_ctx"] = *r.ContextLength
+	}
+
+	// Deprecated: MaxTokens is deprecated, use MaxCompletionTokens instead
 	if r.MaxTokens != nil {
 		options["num_predict"] = *r.MaxTokens
 
