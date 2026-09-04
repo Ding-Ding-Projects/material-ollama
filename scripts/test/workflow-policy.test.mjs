@@ -10,7 +10,7 @@ const WORKFLOW_INVENTORY = Object.freeze([
     relativePath: '.github/workflows/test.yaml',
     name: 'build-only',
     jobs: ['windows'],
-    runners: ['windows'],
+    runners: ['windows-2022'],
     needs: { windows: [] },
     collectorCount: 1,
     receipts: ['build-receipt-windows-${{ matrix.preset }}.txt'],
@@ -26,10 +26,10 @@ const WORKFLOW_INVENTORY = Object.freeze([
     name: 'llamacpp-build-only',
     jobs: ['setup-environment', 'windows-depends', 'windows-build', 'windows-package'],
     runners: [
-      'windows',
-      "${{ matrix.arch == 'arm64' && format('{0}-{1}', matrix.os, matrix.arch) || matrix.os }}",
-      'windows',
-      'windows',
+      'windows-2022',
+      'windows-2022',
+      'windows-2022',
+      'windows-2022',
     ],
     needs: {
       'setup-environment': [],
@@ -50,7 +50,7 @@ const WORKFLOW_INVENTORY = Object.freeze([
       },
       {
         name: 'build-windows-amd64',
-        paths: ['dist\\windows-amd64\\**', 'dist\\windows-arm64\\**', 'dist\\build-receipt-windows-build.txt'],
+        paths: ['dist\\windows-amd64\\**', 'dist\\windows-arm64\\**', 'dist\\windows-ollama-app-amd64.exe', 'dist\\windows-ollama-app-arm64.exe', 'dist\\build-receipt-windows-build.txt'],
       },
       { name: 'ollama-windows-amd64.zip', paths: ['dist/ollama-windows-amd64.zip', 'dist/build-receipt-windows-package.txt'] },
       { name: 'ollama-windows-arm64.zip', paths: ['dist/ollama-windows-arm64.zip', 'dist/build-receipt-windows-package.txt'] },
@@ -168,8 +168,13 @@ function assertUploadContract(workflow, expected) {
 }
 
 function assertReceiptContract(workflow, expected) {
-  const collectors = workflow.match(/^      - name: Collect Windows .* receipt\s*$/gm) ?? []
+  const collectors = workflow.split(/(?=^      - )/m)
+    .filter((step) => /^      - name: Collect Windows .* receipt\s*$/m.test(step))
   assert.equal(collectors.length, expected.collectorCount, `${expected.relativePath} receipt collector inventory changed`)
+  for (const collector of collectors) {
+    assert.match(collector, /^        if:\s+\$\{\{\s*always\(\)\s*\}\}\s*$/m, `${expected.relativePath} receipt collector must run after earlier failure`)
+    assert.match(collector, /^        continue-on-error:\s+true\s*$/m, `${expected.relativePath} receipt collector must not mask the original failure`)
+  }
   for (const receipt of expected.receipts) {
     const occurrences = workflow.split(receipt).length - 1
     assert.ok(occurrences >= 2, `${expected.relativePath} receipt path must be written and uploaded: ${receipt}`)
@@ -341,7 +346,7 @@ test('changing a direct or matrix runner to non-Windows turns the policy red', (
   const matrixEntry = WORKFLOW_INVENTORY[1]
   const matrixBase = readWorkflow(matrixEntry.relativePath)
   expectPolicyFailure(matrixBase.replace(/os: \[windows\]/, 'os: [linux]'), matrixEntry)
-  expectPolicyFailure(matrixBase.replace(/\$\{\{ matrix\.arch == 'arm64' && format\('\{0\}-\{1\}', matrix\.os, matrix\.arch\) \|\| matrix\.os \}\}/, 'ubuntu-latest'), matrixEntry)
+  expectPolicyFailure(matrixBase.replace(/runs-on: windows-2022/, 'runs-on: windows'), matrixEntry)
   expectPolicyFailure(readWorkflow(WORKFLOW_INVENTORY[0].relativePath).replace(/runs-on: windows/, 'runs-on: [self-hosted, linux]'), WORKFLOW_INVENTORY[0])
 })
 
@@ -355,6 +360,23 @@ test('referencing an unknown job in needs turns the workflow graph policy red', 
   const entry = WORKFLOW_INVENTORY[1]
   const base = readWorkflow(entry.relativePath)
   expectPolicyFailure(base.replace(/^    needs: setup-environment\r?\n/m, '    needs: [missing-job]\n'), entry)
+})
+
+test('each receipt collector retains its failure collection flags', () => {
+  for (const entry of WORKFLOW_INVENTORY) {
+    const base = readWorkflow(entry.relativePath)
+    const steps = base.split(/(?=^      - )/m)
+    for (let index = 0; index < steps.length; index += 1) {
+      if (!/^      - name: Collect Windows .* receipt\s*$/m.test(steps[index])) continue
+      for (const field of [/^        if:.*\r?\n/m, /^        continue-on-error:.*\r?\n/m]) {
+        const changed = steps[index].replace(field, '')
+        assert.notEqual(changed, steps[index], 'collector mutation must change the intended step')
+        const mutated = [...steps]
+        mutated[index] = changed
+        expectPolicyFailure(mutated.join(''), entry)
+      }
+    }
+  }
 })
 
 test('removing or substituting a required needs edge turns the graph policy red', () => {

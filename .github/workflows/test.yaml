@@ -74,7 +74,7 @@ jobs:
               - '"nvvm"'
               - '"nvptxcompiler"'
             cuda-version: '13.0'
-    runs-on: windows
+    runs-on: windows-2022
     steps:
       - run: |
           choco install -y --no-progress ccache ninja

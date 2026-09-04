@@ -23,7 +23,7 @@ env:
 
 jobs:
   setup-environment:
-    runs-on: windows
+    runs-on: windows-2022
     outputs:
       GOFLAGS: ${{ steps.goflags.outputs.GOFLAGS }}
       VERSION: ${{ steps.goflags.outputs.VERSION }}
@@ -104,7 +104,7 @@ jobs:
             preset: Vulkan
             build-steps: vulkan
             install: https://sdk.lunarg.com/sdk/download/1.4.321.1/windows/vulkansdk-windows-X64-1.4.321.1.exe
-    runs-on: ${{ matrix.arch == 'arm64' && format('{0}-{1}', matrix.os, matrix.arch) || matrix.os }}
+    runs-on: windows-2022
     env:
       GOFLAGS: ${{ needs.setup-environment.outputs.GOFLAGS }}
       VERSION: ${{ needs.setup-environment.outputs.VERSION }}
@@ -253,7 +253,7 @@ jobs:
           retention-days: 7
 
   windows-build:
-    runs-on: windows
+    runs-on: windows-2022
     needs: setup-environment
     env:
       GOFLAGS: ${{ needs.setup-environment.outputs.GOFLAGS }}
@@ -334,13 +334,15 @@ jobs:
           path: |
             dist\windows-amd64\**
             dist\windows-arm64\**
+            dist\windows-ollama-app-amd64.exe
+            dist\windows-ollama-app-arm64.exe
             dist\build-receipt-windows-build.txt
           compression-level: 0
           if-no-files-found: warn
           retention-days: 7
 
   windows-package:
-    runs-on: windows
+    runs-on: windows-2022
     needs: [setup-environment, windows-build, windows-depends]
     env:
       GOFLAGS: ${{ needs.setup-environment.outputs.GOFLAGS }}
