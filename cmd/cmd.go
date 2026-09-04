@@ -450,6 +450,7 @@ func CreateHandler(cmd *cobra.Command, args []string) error {
 	req.DraftFiles = draftFiles.Items()
 
 	bars := make(map[string]*progress.Bar)
+	var quantizeSpin *progress.Spinner
 	fn := func(resp api.ProgressResponse) error {
 		if resp.Digest != "" {
 			bar, ok := bars[resp.Digest]
@@ -464,6 +465,15 @@ func CreateHandler(cmd *cobra.Command, args []string) error {
 			}
 
 			bar.Set(resp.Completed)
+		} else if strings.Contains(resp.Status, "quantizing") {
+			spinner.Stop()
+
+			if quantizeSpin != nil {
+				quantizeSpin.SetMessage(resp.Status)
+			} else {
+				quantizeSpin = progress.NewSpinner(resp.Status)
+				p.Add("quantize", quantizeSpin)
+			}
 		} else if status != resp.Status {
 			spinner.Stop()
 
