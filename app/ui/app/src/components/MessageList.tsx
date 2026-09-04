@@ -3,10 +3,10 @@ import React from "react";
 import Message from "./Message";
 import Downloading from "./Downloading";
 import { ErrorMessage } from "./ErrorMessage";
+import { ConversationSpacer } from "./ai-elements/conversation";
 
 export default function MessageList({
   messages,
-  spacerHeight,
   isWaitingForLoad,
   isStreaming,
   downloadProgress,
@@ -14,9 +14,9 @@ export default function MessageList({
   editingMessageIndex,
   error,
   browserToolResult,
+  latestMessageRef,
 }: {
   messages: MessageType[];
-  spacerHeight: number;
   isWaitingForLoad?: boolean;
   isStreaming: boolean;
   downloadProgress?: DownloadEvent;
@@ -24,6 +24,7 @@ export default function MessageList({
   editingMessageIndex?: number;
   error?: ErrorEvent | null;
   browserToolResult?: any;
+  latestMessageRef?: React.RefObject<HTMLDivElement | null>;
 }) {
   const [showDots, setShowDots] = React.useState(false);
   const isDownloadingModel = downloadProgress && !downloadProgress.done;
@@ -84,13 +85,19 @@ export default function MessageList({
 
   return (
     <div
-      className="mx-auto flex max-w-[768px] flex-1 flex-col px-6 pb-12 select-text"
+      className="mx-auto flex max-w-[768px] w-full flex-1 flex-col px-6 py-12 select-text"
       data-role="message-list"
     >
       {messages.map((message, idx) => {
         const lastToolQuery = lastToolQueries[idx];
+        const isLastMessage = idx === messages.length - 1;
         return (
-          <div key={`${message.created_at}-${idx}`} data-message-index={idx}>
+          <div
+            key={`${message.created_at}-${idx}`}
+            data-message-index={idx}
+            data-message-role={message.role}
+            ref={isLastMessage ? latestMessageRef : null}
+          >
             <Message
               message={message}
               onEditMessage={onEditMessage}
@@ -161,8 +168,8 @@ export default function MessageList({
         </section>
       )}
 
-      {/* Dynamic spacer to allow scrolling the last message to the top of the container */}
-      <div style={{ height: `${spacerHeight}px` }} aria-hidden="true" />
+      {/* Dynamic spacer */}
+      <ConversationSpacer />
     </div>
   );
 }
