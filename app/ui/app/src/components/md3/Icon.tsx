@@ -13,7 +13,12 @@
 // `<Icon name="...">` usage so both stay in sync. Everything outside the
 // marked block is hand-written and untouched by that script.
 
-import iconsSpriteUrl from '../../assets/icons.svg'
+import { ensureIconSprite } from './iconSprite'
+
+// Inline the sprite before the first icon renders. Same-document fragment
+// references resolve; the cross-document form this file used to rely on did
+// not -- see iconSprite.ts for what was measured.
+ensureIconSprite()
 
 // AUTO-GENERATED ICON_NAMES START -- see scripts/build-icon-sprite.mjs
 export const ICON_NAMES = [
@@ -127,14 +132,17 @@ export interface IconProps {
 /**
  * A single Material Symbols (Outlined) glyph, rendered from the local sprite.
  *
- * `<use>` points at the Vite-resolved sprite URL plus a `#ms-<name>` fragment
- * rather than a bare `#ms-<name>` href. A bare fragment only resolves if the
- * sprite's raw markup is inlined into this document somewhere, which nothing
- * in this component's scope does; referencing the built asset URL is
- * self-contained and needs no such global wiring. WebView2 (Chromium) fully
- * supports cross-document `<use>` fragment references, so this works exactly
- * like an inline sprite would, without depending on where else in the app the
- * sprite happens to be mentioned.
+ * `<use>` points at a bare `#ms-<name>` fragment, resolved against the sprite
+ * that iconSprite.ts inlines into the document at module load.
+ *
+ * This file previously referenced the built asset URL instead, on the stated
+ * belief that "WebView2 (Chromium) fully supports cross-document `<use>`
+ * fragment references". It does not, under the conditions this app serves
+ * under. Measured in the real built application: the sprite fetched with
+ * HTTP 200, the hrefs and symbol ids matched exactly, and every `<use>`
+ * reported a 0x0 bounding box with no instanceRoot -- every icon in the
+ * product was an empty box, silently, and the comment asserting otherwise is
+ * why nobody looked.
  */
 export function Icon({ name, size = 20, fill = false, className }: IconProps) {
   const symbolId = fill ? `ms-${name}-fill` : `ms-${name}`
@@ -146,7 +154,7 @@ export function Icon({ name, size = 20, fill = false, className }: IconProps) {
       aria-hidden="true"
       className={className}
     >
-      <use href={`${iconsSpriteUrl}#${symbolId}`} />
+      <use href={`#${symbolId}`} />
     </svg>
   )
 }

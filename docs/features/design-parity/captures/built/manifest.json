@@ -1,0 +1,49 @@
+{
+  "schemaVersion": 1,
+  "side": "built",
+  "tuple": {
+    "width": 816,
+    "height": 639,
+    "scale": 1,
+    "theme": "light",
+    "locale": "en-US",
+    "seed": "#8a5a00",
+    "radius": "16px",
+    "schoolMode": "off"
+  },
+  "frozenTime": "2026-01-01T00:00:00Z",
+  "capturedAt": "2026-09-04T02:00:24.291Z",
+  "builtArtifact": "dist/windows-ollama-app-amd64.exe",
+  "builtArtifactSha256": "cf6af9b1feb9724b3b84fa7ace0306d3c1450dab1ed37f92709304957538e3c9",
+  "captured": 2,
+  "failed": 0,
+  "records": [
+    {
+      "id": "models",
+      "kind": "screen",
+      "screen": "Models",
+      "resolvedBuiltRoute": "/models",
+      "builtInteraction": "none -- the route alone reaches this state",
+      "path": "docs/features/design-parity/captures/built/models.png",
+      "sha256": "a09b5168748b488fe3fe0554965dd06e0a8f5e0ca1eafbf97a3043d4c04bd63d",
+      "bytes": 74553,
+      "width": 816,
+      "height": 639,
+      "builtArtifactSha256": "cf6af9b1feb9724b3b84fa7ace0306d3c1450dab1ed37f92709304957538e3c9"
+    },
+    {
+      "id": "settings",
+      "kind": "screen",
+      "screen": "Settings",
+      "resolvedBuiltRoute": "/settings",
+      "builtInteraction": "none -- the route alone reaches this state",
+      "path": "docs/features/design-parity/captures/built/settings.png",
+      "sha256": "ee57ea6210b0d4a5ab41a75658379e0266bea139972e7e6e6067e56e775625f8",
+      "bytes": 59323,
+      "width": 816,
+      "height": 639,
+      "builtArtifactSha256": "cf6af9b1feb9724b3b84fa7ace0306d3c1450dab1ed37f92709304957538e3c9"
+    }
+  ],
+  "failures": []
+}
