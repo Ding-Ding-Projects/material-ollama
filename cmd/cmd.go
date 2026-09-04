@@ -468,7 +468,7 @@ func CreateHandler(cmd *cobra.Command, args []string) error {
 			spinner.Stop()
 
 			status = resp.Status
-			spinner = progress.NewSpinner(status)
+			spinner := progress.NewSpinner(status)
 			p.Add(status, spinner)
 		}
 
@@ -1180,10 +1180,12 @@ func tryConnect(unknownKeyErr error) error {
 	if len(matches) > 0 {
 		serverPubKey := matches[0]
 
-		localPubKey, err := auth.GetPublicKey()
+		publicKey, err := auth.GetPublicKey()
 		if err != nil {
 			return unknownKeyErr
 		}
+
+		localPubKey := strings.TrimSpace(string(ssh.MarshalAuthorizedKey(publicKey)))
 
 		if runtime.GOOS == "linux" && serverPubKey != localPubKey {
 			// try the ollama service public key

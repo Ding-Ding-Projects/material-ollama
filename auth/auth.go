@@ -29,7 +29,7 @@ func GetPublicKey() (string, error) {
 	privateKeyFile, err := os.ReadFile(keyPath)
 	if err != nil {
 		slog.Info(fmt.Sprintf("Failed to load private key: %v", err))
-		return "", err
+		return nil, err
 	}
 
 	pubKey, _, _, _, err := ssh.ParseAuthorizedKey(pubKeyFile)
