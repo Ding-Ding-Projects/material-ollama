@@ -1276,8 +1276,7 @@ func TestPushHandler(t *testing.T) {
 			expectedOutput: "You need to be signed in to push",
 		},
 		{
-			name:      "unauthorized push",
-			modelName: "unauthorized-model",
+			modelName: "unauthorized-push",
 			serverResponse: map[string]func(w http.ResponseWriter, r *http.Request){
 				"/api/push": func(w http.ResponseWriter, r *http.Request) {
 					w.Header().Set("Content-Type", "application/json")
@@ -1296,6 +1295,25 @@ func TestPushHandler(t *testing.T) {
 				},
 			},
 			expectedError: "you are not authorized to push to this namespace, create the model under a namespace you own",
+		},
+		{
+			modelName: "unknown-key-err",
+			serverResponse: map[string]func(w http.ResponseWriter, r *http.Request){
+				"/api/push": func(w http.ResponseWriter, r *http.Request) {
+					w.Header().Set("Content-Type", "application/json")
+					w.WriteHeader(http.StatusUnauthorized)
+					uerr := errtypes.UnknownOllamaKey{
+						Key: "aaa",
+					}
+					err := json.NewEncoder(w).Encode(map[string]string{
+						"error": uerr.Error(),
+					})
+					if err != nil {
+						t.Fatal(err)
+					}
+				},
+			},
+			expectedError: "unauthorized: unknown ollama key \"aaa\"",
 		},
 		{
 			modelName: "unknown-key-err",

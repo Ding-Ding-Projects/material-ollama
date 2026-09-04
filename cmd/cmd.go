@@ -1221,6 +1221,64 @@ func tryConnect(unknownKeyErr error) error {
 	return unknownKeyErr
 }
 
+// unknownKey handles key validation when a connection fails due to an unknown key.
+// It attempts to open the browser for interactive sessions to let users connect their key,
+// falling back to command-line instructions for non-interactive sessions.
+// Returns nil if browser flow succeeds, or an error with connection instructions otherwise.
+func unknownKey(unknownKeyErr error) error {
+	// find SSH public key in the error message
+	// TODO (brucemacd): the API should return structured errors so that this message parsing isn't needed
+	sshKeyPattern := `ssh-\w+ [^\s"]+`
+	re := regexp.MustCompile(sshKeyPattern)
+	matches := re.FindStringSubmatch(unknownKeyErr.Error())
+
+	if len(matches) > 0 {
+		serverPubKey := matches[0]
+
+		localPubKey, err := auth.GetPublicKey()
+		if err != nil {
+			return unknownKeyErr
+		}
+
+		if runtime.GOOS == "linux" && serverPubKey != localPubKey {
+			// try the ollama service public key
+			svcPubKey, err := os.ReadFile("/usr/share/ollama/.ollama/id_ed25519.pub")
+			if err != nil {
+				return unknownKeyErr
+			}
+			localPubKey = strings.TrimSpace(string(svcPubKey))
+		}
+
+		// check if the returned public key matches the local public key, this prevents adding a remote key to the user's account
+		if serverPubKey != localPubKey {
+			return unknownKeyErr
+		}
+
+		if term.IsTerminal(int(os.Stdout.Fd())) && !envconfig.Noninteractive() {
+			// URL encode the key and device name for the browser URL
+			encodedKey := base64.RawURLEncoding.EncodeToString([]byte(localPubKey))
+			d, _ := os.Hostname()
+			encodedDevice := url.QueryEscape(d)
+			browserURL := fmt.Sprintf("https://ollama.com/connect?host=%s&key=%s", encodedDevice, encodedKey)
+			if err := browser.OpenURL(browserURL); err == nil {
+				fmt.Println("Opening browser to connect your device...")
+				return nil
+			}
+		}
+
+		var msg strings.Builder
+		msg.WriteString(unknownKeyErr.Error())
+		msg.WriteString("\n\nYour ollama key is:\n")
+		msg.WriteString(localPubKey)
+		msg.WriteString("\nAdd your key at:\n")
+		msg.WriteString("https://ollama.com/settings/keys")
+
+		return errors.New(msg.String())
+	}
+
+	return unknownKeyErr
+}
+
 func PushHandler(cmd *cobra.Command, args []string) error {
 	client, err := api.ClientFromEnvironment()
 	if err != nil {
@@ -2978,6 +3036,8 @@ func NewCLI() *cobra.Command {
 				envVars["LLAMA_ARG_FIT_TARGET"],
 				envVars["OLLAMA_LOAD_TIMEOUT"],
 			})
+		case pushCmd:
+			appendEnvDocs(cmd, []envconfig.EnvVar{envVars["OLLAMA_NONINTERACTIVE"]})
 		default:
 			appendEnvDocs(cmd, envs)
 		}
