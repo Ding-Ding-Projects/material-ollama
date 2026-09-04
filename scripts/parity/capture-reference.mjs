@@ -70,13 +70,23 @@ function satisfies(expect) {
 }
 
 async function captureState(client, state, outDir) {
-  // Reload first. Every row starts from the same place, so no row can inherit
-  // an overlay, a scroll position or a focus ring from the row before it.
+  // Clear the reference's own persisted state, THEN reload. The reference
+  // saves its current screen to localStorage, so without this a row inherits
+  // whichever screen the previous row left selected -- which is how the
+  // "shell" row once came out byte-identical to "settings". Reloading alone
+  // does not help: the state survives the reload, that being its whole point.
+  await cdpEvaluate(client, `(() => { try { window.localStorage.clear(); return 'OK' } catch { return 'OK' } })()`)
   await client.send('Page.reload', { ignoreCache: false })
   await waitFor(client, `document.readyState`, (v) => v === 'complete', { label: `${state.id}: page load` })
   await waitFor(client, `document.querySelectorAll('[aria-label="Main navigation"]').length`, (v) => Number(v) >= 1, {
     label: `${state.id}: reference rendered`,
   })
+
+  // Prove the determinism injection actually ran on this document.
+  const clock = await cdpEvaluate(client, `new Date().toISOString() + '|' + Math.random()`)
+  if (!String(clock).startsWith('2026-01-01T00:00:00') || !String(clock).endsWith('|0')) {
+    throw new Error(`${state.id}: determinism injection did not run (clock/random = ${clock})`)
+  }
 
   for (const step of state.steps) {
     const result = await cdpEvaluate(client, step.expression)
@@ -136,6 +146,12 @@ async function main() {
   const records = []
   const failures = []
   try {
+    // Page.enable FIRST. Without it addScriptToEvaluateOnNewDocument registers
+    // and returns an identifier, and then simply never runs on the next
+    // navigation -- no error anywhere. Every capture taken before this line
+    // existed had a live clock, live animation and live randomness while
+    // reporting itself as deterministic.
+    await client.send('Page.enable', {})
     await client.send('Emulation.setDeviceMetricsOverride', {
       width: TUPLE.width, height: TUPLE.height, deviceScaleFactor: TUPLE.scale, mobile: false,
     })
@@ -155,6 +171,35 @@ async function main() {
     client.close()
   }
 
+  // Two rows must never share bytes. A weak `expect` that is already true on
+  // the screen behind an overlay lets a row photograph that screen and pass --
+  // it happened on the first run of this script, where the School-mode unlock
+  // row came out byte-identical to plain Settings. Identical bytes for two
+  // different states is proof one of them never opened.
+  const byHash = new Map()
+  for (const record of records) {
+    const seen = byHash.get(record.sha256)
+    const state = STATES.find((st) => st.id === record.id)
+    const declared = state?.sharesFrameWith
+    if (seen && (declared === seen || STATES.find((st) => st.id === seen)?.sharesFrameWith === record.id)) {
+      record.sharesFrameWith = seen
+    } else if (seen) {
+      const reason = `captured bytes are identical to ${seen} -- these are two different states, so one of them never opened`
+      failures.push({ id: record.id, reason })
+      process.stdout.write(`FAILED   ${record.id}: ${reason}
+`)
+    } else {
+      byHash.set(record.sha256, record.id)
+    }
+  }
+  // A row whose duplicate was DECLARED stays in the manifest, carrying the
+  // declaration. Only an undeclared duplicate is dropped and failed -- the
+  // first version of this filter dropped both kinds, so a legitimate shared
+  // frame vanished from the record entirely and the manifest was quietly one
+  // row short of the states it had captured.
+  const failedIds = new Set(failures.map((f) => f.id))
+  const unique = records.filter((r) => !failedIds.has(r.id))
+
   const manifest = {
     schemaVersion: 1,
     side: 'reference',
@@ -162,9 +207,9 @@ async function main() {
     frozenTime: FROZEN_TIME_ISO,
     capturedAt: new Date().toISOString(),
     referenceFile: 'design/Material Ollama.dc.html',
-    captured: records.length,
+    captured: unique.length,
     failed: failures.length,
-    records,
+    records: unique,
     failures,
   }
   const manifestPath = path.join(outDir, 'manifest.json')

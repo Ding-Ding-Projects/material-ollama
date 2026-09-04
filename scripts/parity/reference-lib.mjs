@@ -48,6 +48,11 @@ export const DETERMINISM_SCRIPT = `
   FrozenDate.UTC = RealDate.UTC;
   globalThis.Date = FrozenDate;
   globalThis.performance && (globalThis.performance.now = () => 0);
+  // Pin randomness too. The reference draws its dim-sum surprise on a
+  // probability check and picks a dish at random; leaving that to chance
+  // makes one row un-capturable and every other row's diff noisy. 0 makes
+  // the draw always succeed and always choose the first dish.
+  Math.random = () => 0;
   const style = document.createElement('style');
   style.textContent = '*,*::before,*::after{animation:none !important;transition:none !important;caret-color:transparent !important}';
   const attach = () => document.documentElement.appendChild(style);

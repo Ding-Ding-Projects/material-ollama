@@ -1,0 +1,198 @@
+{
+  "schemaVersion": 1,
+  "side": "reference",
+  "tuple": {
+    "width": 816,
+    "height": 639,
+    "scale": 1,
+    "theme": "light",
+    "locale": "en-US",
+    "seed": "#8a5a00",
+    "radius": "16px",
+    "schoolMode": "off"
+  },
+  "frozenTime": "2026-01-01T00:00:00Z",
+  "capturedAt": "2026-09-04T01:20:28.360Z",
+  "referenceFile": "design/Material Ollama.dc.html",
+  "captured": 17,
+  "failed": 1,
+  "records": [
+    {
+      "id": "shell",
+      "kind": "screen",
+      "screen": "App shell",
+      "path": "docs/features/design-parity/captures/reference/shell.png",
+      "sha256": "ebaa70bd3ab6d572086becb91e35ff4435f7219b0ba8828428ac04ff61d2d57a",
+      "bytes": 80039,
+      "width": 816,
+      "height": 639
+    },
+    {
+      "id": "models",
+      "kind": "screen",
+      "screen": "Models",
+      "path": "docs/features/design-parity/captures/reference/models.png",
+      "sha256": "ebaa70bd3ab6d572086becb91e35ff4435f7219b0ba8828428ac04ff61d2d57a",
+      "bytes": 80039,
+      "width": 816,
+      "height": 639,
+      "sharesFrameWith": "shell"
+    },
+    {
+      "id": "chat",
+      "kind": "screen",
+      "screen": "Chat",
+      "path": "docs/features/design-parity/captures/reference/chat.png",
+      "sha256": "443711464c68dc45d2187f101cb60bb6f83c5d050056d74f1b98395a49ab3fcb",
+      "bytes": 58026,
+      "width": 816,
+      "height": 639
+    },
+    {
+      "id": "launch",
+      "kind": "screen",
+      "screen": "Launch",
+      "path": "docs/features/design-parity/captures/reference/launch.png",
+      "sha256": "6ad31401cf155187669e4fdf1dabd5646f2040e1149f04dd648ce85190ba253a",
+      "bytes": 59828,
+      "width": 816,
+      "height": 639
+    },
+    {
+      "id": "cli-harness",
+      "kind": "screen",
+      "screen": "CLI harness",
+      "path": "docs/features/design-parity/captures/reference/cli-harness.png",
+      "sha256": "4c1470c27871297fc6eddb0d104ef0edabc9520dcb42d3adfd6bbaf0122f89f1",
+      "bytes": 69292,
+      "width": 816,
+      "height": 639
+    },
+    {
+      "id": "developer",
+      "kind": "screen",
+      "screen": "Developer",
+      "path": "docs/features/design-parity/captures/reference/developer.png",
+      "sha256": "632eaeb455c0516413dda94a6c90a3f2ae6d5d307596956ab4d86625c82846d5",
+      "bytes": 82116,
+      "width": 816,
+      "height": 639
+    },
+    {
+      "id": "toolbox",
+      "kind": "screen",
+      "screen": "Toolbox",
+      "path": "docs/features/design-parity/captures/reference/toolbox.png",
+      "sha256": "34bf39efcd1b3b8ae2d5528d8171f13207a2ef1f67843cf2fae4454136c3f98d",
+      "bytes": 64782,
+      "width": 816,
+      "height": 639
+    },
+    {
+      "id": "docs",
+      "kind": "screen",
+      "screen": "Docs",
+      "path": "docs/features/design-parity/captures/reference/docs.png",
+      "sha256": "b86d7023e78eafc9a0fc6f63717e83ed22b352bd4b647b2fbcc5e02f4ab104c8",
+      "bytes": 86805,
+      "width": 816,
+      "height": 639
+    },
+    {
+      "id": "status",
+      "kind": "screen",
+      "screen": "Status",
+      "path": "docs/features/design-parity/captures/reference/status.png",
+      "sha256": "0077290c60feb3cbcb3b2bbe4db4585ab219f35c7884df13870d7e79e2b82071",
+      "bytes": 113258,
+      "width": 816,
+      "height": 639
+    },
+    {
+      "id": "settings",
+      "kind": "screen",
+      "screen": "Settings",
+      "path": "docs/features/design-parity/captures/reference/settings.png",
+      "sha256": "54f9654df322cb2c5030cb9342166c51dedb20b2072db4ef7fcfae8c9a834097",
+      "bytes": 78536,
+      "width": 816,
+      "height": 639
+    },
+    {
+      "id": "overlay-command-palette",
+      "kind": "overlay",
+      "screen": "Overlay: command palette",
+      "path": "docs/features/design-parity/captures/reference/overlay-command-palette.png",
+      "sha256": "4851e6ccc63da8cde171f72c569992493144cf534782a34c53f4e18b2a101875",
+      "bytes": 77947,
+      "width": 816,
+      "height": 639
+    },
+    {
+      "id": "overlay-notification-center",
+      "kind": "overlay",
+      "screen": "Overlay: notification center",
+      "path": "docs/features/design-parity/captures/reference/overlay-notification-center.png",
+      "sha256": "8b0eca55fe45bcbfca90383ed5008f2e52c7e1f5803976221eb8a67f7e62deda",
+      "bytes": 83366,
+      "width": 816,
+      "height": 639
+    },
+    {
+      "id": "overlay-regex-builder",
+      "kind": "overlay",
+      "screen": "Overlay: regex builder",
+      "path": "docs/features/design-parity/captures/reference/overlay-regex-builder.png",
+      "sha256": "e1ab470dcb62a89c970b0c1d1dfb804b3ee9a1fdeb50aca4344cb4aacba7d924",
+      "bytes": 78664,
+      "width": 816,
+      "height": 639
+    },
+    {
+      "id": "overlay-context-menu",
+      "kind": "overlay",
+      "screen": "Overlay: context menu",
+      "path": "docs/features/design-parity/captures/reference/overlay-context-menu.png",
+      "sha256": "2b135adb1c5604719bc2d8815f83128f786bee51605b29449326e1cd61a08bcf",
+      "bytes": 81190,
+      "width": 816,
+      "height": 639
+    },
+    {
+      "id": "overlay-destructive-confirmation",
+      "kind": "overlay",
+      "screen": "Overlay: destructive confirmation",
+      "path": "docs/features/design-parity/captures/reference/overlay-destructive-confirmation.png",
+      "sha256": "aeae4f9826b9d20639a11cda69cfbb9e83bc75a73e909e0a56fb7f301e2deb6d",
+      "bytes": 88771,
+      "width": 816,
+      "height": 639
+    },
+    {
+      "id": "overlay-school-mode-unlock",
+      "kind": "overlay",
+      "screen": "Overlay: School-mode unlock",
+      "path": "docs/features/design-parity/captures/reference/overlay-school-mode-unlock.png",
+      "sha256": "e43e8e62eaceee00d31be837e3cc3283aa1df190cb14177b6e3450c1edfe2a32",
+      "bytes": 87874,
+      "width": 816,
+      "height": 639
+    },
+    {
+      "id": "overlay-dim-sum-surprise",
+      "kind": "overlay",
+      "screen": "Overlay: dim-sum surprise",
+      "path": "docs/features/design-parity/captures/reference/overlay-dim-sum-surprise.png",
+      "sha256": "6be53f6d21e7eaacd2289d7b4de108610bd8d632768d9f050c16c642e839ba6f",
+      "bytes": 71793,
+      "width": 816,
+      "height": 639
+    }
+  ],
+  "failures": [
+    {
+      "id": "overlay-snackbar",
+      "reason": "overlay-snackbar: a snackbar is visible: never satisfied within 8000ms (last value: 0)"
+    }
+  ]
+}
