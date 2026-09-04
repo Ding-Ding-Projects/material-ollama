@@ -91,6 +91,15 @@ func shouldUseHarmony(model *Model) bool {
 	return false
 }
 
+func shouldForceThinking(model *Model) bool {
+	if model.Config.ModelFamily == "qwen3" && strings.Contains(model.Name, "thinking-2507") {
+		// Force thinking mode for the newer qwen3 thinking models otherwise they end up
+		// leaving the thinking trace in the return content w/ unmatched <think></think> tags
+		return true
+	}
+	return false
+}
+
 func experimentEnabled(name string) bool {
 	return slices.Contains(strings.Split(os.Getenv("OLLAMA_EXPERIMENT"), ","), name)
 }
