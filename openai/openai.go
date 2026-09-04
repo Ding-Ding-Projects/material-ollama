@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/ollama/ollama/api"
+	"github.com/ollama/ollama/types"
 	"github.com/ollama/ollama/types/model"
 )
 

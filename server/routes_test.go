@@ -34,6 +34,11 @@ import (
 	"github.com/ollama/ollama/version"
 )
 
+var (
+	streamFalse = types.NullWithValue(false)
+	streamTrue  = types.NullWithValue(true)
+)
+
 func createTestFile(t *testing.T, name string) (string, string) {
 	t.Helper()
 
@@ -420,11 +425,10 @@ func TestRoutes(t *testing.T) {
 			Path:   "/api/create",
 			Setup: func(t *testing.T, req *http.Request) {
 				_, digest := createTestFile(t, "ollama-model")
-				stream := false
 				createReq := api.CreateRequest{
 					Name:   "t-bone",
 					Files:  map[string]string{"test.gguf": digest},
-					Stream: &stream,
+					Stream: streamFalse,
 				}
 				jsonData, err := json.Marshal(createReq)
 				if err != nil {
@@ -873,7 +877,7 @@ func TestManifestCaseSensitivity(t *testing.T) {
 		// version.
 		Name:   wantStableName,
 		Files:  map[string]string{"test.gguf": digest},
-		Stream: &stream,
+		Stream: streamFalse,
 	}))
 	checkManifestList()
 
@@ -881,14 +885,14 @@ func TestManifestCaseSensitivity(t *testing.T) {
 	checkOK(createRequest(t, s.CreateHandler, api.CreateRequest{
 		Name:   name(),
 		Files:  map[string]string{"test.gguf": digest},
-		Stream: &stream,
+		Stream: streamFalse,
 	}))
 	checkManifestList()
 
 	t.Logf("pulling")
 	checkOK(createRequest(t, s.PullHandler, api.PullRequest{
 		Name:     name(),
-		Stream:   &stream,
+		Stream:   streamFalse,
 		Insecure: true,
 	}))
 	checkManifestList()

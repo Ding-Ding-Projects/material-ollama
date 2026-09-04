@@ -726,7 +726,7 @@ func TestCreateFromBin(t *testing.T) {
 	w := createRequest(t, s.CreateHandler, api.CreateRequest{
 		Name:   "test",
 		Files:  map[string]string{"test.gguf": digest},
-		Stream: &stream,
+		Stream: streamFalse,
 	})
 
 	if w.Code != http.StatusOK {
@@ -781,7 +781,7 @@ func TestCreateFromModel(t *testing.T) {
 	w := createRequest(t, s.CreateHandler, api.CreateRequest{
 		Name:   "test",
 		Files:  map[string]string{"test.gguf": digest},
-		Stream: &stream,
+		Stream: streamFalse,
 	})
 
 	if w.Code != http.StatusOK {
@@ -795,7 +795,7 @@ func TestCreateFromModel(t *testing.T) {
 	w = createRequest(t, s.CreateHandler, api.CreateRequest{
 		Name:   "test2",
 		From:   "test",
-		Stream: &stream,
+		Stream: streamFalse,
 	})
 
 	if w.Code != http.StatusOK {
@@ -886,7 +886,7 @@ func TestCreateRemovesLayers(t *testing.T) {
 		Name:     "test",
 		Files:    map[string]string{"test.gguf": digest},
 		Template: "{{ .Prompt }}",
-		Stream:   &stream,
+		Stream:   streamFalse,
 	})
 
 	if w.Code != http.StatusOK {
@@ -907,7 +907,7 @@ func TestCreateRemovesLayers(t *testing.T) {
 		Name:     "test",
 		Files:    map[string]string{"test.gguf": digest},
 		Template: "{{ .System }} {{ .Prompt }}",
-		Stream:   &stream,
+		Stream:   streamFalse,
 	})
 
 	if w.Code != http.StatusOK {
@@ -932,7 +932,7 @@ func TestCreateUnsetsSystem(t *testing.T) {
 		Name:   "test",
 		Files:  map[string]string{"test.gguf": digest},
 		System: "Say hi!",
-		Stream: &stream,
+		Stream: streamFalse,
 	})
 
 	if w.Code != http.StatusOK {
@@ -953,7 +953,7 @@ func TestCreateUnsetsSystem(t *testing.T) {
 		Name:   "test",
 		Files:  map[string]string{"test.gguf": digest},
 		System: "",
-		Stream: &stream,
+		Stream: streamFalse,
 	})
 
 	if w.Code != http.StatusOK {
@@ -982,7 +982,7 @@ func TestCreateMergeParameters(t *testing.T) {
 			"top_k":       10,
 			"stop":        []string{"USER:", "ASSISTANT:"},
 		},
-		Stream: &stream,
+		Stream: streamFalse,
 	})
 
 	if w.Code != http.StatusOK {
@@ -1007,7 +1007,7 @@ func TestCreateMergeParameters(t *testing.T) {
 			"temperature": 0.6,
 			"top_p":       0.7,
 		},
-		Stream: &stream,
+		Stream: streamFalse,
 	})
 
 	if w.Code != http.StatusOK {
@@ -1066,7 +1066,7 @@ func TestCreateMergeParameters(t *testing.T) {
 			"top_p":       0.7,
 			"stop":        []string{"<|endoftext|>"},
 		},
-		Stream: &stream,
+		Stream: streamFalse,
 	})
 
 	if w.Code != http.StatusOK {
@@ -1120,7 +1120,7 @@ func TestCreateReplacesMessages(t *testing.T) {
 				Content: "Oh, my god.",
 			},
 		},
-		Stream: &stream,
+		Stream: streamFalse,
 	})
 
 	if w.Code != http.StatusOK {
@@ -1154,7 +1154,7 @@ func TestCreateReplacesMessages(t *testing.T) {
 				Content: "A test. And a thumping good one at that, I'd wager.",
 			},
 		},
-		Stream: &stream,
+		Stream: streamFalse,
 	})
 
 	if w.Code != http.StatusOK {
@@ -1210,7 +1210,7 @@ func TestCreateTemplateSystem(t *testing.T) {
 		Files:    map[string]string{"test.gguf": digest},
 		Template: "{{ .System }} {{ .Prompt }}",
 		System:   "Say bye!",
-		Stream:   &stream,
+		Stream:   streamFalse,
 	})
 
 	if w.Code != http.StatusOK {
@@ -1253,7 +1253,7 @@ func TestCreateTemplateSystem(t *testing.T) {
 			Name:     "test",
 			Files:    map[string]string{"test.gguf": digest},
 			Template: "{{ .Prompt",
-			Stream:   &stream,
+			Stream:   streamFalse,
 		})
 
 		if w.Code != http.StatusBadRequest {
@@ -1267,7 +1267,7 @@ func TestCreateTemplateSystem(t *testing.T) {
 			Name:     "test",
 			Files:    map[string]string{"test.gguf": digest},
 			Template: "{{ if .Prompt }}",
-			Stream:   &stream,
+			Stream:   streamFalse,
 		})
 
 		if w.Code != http.StatusBadRequest {
@@ -1281,7 +1281,7 @@ func TestCreateTemplateSystem(t *testing.T) {
 			Name:     "test",
 			Files:    map[string]string{"test.gguf": digest},
 			Template: "{{ Prompt }}",
-			Stream:   &stream,
+			Stream:   streamFalse,
 		})
 
 		if w.Code != http.StatusOK {
@@ -1431,7 +1431,7 @@ func TestCreateLicenses(t *testing.T) {
 		Name:    "test",
 		Files:   map[string]string{"test.gguf": digest},
 		License: []string{"MIT", "Apache-2.0"},
-		Stream:  &stream,
+		Stream:  streamFalse,
 	})
 
 	if w.Code != http.StatusOK {
@@ -1478,7 +1478,7 @@ func TestCreateDetectTemplate(t *testing.T) {
 		w := createRequest(t, s.CreateHandler, api.CreateRequest{
 			Name:   "test",
 			Files:  map[string]string{"test.gguf": digest},
-			Stream: &stream,
+			Stream: streamFalse,
 		})
 
 		if w.Code != http.StatusOK {
@@ -1498,7 +1498,7 @@ func TestCreateDetectTemplate(t *testing.T) {
 		w := createRequest(t, s.CreateHandler, api.CreateRequest{
 			Name:   "test",
 			Files:  map[string]string{"test.gguf": digest},
-			Stream: &stream,
+			Stream: streamFalse,
 		})
 
 		if w.Code != http.StatusOK {

@@ -277,12 +277,11 @@ func TestChatHarmonyParserStreamingRealtime(t *testing.T) {
 			// Create a simple test model
 			_, digest := createHarmonyTestModel(t)
 
-			streamFalse := false
 			w := createRequest(t, s.CreateHandler, api.CreateRequest{
 				Model:    "harmony-test-streaming",
 				Files:    map[string]string{"test.gguf": digest},
 				Template: `<|start|><|end|>{{ with .Tools }}{{ end }}{{ .Prompt }}`,
-				Stream:   &streamFalse,
+				Stream:   streamFalse,
 			})
 
 			if w.Code != 200 {
@@ -290,11 +289,10 @@ func TestChatHarmonyParserStreamingRealtime(t *testing.T) {
 			}
 
 			// Test chat endpoint with streaming
-			streamTrue := true
 			w = createRequest(t, s.ChatHandler, api.ChatRequest{
 				Model:    "harmony-test-streaming",
 				Messages: []api.Message{{Role: "user", Content: "Hello"}},
-				Stream:   &streamTrue,
+				Stream:   streamTrue,
 				Tools:    getTestTools(),
 			})
 
@@ -426,12 +424,11 @@ func TestChatHarmonyParserStreamingSimple(t *testing.T) {
 
 	// Create model
 	_, digest := createHarmonyTestModel(t)
-	streamFalse := false
 	w := createRequest(t, s.CreateHandler, api.CreateRequest{
 		Model:    "gpt-oss",
 		Files:    map[string]string{"test.gguf": digest},
 		Template: `<|start|><|end|>{{ .Tools }}{{ .Prompt }}`,
-		Stream:   &streamFalse,
+		Stream:   streamFalse,
 	})
 
 	if w.Code != 200 {
@@ -439,11 +436,10 @@ func TestChatHarmonyParserStreamingSimple(t *testing.T) {
 	}
 
 	// Test streaming
-	streamTrue := true
 	w = createRequest(t, s.ChatHandler, api.ChatRequest{
 		Model:    "gpt-oss",
 		Messages: []api.Message{{Role: "user", Content: "Hello"}},
-		Stream:   &streamTrue,
+		Stream:   streamTrue,
 		Tools:    getTestTools(),
 	})
 
@@ -609,12 +605,11 @@ func TestChatHarmonyParserStreaming(t *testing.T) {
 			_, digest := createHarmonyTestModel(t)
 
 			// Create model with passthrough template
-			stream := false
 			w := createRequest(t, s.CreateHandler, api.CreateRequest{
 				Model:    "harmony-test",
 				Files:    map[string]string{"file.gguf": digest},
 				Template: `<|start|><|end|>{{ with .Tools }}{{ end }}{{ .Prompt }}`,
-				Stream:   &stream,
+				Stream:   streamFalse,
 			})
 
 			if w.Code != http.StatusOK {
@@ -622,11 +617,10 @@ func TestChatHarmonyParserStreaming(t *testing.T) {
 			}
 
 			// Test chat endpoint with streaming
-			streamTrue := true
 			w = createRequest(t, s.ChatHandler, api.ChatRequest{
 				Model:    "harmony-test",
 				Messages: []api.Message{{Role: "user", Content: "Hello"}},
-				Stream:   &streamTrue,
+				Stream:   streamTrue,
 				Tools:    getTestTools(),
 			})
 

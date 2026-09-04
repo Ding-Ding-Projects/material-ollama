@@ -783,7 +783,7 @@ func (s *Server) GenerateHandler(c *gin.Context) {
 		}
 	}()
 
-	if req.Stream != nil && !*req.Stream {
+	if !req.Stream.Value(true) {
 		var r api.GenerateResponse
 		var allLogprobs []api.Logprob
 		var sbThinking strings.Builder

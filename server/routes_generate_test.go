@@ -899,7 +899,7 @@ func TestGenerateChat(t *testing.T) {
 {{- range .ToolCalls }}{"name": "{{ .Function.Name }}", "arguments": {{ .Function.Arguments }}}
 {{- end }}
 {{ end }}`,
-		Stream: &stream,
+		Stream: streamFalse,
 	})
 
 	if w.Code != http.StatusOK {
@@ -970,7 +970,7 @@ func TestGenerateChat(t *testing.T) {
 		w := createRequest(t, s.CreateHandler, api.CreateRequest{
 			Model:  "bert",
 			Files:  map[string]string{"bert.gguf": digest},
-			Stream: &stream,
+			Stream: streamFalse,
 		})
 
 		if w.Code != http.StatusOK {
@@ -1080,7 +1080,7 @@ func TestGenerateChat(t *testing.T) {
 			Messages: []api.Message{
 				{Role: "user", Content: "Hello!"},
 			},
-			Stream: &stream,
+			Stream: streamFalse,
 		})
 
 		if w.Code != http.StatusOK {
@@ -1110,7 +1110,7 @@ func TestGenerateChat(t *testing.T) {
 			Messages: []api.Message{
 				{Role: "user", Content: "Hello!"},
 			},
-			Stream: &stream,
+			Stream: streamFalse,
 		})
 
 		if w.Code != http.StatusOK {
@@ -1132,7 +1132,7 @@ func TestGenerateChat(t *testing.T) {
 				{Role: "system", Content: "You can perform magic tricks."},
 				{Role: "user", Content: "Hello!"},
 			},
-			Stream: &stream,
+			Stream: streamFalse,
 		})
 
 		if w.Code != http.StatusOK {
@@ -1155,7 +1155,7 @@ func TestGenerateChat(t *testing.T) {
 				{Role: "system", Content: "You can perform magic tricks."},
 				{Role: "user", Content: "Help me write tests."},
 			},
-			Stream: &stream,
+			Stream: streamFalse,
 		})
 
 		if w.Code != http.StatusOK {
@@ -1208,15 +1208,13 @@ func TestGenerateChat(t *testing.T) {
 			EvalDuration:       1,
 		}
 
-		streamRequest := true
-
 		w := createRequest(t, s.ChatHandler, api.ChatRequest{
 			Model: "test-system",
 			Messages: []api.Message{
 				{Role: "user", Content: "What's the weather in Seattle?"},
 			},
 			Tools:  tools,
-			Stream: &streamRequest,
+			Stream: streamTrue,
 		})
 
 		if w.Code != http.StatusOK {
@@ -1340,7 +1338,7 @@ func TestGenerateChat(t *testing.T) {
 				{Role: "user", Content: "What's the weather in Seattle?"},
 			},
 			Tools:  tools,
-			Stream: &stream,
+			Stream: streamFalse,
 		})
 
 		wg.Wait()
@@ -1618,7 +1616,7 @@ func TestGenerate(t *testing.T) {
 {{- if .Prompt }}User: {{ .Prompt }} {{ end }}
 {{- if .Response }}Assistant: {{ .Response }} {{ end }}
 `,
-		Stream: &stream,
+		Stream: streamFalse,
 	})
 
 	if w.Code != http.StatusOK {
@@ -1656,7 +1654,7 @@ func TestGenerate(t *testing.T) {
 		w := createRequest(t, s.CreateHandler, api.CreateRequest{
 			Model:  "bert",
 			Files:  map[string]string{"file.gguf": digest},
-			Stream: &stream,
+			Stream: streamFalse,
 		})
 
 		if w.Code != http.StatusOK {
@@ -1781,7 +1779,7 @@ func TestGenerate(t *testing.T) {
 		w := createRequest(t, s.GenerateHandler, api.GenerateRequest{
 			Model:  "test",
 			Prompt: "Hello!",
-			Stream: &stream,
+			Stream: streamFalse,
 		})
 
 		if w.Code != http.StatusOK {
@@ -1809,7 +1807,7 @@ func TestGenerate(t *testing.T) {
 		w := createRequest(t, s.GenerateHandler, api.GenerateRequest{
 			Model:  "test-system",
 			Prompt: "Hello!",
-			Stream: &stream,
+			Stream: streamFalse,
 		})
 
 		if w.Code != http.StatusOK {
@@ -1829,7 +1827,7 @@ func TestGenerate(t *testing.T) {
 			Model:  "test-system",
 			Prompt: "Hello!",
 			System: "You can perform magic tricks.",
-			Stream: &stream,
+			Stream: streamFalse,
 		})
 
 		if w.Code != http.StatusOK {
@@ -1851,7 +1849,7 @@ func TestGenerate(t *testing.T) {
 			Template: `{{- if .System }}{{ .System }} {{ end }}
 {{- if .Prompt }}### USER {{ .Prompt }} {{ end }}
 {{- if .Response }}### ASSISTANT {{ .Response }} {{ end }}`,
-			Stream: &stream,
+			Stream: streamFalse,
 		})
 
 		if w.Code != http.StatusOK {
@@ -1913,7 +1911,7 @@ func TestGenerate(t *testing.T) {
 			Model:  "test-system",
 			Prompt: "Help me write tests.",
 			Raw:    true,
-			Stream: &stream,
+			Stream: streamFalse,
 		})
 
 		if w.Code != http.StatusOK {
@@ -2512,7 +2510,7 @@ func TestChatWithPromptEndingInThinkTag(t *testing.T) {
 {{- if eq .Role "user" }}user: {{ .Content }}
 {{ else if eq .Role "assistant" }}assistant: {{ if .Thinking }}<think>{{ .Thinking }}</think>{{ end }}{{ .Content }}
 {{ end }}{{ end }}<think>`,
-			Stream: &stream,
+			Stream: streamFalse,
 		})
 
 		if w.Code != http.StatusOK {
@@ -2538,13 +2536,12 @@ func TestChatWithPromptEndingInThinkTag(t *testing.T) {
 			}
 			mock.CompletionFn = nil
 
-			streamRequest := false
 			req := api.ChatRequest{
 				Model: "test-thinking",
 				Messages: []api.Message{
 					{Role: "user", Content: userContent},
 				},
-				Stream: &streamRequest,
+				Stream: streamFalse,
 			}
 			if think {
 				req.Think = &api.ThinkValue{Value: think}
@@ -2630,7 +2627,7 @@ func TestChatWithPromptEndingInThinkTag(t *testing.T) {
 			Model:    "test-thinking",
 			Messages: []api.Message{{Role: "user", Content: "Analyze this complex problem"}},
 			Think:    &api.ThinkValue{Value: think},
-			Stream:   &stream,
+			Stream:   streamFalse,
 		})
 
 		wg.Wait()
