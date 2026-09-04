@@ -287,6 +287,8 @@ func parseVocabularyFromTokenizer(fsys fs.FS) (*Vocabulary, error) {
 			v.Types = append(v.Types, tokenTypeControl)
 		case token.UserDefined:
 			v.Types = append(v.Types, tokenTypeUserDefined)
+		case hasByteFallback && isByteFallbackToken(token.Content):
+			v.Types = append(v.Types, tokenTypeByte)
 		default:
 			v.Types = append(v.Types, tokenTypeNormal)
 		}
@@ -315,6 +317,55 @@ func parseVocabulary(fsys fs.FS) (*Vocabulary, error) {
 	}
 
 	return nil, errors.New("unknown tokenizer format")
+}
+
+func isByteFallbackToken(s string) bool {
+	if len(s) != 6 || s[0] != '<' || s[1] != '0' || s[2] != 'x' || s[5] != '>' {
+		return false
+	}
+
+	for _, c := range s[3:5] {
+		if !('0' <= c && c <= '9') && !('A' <= c && c <= 'F') && !('a' <= c && c <= 'f') {
+			return false
+		}
+	}
+
+	return true
+}
+
+func hasDecoderType(data json.RawMessage, typ string) bool {
+	if len(data) == 0 {
+		return false
+	}
+
+	var v any
+	if err := json.Unmarshal(data, &v); err != nil {
+		return false
+	}
+
+	return containsDecoderType(v, typ)
+}
+
+func containsDecoderType(v any, typ string) bool {
+	switch v := v.(type) {
+	case map[string]any:
+		if s, ok := v["type"].(string); ok && s == typ {
+			return true
+		}
+		for _, vv := range v {
+			if containsDecoderType(vv, typ) {
+				return true
+			}
+		}
+	case []any:
+		for _, vv := range v {
+			if containsDecoderType(vv, typ) {
+				return true
+			}
+		}
+	}
+
+	return false
 }
 
 type SpecialVocabulary struct {
