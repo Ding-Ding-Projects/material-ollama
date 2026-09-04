@@ -711,6 +711,23 @@ func skipUnderMinVRAM(t *testing.T, gb uint64) {
 	}
 }
 
+var minVRAM = map[string]uint64{
+	"qwen3-vl":      16,
+	"gpt-oss:20b":   16,
+	"gpt-oss:120b":  70,
+	"qwen3":         6,
+	"llama3.1":      8,
+	"llama3.2":      4,
+	"mistral":       6,
+	"qwen2.5":       6,
+	"qwen2":         6,
+	"mistral-nemo":  9,
+	"mistral-small": 16,
+	"mixtral:8x22b": 80,
+	"qwq":           20,
+	"granite3.3":    7,
+}
+
 // Skip if the target model isn't X% GPU loaded to avoid excessive runtime
 func skipIfNotGPULoaded(ctx context.Context, t *testing.T, client *api.Client, model string, minPercent int) {
 	gpuPercent := getGPUPercent(ctx, t, client, model)
