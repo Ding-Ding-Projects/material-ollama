@@ -1,7 +1,6 @@
 import { useState } from "react"
-import { Badge, Button, ConfirmDialog, Select, Surface, useSnackbar } from "@/components/md3"
+import { Badge, Button, ConfirmDialog, Select, Surface, TextField, useSnackbar } from "@/components/md3"
 import { Icon } from "@/components/md3/Icon"
-import { FOCUS_RING_WITHIN } from "@/components/md3/tokens"
 import { Txt, useT } from "@/uh"
 import type { SupportTicket } from "./useSupportTickets"
 import { useSupportTickets } from "./useSupportTickets"
@@ -99,19 +98,20 @@ export function SupportTicketsCard() {
             className="w-full sm:w-64"
           />
         </div>
-        <div className="flex flex-col gap-1.5">
-          <label htmlFor="status-ticket-description" className="text-[11px] font-medium text-on-surface-variant">
-            {t("ticketsDescriptionLabel")}
-          </label>
-          <textarea
-            id="status-ticket-description"
-            value={description}
-            onChange={(event) => setDescription(event.target.value.slice(0, MAX_DESCRIPTION_LENGTH))}
-            placeholder={t("ticketsDescriptionPlaceholder")}
-            rows={3}
-            className={`w-full resize-y rounded-[10px] border border-outline-variant bg-surface px-3 py-2 text-[12.5px] outline-none placeholder:text-on-surface-variant ${FOCUS_RING_WITHIN}`}
-          />
-        </div>
+        {/* Was a raw <textarea> with its own border, radius and focus ring
+            hand-copied from the kit's tokens -- a lookalike that would drift
+            the first time any of the three changed. It stayed raw only because
+            TextField was single-line. The length cap is enforced in onChange
+            rather than by maxLength so a paste is clamped the same way typing
+            is. */}
+        <TextField
+          multiline
+          rows={3}
+          label={t("ticketsDescriptionLabel")}
+          value={description}
+          onChange={(next) => setDescription(next.slice(0, MAX_DESCRIPTION_LENGTH))}
+          placeholder={t("ticketsDescriptionPlaceholder")}
+        />
         <div className="flex items-center justify-end">
           <Button
             variant="filled"

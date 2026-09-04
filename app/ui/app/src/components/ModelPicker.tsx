@@ -11,8 +11,8 @@ import { useSelectedModel } from "@/hooks/useSelectedModel";
 import { useCloudStatus } from "@/hooks/useCloudStatus";
 import { useQueryClient } from "@tanstack/react-query";
 import { getModelUpstreamInfo } from "@/api";
-import { ArrowDownTrayIcon } from "@heroicons/react/24/outline";
-import { Chip } from "@/components/md3";
+import { Chip, ListItem, SearchField } from "@/components/md3";
+import { Icon } from "@/components/md3/Icon";
 
 const stalenessCheckCache = new Map<string, number>();
 
@@ -173,14 +173,18 @@ export const ModelPicker = forwardRef<
       {isOpen && (
         <div className="absolute right-0 text-[15px] bottom-full mb-2 z-50 w-64 rounded-2xl overflow-hidden bg-white border border-neutral-100 text-neutral-800 shadow-xl shadow-black/5 backdrop-blur-lg dark:border-neutral-600/40 dark:bg-neutral-800 dark:text-white dark:ring-black/20">
           <div className="px-1 py-2 border-b border-neutral-100 dark:border-neutral-700">
-            <input
-              ref={searchInputRef}
-              type="text"
+            {/* Was a raw <input> with hardcoded neutral-200/600 borders. It
+                stayed raw only because SearchField could not take a ref, and
+                this ref is what focuses the field when the dropdown opens --
+                converting without it would have silently killed the autofocus.
+                SearchField also brings the `.*` builder affordance every
+                search surface in this app is required to carry. */}
+            <SearchField
+              inputRef={searchInputRef}
               value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
+              onChange={setSearchQuery}
               placeholder="Find model..."
-              autoCorrect="off"
-              className="w-full px-2 py-0.5 bg-transparent border-none border-neutral-200 rounded-md outline-none focus:border-neutral-400 dark:border-neutral-600 dark:focus:border-neutral-400"
+              label="Find model"
             />
           </div>
 
@@ -294,37 +298,43 @@ export const ModelList = forwardRef(function ModelList(
         models.map((model, index) => {
           return (
             <div key={`${model.model}-${model.digest || "no-digest"}-${index}`}>
-              <button
-                onClick={() => onModelSelect(model)}
-                onMouseEnter={() => setHighlightedIndex(index)}
-                className={`flex w-full items-center gap-2 px-3 py-2 hover:bg-neutral-100 dark:hover:bg-neutral-700/60 focus:outline-none cursor-pointer ${
+              {/* Was a raw <button> with hardcoded neutral-100/700 hover
+                  states and its own inline cloud SVG. It stayed raw because
+                  ListItem carried neither onMouseEnter (which drives the
+                  highlighted index) nor a ref for the arrow-key scroll
+                  helper's geometry -- converting without both would have
+                  broken keyboard navigation invisibly. */}
+              <ListItem
+                shape="rounded"
+                selected={
                   highlightedIndex === index ||
                   selectedModel?.model === model.model
-                    ? "bg-neutral-100 dark:bg-neutral-700/60"
-                    : ""
-                }`}
-              >
-                <span className="flex-1 text-left truncate min-w-0">
-                  {model.model}
-                </span>
-                {model.isCloud() && (
-                  <svg
-                    className="h-3 fill-current text-neutral-500 dark:text-neutral-400"
-                    viewBox="0 0 20 15"
-                    strokeWidth={1}
-                    xmlns="http://www.w3.org/2000/svg"
-                  >
-                    <path d="M4.01511 14.5861H14.2304C16.9183 14.5861 19.0002 12.5509 19.0002 9.9403C19.0002 7.30491 16.8911 5.3046 14.0203 5.3046C12.9691 3.23016 11.0602 2 8.69505 2C5.62816 2 3.04822 4.32758 2.72935 7.47455C1.12954 7.95356 0.0766602 9.29431 0.0766602 10.9757C0.0766602 12.9913 1.55776 14.5861 4.01511 14.5861ZM4.02056 13.1261C2.46452 13.1261 1.53673 12.2938 1.53673 11.0161C1.53673 9.91553 2.24207 9.12934 3.51367 8.79302C3.95684 8.68258 4.11901 8.48427 4.16138 8.00729C4.39317 5.3613 6.29581 3.46007 8.69505 3.46007C10.5231 3.46007 11.955 4.48273 12.8385 6.26013C13.0338 6.65439 13.2626 6.7882 13.7488 6.7882C16.1671 6.7882 17.5337 8.19719 17.5337 9.97707C17.5337 11.7526 16.1242 13.1261 14.2852 13.1261H4.02056Z" />
-                  </svg>
-                )}
-                {model.digest === undefined &&
-                  (cloudDisabled || !model.isCloud()) && (
-                    <ArrowDownTrayIcon
-                      className="h-4 w-4 text-neutral-500 dark:text-neutral-400"
-                      strokeWidth={1.75}
-                    />
-                  )}
-              </button>
+                }
+                onClick={() => onModelSelect(model)}
+                onMouseEnter={() => setHighlightedIndex(index)}
+                title={
+                  <span className="block truncate">{model.model}</span>
+                }
+                trailing={
+                  <>
+                    {model.isCloud() && (
+                      <Icon
+                        name="cloud"
+                        size={15}
+                        className="text-on-surface-variant"
+                      />
+                    )}
+                    {model.digest === undefined &&
+                      (cloudDisabled || !model.isCloud()) && (
+                        <Icon
+                          name="download"
+                          size={16}
+                          className="text-on-surface-variant"
+                        />
+                      )}
+                  </>
+                }
+              />
             </div>
           );
         })

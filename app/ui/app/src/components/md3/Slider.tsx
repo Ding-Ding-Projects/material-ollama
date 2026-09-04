@@ -1,4 +1,5 @@
 import clsx from "clsx"
+import type { CSSProperties } from "react"
 import { useId } from "react"
 import { FOCUS_RING } from "./tokens"
 
@@ -15,6 +16,19 @@ export interface SliderProps {
   valueLabel?: string
   disabled?: boolean
   className?: string
+  /**
+   * Paint the track yourself.
+   *
+   * A hue slider's track IS its data -- the rainbow tells you what you are
+   * choosing -- and `bg-surface-highest` is hardcoded here, so without this
+   * the colour translator's hue control renders as a plain grey bar with no
+   * cue at all. That is functional data encoding, the one exemption to the
+   * chrome palette rule, and it is why that slider stayed a raw input.
+   */
+  trackStyle?: CSSProperties
+  /** Set when `trackStyle` paints the track, so the token background does
+   * not sit on top of it. */
+  trackClassName?: string
 }
 
 /**
@@ -35,6 +49,8 @@ export function Slider({
   valueLabel,
   disabled = false,
   className,
+  trackStyle,
+  trackClassName,
 }: SliderProps) {
   const id = useId()
   return (
@@ -58,8 +74,10 @@ export function Slider({
         onChange={(event) => onChange(Number(event.target.value))}
         aria-label={label ? undefined : "Slider"}
         aria-valuetext={valueLabel}
+        style={trackStyle}
         className={clsx(
-          "h-1.5 w-full cursor-pointer appearance-none rounded-full bg-surface-highest accent-[var(--p)]",
+          "h-1.5 w-full cursor-pointer appearance-none rounded-full accent-[var(--p)]",
+          trackClassName ?? (trackStyle ? null : "bg-surface-highest"),
           "disabled:cursor-not-allowed disabled:opacity-38",
           FOCUS_RING,
         )}

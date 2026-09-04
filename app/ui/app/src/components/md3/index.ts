@@ -15,6 +15,8 @@ export {
 } from "./SegmentedControl"
 export { Switch, type SwitchProps } from "./Switch"
 export { Checkbox, type CheckboxProps } from "./Checkbox"
+export { ColorSwatch, type ColorSwatchProps } from "./ColorSwatch"
+export { SelectableTile, type SelectableTileProps } from "./SelectableTile"
 export { Slider, type SliderProps } from "./Slider"
 export { TextField, type TextFieldProps } from "./TextField"
 export { SearchField, type SearchFieldProps } from "./SearchField"

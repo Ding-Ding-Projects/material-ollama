@@ -34,10 +34,10 @@ export interface TextFieldProps {
    * for want of exactly these, so converting them would have silently
    * deleted their behaviour.
    */
-  inputRef?: Ref<HTMLInputElement>
-  onKeyDown?: KeyboardEventHandler<HTMLInputElement>
-  onBlur?: FocusEventHandler<HTMLInputElement>
-  onFocus?: FocusEventHandler<HTMLInputElement>
+  inputRef?: Ref<HTMLInputElement> | Ref<HTMLTextAreaElement>
+  onKeyDown?: KeyboardEventHandler<HTMLInputElement & HTMLTextAreaElement>
+  onBlur?: FocusEventHandler<HTMLInputElement & HTMLTextAreaElement>
+  onFocus?: FocusEventHandler<HTMLInputElement & HTMLTextAreaElement>
   /** Numeric keypads on touch. `type="number"` alone does not get there on
    * every platform, and losing it is invisible on a desktop test run. */
   inputMode?: InputHTMLAttributes<HTMLInputElement>["inputMode"]
@@ -47,6 +47,17 @@ export interface TextFieldProps {
    * still needs an accessible name. Never a substitute for `label` when a
    * visible one belongs there. */
   ariaLabel?: string
+  /**
+   * Render a <textarea> instead of an <input>.
+   *
+   * A single-line field is not a smaller multiline one -- it silently drops
+   * every newline the user types. A support-ticket description had to stay a
+   * raw <textarea> for want of this, so the alternative to the prop was a
+   * control outside the kit entirely.
+   */
+  multiline?: boolean
+  /** Visible rows when `multiline`. Ignored otherwise. */
+  rows?: number
 }
 
 /**
@@ -79,6 +90,8 @@ export function TextField({
   autoFocus,
   maxLength,
   ariaLabel,
+  multiline = false,
+  rows = 4,
 }: TextFieldProps) {
   const id = useId()
   const helperId = useId()
@@ -93,7 +106,8 @@ export function TextField({
       ) : null}
       <div
         className={clsx(
-          "flex items-center gap-2 rounded-[10px] px-3 py-2",
+          "flex gap-2 rounded-[10px] px-3 py-2",
+          multiline ? "items-start" : "items-center",
           variant === "outlined"
             ? "border border-outline-variant bg-surface-low"
             : "border border-transparent bg-surface-high",
@@ -105,28 +119,52 @@ export function TextField({
         {leading ? (
           <Icon name={leading} size={17} className="shrink-0 text-on-surface-variant" />
         ) : null}
-        <input
-          id={id}
-          ref={inputRef}
-          type={type}
-          value={value}
-          placeholder={placeholder}
-          disabled={disabled}
-          inputMode={inputMode}
-          autoFocus={autoFocus}
-          maxLength={maxLength}
-          aria-label={label ? undefined : ariaLabel}
-          aria-invalid={hasError || undefined}
-          aria-describedby={helper || error ? helperId : undefined}
-          onChange={(event) => onChange(event.target.value)}
-          onKeyDown={onKeyDown}
-          onBlur={onBlur}
-          onFocus={onFocus}
-          className={clsx(
-            "min-w-0 flex-1 bg-transparent text-sm outline-none placeholder:text-on-surface-variant",
-            mono && "font-mono",
-          )}
-        />
+        {multiline ? (
+          <textarea
+            id={id}
+            ref={inputRef as Ref<HTMLTextAreaElement>}
+            rows={rows}
+            value={value}
+            placeholder={placeholder}
+            disabled={disabled}
+            autoFocus={autoFocus}
+            maxLength={maxLength}
+            aria-label={label ? undefined : ariaLabel}
+            aria-invalid={hasError || undefined}
+            aria-describedby={helper || error ? helperId : undefined}
+            onChange={(event) => onChange(event.target.value)}
+            onKeyDown={onKeyDown}
+            onBlur={onBlur}
+            onFocus={onFocus}
+            className={clsx(
+              "min-w-0 flex-1 resize-y bg-transparent text-sm outline-none placeholder:text-on-surface-variant",
+              mono && "font-mono",
+            )}
+          />
+        ) : (
+          <input
+            id={id}
+            ref={inputRef as Ref<HTMLInputElement>}
+            type={type}
+            value={value}
+            placeholder={placeholder}
+            disabled={disabled}
+            inputMode={inputMode}
+            autoFocus={autoFocus}
+            maxLength={maxLength}
+            aria-label={label ? undefined : ariaLabel}
+            aria-invalid={hasError || undefined}
+            aria-describedby={helper || error ? helperId : undefined}
+            onChange={(event) => onChange(event.target.value)}
+            onKeyDown={onKeyDown}
+            onBlur={onBlur}
+            onFocus={onFocus}
+            className={clsx(
+              "min-w-0 flex-1 bg-transparent text-sm outline-none placeholder:text-on-surface-variant",
+              mono && "font-mono",
+            )}
+          />
+        )}
         {trailing ? (
           <Icon name={trailing} size={17} className="shrink-0 text-on-surface-variant" />
         ) : null}

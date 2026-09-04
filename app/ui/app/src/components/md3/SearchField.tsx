@@ -1,3 +1,4 @@
+import type { KeyboardEventHandler, Ref } from "react"
 import clsx from "clsx"
 import { Icon } from "./Icon"
 import { FOCUS_RING_WITHIN } from "./tokens"
@@ -21,6 +22,12 @@ export interface SearchFieldProps {
   onOpenBuilder?: () => void
   disabled?: boolean
   className?: string
+  /** A search field that opens with a surface usually wants focus. Without
+   * a ref the call site cannot give it, which is why the model picker kept
+   * a raw input for its own filter. */
+  inputRef?: Ref<HTMLInputElement>
+  onKeyDown?: KeyboardEventHandler<HTMLInputElement>
+  autoFocus?: boolean
 }
 
 /**
@@ -40,6 +47,9 @@ export function SearchField({
   onOpenBuilder,
   disabled = false,
   className,
+  inputRef,
+  onKeyDown,
+  autoFocus,
 }: SearchFieldProps) {
   const dotStarAction = onToggleRegex ?? onOpenBuilder
   const dotStarTitle = onToggleRegex ? "Regex search" : "Regex builder"
@@ -55,11 +65,14 @@ export function SearchField({
     >
       <Icon name="search" size={17} className="shrink-0 text-on-surface-variant" />
       <input
+        ref={inputRef}
         type="text"
         value={value}
         placeholder={placeholder}
         aria-label={label}
         disabled={disabled}
+        autoFocus={autoFocus}
+        onKeyDown={onKeyDown}
         onChange={(event) => onChange(event.target.value)}
         className="min-w-0 flex-1 bg-transparent px-2 py-2 text-[12.5px] outline-none placeholder:text-on-surface-variant"
       />

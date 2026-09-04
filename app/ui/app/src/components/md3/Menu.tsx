@@ -10,6 +10,17 @@ export interface MenuItemDef {
   danger?: boolean
   disabled?: boolean
   onClick: () => void
+  /**
+   * The keyboard shortcut this item also answers to, shown right-aligned in
+   * the item's own row.
+   *
+   * The contract is explicit that a context menu is where people find out
+   * what an object can do, so a shortcut hidden there is a shortcut nobody
+   * learns. Its absence here is also what made the tab strip fork this
+   * primitive into a hand-built sibling -- and that fork silently lost the
+   * filter field, which is a hard requirement for every menu.
+   */
+  shortcut?: string
 }
 
 export interface MenuProps {

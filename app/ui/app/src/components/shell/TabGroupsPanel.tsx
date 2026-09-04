@@ -1,6 +1,6 @@
 import clsx from "clsx"
 import { useMemo, useState } from "react"
-import { Button, Dialog, IconButton, ListItem, TextField } from "@/components/md3"
+import { Button, Dialog, IconButton, ListItem, TextField, ColorSwatch } from "@/components/md3"
 import { Icon, type SymbolName } from "@/components/md3/Icon"
 import { useT } from "@/uh"
 import { TabSearchField } from "./TabSearchField"
@@ -152,17 +152,13 @@ export function TabGroupsPanel({
                   <div className="flex items-center gap-1.5 pl-5">
                     <span className="text-[11px] text-on-surface-variant">{t("colorLabel")}</span>
                     {GROUP_COLOR_PALETTE.map((color) => (
-                      <button
+                      <ColorSwatch
                         key={color}
-                        type="button"
-                        aria-label={color}
-                        aria-pressed={group.color === color}
+                        color={color}
+                        label={color}
+                        size="sm"
+                        selected={group.color === color}
                         onClick={() => onSetGroupColor(group.id, color)}
-                        className={clsx(
-                          "h-5 w-5 shrink-0 rounded-full border-2",
-                          group.color === color ? "border-on-surface" : "border-transparent",
-                        )}
-                        style={{ backgroundColor: color }}
                       />
                     ))}
                   </div>

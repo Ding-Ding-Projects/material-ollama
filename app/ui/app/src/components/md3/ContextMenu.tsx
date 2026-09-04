@@ -118,7 +118,15 @@ export function ContextMenu({ x, y, items, onClose, filterable = false, onOpenRe
             )}
           >
             {item.icon ? <Icon name={item.icon} size={17} className="shrink-0" /> : null}
-            {item.label}
+            <span className="flex-1">{item.label}</span>
+            {item.shortcut ? (
+              // Exposed as text rather than an aria-keyshortcuts attribute:
+              // the row's accessible name already carries the label, and
+              // announcing the keys twice is worse than announcing them once.
+              <span className="shrink-0 font-mono text-[11px] text-on-surface-variant">
+                {item.shortcut}
+              </span>
+            ) : null}
           </button>
         ))}
       </div>

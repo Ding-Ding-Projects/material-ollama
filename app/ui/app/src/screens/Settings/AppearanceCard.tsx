@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react"
-import { Button, ConfirmDialog, SegmentedControl, Slider, Surface, TextField } from "@/components/md3"
+import { Button, ColorSwatch, ConfirmDialog, SelectableTile, SegmentedControl, Slider, Surface, TextField } from "@/components/md3"
 import { AppMark } from "@/components/md3/AppMark"
 import { Icon, type SymbolName } from "@/components/md3/Icon"
 import { useTheme } from "@/theme/ThemeProvider"
@@ -156,22 +156,14 @@ export function AppearanceCard({ preferences, patchPreferences, preferencesLoadi
         <div className="flex flex-col gap-3">
           <div className="flex flex-wrap gap-2">
             {SEED_PRESETS.map((preset) => (
-              <button
+              <ColorSwatch
                 key={preset}
-                type="button"
-                aria-label={fact(`${t("seedSwatchLabel")} — ${preset}`, "user-input")}
-                aria-pressed={seed.toLowerCase() === preset}
+                color={preset}
+                label={fact(`${t("seedSwatchLabel")} — ${preset}`, "user-input")}
+                selected={seed.toLowerCase() === preset}
                 onClick={() => applySeed(preset)}
-                className="relative h-9 w-9 shrink-0 rounded-full border-2 outline-none before:absolute before:-inset-1 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--p)]"
-                style={{
-                  backgroundColor: preset,
-                  borderColor: seed.toLowerCase() === preset ? "var(--on-s)" : "transparent",
-                }}
-              >
-                {seed.toLowerCase() === preset ? (
-                  <Icon name="check" size={16} className="absolute inset-0 m-auto text-white drop-shadow" />
-                ) : null}
-              </button>
+                className="h-9 w-9"
+              />
             ))}
           </div>
           <div className="flex items-end gap-2">
@@ -272,24 +264,18 @@ export function AppearanceCard({ preferences, patchPreferences, preferencesLoadi
           {GLYPH_OPTIONS.map((option) => {
             const selected = (preferences.appearance.glyph || "") === option.id
             return (
-              <button
+              <SelectableTile
                 key={option.id || "brand"}
-                type="button"
-                aria-pressed={selected}
-                aria-label={fact(option.id ? `${t("glyphLabel")} — ${option.id}` : t("glyphBrand"), "user-input")}
+                selected={selected}
+                label={fact(option.id ? `${t("glyphLabel")} — ${option.id}` : t("glyphBrand"), "user-input")}
                 onClick={() => applyGlyph(option.id)}
-                className="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-full border outline-none before:absolute before:-inset-1 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--p)]"
-                style={{
-                  borderColor: selected ? "var(--p)" : "var(--outline-v)",
-                  backgroundColor: selected ? "var(--pc)" : "transparent",
-                }}
               >
                 {option.icon ? (
                   <Icon name={option.icon} size={20} className="text-on-surface" />
                 ) : (
                   <AppMark size={20} />
                 )}
-              </button>
+              </SelectableTile>
             )
           })}
         </div>

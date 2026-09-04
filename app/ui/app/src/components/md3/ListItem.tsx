@@ -1,5 +1,5 @@
 import clsx from "clsx"
-import type { MouseEventHandler, ReactNode } from "react"
+import type { MouseEventHandler, ReactNode, Ref } from "react"
 import { FOCUS_RING_INSET, TONE_CLASSES } from "./tokens"
 
 export interface ListItemProps {
@@ -17,6 +17,21 @@ export interface ListItemProps {
   shape?: "pill" | "rounded"
   onClick?: () => void
   onContextMenu?: MouseEventHandler<HTMLDivElement>
+  /**
+   * Pointer hover, and a ref to the row's own element.
+   *
+   * A list with keyboard navigation needs both: hover to drive the
+   * highlighted index, and real geometry to scroll the highlighted row into
+   * view. Without them the model picker's row had to stay a raw <button>,
+   * because converting it would have broken arrow-key navigation in a way
+   * no static test would have noticed.
+   */
+  onMouseEnter?: MouseEventHandler<HTMLDivElement>
+  onMouseLeave?: MouseEventHandler<HTMLDivElement>
+  itemRef?: Ref<HTMLDivElement>
+  /** Anything the row needs to carry for its own bookkeeping, e.g. a
+   * data-index a scroll helper measures against. */
+  "data-index"?: number
   className?: string
 }
 
@@ -33,15 +48,23 @@ export function ListItem({
   shape = "pill",
   onClick,
   onContextMenu,
+  onMouseEnter,
+  onMouseLeave,
+  itemRef,
   className,
+  ...rest
 }: ListItemProps) {
   return (
     <div
+      ref={itemRef}
       role={onClick ? "button" : undefined}
       tabIndex={onClick ? 0 : undefined}
       aria-current={selected || undefined}
       onClick={onClick}
       onContextMenu={onContextMenu}
+      onMouseEnter={onMouseEnter}
+      onMouseLeave={onMouseLeave}
+      data-index={rest["data-index"]}
       onKeyDown={
         onClick
           ? (event) => {

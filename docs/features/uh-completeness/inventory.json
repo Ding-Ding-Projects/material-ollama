@@ -1881,7 +1881,7 @@
       "surfaces": {
         "desktop-app": {
           "status": "in-progress",
-          "implementation": "app/ui/app/src/screens/Settings/AppearanceCard.tsx#L1-L331,app/ui/app/src/theme/ThemeProvider.tsx#L1-L60",
+          "implementation": "app/ui/app/src/screens/Settings/AppearanceCard.tsx#L1-L317,app/ui/app/src/theme/ThemeProvider.tsx#L1-L60",
           "documentation": "docs/features/uh-completeness/articles/appearance-editor.md#behaviour",
           "localizedCopy": "app/ui/app/src/screens/Settings/AppearanceCard.tsx#seedLabel",
           "persistence": "app/store/store.go",
@@ -2217,7 +2217,7 @@
       "surfaces": {
         "desktop-app": {
           "status": "in-progress",
-          "implementation": "app/ui/app/src/components/shell/useShellTabs.ts#L131-L165,app/ui/app/src/components/shell/TabGroupsPanel.tsx#L1-L214,app/ui/app/src/components/shell/TabMoveToGroupPicker.tsx#L1-L106",
+          "implementation": "app/ui/app/src/components/shell/useShellTabs.ts#L131-L165,app/ui/app/src/components/shell/TabGroupsPanel.tsx#L1-L210,app/ui/app/src/components/shell/TabMoveToGroupPicker.tsx#L1-L106",
           "documentation": "docs/features/uh-completeness/articles/tab-groups.md#behaviour",
           "localizedCopy": "app/ui/app/src/components/shell/AppShell.tsx#addToGroup",
           "persistence": "app/ui/app/src/components/shell/useShellTabs.ts",
@@ -2861,7 +2861,7 @@
       "surfaces": {
         "desktop-app": {
           "status": "in-progress",
-          "implementation": "app/ui/app/src/components/locks/AnchoredPanel.tsx#L1-L93,app/ui/app/src/components/shell/TabContextMenu.tsx#L1-L116",
+          "implementation": "app/ui/app/src/components/locks/AnchoredPanel.tsx#L1-L93,app/ui/app/src/components/shell/TabContextMenu.tsx#L1-L58",
           "documentation": "docs/features/uh-completeness/articles/overlays.md#behaviour",
           "localizedCopy": "app/ui/app/src/components/locks/LockWizard.tsx#wizardTitleLock",
           "persistence": "not-persisted: an overlay's open/closed state and measured position are transient component state, recomputed fresh every time it opens.",
@@ -2889,7 +2889,7 @@
       "surfaces": {
         "desktop-app": {
           "status": "in-progress",
-          "implementation": "app/ui/app/src/components/shell/TabContextMenu.tsx#L1-L116,app/ui/app/src/components/shell/useShellKeyboardShortcuts.ts#L1-L40",
+          "implementation": "app/ui/app/src/components/shell/TabContextMenu.tsx#L1-L58,app/ui/app/src/components/shell/useShellKeyboardShortcuts.ts#L1-L40",
           "documentation": "docs/features/uh-completeness/articles/context-menu-shortcuts.md#behaviour",
           "localizedCopy": "app/ui/app/src/components/shell/AppShell.tsx#closeTab",
           "persistence": "not-persisted: Ctrl+W is a fixed, non-configurable binding -- there is no settings surface to remap or disable it.",

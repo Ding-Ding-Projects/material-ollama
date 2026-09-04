@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react"
 import type { KeyboardEvent, PointerEvent as ReactPointerEvent } from "react"
-import { Badge, Button, Surface, TextField } from "@/components/md3"
+import { Badge, Button, Slider, Surface, TextField } from "@/components/md3"
 import { hexToOklch } from "@/theme/oklch"
 import { fact, useT } from "@/uh"
 import {
@@ -140,19 +140,19 @@ export function ColorTranslator({ value, onChange, onUseAsSeed, className }: Col
               style={{ backgroundColor: value }}
             />
             <div className="min-w-0 flex-1">
-              <label className="text-[11px] font-medium text-on-surface-variant" htmlFor="color-translator-hue">
-                {t("hueLabel")}
-              </label>
-              <input
-                id="color-translator-hue"
-                type="range"
+              {/* The rainbow track is functional data encoding -- it is the
+                  cue that tells you what you are picking -- so it survives the
+                  move onto Slider through trackStyle rather than being
+                  flattened to the token grey. Without that prop this had to
+                  stay a raw input, since Slider hardcoded its own background. */}
+              <Slider
                 min={0}
                 max={360}
                 step={1}
                 value={hsv.h}
-                onChange={(event) => commitRgb(hsvToRgb({ h: Number(event.target.value), s: hsv.s, v: hsv.v }))}
-                className="h-2.5 w-full cursor-pointer appearance-none rounded-full"
-                style={{
+                label={t("hueLabel")}
+                onChange={(next) => commitRgb(hsvToRgb({ h: next, s: hsv.s, v: hsv.v }))}
+                trackStyle={{
                   background:
                     "linear-gradient(to right, #f00 0%, #ff0 17%, #0f0 33%, #0ff 50%, #00f 67%, #f0f 83%, #f00 100%)",
                 }}
