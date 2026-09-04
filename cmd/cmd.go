@@ -1966,14 +1966,15 @@ func chat(cmd *cobra.Command, opts runOptions) (*api.Message, *api.Metrics, erro
 		return nil
 	}
 
-	if opts.Format == "json" {
-		opts.Format = `"` + opts.Format + `"`
+	var format json.RawMessage
+	if opts.Format != "" {
+		format = json.RawMessage(opts.Format)
 	}
 
 	req := &api.ChatRequest{
 		Model:    opts.Model,
 		Messages: opts.Messages,
-		Format:   json.RawMessage(opts.Format),
+		Format:   format,
 		Options:  opts.Options,
 		Think:    opts.Think,
 	}
@@ -2098,8 +2099,9 @@ func generate(cmd *cobra.Command, opts runOptions) error {
 		}
 	}
 
-	if opts.Format == "json" {
-		opts.Format = `"` + opts.Format + `"`
+	var format json.RawMessage
+	if opts.Format != "" {
+		format = json.RawMessage(opts.Format)
 	}
 
 	request := api.GenerateRequest{
@@ -2107,7 +2109,7 @@ func generate(cmd *cobra.Command, opts runOptions) error {
 		Prompt:    opts.Prompt,
 		Context:   generateContext,
 		Images:    opts.Images,
-		Format:    json.RawMessage(opts.Format),
+		Format:    format,
 		System:    opts.System,
 		Options:   opts.Options,
 		KeepAlive: opts.KeepAlive,
