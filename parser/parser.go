@@ -3,7 +3,6 @@ package parser
 import (
 	"bufio"
 	"bytes"
-	"crypto/sha256"
 	"errors"
 	"fmt"
 	"io"
@@ -13,14 +12,11 @@ import (
 	"os"
 	"os/user"
 	"path/filepath"
-	"runtime"
 	"slices"
 	"strconv"
 	"strings"
-	"sync"
 
 	"golang.org/x/mod/semver"
-	"golang.org/x/sync/errgroup"
 	"golang.org/x/text/encoding/unicode"
 	"golang.org/x/text/transform"
 
@@ -56,7 +52,10 @@ var deprecatedParameters = []string{
 
 // CreateRequest creates a new *api.CreateRequest from an existing Modelfile
 func (f Modelfile) CreateRequest(relativeDir string) (*api.CreateRequest, error) {
-	req := &api.CreateRequest{}
+	req := &api.CreateRequest{
+		Files:    make(map[string]string),
+		Adapters: make(map[string]string),
+	}
 
 	var messages []api.Message
 	var licenses []string
@@ -67,12 +66,7 @@ func (f Modelfile) CreateRequest(relativeDir string) (*api.CreateRequest, error)
 	for _, c := range f.Commands {
 		switch c.Name {
 		case "model":
-			path, err := expandPath(c.Args, relativeDir)
-			if err != nil {
-				return nil, err
-			}
-
-			digestMap, err := fileDigestMap(path)
+			files, err := filesMap(c.Args, relativeDir)
 			if errors.Is(err, os.ErrNotExist) {
 				req.From = c.Args
 				continue
@@ -114,17 +108,12 @@ func (f Modelfile) CreateRequest(relativeDir string) (*api.CreateRequest, error)
 				}
 			}
 		case "adapter":
-			path, err := expandPath(c.Args, relativeDir)
+			files, err := filesMap(c.Args, relativeDir)
 			if err != nil {
 				return nil, err
 			}
 
-			digestMap, err := fileDigestMap(path)
-			if err != nil {
-				return nil, err
-			}
-
-			req.Adapters = digestMap
+			maps.Copy(req.Adapters, files)
 		case "template":
 			req.Template = c.Args
 		case "system":
@@ -262,28 +251,23 @@ func fileDigestMap(path string) (map[string]string, error) {
 		}
 	}
 
-	var mu sync.Mutex
-	var g errgroup.Group
-	g.SetLimit(max(runtime.GOMAXPROCS(0)-1, 1))
-	for _, f := range files {
-		g.Go(func() error {
-			digest, err := digestForFile(f)
-			if err != nil {
-				return err
-			}
-
-			mu.Lock()
-			defer mu.Unlock()
-			fl[f] = digest
-			return nil
-		})
+	root, err := os.OpenRoot(path)
+	if err != nil {
+		return nil, err
 	}
+	defer root.Close()
 
-	if err := g.Wait(); err != nil {
+	files, err := filesForModel(root)
+	if err != nil {
 		return nil, err
 	}
 
-	return fl, nil
+	for _, file := range files {
+		// create a temporary mapping from relative path to absolute path
+		mapping[file] = "abs:" + filepath.Join(root.Name(), file)
+	}
+
+	return mapping, nil
 }
 
 func digestForFile(filename string) (string, error) {
@@ -366,7 +350,7 @@ func collect[E any](it iter.Seq2[E, error]) (s []E, _ error) {
 			if ct, err := detectContentType(match); err != nil {
 				return nil, err
 			} else if len(contentType) > 0 && ct != contentType {
-				return nil, fmt.Errorf("invalid content type: expected %s for %s", ct, match)
+				return nil, fmt.Errorf("invalid content type: expected %s for %s, got %s", ct, match, contentType)
 			}
 		}
 
@@ -377,7 +361,7 @@ func collect[E any](it iter.Seq2[E, error]) (s []E, _ error) {
 
 	var files []string
 	// some safetensors files do not properly match "application/octet-stream", so skip checking their contentType
-	if st, _ := glob(filepath.Join(path, "model*.safetensors"), ""); len(st) > 0 {
+	if st, _ := glob("model*.safetensors", ""); len(st) > 0 {
 		// safetensors files might be unresolved git lfs references; skip if they are
 		// covers model-x-of-y.safetensors, model.fp32-x-of-y.safetensors, model.safetensors
 		files = append(files, st...)
@@ -389,7 +373,7 @@ func collect[E any](it iter.Seq2[E, error]) (s []E, _ error) {
 	} else if st, _ := glob(filepath.Join(path, "consolidated*.safetensors"), ""); len(st) > 0 {
 		// covers consolidated.safetensors
 		files = append(files, st...)
-	} else if pt, _ := glob(filepath.Join(path, "pytorch_model*.bin"), "application/zip"); len(pt) > 0 {
+	} else if pt, _ := glob("pytorch_model*.bin", "application/zip"); len(pt) > 0 {
 		// pytorch files might also be unresolved git lfs references; skip if they are
 		// covers pytorch_model-x-of-y.bin, pytorch_model.fp32-x-of-y.bin, pytorch_model.bin
 		"pytorch_model*.bin", "application/zip",
@@ -430,9 +414,9 @@ func collect[E any](it iter.Seq2[E, error]) (s []E, _ error) {
 
 	// add tokenizer.model if it exists (tokenizer.json is automatically picked up by the previous glob)
 	// tokenizer.model might be a unresolved git lfs reference; error if it is
-	if tks, _ := glob(filepath.Join(path, "tokenizer.model"), "application/octet-stream"); len(tks) > 0 {
+	if tks, _ := glob("tokenizer.model", "application/octet-stream"); len(tks) > 0 {
 		files = append(files, tks...)
-	} else if tks, _ := glob(filepath.Join(path, "**/tokenizer.model"), "text/plain"); len(tks) > 0 {
+	} else if tks, _ := glob("**/tokenizer.model", "text/plain"); len(tks) > 0 {
 		// some times tokenizer.model is in a subdirectory (e.g. meta-llama/Meta-Llama-3-8B)
 		files = append(files, tks...)
 	}

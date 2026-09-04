@@ -64,7 +64,6 @@ import (
 	"github.com/ollama/ollama/server"
 	"github.com/ollama/ollama/types/errtypes"
 	"github.com/ollama/ollama/types/model"
-	"github.com/ollama/ollama/types/syncmap"
 	"github.com/ollama/ollama/version"
 	xcreate "github.com/ollama/ollama/x/create"
 	xcreateclient "github.com/ollama/ollama/x/create/client"
@@ -380,7 +379,6 @@ func CreateHandler(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return err
 	}
-	spinner.Stop()
 
 	req.Model = modelName
 	if quantize != "" {
@@ -399,7 +397,11 @@ func CreateHandler(cmd *cobra.Command, args []string) error {
 	}
 
 	var g errgroup.Group
-	g.SetLimit(max(runtime.GOMAXPROCS(0)-1, 1))
+	g.SetLimit(runtime.GOMAXPROCS(0))
+	for blob, err := range createBlobs(req.Files, req.Adapters) {
+		if err != nil {
+			return err
+		}
 
 	files := syncmap.NewSyncMap[string, string]()
 	fileNames := createRequestFileNames(req.Files)
@@ -412,7 +414,6 @@ func CreateHandler(cmd *cobra.Command, args []string) error {
 			files.Store(fileNames[f], digest)
 			return nil
 		})
-	}
 
 	adapters := syncmap.NewSyncMap[string, string]()
 	adapterNames := createRequestFileNames(req.Adapters)
