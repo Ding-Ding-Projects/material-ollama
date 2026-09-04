@@ -2951,6 +2951,7 @@ func NewCLI() *cobra.Command {
 		RunE:        ListRunningHandler,
 		Annotations: envconfig.Usage("OLLAMA_HOST"),
 	}
+
 	copyCmd := &cobra.Command{
 		Use:         "cp SOURCE DESTINATION",
 		Short:       "Copy a model",
