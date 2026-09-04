@@ -20,7 +20,7 @@
  */
 
 import { createHash } from 'node:crypto'
-import { mkdir, writeFile } from 'node:fs/promises'
+import { mkdir, readFile, writeFile } from 'node:fs/promises'
 import { existsSync } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
@@ -226,6 +226,30 @@ async function main() {
   const failedIds = new Set(failures.map((f) => f.id))
   const unique = records.filter((r) => !failedIds.has(r.id))
 
+  const manifestPath = path.join(outDir, 'manifest.json')
+  // A partial run (--only) must MERGE into the existing manifest, never
+  // replace it. Overwriting means one row re-captured after a fix silently
+  // discards the record of the other seventeen -- which happened here, and
+  // turned a complete paired set into one pair and sixteen 'no capture'
+  // reports.
+  let previous = { records: [], failures: [] }
+  if (only && existsSync(manifestPath)) {
+    try {
+      previous = JSON.parse(await readFile(manifestPath, 'utf8'))
+    } catch {
+      previous = { records: [], failures: [] }
+    }
+  }
+  const touched = new Set(states.map((s) => s.id))
+  const mergedRecords = [
+    ...(previous.records ?? []).filter((r) => !touched.has(r.id)),
+    ...unique,
+  ].sort((a, b) => a.id.localeCompare(b.id))
+  const mergedFailures = [
+    ...(previous.failures ?? []).filter((f) => !touched.has(f.id)),
+    ...failures,
+  ]
+
   const manifest = {
     schemaVersion: 1,
     side: 'built',
@@ -234,14 +258,13 @@ async function main() {
     capturedAt: new Date().toISOString(),
     builtArtifact: path.relative(repoRoot, BUILT_EXE_PATH).split(path.sep).join('/'),
     builtArtifactSha256: artifactSha,
-    captured: unique.length,
-    failed: failures.length,
-    records: unique,
-    failures,
+    captured: mergedRecords.length,
+    failed: mergedFailures.length,
+    records: mergedRecords,
+    failures: mergedFailures,
   }
-  const manifestPath = path.join(outDir, 'manifest.json')
   await writeFile(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`)
-  process.stdout.write(`\n${unique.length} captured, ${failures.length} failed -> ${path.relative(repoRoot, manifestPath)}\n`)
+  process.stdout.write(`\n${unique.length} captured this run, ${failures.length} failed; manifest holds ${mergedRecords.length} -> ${path.relative(repoRoot, manifestPath)}\n`)
   process.exitCode = failures.length > 0 ? 1 : 0
 }
 

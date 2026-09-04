@@ -28,7 +28,8 @@
  */
 
 import { createHash } from 'node:crypto'
-import { mkdir, writeFile } from 'node:fs/promises'
+import { existsSync } from 'node:fs'
+import { mkdir, readFile, writeFile } from 'node:fs/promises'
 import path from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 
@@ -89,11 +90,19 @@ async function captureState(client, state, outDir) {
   }
 
   for (const step of state.steps) {
-    const result = await cdpEvaluate(client, step.expression)
+    // A step reporting a "..._YET" sentinel is waiting on something that has
+    // not rendered, not failing. Retry briefly rather than reporting a missing
+    // control for one that arrives a moment later.
+    let result = await cdpEvaluate(client, step.expression)
+    const deadline = Date.now() + 8_000
+    while (String(result).endsWith('_YET') && Date.now() < deadline) {
+      await sleep(250)
+      result = await cdpEvaluate(client, step.expression)
+    }
     if (result !== 'OK') {
       throw new Error(`${state.id}: step "${step.label}" returned ${JSON.stringify(result)}, expected "OK"`)
     }
-    await sleep(250)
+    await sleep(400)
   }
 
   // Prove the state actually arrived before the shutter opens.
@@ -200,6 +209,28 @@ async function main() {
   const failedIds = new Set(failures.map((f) => f.id))
   const unique = records.filter((r) => !failedIds.has(r.id))
 
+  const manifestPath = path.join(outDir, 'manifest.json')
+  // A partial run (--only) merges into the existing manifest rather than
+  // replacing it, so re-capturing one row after a fix cannot discard the
+  // record of every other row.
+  let previous = { records: [], failures: [] }
+  if (only && existsSync(manifestPath)) {
+    try {
+      previous = JSON.parse(await readFile(manifestPath, 'utf8'))
+    } catch {
+      previous = { records: [], failures: [] }
+    }
+  }
+  const touched = new Set(states.map((s) => s.id))
+  const mergedRecords = [
+    ...(previous.records ?? []).filter((r) => !touched.has(r.id)),
+    ...unique,
+  ].sort((a, b) => a.id.localeCompare(b.id))
+  const mergedFailures = [
+    ...(previous.failures ?? []).filter((f) => !touched.has(f.id)),
+    ...failures,
+  ]
+
   const manifest = {
     schemaVersion: 1,
     side: 'reference',
@@ -207,14 +238,13 @@ async function main() {
     frozenTime: FROZEN_TIME_ISO,
     capturedAt: new Date().toISOString(),
     referenceFile: 'design/Material Ollama.dc.html',
-    captured: unique.length,
-    failed: failures.length,
-    records: unique,
-    failures,
+    captured: mergedRecords.length,
+    failed: mergedFailures.length,
+    records: mergedRecords,
+    failures: mergedFailures,
   }
-  const manifestPath = path.join(outDir, 'manifest.json')
   await writeFile(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`)
-  process.stdout.write(`\n${records.length} captured, ${failures.length} failed -> ${path.relative(repoRoot, manifestPath)}\n`)
+  process.stdout.write(`\n${unique.length} captured this run, ${failures.length} failed; manifest holds ${mergedRecords.length} -> ${path.relative(repoRoot, manifestPath)}\n`)
   process.exitCode = failures.length > 0 ? 1 : 0
 }
 

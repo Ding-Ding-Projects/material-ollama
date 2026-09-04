@@ -9,10 +9,11 @@
     "locale": "en-US",
     "seed": "#8a5a00",
     "radius": "16px",
-    "schoolMode": "off"
+    "schoolMode": "off",
+    "tabDock": "top"
   },
   "frozenTime": "2026-01-01T00:00:00Z",
-  "capturedAt": "2026-09-04T01:20:28.360Z",
+  "capturedAt": "2026-09-04T02:41:18.473Z",
   "referenceFile": "design/Material Ollama.dc.html",
   "captured": 17,
   "failed": 1,

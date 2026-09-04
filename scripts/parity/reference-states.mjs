@@ -72,18 +72,31 @@ export function typeInto(label, value) {
 /**
  * Click the first button whose visible text ENDS WITH `text`.
  *
- * Not an equality check, deliberately. The reference draws its icons with a
- * Material Symbols ligature font, which puts the glyph's NAME into the
- * element's textContent: the "New chat" button reads "edit_squareNew chat".
- * An equality match finds nothing and reports NO_BUTTON, which looks exactly
- * like a missing control rather than a mis-written selector.
+ * Two hazards live in this one line, and both have already bitten.
+ *
+ * The reference draws its icons with a Material Symbols ligature font, so an
+ * element's textContent carries the glyph's NAME: the "New chat" button reads
+ * "edit_squareNew chat". Hence endsWith rather than equality -- an exact match
+ * finds nothing and reports a missing control rather than a bad selector.
+ *
+ * And the whitespace fold uses [^!-~] rather than the obvious backslash-s.
+ * This function returns a template literal that is sent to the page as source,
+ * and inside a template literal an unrecognised escape loses its backslash --
+ * so backslash-s arrives at the page as plain "s", and the fold silently
+ * strips every letter s instead of every space. That is not hypothetical: it
+ * turned "delete_sweep Clear all chats" into "delete_ weepClear all chat" and
+ * failed this matcher against a button that was on screen the whole time.
+ * A backslash-free character class cannot fail that way.
  */
 export function clickButtonText(text) {
   return `(() => {
     const want = ${JSON.stringify(text)};
     const hit = Array.from(document.querySelectorAll('button'))
-      .find(b => b.textContent.replace(/\s+/g, ' ').trim().endsWith(want));
-    if (!hit) return 'NO_BUTTON';
+      .find(b => b.textContent.replace(/[^!-~]+/g, ' ').trim().endsWith(want));
+    // A '_YET' sentinel, not a failure: the control may simply not have
+    // rendered yet. The runner retries these; a plain 'NO_BUTTON' would
+    // report a missing control for one that arrives 200ms later.
+    if (!hit) return 'NO_BUTTON_YET';
     hit.click();
     return 'OK';
   })()`
@@ -169,11 +182,11 @@ export const STATES = [
   {
     id: 'overlay-snackbar', kind: 'overlay', screenName: 'Overlay: snackbar',
     steps: [
-      { label: 'open Models', expression: clickNth('Models') },
-      { label: 'pull a model, which notifies', expression: clickButtonText('Pull') },
+      { label: 'open Chat', expression: clickNth('Chat') },
+      { label: 'clear all chats, which notifies', expression: clickButtonText('Clear all chats') },
     ],
-    expect: { label: 'a snackbar is visible', expression: `(() => { const t = document.body.innerText; return /Pulling|Queued|Started|Removed|Saved/i.test(t) ? 1 : 0 })()`, atLeast: 1 },
-    // GAP, recorded rather than faked. The reference raises its snackbar from
+    expect: { label: 'a snackbar is visible', expression: `/All chats cleared/i.test(document.body.innerText) ? 1 : 0`, atLeast: 1 },
+    // The reference raises its snackbar from
     // notify(), which sets `toast` and then clears it on a timer. Clicking
     // Pull fires without error but no toast text was observed in the document
     // afterwards, so the trigger that reliably raises one is not yet

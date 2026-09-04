@@ -40,6 +40,25 @@ export function clickByLabel(label) {
   })()`
 }
 
+/**
+ * Toggle a surface open with a keyboard shortcut, idempotently.
+ *
+ * The shell's palette handler is a TOGGLE bound to window, so a step that
+ * simply re-dispatches on retry closes what the previous attempt opened. This
+ * checks the marker first: already open means done; not open means dispatch
+ * once and report a "_YET" sentinel so the runner waits and re-checks rather
+ * than pressing the key again.
+ */
+export function toggleOpenWithKey(markerId, { key, ctrlKey = false, shiftKey = false, altKey = false }) {
+  return `(() => {
+    const isOpen = () => document.querySelectorAll('[data-capture-id=' + JSON.stringify(${JSON.stringify(markerId)}) + ']').length > 0;
+    if (isOpen()) return 'OK';
+    const init = { key: ${JSON.stringify(key)}, ctrlKey: ${ctrlKey}, shiftKey: ${shiftKey}, altKey: ${altKey}, bubbles: true, cancelable: true };
+    window.dispatchEvent(new KeyboardEvent('keydown', init));
+    return isOpen() ? 'OK' : 'NOT_OPEN_YET';
+  })()`
+}
+
 /** Press a key on the document, the way the shell's own listeners receive it. */
 export function pressKey({ key, ctrlKey = false, shiftKey = false, altKey = false }) {
   return `(() => {
@@ -113,7 +132,12 @@ export const BUILT_STATES = [
     screenName: 'Overlay: command palette',
     resolvedRoute: '/models',
     builtInteraction: 'Ctrl+Shift+F on the document, the shell\'s own palette shortcut',
-    steps: [{ label: 'open the command palette', expression: pressKey({ key: 'F', ctrlKey: true, shiftKey: true }) }],
+    steps: [
+      {
+        label: 'open the command palette',
+        expression: toggleOpenWithKey('command-palette', { key: 'F', ctrlKey: true, shiftKey: true }),
+      },
+    ],
     expect: { label: 'the command palette is open', expression: markerReady('command-palette'), atLeast: 1 },
   },
   {
