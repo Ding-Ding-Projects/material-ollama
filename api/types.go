@@ -160,6 +160,10 @@ type ChatRequest struct {
 	// Tools is an optional list of tools the model has access to.
 	Tools `json:"tools,omitempty"`
 
+	Debug *Debug `json:"debug,omitempty"`
+
+	Dry bool `json:"dry,omitempty"`
+
 	// Options lists model-specific options.
 	Options map[string]any `json:"options"`
 
@@ -187,6 +191,10 @@ type ChatRequest struct {
 	// each with an associated log probability. Only applies when Logprobs is true.
 	// Valid values are 0-20. Default is 0 (only return the selected token's logprob).
 	TopLogprobs int `json:"top_logprobs,omitempty"`
+}
+
+type Debug struct {
+	Include []string `json:"include,omitempty"`
 }
 
 type Tools []Tool
