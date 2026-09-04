@@ -12,11 +12,6 @@ concurrency:
 
 on:
   push:
-    paths:
-      - 'LLAMA_CPP_VERSION'
-  pull_request:
-    paths:
-      - 'LLAMA_CPP_VERSION'
   workflow_dispatch:
 
 permissions:

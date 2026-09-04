@@ -8,15 +8,6 @@ concurrency:
 
 on:
   push:
-    paths:
-      - '**/*'
-      - '!docs/**'
-      - '!README.md'
-  pull_request:
-    paths:
-      - '**/*'
-      - '!docs/**'
-      - '!README.md'
   workflow_dispatch:
 
 jobs:

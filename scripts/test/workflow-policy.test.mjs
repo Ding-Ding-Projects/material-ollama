@@ -66,17 +66,31 @@ function parseNeeds(workflow) {
   return references
 }
 
+function extractMatrixOsValues(workflow) {
+  const values = []
+  for (const match of workflow.matchAll(/^\s+os:\s*(?:\[([^\]]*)\]|([A-Za-z0-9_-]+))\s*$/gm)) {
+    const list = match[1] ?? match[2]
+    values.push(...list.split(',').map((value) => value.trim().replace(/^['"]|['"]$/g, '')).filter(Boolean))
+  }
+  return values
+}
+
 function assertBuildOnlyWorkflow(workflow, expected) {
   assert.match(workflow, /^concurrency:\s*$/m, `${expected.relativePath} must cancel superseded builds`)
   assert.match(workflow, /^  group:\s+\$\{\{ github\.workflow \}\}-\$\{\{ github\.ref \}\}\s*$/m, `${expected.relativePath} must scope concurrency by workflow and ref`)
   assert.match(workflow, /^  cancel-in-progress:\s+true\s*$/m, `${expected.relativePath} must cancel superseded builds`)
   assert.match(workflow, /^  push:\s*$/m, `${expected.relativePath} must run on push`)
   assert.match(workflow, /^  workflow_dispatch:\s*$/m, `${expected.relativePath} must support manual dispatch`)
+  assert.doesNotMatch(workflow, /^  pull_request:\s*$/m, `${expected.relativePath} must not target a self-hosted runner from pull_request`)
+  assert.doesNotMatch(workflow, /^    paths:\s*$/m, `${expected.relativePath} push must not be path-filtered`)
   assert.match(workflow, new RegExp(`^name:\\s+${expected.name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s*$`, 'm'))
 
   const jobs = extractJobIds(workflow)
   assert.deepEqual(jobs, expected.jobs, `${expected.relativePath} job inventory changed`)
   assert.doesNotMatch(workflow, /^\s+runs-on:\s+(?:ubuntu|macos|linux)/im, `${expected.relativePath} must not run non-Windows jobs`)
+  for (const os of extractMatrixOsValues(workflow)) {
+    assert.equal(os, 'windows', `${expected.relativePath} matrix.os must remain Windows-only`)
+  }
   for (const jobId of DISALLOWED_JOB_IDS) {
     assert.equal(jobs.includes(jobId), false, `${expected.relativePath} must not reintroduce quality job ${jobId}`)
   }
@@ -116,6 +130,19 @@ test('removing manual dispatch turns the build-only policy red', () => {
   expectPolicyFailure(workflow, entry)
 })
 
+test('reintroducing a pull_request trigger turns the self-hosted runner policy red', () => {
+  for (const entry of WORKFLOW_INVENTORY) {
+    const base = readWorkflow(entry.relativePath)
+    expectPolicyFailure(base.replace(/^  push:\r?\n/m, '  push:\n  pull_request:\n'), entry)
+  }
+})
+
+test('adding push path filters turns the every-push policy red', () => {
+  const entry = WORKFLOW_INVENTORY[0]
+  const base = readWorkflow(entry.relativePath)
+  expectPolicyFailure(base.replace(/^  push:\r?\n/m, "  push:\n    paths:\n      - '**/*'\n"), entry)
+})
+
 test('reintroducing each disallowed quality command turns the policy red', () => {
   const entry = WORKFLOW_INVENTORY[0]
   const base = readWorkflow(entry.relativePath)
@@ -131,6 +158,17 @@ test('reintroducing each disallowed quality job turns the policy red', () => {
   for (const jobId of DISALLOWED_JOB_IDS) {
     expectPolicyFailure(`${base}\n  ${jobId}:\n    runs-on: ubuntu-latest\n`, entry)
   }
+})
+
+test('changing a direct or matrix runner to non-Windows turns the policy red', () => {
+  for (const entry of WORKFLOW_INVENTORY) {
+    const base = readWorkflow(entry.relativePath)
+    expectPolicyFailure(base.replace(/runs-on: windows/, 'runs-on: ubuntu-latest'), entry)
+  }
+
+  const matrixEntry = WORKFLOW_INVENTORY[1]
+  const matrixBase = readWorkflow(matrixEntry.relativePath)
+  expectPolicyFailure(matrixBase.replace(/os: \[windows\]/, 'os: [linux]'), matrixEntry)
 })
 
 test('adding a quality job to a needs chain turns the policy red', () => {
