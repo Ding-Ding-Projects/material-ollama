@@ -1120,50 +1120,31 @@ function prepareApp {
         throw "Node.js/npm is unavailable after the repository dependency bootstrap; aborting before the UI build rather than asking for a manual install."
     }
 
-    if (!(Get-Command tsc -ErrorAction SilentlyContinue)) {
-        Write-Output "Installing TypeScript compiler..."
-        npm install -g typescript
-    }
-    if (!(Get-Command tscriptify -ErrorAction SilentlyContinue)) {
-        Write-Output "Installing tscriptify..."
-        go install github.com/tkrajina/typescriptify-golang-structs/tscriptify@latest
-    }
-    if (!(Get-Command tscriptify -ErrorAction SilentlyContinue)) {
-        $env:PATH="$env:PATH;$(go env GOPATH)\bin"
-    }
+    # Build the response-type generator from the version selected by go.mod.
+    # Keep it local to this build, without installing a mutable global tool.
+    $generatorRoot = Join-Path $script:SRC_DIR 'dist\build-tools'
+    New-Item -ItemType Directory -Force -Path $generatorRoot | Out-Null
+    & go build -o (Join-Path $generatorRoot 'tscriptify.exe') github.com/tkrajina/typescriptify-golang-structs/tscriptify
+    if ($LASTEXITCODE -ne 0) { throw "Response-type generator build failed with exit code $LASTEXITCODE" }
+    $generatorPath = $env:PATH
+    try {
+        $env:PATH = "$generatorRoot;$generatorPath"
+        Write-Output 'Generating required UI response types before bundling'
+        & go generate -run '^tscriptify ' ./app/ui
+        if ($LASTEXITCODE -ne 0) { throw "UI response-type generation failed with exit code $LASTEXITCODE" }
+    } finally { $env:PATH = $generatorPath }
 
     Push-Location app/ui/app
-    npm install
-    if ($LASTEXITCODE -ne 0) { 
-        Write-Output "ERROR: npm install failed with exit code $LASTEXITCODE"
-        exit $LASTEXITCODE
-    }
-
-    Write-Output "Building React application..."
-    $uiBuildScript = if ($env:MATERIAL_OLLAMA_BUILD_MODE -eq 'release-fast') { 'build:release-fast' } else { 'build' }
-    npm run $uiBuildScript
-    if ($LASTEXITCODE -ne 0) { 
-        Write-Output "ERROR: npm run $uiBuildScript failed with exit code $LASTEXITCODE"
-        exit $LASTEXITCODE
-    }
-
-    # Check if dist directory exists and has content
-    if (!(Test-Path "dist")) {
-        Write-Output "ERROR: dist directory was not created by npm run build"
-        exit 1
-    }
-
-    $distFiles = Get-ChildItem "dist" -Recurse
-    if ($distFiles.Count -eq 0) {
-        Write-Output "ERROR: dist directory is empty after npm run build"
-        exit 1
-    }
-
-    Pop-Location
-
-    Write-Output "Running go generate"
-    & go generate ./...
-    if ($LASTEXITCODE -ne 0) { exit($LASTEXITCODE)}
+    try {
+        npm ci
+        if ($LASTEXITCODE -ne 0) { throw "npm ci failed with exit code $LASTEXITCODE" }
+        Write-Output "Building React application..."
+        $uiBuildScript = if ($env:MATERIAL_OLLAMA_BUILD_MODE -eq 'release-fast') { 'build:release-fast' } else { 'build' }
+        npm run $uiBuildScript
+        if ($LASTEXITCODE -ne 0) { throw "npm run $uiBuildScript failed with exit code $LASTEXITCODE" }
+        if (-not (Test-Path -LiteralPath 'dist/index.html' -PathType Leaf)) { throw "npm run $uiBuildScript did not produce dist/index.html" }
+        if ((Get-Item -LiteralPath 'dist/index.html').Length -eq 0) { throw "npm run $uiBuildScript produced an empty dist/index.html" }
+    } finally { Pop-Location }
     $script:APP_PREPARED = $true
 }
 

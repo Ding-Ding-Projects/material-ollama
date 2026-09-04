@@ -136,6 +136,11 @@ verdict.
 `build:release-fast` script, which invokes Vite without the normal type-check
 stage. The release workflow sets this mode explicitly. Ordinary local builds
 retain the normal frontend `build` script.
+The frontend preparation builds its response-type generator from the module's
+locked Go dependency, runs only the `tscriptify` directive in `app/ui`, installs
+frontend packages with `npm ci`, and bundles once after type generation. It does
+not run repository-wide generators, install global TypeScript, or invoke the
+second normal frontend build declared by the unrestricted Go generation route.
 
 The current accelerated packaging repair did not run tests or UI captures after
 the workflow switched to accelerated delivery. Controlled package/PE fixtures
