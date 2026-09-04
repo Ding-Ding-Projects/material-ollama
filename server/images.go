@@ -30,8 +30,8 @@ import (
 	"github.com/ollama/ollama/manifest"
 	"github.com/ollama/ollama/model/parsers"
 	"github.com/ollama/ollama/parser"
+	"github.com/ollama/ollama/server/cache"
 	"github.com/ollama/ollama/template"
-	"github.com/ollama/ollama/thinking"
 	"github.com/ollama/ollama/types/model"
 	"github.com/ollama/ollama/types/registry"
 	"github.com/ollama/ollama/version"
@@ -551,7 +551,11 @@ func projectorSuppressesAudioCapability(f *gguf.File) bool {
 // CheckCapabilities checks if the model has the specified capabilities returning an error describing
 // any missing or unknown capabilities
 func (m *Model) CheckCapabilities(want ...model.Capability) error {
-	available := m.Capabilities()
+	available := cache.Capabilities(cache.ModelInfo{
+		ModelPath:      m.ModelPath,
+		ProjectorPaths: m.ProjectorPaths,
+		Template:       m.Template,
+	})
 	var errs []error
 
 	// Map capabilities to their corresponding error
