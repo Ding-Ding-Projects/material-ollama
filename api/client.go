@@ -42,6 +42,23 @@ type Client struct {
 
 func checkError(resp *http.Response, body []byte) error {
 	if resp.StatusCode < http.StatusBadRequest {
+		if len(body) == 0 {
+			return nil
+		}
+
+		// streams can contain error message even with StatusOK
+		var errorResponse struct {
+			Error string `json:"error,omitempty"`
+		}
+
+		if err := json.Unmarshal(body, &errorResponse); err != nil {
+			return fmt.Errorf("unmarshal: %w", err)
+		}
+
+		if errorResponse.Error != "" {
+			return errors.New(errorResponse.Error)
+		}
+
 		return nil
 	}
 
