@@ -1383,6 +1383,16 @@ func (runner *runnerRef) unload() {
 	runner.contextShift = false
 }
 
+func runnerOptionsEqual(a, b api.Runner) bool {
+	// if one of the options is -1, then it means it needs to be dynamically calculated
+	if a.NumCtx == -1 {
+		a.NumCtx = b.NumCtx
+	} else if b.NumCtx == -1 {
+		b.NumCtx = a.NumCtx
+	}
+	return reflect.DeepEqual(a, b)
+}
+
 func (runner *runnerRef) needsReload(ctx context.Context, req *LlmRequest) bool {
 	slog.Debug("evaluating already loaded", "model", schedulerModelKey(req.model))
 	runner.refMu.Lock()
