@@ -1,6 +1,6 @@
 package discover
 
-// Runner based GPU discovery
+// GPU discovery via llama-server --list-devices
 
 import (
 	"context"
@@ -8,7 +8,6 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
-	"sort"
 	"strconv"
 	"strings"
 	"sync"
@@ -16,8 +15,6 @@ import (
 
 	"github.com/ollama/ollama/envconfig"
 	"github.com/ollama/ollama/format"
-	"github.com/ollama/ollama/llm"
-	"github.com/ollama/ollama/logutil"
 	"github.com/ollama/ollama/ml"
 )
 
@@ -47,7 +44,7 @@ func GPUDevices(ctx context.Context, runners []ml.FilteredRunnerDiscovery) []ml.
 		libDirs = make(map[string]struct{})
 		files, err := filepath.Glob(filepath.Join(ml.LibOllamaPath, "*", "*ggml-*"))
 		if err != nil {
-			slog.Debug("unable to lookup runner library directories", "error", err)
+			slog.Debug("unable to lookup GPU backend directories", "error", err)
 		}
 		for _, file := range files {
 			libDirs[filepath.Dir(file)] = struct{}{}
@@ -89,17 +86,9 @@ func GPUDevices(ctx context.Context, runners []ml.FilteredRunnerDiscovery) []ml.
 		// We run this in serial to avoid potentially initializing a GPU multiple
 		// times concurrently leading to memory contention
 		for dir := range libDirs {
-			// Typically bootstrapping takes < 1s, but on some systems, with devices
-			// in low power/idle mode, initialization can take multiple seconds.  We
-			// set a longer timeout just for bootstrap discovery to reduce the chance
-			// of giving up too quickly
 			bootstrapTimeout := 30 * time.Second
 			if runtime.GOOS == "windows" {
-				// On Windows with Defender enabled, AV scanning of the DLLs
-				// takes place sequentially and this can significantly increase
-				// the time it takes too do the initial discovery pass.
-				// Subsequent loads will be faster as the scan results are
-				// cached
+				// Windows Defender AV scanning of DLLs can be slow on first load
 				bootstrapTimeout = 90 * time.Second
 			}
 			var dirs []string
@@ -216,15 +205,16 @@ func GPUDevices(ctx context.Context, runners []ml.FilteredRunnerDiscovery) []ml.
 		// Now filter out any overlap with different libraries (favor CUDA/HIP over others)
 		for i := 0; i < len(devices); i++ {
 			for j := i + 1; j < len(devices); j++ {
-				// For this pass, we only drop exact duplicates
 				switch devices[i].Compare(devices[j]) {
 				case ml.SameBackendDevice:
-					// Same library and device, skip it
+					// Same library, different version — keep the better one
+					if devices[i].IsBetter(devices[j]) {
+						devices[i] = devices[j]
+					}
 					devices = append(devices[:j], devices[j+1:]...)
 					j--
 					continue
 				case ml.DuplicateDevice:
-					// Different library, choose based on priority
 					var droppedDevice ml.DeviceInfo
 					if devices[i].PreferredLibrary(devices[j]) {
 						droppedDevice = devices[j]
@@ -242,22 +232,30 @@ func GPUDevices(ctx context.Context, runners []ml.FilteredRunnerDiscovery) []ml.
 					slog.Debug("dropping duplicate device",
 						"id", droppedDevice.ID,
 						"library", droppedDevice.Library,
-						"compute", droppedDevice.Compute(),
 						"name", droppedDevice.Name,
-						"description", droppedDevice.Description,
-						"libdirs", strings.Join(droppedDevice.LibraryPath, ","),
-						"driver", droppedDevice.Driver(),
 						"pci_id", droppedDevice.PCIID,
 						"type", typeStr,
 						"total", format.HumanBytes2(droppedDevice.TotalMemory),
-						"available", format.HumanBytes2(droppedDevice.FreeMemory),
 					)
 					continue
 				}
 			}
 		}
 
-		// Reset the libDirs to what we actually wind up using for future refreshes
+		// Renumber device IDs after filtering
+		postFilteredID := map[string]int{}
+		for i := range devices {
+			if _, ok := postFilteredID[devices[i].Library]; !ok {
+				postFilteredID[devices[i].Library] = 0
+			}
+			if _, err := strconv.Atoi(devices[i].ID); err == nil {
+				devices[i].FilterID = devices[i].ID
+				devices[i].ID = strconv.Itoa(postFilteredID[devices[i].Library])
+			}
+			postFilteredID[devices[i].Library]++
+		}
+
+		// Record which lib dirs are actually in use for VRAM refresh
 		libDirs = make(map[string]struct{})
 		for _, dev := range devices {
 			dir := dev.LibraryPath[len(dev.LibraryPath)-1]
@@ -272,60 +270,42 @@ func GPUDevices(ctx context.Context, runners []ml.FilteredRunnerDiscovery) []ml.
 		bootstrapped = true
 	} else {
 		if runtime.GOOS == "darwin" && runtime.GOARCH == "arm64" {
-			// metal never updates free VRAM
+			// Metal never updates free VRAM
 			return append([]ml.DeviceInfo{}, devices...)
 		}
 
+		// Refresh free memory from running llama-server instances if possible,
+		// otherwise re-run llama-server --list-devices.
 		slog.Debug("refreshing free memory")
 		updated := make([]bool, len(devices))
-		allDone := func() bool {
-			allDone := true
-			for _, done := range updated {
-				if !done {
-					allDone = false
-					break
-				}
-			}
-			return allDone
-		}
-
-		// First try to use existing runners to refresh VRAM since they're already
-		// active on GPU(s)
 		for _, runner := range runners {
 			if runner == nil {
 				continue
 			}
 			deviceIDs := runner.GetActiveDeviceIDs()
 			if len(deviceIDs) == 0 {
-				// Skip this runner since it doesn't have active GPU devices
 				continue
 			}
 
-			// Check to see if this runner is active on any devices that need a refresh
 			skip := true
-		devCheck:
 			for _, dev := range deviceIDs {
 				for i := range devices {
-					if dev == devices[i].DeviceID {
-						if !updated[i] {
-							skip = false
-							break devCheck
-						}
+					if dev == devices[i].DeviceID && !updated[i] {
+						skip = false
+						break
 					}
+				}
+				if !skip {
+					break
 				}
 			}
 			if skip {
 				continue
 			}
 
-			// Typical refresh on existing runner is ~500ms but allow longer if the system
-			// is under stress before giving up and using stale data.
-			ctx, cancel := context.WithTimeout(ctx, 3*time.Second)
+			rctx, cancel := context.WithTimeout(ctx, 3*time.Second)
 			defer cancel()
-			start := time.Now()
-			updatedDevices := runner.GetDeviceInfos(ctx)
-			slog.Debug("existing runner discovery took", "duration", time.Since(start))
-			for _, u := range updatedDevices {
+			for _, u := range runner.GetDeviceInfos(rctx) {
 				for i := range devices {
 					if u.DeviceID == devices[i].DeviceID {
 						updated[i] = true
@@ -334,8 +314,13 @@ func GPUDevices(ctx context.Context, runners []ml.FilteredRunnerDiscovery) []ml.
 					}
 				}
 			}
-			// Short circuit if we've updated all the devices
-			if allDone() {
+		}
+
+		// Fall back to bootstrap discovery for any devices not refreshed
+		allDone := true
+		for _, done := range updated {
+			if !done {
+				allDone = false
 				break
 			}
 		}
@@ -361,14 +346,7 @@ func GPUDevices(ctx context.Context, runners []ml.FilteredRunnerDiscovery) []ml.
 							break
 						}
 					}
-					// TODO - consider evaluating if new devices have appeared (e.g. hotplug)
 				}
-				if allDone() {
-					break
-				}
-			}
-			if !allDone() {
-				slog.Warn("unable to refresh free memory, using old values")
 			}
 		}
 	}
@@ -750,5 +728,16 @@ func detectIncompatibleLibraries() {
 	}
 	if !strings.HasPrefix(basePath, ml.LibOllamaPath) {
 		slog.Warn("potentially incompatible library detected in PATH", "location", basePath)
+	}
+}
+
+func detectOldAMDDriverWindows() {
+	if runtime.GOOS != "windows" {
+		return
+	}
+	_, errV6 := exec.LookPath("amdhip64_6.dll")
+	_, errV7 := exec.LookPath("amdhip64_7.dll")
+	if errV6 == nil && errV7 != nil {
+		slog.Warn("AMD driver is too old. Update your AMD driver to enable GPU inference.")
 	}
 }

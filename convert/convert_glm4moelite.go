@@ -253,7 +253,7 @@ func (p *glm4MoeLiteModel) Tensors(s []Tensor) (out []*ggml.Tensor) {
 					}
 					kvFirst = false
 				default:
-					slog.Warn("glm4moelite: unexpected attn_kv_b layout", "name", t.Name(), "shape", t.Shape())
+					slog.Warn("deepseek2: unexpected attn_kv_b layout", "name", t.Name(), "shape", t.Shape())
 				}
 			}
 

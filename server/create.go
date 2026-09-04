@@ -626,6 +626,7 @@ func convertFromSafetensors(files map[string]string, baseLayers []*layerGGML, is
 	}
 	layers := []*layerGGML{{Layer: layer, GGML: f, rewriteForCreate: true}}
 
+	// Check if the projector file has content (multimodal model)
 	if !isAdapter {
 		projSize, err := projFile.Seek(0, io.SeekEnd)
 		if err != nil {

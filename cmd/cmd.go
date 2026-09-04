@@ -402,6 +402,22 @@ func CreateHandler(cmd *cobra.Command, args []string) error {
 			return err
 		}
 
+	// Find common directory prefix to compute relative paths for the server.
+	// Files from subdirectories (e.g. 2_Dense/config.json) must keep their
+	// relative path to avoid collisions with root-level files.
+	var modelDir string
+	for f := range req.Files {
+		dir := filepath.Dir(f)
+		if modelDir == "" {
+			modelDir = dir
+		} else {
+			// Find common prefix
+			for !strings.HasPrefix(dir, modelDir) {
+				modelDir = filepath.Dir(modelDir)
+			}
+		}
+	}
+
 	files := syncmap.NewSyncMap[string, string]()
 	fileNames := createRequestFileNames(req.Files)
 	for f, digest := range req.Files {
@@ -413,6 +429,18 @@ func CreateHandler(cmd *cobra.Command, args []string) error {
 			files.Store(fileNames[f], digest)
 			return nil
 		})
+
+	var adapterDir string
+	for f := range req.Adapters {
+		dir := filepath.Dir(f)
+		if adapterDir == "" {
+			adapterDir = dir
+		} else {
+			for !strings.HasPrefix(dir, adapterDir) {
+				adapterDir = filepath.Dir(adapterDir)
+			}
+		}
+	}
 
 	adapters := syncmap.NewSyncMap[string, string]()
 	adapterNames := createRequestFileNames(req.Adapters)

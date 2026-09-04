@@ -310,7 +310,7 @@ func LoadModelMetadata(fsys fs.FS) (ModelKV, *Tokenizer, error) {
 		conv = &gemmaModel{}
 	case "Gemma2ForCausalLM":
 		conv = &gemma2Model{}
-	case "Gemma3ForCausalLM", "Gemma3ForConditionalGeneration":
+	case "Gemma3ForCausalLM", "Gemma3ForConditionalGeneration", "Gemma3TextModel":
 		conv = &gemma3Model{Architecture: p.Architectures[0]}
 	case "Gemma3TextModel":
 		conv = &embeddingGemmaModel{}
@@ -376,6 +376,22 @@ func LoadModelMetadata(fsys fs.FS) (ModelKV, *Tokenizer, error) {
 	}
 	if ta, ok := conv.(tokenizerAdjuster); ok {
 		ta.adjustTokenizer(t)
+	}
+
+	// Allow converters to override the vocab size (e.g., to exclude multimodal tokens
+	// from text-only models where tokenizer.json includes them but the model doesn't use them).
+	// NOTE: if multiple models need this, consider making truncation the default behavior
+	// in the vocabSize < len(tokens) case below instead of per-model opt-in.
+	if vs, ok := conv.(vocabSizer); ok {
+		if maxVocab := vs.VocabSize(); maxVocab > 0 && maxVocab < len(t.Vocabulary.Tokens) {
+			slog.Debug("converter requested vocab truncation", "from", len(t.Vocabulary.Tokens), "to", maxVocab)
+			t.Vocabulary.Tokens = t.Vocabulary.Tokens[:maxVocab]
+			t.Vocabulary.Scores = t.Vocabulary.Scores[:maxVocab]
+			t.Vocabulary.Types = t.Vocabulary.Types[:maxVocab]
+			// Also update config so the padding logic below doesn't re-add the truncated tokens
+			p.VocabSize = uint32(maxVocab)
+			p.TextModel.VocabSize = uint32(maxVocab)
+		}
 	}
 
 	vocabSize := int(cmp.Or(p.VocabSize, p.TextModel.VocabSize))

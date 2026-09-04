@@ -1141,6 +1141,7 @@ func (s *Server) EmbeddingsHandler(c *gin.Context) {
 	}
 
 	name := modelRef.Name
+	name, _ = applyCompatRedirect(name)
 
 	r, m, _, err := s.scheduleRunner(c.Request.Context(), name.String(), []model.Capability{}, req.Options, req.KeepAlive, nil)
 	if err != nil {

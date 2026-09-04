@@ -3,9 +3,7 @@ package server
 import (
 	"bufio"
 	"fmt"
-	"io"
 	"log/slog"
-	"maps"
 	"os"
 	"os/exec"
 	"path/filepath"

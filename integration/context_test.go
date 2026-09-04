@@ -48,6 +48,12 @@ func runLongInputContext(t *testing.T) {
 			"seed":        123,
 			"num_ctx":     128,
 		},
+	}, func(resp api.ChatResponse) error {
+		t.Fatal("received tokens despite prompt exceeding context size")
+		return nil
+	})
+	if err == nil {
+		t.Fatal("expected error when prompt exceeds context, got nil")
 	}
 	client, _, cleanup := InitServerConnection(ctx, t)
 	defer cleanup()

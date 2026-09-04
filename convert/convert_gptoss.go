@@ -112,8 +112,13 @@ func (m *gptossModel) Tensors(ts []Tensor) []*ggml.Tensor {
 				},
 			))...)
 		} else {
+			name := t.Name()
+			// sinks tensor has no .weight suffix in HF but llama.cpp expects it
+			if strings.HasSuffix(name, "attn_sinks") {
+				name += ".weight"
+			}
 			out = append(out, &ggml.Tensor{
-				Name:     t.Name(),
+				Name:     name,
 				Kind:     t.Kind(),
 				Shape:    t.Shape(),
 				WriterTo: t,

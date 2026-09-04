@@ -103,6 +103,32 @@ func (m *gemma3nModel) KV(t *Tokenizer) KV {
 	kv["gemma3n.head_dim"] = m.TextModel.HeadDim
 	kv["gemma3n.rope.freq_base_local"] = m.TextModel.RopeLocalBaseFreq
 	kv["gemma3n.rope.freq_base"] = m.TextModel.RopeTheta
+
+	// Ensure <end_of_turn> (token 106) is always in the EOS list for gemma3n.
+	// Upstream HF configs are inconsistent: e4b/generation_config.json has
+	// eos_token_id=[1, 106] but e2b's has just eos_token_id=1. Without 106 in
+	// the stop-token set, instruction-tuned gemma3n models don't halt after the
+	// assistant turn and produce gibberish (Spring XML, pattern loops). The
+	// gemma3n chat template always uses <end_of_turn> as the turn terminator
+	// regardless of which size, so 106 is always a valid stop for this arch.
+	eosIDs := []int32{1, 106}
+	if existing, ok := kv["tokenizer.ggml.eos_token_ids"]; ok {
+		if arr, ok := existing.([]int32); ok {
+			seen := make(map[int32]bool, len(arr))
+			for _, id := range arr {
+				seen[id] = true
+			}
+			for _, id := range eosIDs {
+				if !seen[id] {
+					arr = append(arr, id)
+				}
+			}
+			kv["tokenizer.ggml.eos_token_ids"] = arr
+		}
+	} else {
+		kv["tokenizer.ggml.eos_token_ids"] = eosIDs
+	}
+
 	return kv
 }
 
@@ -111,6 +137,16 @@ func (m *gemma3nModel) Tensors(ts []Tensor) []*ggml.Tensor {
 		merge{"altup_proj.*.weight", "altup_proj.weight"},
 		merge{"altup_unembd_proj.*.weight", "altup_unembd_proj.weight"},
 	)
+
+	// Find the per_layer_token_embd size to use as the authoritative vocab size.
+	// The token_embd may be padded for GPU alignment and needs truncation to match.
+	var vocabSize uint64
+	for _, t := range ts {
+		if t.Name() == "per_layer_token_embd.weight" && len(t.Shape()) >= 2 {
+			vocabSize = t.Shape()[0]
+			break
+		}
+	}
 
 	for _, t := range ts {
 		switch {
@@ -145,12 +181,25 @@ func (m *gemma3nModel) Tensors(ts []Tensor) []*ggml.Tensor {
 			}
 		}
 
-		out = append(out, &ggml.Tensor{
+		gt := &ggml.Tensor{
 			Name:     t.Name(),
 			Kind:     t.Kind(),
 			Shape:    t.Shape(),
 			WriterTo: t,
-		})
+		}
+
+		// Truncate token_embd to match per_layer_token_embd vocab size
+		// (removes HF GPU alignment padding)
+		if t.Name() == "token_embd.weight" && vocabSize > 0 && len(gt.Shape) >= 2 && gt.Shape[0] > vocabSize {
+			embdDim := gt.Shape[1]
+			gt.Shape = slices.Clone(gt.Shape)
+			gt.Shape[0] = vocabSize
+			t.SetRepacker(func(_ string, data []float32, _ []uint64) ([]float32, error) {
+				return data[:vocabSize*embdDim], nil
+			})
+		}
+
+		out = append(out, gt)
 	}
 
 	return out

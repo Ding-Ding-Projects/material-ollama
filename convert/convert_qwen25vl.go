@@ -2,6 +2,8 @@ package convert
 
 import (
 	"cmp"
+	"encoding/json"
+	"io/fs"
 	"slices"
 	"strings"
 
@@ -10,6 +12,13 @@ import (
 
 type qwen25VLModel struct {
 	qwen2Model
+
+	Preprocessor struct {
+		ImageMean []float32 `json:"image_mean"`
+		ImageStd  []float32 `json:"image_std"`
+		MinPixels uint32    `json:"min_pixels"`
+		MaxPixels uint32    `json:"max_pixels"`
+	} `json:"-"`
 
 	VisionModel struct {
 		Depth               uint32  `json:"depth"`
@@ -24,18 +33,28 @@ type qwen25VLModel struct {
 		RopeTheta           float32 `json:"rope_theta"`
 		FullAttentionBlocks []int32 `json:"fullatt_block_indexes"`
 		TemporalPatchSize   uint32  `json:"temporal_patch_size"`
+		IntermediateSize    uint32  `json:"intermediate_size"`
+		ImageSize           uint32  `json:"image_size"`
 	} `json:"vision_config"`
 }
 
-var _ ModelConverter = (*qwen25VLModel)(nil)
+var _ MultimodalConverter = (*qwen25VLModel)(nil)
+
+func (q *qwen25VLModel) parseMore(fsys fs.FS) error {
+	bts, err := fs.ReadFile(fsys, "preprocessor_config.json")
+	if err != nil {
+		return err
+	}
+	return json.Unmarshal(bts, &q.Preprocessor)
+}
 
 func (q *qwen25VLModel) KV(t *Tokenizer) KV {
 	kv := q.ModelParameters.KV(t)
-	kv["general.architecture"] = "qwen25vl"
+	kv["general.architecture"] = "qwen2vl"
 
 	for k, v := range q.qwen2Model.KV(t) {
 		if strings.HasPrefix(k, "qwen2.") {
-			kv[strings.Replace(k, "qwen2.", "qwen25vl.", 1)] = v
+			kv[strings.Replace(k, "qwen2.", "qwen2vl.", 1)] = v
 		}
 	}
 
