@@ -165,6 +165,13 @@ func (r *Runner) prefill(ctx context.Context, session *cacheSession, spec *specu
 		snapshotOffsets = append(snapshotOffsets, end)
 	}
 
+	modelForward := func(tokens *mlx.Array) *mlx.Array {
+		if withState, ok := r.Model.(base.ForwardWithStateModel); ok {
+			return withState.ForwardWithState(tokens, caches, promptState)
+		}
+		return r.Model.Forward(tokens, caches)
+	}
+
 	materializeCaches := func() {
 		state := make([]*mlx.Array, 0, 2*len(caches))
 		for _, c := range caches {

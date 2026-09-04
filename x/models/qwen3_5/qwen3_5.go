@@ -2,6 +2,7 @@
 package qwen3_5
 
 import (
+	"cmp"
 	"encoding/json"
 	"fmt"
 	"log/slog"
@@ -40,8 +41,10 @@ type RopeParameters struct {
 	MropeSection        []int32 `json:"mrope_section"`
 }
 
-// Config holds Qwen 3.5 text config (top-level or nested text_config).
-type Config struct {
+// TextConfig holds the Qwen 3.5 text-model architecture fields.
+// In VLM configs these live under the "text_config" key; in text-only
+// configs they appear at the top level.
+type TextConfig struct {
 	ModelType             string   `json:"model_type"`
 	HiddenSize            int32    `json:"hidden_size"`
 	IntermediateSize      int32    `json:"intermediate_size"`
@@ -77,6 +80,19 @@ type Config struct {
 	PartialRotaryFactor float32         `json:"partial_rotary_factor"`
 	RopeScaling         map[string]any  `json:"rope_scaling"`
 	RopeParameters      *RopeParameters `json:"rope_parameters"`
+	MRoPESections       []int32         `json:"mrope_sections"`
+	MRoPEInterleaved    bool            `json:"mrope_interleaved"`
+}
+
+// Config is the full model config. It embeds TextConfig for the text-model
+// fields and adds top-level-only fields (vision, token IDs, quantization).
+type Config struct {
+	TextConfig
+
+	Vision           *VisionConfig `json:"vision_config"`
+	ImageTokenID     int32         `json:"image_token_id"`
+	VisionStartToken int32         `json:"vision_start_token_id"`
+	VisionEndToken   int32         `json:"vision_end_token_id"`
 
 	MropeSection []int32 `json:"-"`
 
@@ -109,6 +125,9 @@ type Model struct {
 	*Config
 
 	weightPrefix string
+
+	Vision         *VisionModel
+	ImageProcessor *VisionImageProcessor
 }
 
 // MTPHead is the multi-token-prediction draft head; it writes one KV cache
@@ -211,16 +230,23 @@ func parseConfig(configData []byte) (Config, error) {
 
 	var cfg Config
 	activeRaw := rawTop
+
+	// First pass: unmarshal the full config to pick up top-level fields
+	// (vision_config, image_token_id, etc.) and text fields for text-only models.
+	if err := json.Unmarshal(configData, &cfg); err != nil {
+		return Config{}, fmt.Errorf("parse config: %w", err)
+	}
+
+	// Second pass: if text_config exists, unmarshal it into TextConfig so
+	// text-model fields from text_config take priority over any top-level
+	// duplicates. Top-level-only fields (Vision, token IDs) are unaffected
+	// because they live on Config, not TextConfig.
 	if textRaw, ok := rawTop["text_config"]; ok {
-		if err := json.Unmarshal(textRaw, &cfg); err != nil {
+		if err := json.Unmarshal(textRaw, &cfg.TextConfig); err != nil {
 			return Config{}, fmt.Errorf("parse text_config: %w", err)
 		}
 		if err := json.Unmarshal(textRaw, &activeRaw); err != nil {
 			return Config{}, fmt.Errorf("parse text_config envelope: %w", err)
-		}
-	} else {
-		if err := json.Unmarshal(configData, &cfg); err != nil {
-			return Config{}, fmt.Errorf("parse config: %w", err)
 		}
 	}
 
@@ -246,12 +272,8 @@ func parseConfig(configData []byte) (Config, error) {
 		return Config{}, fmt.Errorf("invalid head_dim: %d", cfg.HeadDim)
 	}
 
-	if cfg.RMSNormEps == 0 {
-		cfg.RMSNormEps = 1e-6
-	}
-	if cfg.LinearConvKernelDim <= 0 {
-		cfg.LinearConvKernelDim = 4
-	}
+	cfg.RMSNormEps = cmp.Or(cfg.RMSNormEps, 1e-6)
+	cfg.LinearConvKernelDim = cmp.Or(cfg.LinearConvKernelDim, 4)
 	if cfg.LinearNumKeyHeads <= 0 || cfg.LinearNumValueHeads <= 0 || cfg.LinearKeyHeadDim <= 0 || cfg.LinearValueHeadDim <= 0 {
 		return Config{}, fmt.Errorf("invalid linear attention config (k_heads=%d v_heads=%d k_dim=%d v_dim=%d)",
 			cfg.LinearNumKeyHeads, cfg.LinearNumValueHeads, cfg.LinearKeyHeadDim, cfg.LinearValueHeadDim)
@@ -267,14 +289,21 @@ func parseConfig(configData []byte) (Config, error) {
 		if cfg.RopeParameters.PartialRotaryFactor > 0 {
 			cfg.PartialRotaryFactor = cfg.RopeParameters.PartialRotaryFactor
 		}
+		if len(cfg.MRoPESections) == 0 {
+			switch {
+			case len(cfg.RopeParameters.MRoPESection) > 0:
+				cfg.MRoPESections = append([]int32(nil), cfg.RopeParameters.MRoPESection...)
+			case len(cfg.RopeParameters.DimensionSections) > 0:
+				cfg.MRoPESections = append([]int32(nil), cfg.RopeParameters.DimensionSections...)
+			}
+		}
+		cfg.MRoPEInterleaved = cmp.Or(cfg.MRoPEInterleaved, cfg.RopeParameters.MRoPEInterleaved)
 	}
-	if cfg.RopeTheta == 0 {
-		cfg.RopeTheta = 100000.0
+	if len(cfg.MRoPESections) > 4 {
+		cfg.MRoPESections = cfg.MRoPESections[:4]
 	}
-	if cfg.PartialRotaryFactor == 0 {
-		cfg.PartialRotaryFactor = 0.25
-	}
-	if cfg.PartialRotaryFactor < 0 {
+	cfg.RopeTheta = cmp.Or(cfg.RopeTheta, 100000.0)
+	if cfg.PartialRotaryFactor <= 0 {
 		cfg.PartialRotaryFactor = 0.25
 	}
 	ropeDim := int32(float32(cfg.HeadDim) * cfg.PartialRotaryFactor)
@@ -306,24 +335,23 @@ func parseConfig(configData []byte) (Config, error) {
 	}
 
 	if cfg.NumExperts > 0 {
-		if cfg.NumExpertsPerTok <= 0 {
-			cfg.NumExpertsPerTok = 1
-		}
-		if cfg.MoeIntermediateSize <= 0 {
-			cfg.MoeIntermediateSize = cfg.IntermediateSize
-		}
-		if cfg.SharedExpertIntermediateSize <= 0 {
-			cfg.SharedExpertIntermediateSize = cfg.IntermediateSize
-		}
+		cfg.NumExpertsPerTok = cmp.Or(cfg.NumExpertsPerTok, int32(1))
+		cfg.MoeIntermediateSize = cmp.Or(cfg.MoeIntermediateSize, cfg.IntermediateSize)
+		cfg.SharedExpertIntermediateSize = cmp.Or(cfg.SharedExpertIntermediateSize, cfg.IntermediateSize)
 		if _, ok := activeRaw["norm_topk_prob"]; !ok {
 			cfg.NormTopKProb = true
 		}
-		if cfg.DecoderSparseStep <= 0 {
-			cfg.DecoderSparseStep = 1
-		}
+		cfg.DecoderSparseStep = cmp.Or(cfg.DecoderSparseStep, int32(1))
 	}
 
 	cfg.Scale = float32(1.0 / math.Sqrt(float64(cfg.HeadDim)))
+
+	if cfg.Vision != nil {
+		cfg.Vision.applyDefaults()
+	}
+	cfg.ImageTokenID = cmp.Or(cfg.ImageTokenID, int32(151655))
+	cfg.VisionStartToken = cmp.Or(cfg.VisionStartToken, int32(151652))
+	cfg.VisionEndToken = cmp.Or(cfg.VisionEndToken, int32(151653))
 	return cfg, nil
 }
 
@@ -388,6 +416,11 @@ func NewModel(root *model.Root) (base.Model, error) {
 	cfg, err := parseConfig(configData)
 	if err != nil {
 		return nil, err
+	}
+	if cfg.Vision != nil {
+		if preprocessorData, err := root.Manifest.ReadConfig("preprocessor_config.json"); err == nil {
+			cfg.Vision.applyPreprocessorConfig(preprocessorData)
+		}
 	}
 
 	if qt := root.QuantType(); qt != "" {
