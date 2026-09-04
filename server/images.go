@@ -950,7 +950,6 @@ func PushModel(ctx context.Context, name string, regOpts *registryOptions, fn fu
 
 	manifestJSON, err := manifest.ReadManifestData(n)
 	if err != nil {
-		fn(api.ProgressResponse{Status: "couldn't retrieve manifest"})
 		return err
 	}
 
