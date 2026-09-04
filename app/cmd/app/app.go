@@ -242,6 +242,9 @@ func main() {
 		slog.Warn("active configuration profile was not applied", "error", err)
 	}
 
+	// Initialize native settings with store
+	SetSettingsStore(st)
+
 	// Enable CORS in development mode
 	if devMode {
 		os.Setenv("OLLAMA_CORS", "1")
