@@ -61,7 +61,9 @@ recoverable. Output roots are restricted to the architecture's directory beneath
 `dist/squirrel-windows`, and reparse paths are rejected.
 
 `scripts/squirrel-contract.ps1` owns the numeric package version. The default is
-`1.<first-parent commit count>.<sequence>`. A local build uses sequence zero;
+`1.<total reachable commit count>.<sequence>`. Reachable history grows for every
+descendant integration, including merges that change the first-parent chain.
+A local build uses sequence zero;
 Actions uses `run_number * 10 + run_attempt`, allowing attempts 1 through 9.
 Every numeric component must be at most 65534. `PACKAGE_VERSION` can pin an
 explicit numeric version for a coordinated manual build; both root scripts must
@@ -126,6 +128,11 @@ GitHub Actions does not run tests, lint, or static-analysis jobs. Those checks
 remain local project commands and their actual results are reported separately
 from release publication. A published installer is not presented as a test
 verdict.
+
+`MATERIAL_OLLAMA_BUILD_MODE=release-fast` selects the frontend's
+`build:release-fast` script, which invokes Vite without the normal type-check
+stage. The release workflow sets this mode explicitly. Ordinary local builds
+retain the normal frontend `build` script.
 
 The current accelerated packaging repair did not run tests or UI captures after
 the workflow switched to accelerated delivery. Controlled package/PE fixtures

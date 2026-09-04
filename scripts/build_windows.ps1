@@ -1154,9 +1154,10 @@ function prepareApp {
     }
 
     Write-Output "Building React application..."
-    npm run build
+    $uiBuildScript = if ($env:MATERIAL_OLLAMA_BUILD_MODE -eq 'release-fast') { 'build:release-fast' } else { 'build' }
+    npm run $uiBuildScript
     if ($LASTEXITCODE -ne 0) { 
-        Write-Output "ERROR: npm run build failed with exit code $LASTEXITCODE"
+        Write-Output "ERROR: npm run $uiBuildScript failed with exit code $LASTEXITCODE"
         exit $LASTEXITCODE
     }
 
