@@ -70,6 +70,9 @@ explicit numeric version for a coordinated manual build; both root scripts must
 inherit that same value. A validated prior package must have a strictly lower
 version. This starts a new Squirrel lineage and does not compare old upstream
 prerelease labels as package versions.
+The default build does not parse `git describe` or require `VERSION`. The legacy
+`VERSION` variable does not override the numeric package identity; use the
+validated `PACKAGE_VERSION` override when pinning a candidate explicitly.
 
 The build records the unchanged source commit, source/index trees, dependency
 manifest hashes and payload SHA-256 values in `dist/payload-receipt.json`.

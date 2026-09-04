@@ -502,24 +502,10 @@ function checkEnv {
     if (-not $env:CGO_CXXFLAGS) {
         $env:CGO_CXXFLAGS = "-O3"
     }
-    Write-Output "Checking version"
-    if (!$env:VERSION) {
-        $data=(git describe --tags --first-parent --abbrev=7 --long --always)
-        if ($data -match '^v(?<base>\d+[.]\d+[.]\d+)-(?<distance>\d+)-g[0-9a-f]+$') {
-            $script:VERSION = "$($matches.base)-build.$($matches.distance)"
-        } elseif ($data -match '^v(?<base>\d+[.]\d+[.]\d+)$') {
-            $script:VERSION = $matches.base
-        } elseif ($data -match '^(?<base>\d+[.]\d+[.]\d+)(?:-(?<suffix>[0-9A-Za-z.-]+))?$') {
-            $script:VERSION = $data
-        } else {
-            throw "Unable to derive a Squirrel-compatible version from git describe output '$data'."
-        }
-    } else {
-        $script:VERSION=$env:VERSION
-    }
-    if ($script:VERSION -notmatch '^\d+[.]\d+[.]\d+(?:-[0-9A-Za-z.-]+)?$') {
-        throw "VERSION '$script:VERSION' is not a Squirrel-compatible semantic version."
-    }
+    Write-Output "Resolving the canonical numeric package version"
+    # Package metadata, compiled version and receipts share this one authority.
+    # Historical prerelease tags and the legacy VERSION variable do not select it.
+    # PACKAGE_VERSION remains the validated explicit override for a release build.
     $script:PKG_VERSION = Get-SquirrelVersion $script:REPO_ROOT
     $script:VERSION = $script:PKG_VERSION
     $script:SOURCE_COMMIT = ((git rev-parse HEAD 2>$null) | Select-Object -First 1).Trim()
