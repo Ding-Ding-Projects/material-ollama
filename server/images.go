@@ -1055,15 +1055,13 @@ func PullModel(ctx context.Context, name string, regOpts *registryOptions, fn fu
 		return nil
 	}
 
-	skipVerify := make(map[string]bool)
 	for _, layer := range layers {
 		cacheHit, err := downloadBlob(ctx, downloadOpts{
 			n:       n,
 			digest:  layer.Digest,
 			regOpts: opts,
 			fn:      fn,
-		})
-		if err != nil {
+		}); err != nil {
 			return err
 		}
 		// If any download of a given digest was not a cache hit,
