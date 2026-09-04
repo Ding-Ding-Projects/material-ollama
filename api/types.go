@@ -677,6 +677,11 @@ type Metrics struct {
 	EvalDuration          time.Duration `json:"eval_duration,omitempty"`
 }
 
+type TokenLogprob struct {
+	Text    string  `json:"text"`
+	Logprob float32 `json:"logprob"`
+}
+
 // Options specified in [GenerateRequest].  If you add a new option here, also
 // add it to the API docs.
 type Options struct {

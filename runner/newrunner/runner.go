@@ -11,6 +11,7 @@ import (
 	"io"
 	"log"
 	"log/slog"
+	"math"
 	"net"
 	"net/http"
 	"os"
@@ -63,7 +64,7 @@ type Sequence struct {
 	cache *InputCacheSlot
 
 	// channel to send responses over
-	responses chan string
+	responses chan CompletionResponse
 
 	// channel to stop decoding (such as if the remote connection is closed)
 	quit chan bool
@@ -93,6 +94,15 @@ type Sequence struct {
 	startGenerationTime time.Time
 	numPredicted        int
 	numPromptInputs     int
+
+	// New flag we need to add to Sequence struct
+	returnLogits bool
+
+	// Using our new GetLogits() method
+	logits []float32
+
+	// Add new channel for logits
+	logitsOut chan []float32
 }
 
 type NewSequenceParams struct {
@@ -139,13 +149,15 @@ func (s *Server) NewSequence(prompt string, images []ImageData, params NewSequen
 		startProcessingTime: startTime,
 		numPredict:          params.numPredict,
 		pendingResponses:    make([]string, 0),
-		responses:           make(chan string, 100),
+		responses:           make(chan CompletionResponse, 100),
 		quit:                make(chan bool, 1),
 		embedding:           make(chan []float32, 1),
 		samplers:            params.samplers,
 		embeddingOnly:       params.embedding,
 		stop:                params.stop,
 		numKeep:             params.numKeep,
+		returnLogits:        params.returnLogits,
+		logitsOut:           make(chan []float32, 100),
 	}, nil
 }
 
@@ -266,25 +278,34 @@ func (s *Server) allNil() bool {
 }
 
 func flushPending(seq *Sequence) bool {
-	joined := strings.Join(seq.pendingResponses, "")
-	seq.pendingResponses = []string{}
+	if len(seq.pendingResponses) == 0 {
+		return true
+	}
 
+	content := strings.Join(seq.pendingResponses, "")
 	// Check if there are any partial UTF-8 characters remaining.
 	// We already check and queue as we are generating but some may
 	// still make it here:
 	// - Sequence is ending, e.g. generation limit has been hit
 	// - Invalid characters in the middle of a string
 	// This is a stricter check to ensure we never output invalid Unicode.
-	for !utf8.ValidString(joined) {
-		joined = joined[:len(joined)-1]
+	for !utf8.ValidString(content) {
+		content = content[:len(content)-1]
+	}
+	seq.pendingResponses = nil
+
+	resp := CompletionResponse{
+		Content: content,
 	}
 
-	if len(joined) == 0 {
-		return true
+	// Add logits if requested and available
+	if seq.returnLogits && seq.logits != nil {
+		resp.Logits = seq.logits
+		seq.logits = nil
 	}
 
 	select {
-	case seq.responses <- joined:
+	case seq.responses <- resp:
 		return true
 	case <-seq.quit:
 		return false
@@ -555,10 +576,11 @@ type ImageData struct {
 }
 
 type CompletionRequest struct {
-	Prompt      string      `json:"prompt"`
-	Images      []ImageData `json:"image_data"`
-	Grammar     string      `json:"grammar"`
-	CachePrompt bool        `json:"cache_prompt"`
+	Prompt       string      `json:"prompt"`
+	Images       []ImageData `json:"image_data"`
+	Grammar      string      `json:"grammar"`
+	CachePrompt  bool        `json:"cache_prompt"`
+	ReturnLogits bool        `json:"return_logits,omitempty"` // defaults to false
 
 	Options
 }
@@ -571,8 +593,10 @@ type Timings struct {
 }
 
 type CompletionResponse struct {
-	Content string `json:"content"`
-	Stop    bool   `json:"stop"`
+	Content string    `json:"content"`
+	Logits  []float32 `json:"logits,omitempty"`
+	Tokens  []string  `json:"tokens,omitempty"`
+	Stop    bool      `json:"stop"`
 
 	Model        string  `json:"model,omitempty"`
 	Prompt       string  `json:"prompt,omitempty"`
@@ -685,9 +709,8 @@ func (s *Server) completion(w http.ResponseWriter, r *http.Request) {
 			return
 		case content, ok := <-seq.responses:
 			if ok {
-				if err := json.NewEncoder(w).Encode(&CompletionResponse{
-					Content: content,
-				}); err != nil {
+				// slog.Info("content", "content", content.Content)
+				if err := json.NewEncoder(w).Encode(&content); err != nil {
 					http.Error(w, fmt.Sprintf("failed to encode response: %v", err), http.StatusInternalServerError)
 					close(seq.quit)
 					return
@@ -979,4 +1002,77 @@ func Execute(args []string) error {
 
 	cancel()
 	return nil
+}
+
+// // Helper function to get top K logits and convert to log probabilities
+// func getTopLogits(logits []float32, k int, model *llama.Model) []api.LogProbs {
+// 	if k <= 0 {
+// 		return nil
+// 	}
+
+// 	// Convert logits to probabilities using softmax
+// 	probs := softmax(logits)
+
+// 	// Create slice of index/probability pairs
+// 	pairs := make([]struct {
+// 		token int
+// 		prob  float32
+// 	}, len(probs))
+
+// 	for i, p := range probs {
+// 		pairs[i] = struct {
+// 			token int
+// 			prob  float32
+// 		}{i, p}
+// 	}
+
+// 	// Sort by probability (descending)
+// 	sort.Slice(pairs, func(i, j int) bool {
+// 		return pairs[i].prob > pairs[j].prob
+// 	})
+
+// 	// Take top K
+// 	k = min(k, len(pairs))
+// 	result := make([]api.LogProbs, k)
+
+// 	for i := 0; i < k; i++ {
+// 		result[i] = api.LogProbs{
+// 			TopLogprobs: []api.TokenLogprob{
+// 				{
+// 					Token:   model.TokenToPiece(pairs[i].token),
+// 					Logprob: float32(math.Log(float64(pairs[i].prob))),
+// 				},
+// 			},
+// 		}
+// 	}
+
+// 	return result
+// }
+
+// Helper function to compute softmax
+func softmax(logits []float32) []float32 {
+	probs := make([]float32, len(logits))
+
+	// Find max for numerical stability
+	max := float32(math.Inf(-1))
+	for _, l := range logits {
+		if l > max {
+			max = l
+		}
+	}
+
+	// Compute exp(x - max) and sum
+	sum := float32(0)
+	for i, l := range logits {
+		ex := float32(math.Exp(float64(l - max)))
+		probs[i] = ex
+		sum += ex
+	}
+
+	// Normalize
+	for i := range probs {
+		probs[i] /= sum
+	}
+
+	return probs
 }
