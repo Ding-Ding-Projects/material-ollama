@@ -1,5 +1,15 @@
 package mlx
 
+import "cmp"
+
+type Quantization struct {
+	Scales    Array  `weight:"scales"`
+	Biases    Array  `weight:"biases"`
+	GroupSize int    `json:"group_size"`
+	Bits      int    `json:"bits"`
+	Mode      string `json:"mode"`
+}
+
 type Linear struct {
 	Weight *Array `weight:"weight"`
 	Bias   *Array `weight:"bias"`
@@ -26,11 +36,23 @@ type Embedding struct {
 }
 
 func (e *Embedding) Forward(indices *Array) *Array {
+	if e.Scales.Valid() {
+		w := e.Weight.TakeAxis(indices, 0)
+		return w.Dequantize(
+			e.Scales.TakeAxis(indices, 0),
+			e.Biases.TakeAxis(indices, 0),
+			e.GroupSize,
+			e.Bits,
+			cmp.Or(e.Mode, "affine"),
+		)
+	}
+
 	return e.Weight.TakeAxis(indices, 0)
 }
 
 func (e *Embedding) AsLinear() Linear {
 	return Linear{
-		Weight: e.Weight,
+		Weight:       e.Weight,
+		Quantization: e.Quantization,
 	}
 }
