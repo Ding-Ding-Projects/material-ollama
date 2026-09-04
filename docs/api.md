@@ -1817,7 +1817,8 @@ Generate embeddings from a model
 ### Parameters
 
 - `model`: name of model to generate embeddings from
-- `prompt`: text to generate embeddings for
+- `prompt`: string to generate the embedding for
+- `prompts`: array of strings to generate a batch of embeddings for
 
 Advanced parameters:
 

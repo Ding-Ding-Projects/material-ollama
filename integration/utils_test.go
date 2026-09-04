@@ -5,6 +5,7 @@ package integration
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -421,6 +422,7 @@ func DoGenerate(ctx context.Context, t *testing.T, client *api.Client, genReq ap
 // Generate a set of requests
 // By default each request uses llama3.2 as the model
 func GenerateRequests() ([]api.GenerateRequest, [][]string) {
+	stream := false
 	return []api.GenerateRequest{
 			{
 				Model:     smol,
