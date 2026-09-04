@@ -100,7 +100,8 @@ func (db *database) init() error {
 		id TEXT PRIMARY KEY,
 		title TEXT NOT NULL DEFAULT '',
 		created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-		browser_state TEXT
+		browser_state TEXT,
+		draft TEXT NOT NULL DEFAULT ''
 	);
 
 	CREATE TABLE IF NOT EXISTS messages (
@@ -726,7 +727,7 @@ func (db *database) getAllChats() ([]Chat, error) {
 
 func (db *database) getChatWithOptions(id string, loadAttachmentData bool) (*Chat, error) {
 	query := `
-		SELECT id, title, created_at, browser_state
+		SELECT id, title, created_at, browser_state, draft
 		FROM chats
 		WHERE id = ?
 	`
@@ -734,12 +735,14 @@ func (db *database) getChatWithOptions(id string, loadAttachmentData bool) (*Cha
 	var chat Chat
 	var createdAt time.Time
 	var browserState sql.NullString
+	var draft sql.NullString
 
 	err := db.conn.QueryRow(query, id).Scan(
 		&chat.ID,
 		&chat.Title,
 		&createdAt,
 		&browserState,
+		&draft,
 	)
 	if err != nil {
 		if err == sql.ErrNoRows {
@@ -754,6 +757,9 @@ func (db *database) getChatWithOptions(id string, loadAttachmentData bool) (*Cha
 		if err := json.Unmarshal([]byte(browserState.String), &raw); err == nil {
 			chat.BrowserState = raw
 		}
+	}
+	if draft.Valid {
+		chat.Draft = draft.String
 	}
 
 	messages, err := db.getMessages(id, loadAttachmentData)
@@ -778,11 +784,12 @@ func (db *database) saveChat(chat Chat) error {
 	// UPSERT would overwrite browser_state with NULL, breaking revisit rendering that relies
 	// on the last persisted full tool state.
 	query := `
-		INSERT INTO chats (id, title, created_at, browser_state)
-		VALUES (?, ?, ?, ?)
+		INSERT INTO chats (id, title, created_at, browser_state, draft)
+		VALUES (?, ?, ?, ?, ?)
 		ON CONFLICT(id) DO UPDATE SET
 			title = excluded.title,
-			browser_state = COALESCE(excluded.browser_state, chats.browser_state)
+			browser_state = COALESCE(excluded.browser_state, chats.browser_state),
+			draft = excluded.draft
 	`
 
 	var browserState sql.NullString
@@ -795,6 +802,7 @@ func (db *database) saveChat(chat Chat) error {
 		chat.Title,
 		chat.CreatedAt,
 		browserState,
+		chat.Draft,
 	)
 	if err != nil {
 		return fmt.Errorf("save chat: %w", err)
@@ -823,6 +831,23 @@ func (db *database) saveChat(chat Chat) error {
 	}
 
 	return tx.Commit()
+}
+
+// updateChatDraft updates only the draft for a chat
+func (db *database) updateChatDraft(chatID string, draft string) error {
+	_, err := db.conn.Exec(`UPDATE chats SET draft = ? WHERE id = ?`, draft, chatID)
+	if err != nil {
+		return fmt.Errorf("update chat draft: %w", err)
+	}
+	return nil
+}
+
+func (db *database) clearAllDrafts() error {
+	_, err := db.conn.Exec(`UPDATE chats SET draft = ''`)
+	if err != nil {
+		return fmt.Errorf("clear all drafts: %w", err)
+	}
+	return nil
 }
 
 // updateChatBrowserState updates only the browser_state for a chat
