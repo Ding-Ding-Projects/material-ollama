@@ -72,7 +72,14 @@ function Assert-ToolPath {
   $full = [IO.Path]::GetFullPath($Path)
   $part = $full
   while ($part) {
-    if ((Test-Path -LiteralPath $part) -and ((Get-Item -LiteralPath $part -Force).Attributes -band [IO.FileAttributes]::ReparsePoint)) { throw "Tool path contains a reparse point: $part" }
+    $attributes = $null
+    try { $attributes = [IO.File]::GetAttributes($part) }
+    catch {
+      $cause = $_.Exception
+      while ($cause.InnerException) { $cause = $cause.InnerException }
+      if (($cause.HResult -band 65535) -notin @(2, 3)) { throw }
+    }
+    if ($null -ne $attributes -and ($attributes -band [IO.FileAttributes]::ReparsePoint)) { throw "Tool path contains a reparse point: $part" }
     $part = [IO.Path]::GetDirectoryName($part)
   }
   return $full
@@ -81,8 +88,8 @@ function Assert-ToolPath {
 function Get-ToolChild {
   param([string]$Root, [string]$Relative)
   if ([IO.Path]::IsPathRooted($Relative) -or $Relative.Contains(':')) { throw "Invalid archive path: $Relative" }
-  $base = (Assert-ToolPath $Root).TrimEnd('\', '/') + [IO.Path]::DirectorySeparatorChar
-  $result = [IO.Path]::GetFullPath((Join-Path $Root $Relative))
+  $base = [IO.Path]::GetFullPath($Root).TrimEnd('\', '/') + [IO.Path]::DirectorySeparatorChar
+  $result = [IO.Path]::GetFullPath([IO.Path]::Combine($Root, $Relative))
   if (-not $result.StartsWith($base, [StringComparison]::OrdinalIgnoreCase)) { throw "Archive path escapes destination: $Relative" }
   return (Assert-ToolPath $result)
 }
@@ -118,17 +125,39 @@ function Get-ToolDownload {
 
 function Expand-ToolArchive {
   param([string]$Archive, $Record, [string]$Destination, [string]$Extractor)
-  New-Item -ItemType Directory -Path $Destination | Out-Null
+  $Destination = Assert-ToolPath $Destination
+  if ([IO.Directory]::Exists($Destination) -or [IO.File]::Exists($Destination)) { throw "Extraction requires a fresh destination: $Destination" }
+  [IO.Directory]::CreateDirectory($Destination) | Out-Null
+  $destinationPrefix = $Destination.TrimEnd('\', '/') + [IO.Path]::DirectorySeparatorChar
   if ($Record.archive -eq 'zip') {
     Add-Type -AssemblyName System.IO.Compression.FileSystem
     $zip = [IO.Compression.ZipFile]::OpenRead($Archive)
     try {
       $seen = @{}
       foreach ($entry in $zip.Entries) {
-        $target = Get-ToolChild $Destination $entry.FullName
-        if ($seen.ContainsKey($target)) { throw 'Duplicate archive path.' }
-        $seen[$target] = $true
+        $relative = $entry.FullName
+        if ([IO.Path]::IsPathRooted($relative) -or $relative.Contains(':')) { throw "Invalid archive path: $relative" }
+        $target = [IO.Path]::GetFullPath([IO.Path]::Combine($Destination, $relative))
+        if (-not $target.StartsWith($destinationPrefix, [StringComparison]::OrdinalIgnoreCase)) { throw "Archive path escapes destination: $relative" }
+        $targetKey = $target.TrimEnd('\', '/')
+        if ($seen.ContainsKey($targetKey)) { throw 'Duplicate archive path.' }
+        $seen[$targetKey] = $true
         if (($entry.ExternalAttributes -shr 16 -band 61440) -eq 40960) { throw 'Archive symlinks are not supported.' }
+        if ($entry.ExternalAttributes -band [int][IO.FileAttributes]::ReparsePoint) { throw 'Archive reparse points are not supported.' }
+        # The empty stage has already had its ancestors checked. Check only the
+        # entry's existing descendants before writing, without provider calls.
+        $part = $targetKey
+        while ($part.Length -ge $Destination.Length) {
+          $attributes = $null
+          try { $attributes = [IO.File]::GetAttributes($part) }
+          catch {
+            $cause = $_.Exception
+            while ($cause.InnerException) { $cause = $cause.InnerException }
+            if (($cause.HResult -band 65535) -notin @(2, 3)) { throw }
+          }
+          if ($null -ne $attributes -and ($attributes -band [IO.FileAttributes]::ReparsePoint)) { throw "Extraction path contains a reparse point: $part" }
+          $part = [IO.Path]::GetDirectoryName($part)
+        }
         if ($entry.FullName.EndsWith('/') -or $entry.FullName.EndsWith('\')) { [IO.Directory]::CreateDirectory($target) | Out-Null }
         else {
           [IO.Directory]::CreateDirectory([IO.Path]::GetDirectoryName($target)) | Out-Null
@@ -152,19 +181,37 @@ function Expand-ToolArchive {
 }
 
 function Get-ToolTree {
-  param([string]$Root)
-  $null = Assert-ToolPath $Root
+  param([string]$Root, [switch]$ValidateOnly)
+  $rootPath = (Assert-ToolPath $Root).TrimEnd('\', '/')
   $files = @{}
-  foreach ($item in Get-ChildItem -LiteralPath $Root -Recurse -Force) {
-    $null = Assert-ToolPath $item.FullName
-    if (-not $item.PSIsContainer) { $files[$item.FullName.Substring($Root.TrimEnd('\', '/').Length).TrimStart('\', '/')] = (Get-FileHash -LiteralPath $item.FullName -Algorithm SHA256).Hash }
+  $pending = New-Object 'System.Collections.Generic.Stack[string]'
+  $pending.Push($rootPath)
+  $sha256 = [Security.Cryptography.SHA256]::Create()
+  try {
+    while ($pending.Count -gt 0) {
+      $directory = $pending.Pop()
+      if ([IO.File]::GetAttributes($directory) -band [IO.FileAttributes]::ReparsePoint) { throw "Tool path contains a reparse point: $directory" }
+      foreach ($item in [IO.Directory]::EnumerateFileSystemEntries($directory)) {
+        $attributes = [IO.File]::GetAttributes($item)
+        if ($attributes -band [IO.FileAttributes]::ReparsePoint) { throw "Tool path contains a reparse point: $item" }
+        if ($attributes -band [IO.FileAttributes]::Directory) { $pending.Push($item) }
+        elseif (-not $ValidateOnly) {
+          $stream = [IO.File]::OpenRead($item)
+          try { $digest = [BitConverter]::ToString($sha256.ComputeHash($stream)).Replace('-', '') }
+          finally { $stream.Dispose() }
+          $files[$item.Substring($rootPath.Length + 1)] = $digest
+        }
+      }
+    }
+  } finally {
+    $sha256.Dispose()
   }
   return $files
 }
 
 function Test-ToolTree {
   param([string]$Root, [hashtable]$Expected)
-  if (-not (Test-Path -LiteralPath $Root -PathType Container)) { return $false }
+  if (-not [IO.Directory]::Exists($Root)) { return $false }
   $actual = Get-ToolTree $Root
   if ($actual.Count -eq 0 -or $actual.Count -ne $Expected.Count) { return $false }
   foreach ($key in $Expected.Keys) { if ($actual[$key] -ne $Expected[$key]) { return $false } }
@@ -198,17 +245,19 @@ function Install-PortableTool {
     $expected = Get-ToolTree $source
     $active = Join-Path $toolRoot 'active'
     $journal = Join-Path $toolRoot 'activation.json'
-    if (-not (Test-ToolTree $active $expected)) {
+    $activeValid = Test-ToolTree $active $expected
+    if (-not $activeValid) {
       $backup = Get-ChildItem -LiteralPath $toolRoot -Directory -Filter 'backup-*' | Sort-Object Name -Descending | Where-Object { Test-ToolTree $_.FullName $expected } | Select-Object -First 1
       if ($backup) {
         if (Test-Path -LiteralPath $active) { Move-ToolPath $active (Join-Path $toolRoot ('invalid-' + [Guid]::NewGuid().ToString('N'))) }
         Move-ToolPath $backup.FullName $active
+        $activeValid = Test-ToolTree $active $expected
       }
     }
     # Journal contents never supply paths or hashes. Even malformed interrupted
     # journals are retained while recovery uses independently validated trees.
     if (Test-Path -LiteralPath $journal) { Move-ToolPath $journal "$journal.recovered-$([Guid]::NewGuid().ToString('N'))" }
-    if (-not (Test-ToolTree $active $expected)) {
+    if (-not $activeValid) {
       $backupPath = Join-Path $toolRoot ('backup-' + [DateTime]::UtcNow.ToString('yyyyMMddTHHmmssfffffffZ') + '-' + [Guid]::NewGuid().ToString('N'))
       [IO.File]::WriteAllText($journal, (@{ schemaVersion = 1; archiveSha256 = $Record.sha256; state = 'activating' } | ConvertTo-Json -Compress))
       if (Test-Path -LiteralPath $active) { Move-ToolPath $active $backupPath }
@@ -228,7 +277,7 @@ function Install-PortableTool {
     try {
       if (Test-Path -LiteralPath $stage) {
         $resolvedStage = Get-ToolChild $toolRoot ([IO.Path]::GetFileName($stage))
-        foreach ($item in Get-ChildItem -LiteralPath $resolvedStage -Recurse -Force) { $null = Assert-ToolPath $item.FullName }
+        $null = Get-ToolTree $resolvedStage -ValidateOnly
         Remove-Item -LiteralPath $resolvedStage -Recurse -Force
       }
     } finally { $lock.Dispose() }
