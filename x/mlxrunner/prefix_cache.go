@@ -45,7 +45,7 @@ type prefixCache struct {
 // pendingSnapshot is a snapshot scheduled to be taken during prefill.
 type pendingSnapshot struct {
 	offset int
-	user   bool
+	kind   restorePointKind
 }
 
 // cacheSession manages caches for a single pipeline run.
@@ -64,6 +64,8 @@ type cacheSession struct {
 	// during prefill, sorted by offset. Entries are scheduled on the caches
 	// before prefill and drained or discarded after.
 	pendingSnapshots []pendingSnapshot
+
+	lastDecodeCheckpointOffset int
 }
 
 // newPrefixCache manages the given cache slots for the model's life.
@@ -98,6 +100,7 @@ func (c *prefixCache) begin(inputs []int32, items []mediaItem) *cacheSession {
 
 	// Switch to the matched path, paging in/out as needed.
 	c.switchToPath(matchPath, matched)
+	c.pruneInactiveEphemeralRestorePoints()
 
 	// switchToPath aligns caches to a common offset
 	prefix := c.minCacheOffset()
@@ -114,7 +117,7 @@ func (c *prefixCache) begin(inputs []int32, items []mediaItem) *cacheSession {
 	// Schedule a snapshot at the branch point during prefill so future
 	// requests diverging here can restore instead of re-evaluating.
 	if prefix < matched {
-		session.pendingSnapshots = append(session.pendingSnapshots, pendingSnapshot{offset: matched, user: false})
+		session.pendingSnapshots = append(session.pendingSnapshots, pendingSnapshot{offset: matched, kind: restorePointNone})
 	}
 
 	msg := "cache hit"
@@ -474,9 +477,9 @@ func (c *prefixCache) advancePath(frontier *trieNode, tokens []trieKey, endOffse
 	dest := matchPath[len(matchPath)-1]
 
 	if len(remaining) > 0 {
-		// Drop non-user snapshots so appendTokens can extend in-place
+		// Drop non-restore-point snapshots so appendTokens can extend in-place
 		// rather than creating a new child node.
-		if len(dest.children) == 0 && !dest.user {
+		if len(dest.children) == 0 && !dest.isRestorePoint() {
 			dest.setSnapshots(nil, &c.pagedOutBytes)
 		}
 		newDest := dest.appendTokens(c.root, remaining, endOffset)
@@ -551,7 +554,7 @@ func (s *cacheSession) close() {
 	if len(c.activePath) > 0 {
 		frontier := c.activePath[len(c.activePath)-1]
 		if offset > frontier.endOffset {
-			newTokens := stored[frontier.endOffset:offset]
+			newTokens := s.tokensBetween(frontier.endOffset, offset)
 			c.advancePath(frontier, newTokens, offset)
 		}
 		c.activePath[len(c.activePath)-1].lastUsed = time.Now()
@@ -572,7 +575,7 @@ func (c *prefixCache) enforceEvictionPolicy() {
 	for c.pagedOutBytes > maxPagedOutBytes {
 		var best *trieNode
 		walkNodes(c.root, func(n *trieNode) bool {
-			if n == c.root || activeSet[n] || len(n.children) > 1 {
+			if n == c.root || activeSet[n] || n.isRestorePoint() || len(n.children) > 1 {
 				return true
 			}
 			// Evict: oldest, then deepest, then largest.
@@ -661,8 +664,8 @@ func (c *prefixCache) dumpTree() {
 			label += fmt.Sprintf(" %s ago", time.Since(n.lastUsed).Truncate(time.Millisecond))
 		}
 		var flags []string
-		if n.user {
-			flags = append(flags, "user")
+		if n.restore != restorePointNone {
+			flags = append(flags, n.restore.String())
 		}
 		if hasAllSnapshots(n, c.caches) {
 			snapshotCount++

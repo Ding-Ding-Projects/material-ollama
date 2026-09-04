@@ -257,6 +257,9 @@ func (c *fakeSlidingWindowCache) Update(keys, values *mlx.Array) (*mlx.Array, *m
 }
 func (c *fakeSlidingWindowCache) State() []*mlx.Array { return nil }
 func (c *fakeSlidingWindowCache) Offset() int         { return len(c.tokens) }
+func (c *fakeSlidingWindowCache) RequiresExactRestorePoint() bool {
+	return true
+}
 
 func (c *fakeSlidingWindowCache) Free() {
 	c.tokens = nil
@@ -345,6 +348,9 @@ func (c *fakeRecurrentCache) Update(keys, values *mlx.Array) (*mlx.Array, *mlx.A
 }
 func (c *fakeRecurrentCache) State() []*mlx.Array { return nil }
 func (c *fakeRecurrentCache) Offset() int         { return len(c.tokens) }
+func (c *fakeRecurrentCache) RequiresExactRestorePoint() bool {
+	return true
+}
 
 func (c *fakeRecurrentCache) Free() {
 	c.tokens = nil
@@ -500,6 +506,16 @@ type requestResult struct {
 // simulateRequest runs a request through the harness. If userSnapshotAt > 0,
 // a user snapshot is requested at that offset during prefill.
 func simulateRequest(t *testing.T, pc *prefixCache, inputs, generated []int32, userSnapshotAt ...int) requestResult {
+	t.Helper()
+	return simulateRequestWithOptions(t, kvc, inputs, generated, false, userSnapshotAt...)
+}
+
+func simulateRequestWithDecodeCheckpoints(t *testing.T, kvc *kvCache, inputs, generated []int32, userSnapshotAt ...int) requestResult {
+	t.Helper()
+	return simulateRequestWithOptions(t, kvc, inputs, generated, true, userSnapshotAt...)
+}
+
+func simulateRequestWithOptions(t *testing.T, kvc *kvCache, inputs, generated []int32, decodeCheckpoints bool, userSnapshotAt ...int) requestResult {
 	t.Helper()
 
 	session := pc.begin(inputs, nil)
@@ -1077,6 +1093,44 @@ func assertUserNodeExists(t *testing.T, pc *prefixCache, label string) {
 	if !exists {
 		t.Fatalf("%s: no user-marked node found", label)
 	}
+}
+
+func countUserNodesAt(kvc *kvCache, offset int) int {
+	return countRestorePointNodesAt(kvc, offset, restorePointDurable)
+}
+
+func countEphemeralNodesAt(kvc *kvCache, offset int) int {
+	return countRestorePointNodesAt(kvc, offset, restorePointEphemeral)
+}
+
+func countRestorePointNodesAt(kvc *kvCache, offset int, kind restorePointKind) int {
+	var count int
+	walkNodes(kvc.root, func(n *trieNode) bool {
+		if n.restore == kind && n.endOffset == offset {
+			count++
+		}
+		return true
+	})
+	return count
+}
+
+func countSnapshotNodesAt(kvc *kvCache, offset int) int {
+	var count int
+	walkNodes(kvc.root, func(n *trieNode) bool {
+		if n.endOffset == offset && n.hasSnapshots() {
+			count++
+		}
+		return true
+	})
+	return count
+}
+
+func int32Range(start, count int) []int32 {
+	values := make([]int32, count)
+	for i := range values {
+		values[i] = int32(start + i)
+	}
+	return values
 }
 
 // TestBranchSwitchRestoresCorrectState exercises switching back to an older

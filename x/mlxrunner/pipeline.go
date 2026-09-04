@@ -23,6 +23,19 @@ func prefillChunkSize() int {
 	return 2 << 10
 }
 
+const (
+	decodeCheckpointInterval  = 2048
+	minDecodeCheckpointTokens = 64
+)
+
+func shouldDecodeCheckpoint(generated int) bool {
+	return generated > 0 && generated%decodeCheckpointInterval == 0
+}
+
+func shouldFinalDecodeCheckpoint(generated int) bool {
+	return generated >= minDecodeCheckpointTokens
+}
+
 // Prepare tokenizes the prompt and validates it against the model's
 // context length. It is safe to call from any goroutine. On success it
 // populates request.Tokens and adjusts request.Options.NumPredict.
@@ -133,6 +146,10 @@ func (r *Runner) prefill(ctx context.Context, session *cacheSession, spec *specu
 	tokens := session.remaining
 	caches := session.caches
 	prefillChunk := prefillChunkSize()
+	decodeCheckpoints := cachepkg.RequiresExactRestorePoint(caches)
+	if decodeCheckpoints {
+		slog.Debug("decode cache checkpoints enabled")
+	}
 
 	// Request periodic snapshots during prefill and near the end of the
 	// prompt so that long prompts can be partially restored and
