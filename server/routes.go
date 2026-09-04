@@ -2153,6 +2153,13 @@ func Serve(ln net.Listener) error {
 	if err := fixBlobs(blobsDir); err != nil {
 		return err
 	}
+	manifestsDir, err := GetManifestPath()
+	if err != nil {
+		return err
+	}
+	if err := fixManifests(manifestsDir); err != nil {
+		return err
+	}
 
 	if !envconfig.NoPrune() {
 		if _, err := manifest.Manifests(false); err != nil {

@@ -38,7 +38,7 @@ func TestParseNameParts(t *testing.T) {
 				Tag:            "tag",
 				ProtocolScheme: "scheme",
 			},
-			wantFilepath: filepath.Join("host:port", "namespace", "model", "tag"),
+			wantFilepath: filepath.Join("host%port", "namespace", "model", "tag"),
 		},
 		{
 			in: "host/namespace/model:tag",
@@ -58,7 +58,7 @@ func TestParseNameParts(t *testing.T) {
 				Model:     "model",
 				Tag:       "tag",
 			},
-			wantFilepath: filepath.Join("host:port", "namespace", "model", "tag"),
+			wantFilepath: filepath.Join("host%port", "namespace", "model", "tag"),
 		},
 		{
 			in: "host/namespace/model",
@@ -76,7 +76,7 @@ func TestParseNameParts(t *testing.T) {
 				Namespace: "namespace",
 				Model:     "model",
 			},
-			wantFilepath: filepath.Join("host:port", "namespace", "model", "latest"),
+			wantFilepath: filepath.Join("host%port", "namespace", "model", "latest"),
 		},
 		{
 			in: "namespace/model",
