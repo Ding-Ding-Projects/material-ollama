@@ -740,7 +740,7 @@ func TestDeleteHandler(t *testing.T) {
 			} else {
 				w.WriteHeader(http.StatusNotFound)
 				errPayload := `{"error":"model '%s' not found"}`
-				w.Write([]byte(fmt.Sprintf(errPayload, req.Name)))
+				fmt.Fprintf(w, errPayload, req.Name)
 			}
 			return
 		}
@@ -1981,8 +1981,8 @@ func TestGetModelfileName(t *testing.T) {
 				t.Errorf("expected filename: '%s' actual filename: '%s'", expectedFilename, actualFilename)
 			}
 
-			if tt.expectedErr != os.ErrNotExist {
-				if actualErr != tt.expectedErr {
+			if !errors.Is(tt.expectedErr, os.ErrNotExist) {
+				if !errors.Is(actualErr, tt.expectedErr) {
 					t.Errorf("expected err: %v actual err: %v", tt.expectedErr, actualErr)
 				}
 			} else {
@@ -2179,10 +2179,8 @@ func TestPushHandler(t *testing.T) {
 						t.Errorf("expected output %q, got %q", tt.expectedOutput, got)
 					}
 				}
-			} else {
-				if err == nil || !strings.Contains(err.Error(), tt.expectedError) {
-					t.Errorf("expected error containing %q, got %v", tt.expectedError, err)
-				}
+			} else if err == nil || !strings.Contains(err.Error(), tt.expectedError) {
+				t.Errorf("expected error containing %q, got %v", tt.expectedError, err)
 			}
 		})
 	}
@@ -2269,10 +2267,8 @@ func TestListHandler(t *testing.T) {
 				if got := string(output); got != tt.expectedOutput {
 					t.Errorf("expected output:\n%s\ngot:\n%s", tt.expectedOutput, got)
 				}
-			} else {
-				if err == nil || !strings.Contains(err.Error(), tt.expectedError) {
-					t.Errorf("expected error containing %q, got %v", tt.expectedError, err)
-				}
+			} else if err == nil || !strings.Contains(err.Error(), tt.expectedError) {
+				t.Errorf("expected error containing %q, got %v", tt.expectedError, err)
 			}
 		})
 	}
@@ -2735,8 +2731,8 @@ func TestRunOptions_Copy(t *testing.T) {
 	// Test 2: Verify all fields are copied correctly
 	tests := []struct {
 		name string
-		got  interface{}
-		want interface{}
+		got  any
+		want any
 	}{
 		{"Model", copied.Model, original.Model},
 		{"ParentModel", copied.ParentModel, original.ParentModel},

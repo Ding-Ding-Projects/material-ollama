@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/binary"
+	"errors"
 	"fmt"
 	"math"
 	"slices"
@@ -88,7 +89,7 @@ func NewBackend(modelPath string, params BackendParams) (Backend, error) {
 		return backend(modelPath, params)
 	}
 
-	return nil, fmt.Errorf("unsupported backend")
+	return nil, errors.New("unsupported backend")
 }
 
 // RopeType specifies the type of RoPE (Rotary Position Embedding) to use, these types are implemented in the backend

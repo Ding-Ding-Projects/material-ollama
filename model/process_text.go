@@ -298,9 +298,9 @@ func (bpe BytePairEncoding) Decode(ids []int32) (string, error) {
 			case r == 0x0143:
 				r = 0x00ad
 			case r > 0x0100 && r <= 0x0120:
-				r = r - 0x0100
+				r -= 0x0100
 			case r > 0x0120 && r <= 0x0142:
-				r = r - 0x00a2
+				r -= 0x00a2
 			}
 
 			// NOTE: not using WriteRune here because it writes the UTF-8

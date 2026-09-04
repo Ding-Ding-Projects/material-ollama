@@ -489,7 +489,7 @@ func CreateHandler(cmd *cobra.Command, args []string) error {
 
 	if err := client.Create(cmd.Context(), req, fn); err != nil {
 		if strings.Contains(err.Error(), "path or Modelfile are required") {
-			return fmt.Errorf("the ollama server must be updated to use `ollama create` with this client")
+			return errors.New("the ollama server must be updated to use `ollama create` with this client")
 		}
 		return err
 	}
@@ -1995,7 +1995,7 @@ func showInfo(resp *api.ShowResponse, verbose bool, w io.Writer) error {
 				var v string
 				switch vData := resp.ModelInfo[k].(type) {
 				case bool:
-					v = fmt.Sprintf("%t", vData)
+					v = strconv.FormatBool(vData)
 				case string:
 					v = vData
 				case float64:
@@ -2260,9 +2260,7 @@ func (r runOptions) Copy() runOptions {
 	var opts map[string]any
 	if r.Options != nil {
 		opts = make(map[string]any, len(r.Options))
-		for k, v := range r.Options {
-			opts[k] = v
-		}
+		maps.Copy(opts, r.Options)
 	}
 
 	var think *api.ThinkValue
@@ -2631,10 +2629,10 @@ func generate(cmd *cobra.Command, opts runOptions) error {
 		cancel()
 	}()
 
-	var state *displayResponseState = &displayResponseState{}
+	state := &displayResponseState{}
 	var thinkingContent strings.Builder
-	var thinkTagOpened bool = false
-	var thinkTagClosed bool = false
+	thinkTagOpened := false
+	thinkTagClosed := false
 
 	plainText := !term.IsTerminal(int(os.Stdout.Fd()))
 
@@ -2888,7 +2886,7 @@ func checkServerHeartbeat(cmd *cobra.Command, _ []string) error {
 		return err
 	}
 	if err := client.Heartbeat(cmd.Context()); err != nil {
-		if !(strings.Contains(err.Error(), " refused") || strings.Contains(err.Error(), "could not connect")) {
+		if !strings.Contains(err.Error(), " refused") && !strings.Contains(err.Error(), "could not connect") {
 			return err
 		}
 		if err := startApp(cmd.Context(), client); err != nil {

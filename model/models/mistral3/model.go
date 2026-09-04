@@ -36,7 +36,7 @@ func New(c ml.Config) (model.Model, error) {
 		MultiModalProjector: newMultiModalProjector(c),
 	}
 
-	m.Cache = kvcache.NewCausalCache(m.TextModel.Shift)
+	m.Cache = kvcache.NewCausalCache(m.Shift)
 
 	return m, nil
 }

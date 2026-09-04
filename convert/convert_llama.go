@@ -104,7 +104,7 @@ func (p *llamaModel) KV(t *Tokenizer) KV {
 }
 
 func (p *llamaModel) Tensors(ts []Tensor) []*ggml.Tensor {
-	var out []*ggml.Tensor
+	out := make([]*ggml.Tensor, 0, len(ts)+1)
 
 	if factors := p.ropeFactors(); factors != nil {
 		out = append(out, &ggml.Tensor{
@@ -187,9 +187,9 @@ func (p *llamaModel) Replacements() []string {
 }
 
 func (p *llamaModel) repack(name string, data []float32, shape []uint64) ([]float32, error) {
-	var dims []int
-	for _, dim := range shape {
-		dims = append(dims, int(dim))
+	dims := make([]int, len(shape))
+	for i, dim := range shape {
+		dims[i] = int(dim)
 	}
 
 	var heads uint32

@@ -452,7 +452,7 @@ func countRows(t *testing.T, db *database, table string) int {
 	return count
 }
 
-func countRowsWithCondition(t *testing.T, db *database, table, condition string, args ...interface{}) int {
+func countRowsWithCondition(t *testing.T, db *database, table, condition string, args ...any) int {
 	t.Helper()
 	var count int
 	query := fmt.Sprintf("SELECT COUNT(*) FROM %s WHERE %s", table, condition)
@@ -475,7 +475,7 @@ func containsString(values []string, want string) bool {
 // Test helpers for schema migration testing
 
 // schemaMap returns both tables/columns and indexes (ignoring order)
-func schemaMap(db *database) map[string]interface{} {
+func schemaMap(db *database) map[string]any {
 	result := make(map[string]any)
 
 	result["tables"] = columnMap(db)

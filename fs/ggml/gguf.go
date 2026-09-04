@@ -5,6 +5,7 @@ import (
 	"cmp"
 	"encoding/binary"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"log/slog"
@@ -233,7 +234,7 @@ func (llm *gguf) Decode(rs io.ReadSeeker) error {
 			Name:   name,
 			Kind:   kind,
 			Offset: offset,
-			Shape:  shape[:],
+			Shape:  shape,
 		}
 
 		llm.tensors = append(llm.tensors, &tensor)
@@ -620,7 +621,7 @@ func writeGGUFArray[S ~[]E, E any](w io.Writer, t uint32, s S) error {
 func WriteGGUF(f *os.File, kv fs.Config, ts []*Tensor) error {
 	arch := kv.String("general.architecture")
 	if arch == "" {
-		return fmt.Errorf("architecture not set")
+		return errors.New("architecture not set")
 	}
 
 	if err := binary.Write(f, binary.LittleEndian, []byte("GGUF")); err != nil {

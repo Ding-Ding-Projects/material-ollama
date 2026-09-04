@@ -1412,7 +1412,7 @@ func (runner *runnerRef) needsReload(ctx context.Context, req *LlmRequest) bool 
 	}
 
 	// Don't reload runner if num_gpu=-1 was provided
-	optsExisting := runner.Options.Runner
+	optsExisting := runner.Runner
 	optsNew := req.opts.Runner
 	optsNew.NumCtx = effectiveContext(optsNew.NumCtx, runner.trainContext)
 	if runner.numCtxAuto && req.numCtxAuto {
@@ -1542,7 +1542,7 @@ func (runner *runnerRef) LogValue() slog.Value {
 		slog.String("model", modelID),
 	)
 	if runner.Options != nil {
-		attrs = append(attrs, slog.Int("num_ctx", runner.Options.NumCtx))
+		attrs = append(attrs, slog.Int("num_ctx", runner.NumCtx))
 	}
 	return slog.GroupValue(attrs...)
 }

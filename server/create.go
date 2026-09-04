@@ -547,7 +547,7 @@ func convertFromSafetensors(files map[string]string, baseLayers []*layerGGML, is
 		}
 		if _, err := root.Stat(fp); err != nil && !errors.Is(err, fs.ErrNotExist) {
 			// Path is likely outside the root
-			return nil, fmt.Errorf("%w: %s: %s", errFilePath, err, fp)
+			return nil, fmt.Errorf("%w: %w: %s", errFilePath, err, fp)
 		}
 
 		blobPath, err := manifest.BlobsPath(digest)
@@ -735,7 +735,7 @@ func kvFromLayers(baseLayers []*layerGGML) (ofs.Config, error) {
 			return l.KV(), nil
 		}
 	}
-	return ggml.KV{}, fmt.Errorf("no base model was found")
+	return ggml.KV{}, errors.New("no base model was found")
 }
 
 func createModel(r api.CreateRequest, name model.Name, baseLayers []*layerGGML, config *model.ConfigV2, fn func(resp api.ProgressResponse)) (err error) {
@@ -839,7 +839,7 @@ func createModel(r api.CreateRequest, name model.Name, baseLayers []*layerGGML, 
 				}
 			}
 		}
-		layers = append(layers, layer.Layer)
+		layers[i] = layer.Layer
 	}
 
 	if r.Template != "" {
@@ -1331,7 +1331,7 @@ func removeLayer(layers []manifest.Layer, mediatype string) []manifest.Layer {
 func setTemplate(layers []manifest.Layer, t string) ([]manifest.Layer, error) {
 	layers = removeLayer(layers, "application/vnd.ollama.image.template")
 	if _, err := template.Parse(t); err != nil {
-		return nil, fmt.Errorf("%w: %s", errBadTemplate, err)
+		return nil, fmt.Errorf("%w: %w", errBadTemplate, err)
 	}
 
 	blob := strings.NewReader(t)

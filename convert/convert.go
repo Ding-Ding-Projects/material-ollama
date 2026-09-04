@@ -132,10 +132,10 @@ func (ModelParameters) KV(t *Tokenizer) KV {
 		"general.file_type":            uint32(1),
 		"general.quantization_version": uint32(2),
 		"tokenizer.ggml.pre":           t.Pre,
-		"tokenizer.ggml.model":         t.Vocabulary.Model,
-		"tokenizer.ggml.tokens":        t.Vocabulary.Tokens,
-		"tokenizer.ggml.scores":        t.Vocabulary.Scores,
-		"tokenizer.ggml.token_type":    t.Vocabulary.Types,
+		"tokenizer.ggml.model":         t.Model,
+		"tokenizer.ggml.tokens":        t.Tokens,
+		"tokenizer.ggml.scores":        t.Scores,
+		"tokenizer.ggml.token_type":    t.Types,
 	}
 
 	if len(t.Merges) > 0 {
@@ -382,20 +382,20 @@ func LoadModelMetadata(fsys fs.FS) (ModelKV, *Tokenizer, error) {
 
 	switch {
 	case vocabSize == 0:
-		slog.Debug("vocabulary size was not explicitly set by the model", "default size", len(t.Vocabulary.Tokens))
-	case vocabSize > len(t.Vocabulary.Tokens):
-		slog.Debug("vocabulary is smaller than expected, padding with dummy tokens", "expect", vocabSize, "actual", len(t.Vocabulary.Tokens))
-		for i := range vocabSize - len(t.Vocabulary.Tokens) {
-			t.Vocabulary.Tokens = append(t.Vocabulary.Tokens, fmt.Sprintf("[PAD%d]", i))
-			t.Vocabulary.Scores = append(t.Vocabulary.Scores, -1)
-			t.Vocabulary.Types = append(t.Vocabulary.Types, tokenTypeUserDefined)
+		slog.Debug("vocabulary size was not explicitly set by the model", "default size", len(t.Tokens))
+	case vocabSize > len(t.Tokens):
+		slog.Debug("vocabulary is smaller than expected, padding with dummy tokens", "expect", vocabSize, "actual", len(t.Tokens))
+		for i := range vocabSize - len(t.Tokens) {
+			t.Tokens = append(t.Tokens, fmt.Sprintf("[PAD%d]", i))
+			t.Scores = append(t.Scores, -1)
+			t.Types = append(t.Types, tokenTypeUserDefined)
 		}
-	case vocabSize < len(t.Vocabulary.Tokens):
-		slog.Debug("vocabulary is larger than expected", "want", vocabSize, "got", len(t.Vocabulary.Tokens))
-		p.VocabSize = uint32(len(t.Vocabulary.Tokens))
-		p.TextModel.VocabSize = uint32(len(t.Vocabulary.Tokens))
+	case vocabSize < len(t.Tokens):
+		slog.Debug("vocabulary is larger than expected", "want", vocabSize, "got", len(t.Tokens))
+		p.VocabSize = uint32(len(t.Tokens))
+		p.TextModel.VocabSize = uint32(len(t.Tokens))
 	default:
-		slog.Debug("vocabulary", "size", len(t.Vocabulary.Tokens))
+		slog.Debug("vocabulary", "size", len(t.Tokens))
 	}
 	return conv, t, nil
 }

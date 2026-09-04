@@ -477,6 +477,7 @@ func ToListCompletion(r api.ListResponse) ListCompletion {
 		Object: "list",
 		Data:   data,
 	}
+	return c
 }
 
 // ToEmbeddingList converts an api.EmbedResponse to EmbeddingList

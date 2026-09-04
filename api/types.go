@@ -2,6 +2,7 @@ package api
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"iter"
 	"log/slog"
@@ -465,9 +466,9 @@ func (tp ToolProperty) ToTypeScriptType() string {
 		return mapToTypeScriptType(tp.Type[0])
 	}
 
-	var types []string
-	for _, t := range tp.Type {
-		types = append(types, mapToTypeScriptType(t))
+	types := make([]string, len(tp.Type))
+	for i, t := range tp.Type {
+		types[i] = mapToTypeScriptType(t)
 	}
 	return strings.Join(types, " | ")
 }
@@ -1271,7 +1272,7 @@ func (m *Metrics) Summary() {
 
 func (opts *Options) FromMap(m map[string]any) error {
 	valueOpts := reflect.ValueOf(opts).Elem() // names of the fields in the options struct
-	typeOpts := reflect.TypeOf(opts).Elem()   // types of the fields in the options struct
+	typeOpts := reflect.TypeFor[Options]()    // types of the fields in the options struct
 
 	err = json.Unmarshal(data, opts)
 	if err != nil {
@@ -1406,7 +1407,7 @@ func DefaultOptions() Options {
 // ThinkValue represents a value that can be a boolean or a string ("high", "medium", "low", "max")
 type ThinkValue struct {
 	// Value can be a bool or string
-	Value interface{}
+	Value any
 }
 
 // IsValid checks if the ThinkValue is valid
@@ -1518,7 +1519,7 @@ func (d Duration) MarshalJSON() ([]byte, error) {
 	if d.Duration < 0 {
 		return []byte("-1"), nil
 	}
-	return []byte("\"" + d.Duration.String() + "\""), nil
+	return []byte("\"" + d.String() + "\""), nil
 }
 
 func (d *Duration) UnmarshalJSON(b []byte) (err error) {
@@ -1545,7 +1546,7 @@ func (d *Duration) UnmarshalJSON(b []byte) (err error) {
 			d.Duration = time.Duration(math.MaxInt64)
 		}
 	default:
-		return fmt.Errorf("Unsupported type: '%s'", reflect.TypeOf(v))
+		return fmt.Errorf("unsupported type: '%s'", reflect.TypeOf(v))
 	}
 
 	return nil
@@ -1571,7 +1572,7 @@ func (e ErrorResponse) Error() string {
 func FormatParams(params map[string][]string) (map[string]any, error) {
 	opts := Options{}
 	valueOpts := reflect.ValueOf(&opts).Elem() // names of the fields in the options struct
-	typeOpts := reflect.TypeOf(opts)           // types of the fields in the options struct
+	typeOpts := reflect.TypeFor[Options]()     // types of the fields in the options struct
 
 	// build map of json struct tags to their types
 	jsonOpts := make(map[string]reflect.StructField)

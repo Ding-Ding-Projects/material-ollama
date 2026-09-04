@@ -12,6 +12,7 @@ import (
 	"io"
 	"io/fs"
 	"log/slog"
+	"maps"
 	"math"
 	"math/rand"
 	"net"
@@ -246,7 +247,7 @@ func (s *Server) scheduleRunner(ctx context.Context, name string, caps []model.C
 	}
 
 	if slices.Contains(model.Config.ModelFamilies, "mllama") && len(model.ProjectorPaths) > 0 {
-		return nil, nil, nil, fmt.Errorf("'llama3.2-vision' is no longer compatible with your version of Ollama and has been replaced by a newer version. To re-download, run 'ollama pull llama3.2-vision'")
+		return nil, nil, nil, errors.New("'llama3.2-vision' is no longer compatible with your version of Ollama and has been replaced by a newer version. To re-download, run 'ollama pull llama3.2-vision'")
 	}
 
 	if err := model.CheckCapabilities(caps...); err != nil {
@@ -519,11 +520,9 @@ func (s *Server) GenerateHandler(c *gin.Context) {
 		if req.Think == nil {
 			req.Think = &api.ThinkValue{Value: true}
 		}
-	} else {
-		if req.Think != nil && req.Think.Bool() {
-			c.JSON(http.StatusBadRequest, gin.H{"error": fmt.Sprintf("%q does not support thinking", req.Model)})
-			return
-		}
+	} else if req.Think != nil && req.Think.Bool() {
+		c.JSON(http.StatusBadRequest, gin.H{"error": fmt.Sprintf("%q does not support thinking", req.Model)})
+		return
 	}
 
 	r, m, opts, err := s.scheduleRunner(c.Request.Context(), name.String(), caps, req.Options, req.KeepAlive, req.Shift)
@@ -1147,9 +1146,9 @@ func (s *Server) EmbeddingsHandler(c *gin.Context) {
 		return
 	}
 
-	var e []float64
-	for _, v := range embedding {
-		e = append(e, float64(v))
+	e := make([]float64, len(embedding))
+	for i, v := range embedding {
+		e[i] = float64(v)
 	}
 
 	resp := api.EmbeddingResponse{
@@ -1816,9 +1815,7 @@ func GetModelInfo(req api.ShowRequest) (*api.ShowResponse, error) {
 		if m.Options == nil {
 			m.Options = make(map[string]any)
 		}
-		for k, v := range req.Options {
-			m.Options[k] = v
-		}
+		maps.Copy(m.Options, req.Options)
 	}
 
 	var sb strings.Builder

@@ -236,7 +236,7 @@ func (s *Server) Handler() http.Handler {
 			log := s.log()
 			level := slog.LevelInfo
 			start := time.Now()
-			requestID := fmt.Sprintf("%d", time.Now().UnixNano())
+			requestID := strconv.FormatInt(time.Now().UnixNano(), 10)
 
 			defer func() {
 				p := recover()
@@ -246,7 +246,7 @@ func (s *Server) Handler() http.Handler {
 
 					// Handle panic with user-friendly error
 					if !sw.Written() {
-						s.handleError(sw, fmt.Errorf("internal server error"))
+						s.handleError(sw, errors.New("internal server error"))
 					}
 				}
 
@@ -635,7 +635,7 @@ func (s *Server) checkModelUpstream(ctx context.Context, modelName string, timeo
 
 	digest := resp.Header.Get("ollama-content-digest")
 	if digest == "" {
-		return "", 0, fmt.Errorf("no digest header found")
+		return "", 0, errors.New("no digest header found")
 	}
 
 	var pushTime int64
@@ -790,12 +790,12 @@ func (s *Server) chat(w http.ResponseWriter, r *http.Request) error {
 	}
 
 	if req.Model == "" {
-		return fmt.Errorf("empty model")
+		return errors.New("empty model")
 	}
 
 	// Don't allow empty messages unless forceUpdate is true
 	if req.Prompt == "" && !req.ForceUpdate {
-		return fmt.Errorf("empty message")
+		return errors.New("empty message")
 	}
 
 	if createdChat {
@@ -1132,7 +1132,7 @@ func (s *Server) chat(w http.ResponseWriter, r *http.Request) error {
 					} else {
 						onlyStandalone := true
 						for _, tc := range res.Message.ToolCalls {
-							if !(tc.Function.Name == "web_search" || tc.Function.Name == "web_fetch") {
+							if tc.Function.Name != "web_search" && tc.Function.Name != "web_fetch" {
 								onlyStandalone = false
 								break
 							}
@@ -1384,7 +1384,7 @@ func (s *Server) getChat(w http.ResponseWriter, r *http.Request) error {
 	cid := r.PathValue("id")
 
 	if cid == "" {
-		return fmt.Errorf("chat ID is required")
+		return errors.New("chat ID is required")
 	}
 
 	chat, err := s.Store.Chat(cid)
@@ -1442,7 +1442,7 @@ func (s *Server) getChat(w http.ResponseWriter, r *http.Request) error {
 func (s *Server) renameChat(w http.ResponseWriter, r *http.Request) error {
 	cid := r.PathValue("id")
 	if cid == "" {
-		return fmt.Errorf("chat ID is required")
+		return errors.New("chat ID is required")
 	}
 
 	var req struct {
@@ -1524,7 +1524,7 @@ func (s *Server) updateChatMessage(w http.ResponseWriter, r *http.Request) error
 func (s *Server) deleteChat(w http.ResponseWriter, r *http.Request) error {
 	cid := r.PathValue("id")
 	if cid == "" {
-		return fmt.Errorf("chat ID is required")
+		return errors.New("chat ID is required")
 	}
 
 	// Check if the chat exists (no need to load attachments)
@@ -1532,7 +1532,7 @@ func (s *Server) deleteChat(w http.ResponseWriter, r *http.Request) error {
 	if err != nil {
 		if errors.Is(err, not.Found) {
 			w.WriteHeader(http.StatusNotFound)
-			return fmt.Errorf("chat not found")
+			return errors.New("chat not found")
 		}
 		return fmt.Errorf("failed to get chat: %w", err)
 	}
@@ -1824,7 +1824,7 @@ func (s *Server) getInferenceCompute(w http.ResponseWriter, r *http.Request) err
 
 func (s *Server) modelUpstream(w http.ResponseWriter, r *http.Request) error {
 	if r.Method != "POST" {
-		return fmt.Errorf("method not allowed")
+		return errors.New("method not allowed")
 	}
 
 	var req struct {
@@ -1835,7 +1835,7 @@ func (s *Server) modelUpstream(w http.ResponseWriter, r *http.Request) error {
 	}
 
 	if req.Model == "" {
-		return fmt.Errorf("model is required")
+		return errors.New("model is required")
 	}
 
 	digest, pushTime, err := s.checkModelUpstream(r.Context(), req.Model, 5*time.Second)
@@ -1959,8 +1959,8 @@ func supportsBrowserTools(model string) bool {
 
 // buildChatRequest converts store.Chat to api.ChatRequest
 func (s *Server) buildChatRequest(chat *store.Chat, model string, think any, availableTools []map[string]any) (*api.ChatRequest, error) {
-	var msgs []api.Message
-	for _, m := range chat.Messages {
+	msgs := make([]api.Message, len(chat.Messages))
+	for i, m := range chat.Messages {
 		// Skip empty messages if present
 		if m.Content == "" && m.Thinking == "" && len(m.ToolCalls) == 0 && len(m.Attachments) == 0 {
 			continue
@@ -2018,7 +2018,7 @@ func (s *Server) buildChatRequest(chat *store.Chat, model string, think any, ava
 			s.log().Debug("unknown message role", "role", m.Role)
 		}
 
-		msgs = append(msgs, apiMsg)
+		msgs[i] = apiMsg
 	}
 
 	var thinkValue *api.ThinkValue

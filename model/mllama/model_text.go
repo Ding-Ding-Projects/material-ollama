@@ -214,7 +214,7 @@ func newTextModel(c ml.Config) *TextModel {
 			textDecoderLayer = &TextSelfAttentionDecoderLayer{}
 		}
 
-		decoderLayers = append(decoderLayers, textDecoderLayer)
+		decoderLayers[i] = textDecoderLayer
 	}
 
 	return &TextModel{

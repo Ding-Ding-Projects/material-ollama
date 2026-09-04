@@ -101,7 +101,7 @@ func imageTaggedMessages(m *Model, msgs []api.Message, start int, clearImages bo
 			return nil, nil, errors.New("this model only supports one image while more than one image requested")
 		}
 
-		var prefix string
+		var prefix strings.Builder
 		prompt := msg.Content
 		firstImageID := len(images)
 
@@ -117,7 +117,7 @@ func imageTaggedMessages(m *Model, msgs []api.Message, start int, clearImages bo
 			// existing templates and llama-server media marker replacement.
 			imgTag := fmt.Sprintf("[img-%d]", mediaData.ID)
 			if !strings.Contains(prompt, "[img]") {
-				prefix += imgTag
+				prefix.WriteString(imgTag)
 			} else {
 				prompt = strings.Replace(prompt, "[img]", imgTag, 1)
 			}

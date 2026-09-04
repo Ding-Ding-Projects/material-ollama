@@ -1498,7 +1498,7 @@ func makeRequestWithRetry(ctx context.Context, method string, requestURL *url.UR
 			defer resp.Body.Close()
 			responseBody, err := io.ReadAll(resp.Body)
 			if err != nil {
-				return nil, fmt.Errorf("%d: %s", resp.StatusCode, err)
+				return nil, fmt.Errorf("%d: %w", resp.StatusCode, err)
 			}
 
 			var re registry.Errs

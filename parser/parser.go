@@ -81,9 +81,7 @@ func (f Modelfile) CreateRequest(relativeDir string) (*api.CreateRequest, error)
 			if req.Files == nil {
 				req.Files = digestMap
 			} else {
-				for k, v := range digestMap {
-					req.Files[k] = v
-				}
+				maps.Copy(req.Files, digestMap)
 			}
 		case "draft":
 			path, err := expandPath(c.Args, relativeDir)
@@ -496,7 +494,7 @@ func (e *ParserError) Error() string {
 func ParseFile(r io.Reader) (*Modelfile, error) {
 	var cmd Command
 	var curr state
-	var currLine int = 1
+	currLine := 1
 	var b bytes.Buffer
 
 	var f Modelfile
