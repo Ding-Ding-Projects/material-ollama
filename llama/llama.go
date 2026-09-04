@@ -36,6 +36,7 @@ package llama
 #cgo linux,rocm LDFLAGS: -L/opt/rocm/lib
 
 #include <stdlib.h>
+#include "ggml.h"
 #include "llama.h"
 #include "clip.h"
 #include "llava.h"
@@ -52,9 +53,15 @@ import (
 	"runtime/cgo"
 	"strings"
 	"unsafe"
+
+	_ "github.com/ollama/ollama/llama/llama.cpp/common"
+	_ "github.com/ollama/ollama/llama/llama.cpp/examples/llava"
+	_ "github.com/ollama/ollama/llama/llama.cpp/src"
+	"github.com/ollama/ollama/ml/backend/ggml/ggml/src"
 )
 
 func BackendInit() {
+	ggml.OnceLoad()
 	C.llama_backend_init()
 }
 

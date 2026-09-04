@@ -475,10 +475,7 @@ GGML_CALL static bool ggml_backend_buffer_is_cuda(ggml_backend_buffer_t buffer) 
 GGML_CALL static void ggml_backend_cuda_buffer_free_buffer(ggml_backend_buffer_t buffer) {
     ggml_backend_cuda_buffer_context * ctx = (ggml_backend_cuda_buffer_context *)buffer->context;
     delete ctx;
-
-    // TODO: this needs to be freed in cuda and hipblas backends because
-    // the cuda backend implementation compiled with msvc
-    free(buffer);
+    delete buffer;
 }
 
 GGML_CALL static void * ggml_backend_cuda_buffer_get_base(ggml_backend_buffer_t buffer) {

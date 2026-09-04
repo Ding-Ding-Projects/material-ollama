@@ -4,7 +4,7 @@ import (
 	"strings"
 )
 
-func findStop(sequence string, stops []string) (bool, string) {
+func FindStop(sequence string, stops []string) (bool, string) {
 	for _, stop := range stops {
 		if strings.Contains(sequence, stop) {
 			return true, stop
