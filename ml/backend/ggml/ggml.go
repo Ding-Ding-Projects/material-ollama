@@ -545,8 +545,8 @@ func (t *Tensor) RoPE(ctx ml.Context, rc ml.RopeConfig) ml.Tensor {
 		t: C.ggml_rope_ext(
 			ctx.(*Context).ctx, t.t, positionIDs.(*Tensor).t, ropeFactors.(*Tensor).t,
 			C.int(ropeDim),
-			131072,       // YaRN n_ctx_train
-			ropeTypeNorm, // ROPE_TYPE_NORM
+			C.int(ropeType),
+			131072, // YaRN n_ctx_train
 			C.float(ropeBase),
 			C.float(ropeScale),
 			0.,  // YaRN ext_factor
