@@ -63,7 +63,7 @@ func LoadManifest(modelName string) (*ModelManifest, error) {
 
 	return &ModelManifest{
 		Manifest: &manifest,
-		BlobDir:  DefaultBlobDir(),
+		BlobDir:  filepath.Join(envconfig.Models(), "blobs"),
 	}, nil
 }
 
@@ -94,7 +94,7 @@ func resolveManifestPath(modelName string) string {
 		name = parts[1]
 	}
 
-	return filepath.Join(DefaultManifestDir(), host, namespace, name, tag)
+	return filepath.Join(envconfig.Models(), "manifests", host, namespace, name, tag)
 }
 
 // BlobPath returns the full path to a blob given its digest.
