@@ -105,3 +105,30 @@ try {
         Remove-Item -LiteralPath $probeRoot -Recurse -Force -ErrorAction SilentlyContinue
     }
 }
+
+# The zip installer moves the archive's own root directory to the candidate root, so the
+# stripped archive root must not appear again in relativeExecutable. A manifest that repeats
+# it resolves the executable one level too deep and makes every user-scoped install fail its
+# own provenance check immediately after a successful download.
+$manifestPath = Join-Path $PSScriptRoot 'release-dependencies.json'
+if (-not (Test-Path -LiteralPath $manifestPath -PathType Leaf)) {
+    throw "Windows dependency manifest was not found: $manifestPath"
+}
+$manifest = Get-Content -Raw -LiteralPath $manifestPath | ConvertFrom-Json
+$checked = 0
+foreach ($dependency in $manifest.dependencies) {
+    $user = $dependency.user
+    if (-not $user -or $user.archive -ne 'zip' -or -not $user.archiveRoot) {
+        continue
+    }
+    $checked++
+    $prefix = ([string]$user.archiveRoot).Replace('\', '/').TrimEnd('/') + '/'
+    $relative = ([string]$user.relativeExecutable).Replace('\', '/')
+    if ($relative.StartsWith($prefix, [StringComparison]::OrdinalIgnoreCase)) {
+        throw "Manifest entry '$($dependency.name)' repeats the stripped archive root '$($user.archiveRoot)' in relativeExecutable '$($user.relativeExecutable)'; the installed executable lives directly under the dependency directory."
+    }
+}
+if ($checked -lt 1) {
+    throw 'Windows dependency manifest declared no zip dependency with an archive root; the archive-root regression check verified nothing.'
+}
+Write-Output "PASS: $checked zip dependencies resolve their executable below the stripped archive root."

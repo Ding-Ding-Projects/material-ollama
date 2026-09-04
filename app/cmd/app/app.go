@@ -291,7 +291,7 @@ func main() {
 	upd := &updater.Updater{Store: st}
 
 	uiServer := ui.Server{
-		Token: token,
+		Token:          token,
 		ConfigProfiles: configProfiles,
 		Restart: func() {
 			ocancel()
