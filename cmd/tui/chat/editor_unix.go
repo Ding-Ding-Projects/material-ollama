@@ -1,5 +1,5 @@
 //go:build !windows
 
-package cmd
+package chat
 
 const defaultEditor = "vi"

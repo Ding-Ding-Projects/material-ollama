@@ -67,6 +67,8 @@ func (p *Progress) stop() (bool, int) {
 func (p *Progress) Stop() bool {
 	stopped, _ := p.stop()
 	if stopped {
+		p.mu.Lock()
+		defer p.mu.Unlock()
 		fmt.Fprint(p.w, "\n")
 		p.w.Flush()
 	}
@@ -85,6 +87,13 @@ func (p *Progress) StopAndClear() bool {
 
 	stopped, pos := p.stop()
 	if stopped {
+		p.mu.Lock()
+		defer p.mu.Unlock()
+		defer p.w.Flush()
+
+		fmt.Fprint(p.w, "\033[?25l")
+		defer fmt.Fprint(p.w, "\033[?25h")
+
 		// clear all progress lines
 		for i := range pos {
 			if i > 0 {

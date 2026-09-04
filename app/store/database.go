@@ -99,6 +99,8 @@ func (db *database) init() error {
 	CREATE TABLE IF NOT EXISTS chats (
 		id TEXT PRIMARY KEY,
 		title TEXT NOT NULL DEFAULT '',
+		model_name TEXT NOT NULL DEFAULT '',
+		source TEXT NOT NULL DEFAULT 'app',
 		created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
 		browser_state TEXT,
 		draft TEXT NOT NULL DEFAULT ''
@@ -110,6 +112,7 @@ func (db *database) init() error {
 		role TEXT NOT NULL,
 		content TEXT NOT NULL DEFAULT '',
 		thinking TEXT NOT NULL DEFAULT '',
+		images TEXT NOT NULL DEFAULT '[]',
 		stream BOOLEAN NOT NULL DEFAULT 0,
 		model_name TEXT,
 		model_cloud BOOLEAN, -- deprecated
@@ -119,15 +122,21 @@ func (db *database) init() error {
 		thinking_time_start TIMESTAMP,
 		thinking_time_end TIMESTAMP,
 		tool_result TEXT,
+		tool_name TEXT NOT NULL DEFAULT '',
+		tool_call_id TEXT NOT NULL DEFAULT '',
+		archived BOOLEAN NOT NULL DEFAULT 0,
 		FOREIGN KEY (chat_id) REFERENCES chats(id) ON DELETE CASCADE
 	);
 
 	CREATE INDEX IF NOT EXISTS idx_messages_chat_id ON messages(chat_id);
+	CREATE INDEX IF NOT EXISTS idx_messages_chat_id_id ON messages(chat_id, id);
+	CREATE INDEX IF NOT EXISTS idx_messages_chat_id_archived ON messages(chat_id, archived, id);
 
 	CREATE TABLE IF NOT EXISTS tool_calls (
 		id INTEGER PRIMARY KEY AUTOINCREMENT,
 		message_id INTEGER NOT NULL,
 		type TEXT NOT NULL,
+		tool_call_id TEXT NOT NULL DEFAULT '',
 		function_name TEXT NOT NULL,
 		function_arguments TEXT NOT NULL,
 		function_result TEXT,
@@ -135,6 +144,17 @@ func (db *database) init() error {
 	);
 
 	CREATE INDEX IF NOT EXISTS idx_tool_calls_message_id ON tool_calls(message_id);
+
+	CREATE TABLE IF NOT EXISTS compactions (
+		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		chat_id TEXT NOT NULL,
+		summary TEXT NOT NULL,
+		archived_message_ids TEXT NOT NULL DEFAULT '[]',
+		created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+		FOREIGN KEY (chat_id) REFERENCES chats(id) ON DELETE CASCADE
+	);
+
+	CREATE INDEX IF NOT EXISTS idx_compactions_chat_id ON compactions(chat_id, id);
 
 	CREATE TABLE IF NOT EXISTS attachments (
 		id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -305,6 +325,10 @@ func (db *database) migrate() error {
 			// This might happen during development
 			version = currentSchemaVersion
 		}
+	}
+
+	if err := db.ensureCurrentSchema(); err != nil {
+		return fmt.Errorf("ensure current schema: %w", err)
 	}
 
 	return nil
@@ -661,18 +685,21 @@ func (db *database) getAllChats() ([]Chat, error) {
 			c.id, 
 			c.title, 
 			c.created_at,
-			COALESCE(first_msg.content, '') as first_user_content,
-			COALESCE(datetime(MAX(m.updated_at)), datetime(c.created_at)) as last_updated
+			COALESCE((
+				SELECT fm.content
+				FROM messages fm
+				WHERE fm.chat_id = c.id
+					AND fm.role = 'user'
+					AND fm.archived = 0
+				ORDER BY fm.id ASC
+				LIMIT 1
+			), '') as first_user_content,
+			COALESCE(MAX(m.updated_at), c.created_at) as last_updated
 		FROM chats c
-		LEFT JOIN (
-			SELECT chat_id, content, MIN(id) as min_id
-			FROM messages
-			WHERE role = 'user'
-			GROUP BY chat_id
-		) first_msg ON c.id = first_msg.chat_id
-		LEFT JOIN messages m ON c.id = m.chat_id
-		GROUP BY c.id, c.title, c.created_at, first_msg.content
-		ORDER BY last_updated DESC
+		LEFT JOIN messages m ON c.id = m.chat_id AND m.archived = 0
+		WHERE c.source = 'app'
+		GROUP BY c.id, c.title, c.created_at
+		ORDER BY last_updated DESC, COALESCE(MAX(m.id), 0) DESC, c.created_at DESC, c.id DESC
 	`
 
 	rows, err := db.conn.Query(query)
@@ -695,25 +722,27 @@ func (db *database) getAllChats() ([]Chat, error) {
 			&firstUserContent,
 			&lastUpdatedStr,
 		)
-
-		// Parse the last updated time
-		lastUpdated, _ := time.Parse("2006-01-02 15:04:05", lastUpdatedStr)
 		if err != nil {
 			return nil, fmt.Errorf("scan chat: %w", err)
 		}
 
+		lastUpdated, err := parseAgentSQLiteTime(lastUpdatedStr)
+		if err != nil {
+			return nil, fmt.Errorf("parse chat updated_at: %w", err)
+		}
+
 		chat.CreatedAt = createdAt
 
-		// Add a dummy first user message for the UI to display
-		// This is just for the excerpt, full messages are loaded when needed
-		chat.Messages = []Message{}
-		if firstUserContent != "" {
-			chat.Messages = append(chat.Messages, Message{
-				Role:      "user",
-				Content:   firstUserContent,
-				UpdatedAt: lastUpdated,
-			})
+		// Add a summary message for the UI to display the excerpt and latest update.
+		// Full messages are loaded when a chat is opened.
+		summary := Message{
+			UpdatedAt: lastUpdated,
 		}
+		if firstUserContent != "" {
+			summary.Role = "user"
+			summary.Content = firstUserContent
+		}
+		chat.Messages = []Message{summary}
 
 		chats = append(chats, chat)
 	}
@@ -881,6 +910,7 @@ func (db *database) updateLastMessage(chatID string, msg Message) error {
 	var messageID int64
 	err = tx.QueryRow(`
 		SELECT MAX(id) FROM messages WHERE chat_id = ?
+			AND archived = 0
 	`, chatID).Scan(&messageID)
 	if err != nil {
 		return fmt.Errorf("get last message id: %w", err)
@@ -988,7 +1018,7 @@ func (db *database) getMessages(chatID string, loadAttachmentData bool) ([]Messa
 	query := `
 		SELECT id, role, content, thinking, stream, model_name, created_at, updated_at, thinking_time_start, thinking_time_end, tool_result
 		FROM messages
-		WHERE chat_id = ?
+		WHERE chat_id = ? AND archived = 0
 		ORDER BY id ASC
 	`
 

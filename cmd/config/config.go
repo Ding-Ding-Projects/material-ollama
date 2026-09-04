@@ -20,6 +20,14 @@ type integration struct {
 	Onboarded bool              `json:"onboarded,omitempty"`
 }
 
+type onboarding struct {
+	Agent *agentOnboarding `json:"agent,omitempty"`
+}
+
+type agentOnboarding struct {
+	SignInPromptSeen bool `json:"sign_in_prompt_seen,omitempty"`
+}
+
 // IntegrationConfig is the persisted config for one integration.
 type IntegrationConfig = integration
 
