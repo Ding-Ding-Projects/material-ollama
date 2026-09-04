@@ -520,6 +520,7 @@ func generateInteractive(cmd *cobra.Command, opts runOptions) error {
 			}
 
 			sb.WriteString(line)
+
 		default:
 			sb.WriteString(line)
 		}

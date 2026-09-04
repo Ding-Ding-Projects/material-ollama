@@ -18,6 +18,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"os/exec"
 	"os/signal"
 	"path"
 	"path/filepath"
@@ -40,6 +41,11 @@ import (
 	"golang.org/x/crypto/ssh"
 	"golang.org/x/sync/errgroup"
 	"golang.org/x/term"
+	"gonum.org/v1/gonum/mat"
+	"gonum.org/v1/gonum/stat"
+	"gonum.org/v1/plot"
+	"gonum.org/v1/plot/plotter"
+	"gonum.org/v1/plot/vg"
 
 	"github.com/ollama/ollama/api"
 	"github.com/ollama/ollama/cmd/config"
@@ -2108,6 +2114,154 @@ func chat(cmd *cobra.Command, opts runOptions) (*api.Message, *api.Metrics, erro
 	return &api.Message{Role: role, Thinking: thinkingContent.String(), Content: fullResponse.String()}, &latest.Metrics, nil
 }
 
+func embed(cmd *cobra.Command, opts runOptions) error {
+	line := opts.Prompt
+	client, err := api.ClientFromEnvironment()
+	if err != nil {
+		fmt.Println("error: couldn't connect to ollama server")
+		return err
+	}
+
+	inputs := strings.Split(line, "\n\n")
+
+	req := &api.EmbedRequest{
+		Model: opts.Model,
+		Input: inputs,
+	}
+
+	resp, err := client.Embed(cmd.Context(), req)
+	if err != nil {
+		fmt.Println("error: couldn't get embeddings")
+		return err
+	}
+
+	embeddings := resp.Embeddings
+
+	r, c := len(embeddings), len(embeddings[0])
+	data := make([]float64, r*c)
+	for i := range r {
+		for j := range c {
+			data[i*c+j] = float64(embeddings[i][j])
+		}
+	}
+
+	X := mat.NewDense(r, c, data)
+
+	// Initialize PCA
+	var pca stat.PC
+
+	// Perform PCA
+	if !pca.PrincipalComponents(X, nil) {
+		return fmt.Errorf("PCA failed")
+	}
+
+	// Extract principal component vectors
+	var vectors mat.Dense
+	pca.VectorsTo(&vectors)
+
+	// // Extract variances of the principal components
+	// var variances []float64
+	// variances = pca.VarsTo(variances)
+
+	W := vectors.Slice(0, c, 0, 2).(*mat.Dense)
+
+	// Perform PCA reduction
+	var reducedData mat.Dense
+	reducedData.Mul(X, W)
+
+	for i, s := range inputs {
+		row := reducedData.RowView(i)
+		fmt.Print(i+1, ". ", s, "\n")
+		fmt.Printf("[%v, %v]\n\n", row.AtVec(0), row.AtVec(1))
+	}
+
+	points := make(plotter.XYs, reducedData.RawMatrix().Rows)
+	for i := range len(points) {
+		row := reducedData.RowView(i)
+		points[i].X = row.AtVec(0)
+		points[i].Y = row.AtVec(1)
+	}
+
+	// Create a new plot
+	p := plot.New()
+
+	// Set plot title and axis labels
+	p.Title.Text = "Embedding Map"
+
+	// Create a scatter plot of the points
+	s, err := plotter.NewScatter(points)
+	if err != nil {
+		panic(err)
+	}
+	p.Add(s)
+
+	/// Create labels plotter and add it to the plot
+
+	labels := make([]string, reducedData.RawMatrix().Rows)
+	for i := range len(labels) {
+		labels[i] = fmt.Sprintf("%d", i+1)
+	}
+
+	// plotter := plotter
+
+	l, err := plotter.NewLabels(plotter.XYLabels{XYs: points, Labels: labels})
+	if err != nil {
+		panic(err)
+	}
+	p.Add(l)
+
+	// Make the grid square
+	p.X.Min = -1
+	p.X.Max = 1
+	p.Y.Min = -1
+	p.Y.Max = 1
+
+	// Set the aspect ratio to be 1:1
+	p.X.Tick.Marker = plot.ConstantTicks([]plot.Tick{
+		{Value: -1, Label: "-1"},
+		{Value: -0.5, Label: "-0.5"},
+		{Value: 0, Label: "0"},
+		{Value: 0.5, Label: "0.5"},
+		{Value: 1, Label: "1"},
+	})
+	p.Y.Tick.Marker = plot.ConstantTicks([]plot.Tick{
+		{Value: -1, Label: "-1"},
+		{Value: -0.5, Label: "-0.5"},
+		{Value: 0, Label: "0"},
+		{Value: 0.5, Label: "0.5"},
+		{Value: 1, Label: "1"},
+	})
+
+	// Save the plot to a svg file
+	if err := p.Save(6*vg.Inch, 6*vg.Inch, "plot.svg"); err != nil {
+		panic(err)
+	}
+
+	// open the plot
+	open := exec.Command("open", "plot.svg")
+	err = open.Run()
+	if err != nil {
+		fmt.Println("error: couldn't open plot")
+		return err
+	}
+
+	// Wait for Enter key press
+	fmt.Print("Press 'Enter' to continue")
+	reader := bufio.NewReader(os.Stdin)
+	_, _ = reader.ReadString('\n')
+
+	// close and delete the plot (defer this)
+	defer func() {
+		delete := exec.Command("rm", "plot.svg")
+		err = delete.Run()
+		if err != nil {
+			fmt.Println("error: couldn't delete plot")
+		}
+	}()
+
+	return nil
+}
+
 func generate(cmd *cobra.Command, opts runOptions) error {
 	client, err := api.ClientFromEnvironment()
 	if err != nil {
@@ -2713,6 +2867,7 @@ func NewCLI() *cobra.Command {
 		copyCmd,
 		deleteCmd,
 		serveCmd,
+		embedCmd,
 	} {
 		switch cmd {
 		case runCmd:
