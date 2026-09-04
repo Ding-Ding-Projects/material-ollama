@@ -9,12 +9,12 @@ const WORKFLOW_INVENTORY = Object.freeze([
   Object.freeze({
     relativePath: '.github/workflows/test.yaml',
     name: 'build-only',
-    jobs: ['changes', 'patches', 'linux', 'windows', 'go_license'],
+    jobs: ['windows'],
   }),
   Object.freeze({
     relativePath: '.github/workflows/test-llamacpp-update.yaml',
-    name: 'test-llamacpp-update',
-    jobs: ['setup-environment', 'darwin-build', 'linux-payloads', 'linux-go', 'linux-bundles', 'windows-depends', 'windows-build', 'windows-package'],
+    name: 'llamacpp-build-only',
+    jobs: ['setup-environment', 'windows-depends', 'windows-build', 'windows-package'],
   }),
 ])
 
@@ -73,13 +73,10 @@ function assertBuildOnlyWorkflow(workflow, expected) {
   assert.match(workflow, /^  push:\s*$/m, `${expected.relativePath} must run on push`)
   assert.match(workflow, /^  workflow_dispatch:\s*$/m, `${expected.relativePath} must support manual dispatch`)
   assert.match(workflow, new RegExp(`^name:\\s+${expected.name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s*$`, 'm'))
-  if (expected.relativePath.endsWith('test.yaml')) {
-    assert.match(workflow, /github\.event\.pull_request\.base\.sha\s*\|\|\s*github\.event\.before/)
-    assert.match(workflow, /git\s+rev-parse\s+"\$HEAD\^"/)
-  }
 
   const jobs = extractJobIds(workflow)
   assert.deepEqual(jobs, expected.jobs, `${expected.relativePath} job inventory changed`)
+  assert.doesNotMatch(workflow, /^\s+runs-on:\s+(?:ubuntu|macos|linux)/im, `${expected.relativePath} must not run non-Windows jobs`)
   for (const jobId of DISALLOWED_JOB_IDS) {
     assert.equal(jobs.includes(jobId), false, `${expected.relativePath} must not reintroduce quality job ${jobId}`)
   }
@@ -139,5 +136,5 @@ test('reintroducing each disallowed quality job turns the policy red', () => {
 test('adding a quality job to a needs chain turns the policy red', () => {
   const entry = WORKFLOW_INVENTORY[0]
   const base = readWorkflow(entry.relativePath)
-  expectPolicyFailure(base.replace(/^  go_license:\r?\n/m, '  go_license:\n    needs: [test]\n'), entry)
+  expectPolicyFailure(base.replace(/^  windows:\r?\n/m, '  windows:\n    needs: [test]\n'), entry)
 })
