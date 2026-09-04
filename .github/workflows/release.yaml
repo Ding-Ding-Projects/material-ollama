@@ -207,6 +207,7 @@ jobs:
         shell: pwsh
         env:
           CMAKE_GENERATOR: Ninja
+          MATERIAL_OLLAMA_BUILD_MODE: release-fast
         run: |
           $ErrorActionPreference = 'Stop'
           $match = Select-String -Path version/version.go -Pattern 'Version\s+string\s*=\s*"([^"]+)"' | Select-Object -First 1

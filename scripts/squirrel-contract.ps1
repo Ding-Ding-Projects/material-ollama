@@ -6,8 +6,8 @@ function Get-SquirrelVersion {
         foreach ($part in $ExplicitVersion.Split('.')) { if ([long]$part -gt 65534) { throw 'Package version components must not exceed 65534.' } }
         return $ExplicitVersion
     }
-    $height = & git -C $SourceRoot rev-list --first-parent --count HEAD
-    if ($LASTEXITCODE -ne 0 -or "$height" -notmatch '^\d+$' -or [long]$height -gt 65534) { throw 'Cannot derive bounded first-parent package version.' }
+    $height = & git -C $SourceRoot rev-list --count HEAD
+    if ($LASTEXITCODE -ne 0 -or "$height" -notmatch '^\d+$' -or [long]$height -gt 65534) { throw 'Cannot derive bounded reachable-commit package version.' }
     $sequence = 0
     if ($env:GITHUB_RUN_NUMBER) {
         if ($env:GITHUB_RUN_NUMBER -notmatch '^\d+$' -or $env:GITHUB_RUN_ATTEMPT -notmatch '^[1-9]$') { throw 'Workflow package sequence requires numeric run number and attempt 1..9.' }
