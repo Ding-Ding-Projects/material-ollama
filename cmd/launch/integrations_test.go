@@ -369,6 +369,21 @@ func TestIsCloudModel(t *testing.T) {
 	})
 }
 
+const testLaunchModelsJSON = `{"models":[
+	{"model":"kimi-k2.5:cloud","description":"Multimodal reasoning with subagents","context_length":262144,"max_output_tokens":262144,"vram":""},
+	{"model":"glm-5.1:cloud","description":"Reasoning and code generation","context_length":202752,"max_output_tokens":131072,"vram":""},
+	{"model":"qwen3.5:cloud","description":"Reasoning, coding, and agentic tool use with vision","context_length":262144,"max_output_tokens":32768,"vram":""},
+	{"model":"minimax-m2.7:cloud","description":"Fast, efficient coding and real-world productivity","context_length":204800,"max_output_tokens":128000,"vram":""},
+	{"model":"gemma4","description":"Reasoning and code generation locally","context_length":0,"max_output_tokens":0,"vram":"~16GB"},
+	{"model":"qwen3.5","description":"Reasoning, coding, and visual understanding locally","context_length":0,"max_output_tokens":0,"vram":"~11GB"}
+]}`
+
+// testRecommendedModels returns the full cloud+local recommended models list
+// for use in tests.
+func testRecommendedModels() []ModelItem {
+	return slices.Clone(defaultRecommendedModels)
+}
+
 func names(items []ModelItem) []string {
 	var out []string
 	for _, item := range items {
@@ -386,7 +401,7 @@ func recommendedNames(extra ...string) []string {
 }
 
 func TestBuildModelList_NoExistingModels(t *testing.T) {
-	items, _, _, _ := buildModelList(nil, nil, "")
+	items, _, _, _ := buildModelList(nil, testRecommendedModels(), nil, "")
 
 	want := recommendedNames()
 	if diff := cmp.Diff(want, names(items)); diff != "" {
@@ -412,7 +427,7 @@ func TestBuildModelList_OnlyLocalModels_CloudRecsStillFirst(t *testing.T) {
 		{Name: "qwen2.5:latest", Remote: false},
 	}
 
-	items, _, _, _ := buildModelList(existing, nil, "")
+	items, _, _, _ := buildModelList(existing, testRecommendedModels(), nil, "")
 	got := names(items)
 
 	// Cloud recs always come first among recommended, regardless of installed inventory.
@@ -429,7 +444,7 @@ func TestBuildModelList_BothCloudAndLocal_RegularSort(t *testing.T) {
 		{Name: "glm-5.2:cloud", Remote: true},
 	}
 
-	items, _, _, _ := buildModelList(existing, nil, "")
+	items, _, _, _ := buildModelList(existing, testRecommendedModels(), nil, "")
 	got := names(items)
 
 	// All recs pinned at top (cloud before local in mixed case), then non-recs
@@ -445,7 +460,7 @@ func TestBuildModelList_PreCheckedNonRecommendedFirstInMore(t *testing.T) {
 		{Name: "glm-5.2:cloud", Remote: true},
 	}
 
-	items, _, _, _ := buildModelList(existing, []string{"llama3.2"}, "")
+	items, _, _, _ := buildModelList(existing, testRecommendedModels(), []string{"llama3.2"}, "")
 	got := names(items)
 
 	want := recommendedNames("llama3.2")
@@ -463,7 +478,7 @@ func TestBuildModelList_CurrentDefaultFirstAmongCheckedNonRec(t *testing.T) {
 
 	// "zebra" is the current/default; all three are checked, none are recommended.
 	// Expected non-rec order: zebra (default), alpha, middle (alphabetical).
-	items, _, _, _ := buildModelList(existing, []string{"zebra", "alpha", "middle"}, "zebra")
+	items, _, _, _ := buildModelList(existing, testRecommendedModels(), []string{"zebra", "alpha", "middle"}, "zebra")
 	got := names(items)
 
 	// Skip recommended items to find the non-rec portion.
@@ -493,7 +508,7 @@ func TestBuildModelList_ExistingRecommendedMarked(t *testing.T) {
 		{Name: "glm-5.2:cloud", Remote: true},
 	}
 
-	items, _, _, _ := buildModelList(existing, nil, "")
+	items, _, _, _ := buildModelList(existing, testRecommendedModels(), nil, "")
 
 	for _, item := range items {
 		switch item.Name {
@@ -541,7 +556,7 @@ func TestBuildModelList_ExistingCloudModelsNotPushedToBottom(t *testing.T) {
 		{Name: "glm-5.2:cloud", Remote: true},
 	}
 
-	items, _, _, _ := buildModelList(existing, nil, "")
+	items, _, _, _ := buildModelList(existing, testRecommendedModels(), nil, "")
 	got := names(items)
 
 	// gemma4 and glm-5.2:cloud are installed so they sort normally;
@@ -559,7 +574,7 @@ func TestBuildModelList_HasRecommendedCloudModel_OnlyNonInstalledAtBottom(t *tes
 		{Name: "kimi-k2.6:cloud", Remote: true},
 	}
 
-	items, _, _, _ := buildModelList(existing, nil, "")
+	items, _, _, _ := buildModelList(existing, testRecommendedModels(), nil, "")
 	got := names(items)
 
 	// kimi-k2.6:cloud is installed so it sorts normally;
@@ -591,7 +606,7 @@ func TestBuildModelList_LatestTagStripped(t *testing.T) {
 		{Name: "llama3.2:latest", Remote: false},
 	}
 
-	items, _, existingModels, _ := buildModelList(existing, nil, "")
+	items, _, existingModels, _ := buildModelList(existing, testRecommendedModels(), nil, "")
 	got := names(items)
 
 	// :latest should be stripped from display names
@@ -624,7 +639,7 @@ func TestBuildModelList_ReturnsExistingAndCloudMaps(t *testing.T) {
 		{Name: "glm-5.2:cloud", Remote: true},
 	}
 
-	_, _, existingModels, cloudModels := buildModelList(existing, nil, "")
+	_, _, existingModels, cloudModels := buildModelList(existing, testRecommendedModels(), nil, "")
 
 	if !existingModels["llama3.2"] {
 		t.Error("llama3.2 should be in existingModels")
@@ -656,7 +671,7 @@ func TestBuildModelList_RecommendedFieldSet(t *testing.T) {
 		{Name: "llama3.2:latest", Remote: false},
 	}
 
-	items, _, _, _ := buildModelList(existing, nil, "")
+	items, _, _, _ := buildModelList(existing, testRecommendedModels(), nil, "")
 
 	for _, item := range items {
 		switch item.Name {
@@ -678,7 +693,7 @@ func TestBuildModelList_MixedCase_CloudRecsFirst(t *testing.T) {
 		{Name: "glm-5.2:cloud", Remote: true},
 	}
 
-	items, _, _, _ := buildModelList(existing, nil, "")
+	items, _, _, _ := buildModelList(existing, testRecommendedModels(), nil, "")
 	got := names(items)
 
 	// Cloud recs should sort before local recs in mixed case
@@ -694,7 +709,7 @@ func TestBuildModelList_OnlyLocal_CloudRecsStillFirst(t *testing.T) {
 		{Name: "llama3.2:latest", Remote: false},
 	}
 
-	items, _, _, _ := buildModelList(existing, nil, "")
+	items, _, _, _ := buildModelList(existing, testRecommendedModels(), nil, "")
 	got := names(items)
 
 	// Cloud recs sort before local recs regardless of installed inventory.
@@ -711,7 +726,7 @@ func TestBuildModelList_RecsAboveNonRecs(t *testing.T) {
 		{Name: "custom-model", Remote: false},
 	}
 
-	items, _, _, _ := buildModelList(existing, nil, "")
+	items, _, _, _ := buildModelList(existing, testRecommendedModels(), nil, "")
 	got := names(items)
 
 	// All recommended models should appear before non-recommended installed models
@@ -766,7 +781,7 @@ func TestBuildModelList_CurrentPrefersExactLocalOverCloudPrefix(t *testing.T) {
 		{Name: "qwen3.5", Remote: false},
 	}
 
-	_, orderedChecked, _, _ := buildModelList(existing, []string{"qwen3.5", "qwen3.5:cloud"}, "qwen3.5")
+	_, orderedChecked, _, _ := buildModelList(existing, testRecommendedModels(), []string{"qwen3.5", "qwen3.5:cloud"}, "qwen3.5")
 	if len(orderedChecked) < 2 {
 		t.Fatalf("expected orderedChecked to preserve both selections, got %v", orderedChecked)
 	}
@@ -781,7 +796,7 @@ func TestBuildModelList_CurrentPrefersExactCloudOverLocalPrefix(t *testing.T) {
 		{Name: "qwen3.5:cloud", Remote: true},
 	}
 
-	_, orderedChecked, _, _ := buildModelList(existing, []string{"qwen3.5:cloud", "qwen3.5"}, "qwen3.5:cloud")
+	_, orderedChecked, _, _ := buildModelList(existing, testRecommendedModels(), []string{"qwen3.5:cloud", "qwen3.5"}, "qwen3.5:cloud")
 	if len(orderedChecked) < 2 {
 		t.Fatalf("expected orderedChecked to preserve both selections, got %v", orderedChecked)
 	}
@@ -2208,7 +2223,7 @@ func TestBuildModelList_Descriptions(t *testing.T) {
 		existing := []modelInfo{
 			{Name: "qwen3.5", Remote: false},
 		}
-		items, _, _, _ := buildModelList(existing, nil, "")
+		items, _, _, _ := buildModelList(existing, testRecommendedModels(), nil, "")
 
 		for _, item := range items {
 			if item.Name == "qwen3.5" {
@@ -2225,7 +2240,7 @@ func TestBuildModelList_Descriptions(t *testing.T) {
 	})
 
 	t.Run("not-installed local rec has VRAM in description", func(t *testing.T) {
-		items, _, _, _ := buildModelList(nil, nil, "")
+		items, _, _, _ := buildModelList(nil, testRecommendedModels(), nil, "")
 
 		for _, item := range items {
 			if item.Name == "qwen3.5" {
@@ -2242,7 +2257,7 @@ func TestBuildModelList_Descriptions(t *testing.T) {
 		existing := []modelInfo{
 			{Name: "qwen3.5", Remote: false},
 		}
-		items, _, _, _ := buildModelList(existing, nil, "")
+		items, _, _, _ := buildModelList(existing, testRecommendedModels(), nil, "")
 
 		for _, item := range items {
 			if item.Name == "qwen3.5" {

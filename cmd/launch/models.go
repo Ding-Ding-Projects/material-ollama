@@ -3,6 +3,7 @@ package launch
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"math"
@@ -21,6 +22,7 @@ import (
 	internalcloud "github.com/ollama/ollama/internal/cloud"
 	"github.com/ollama/ollama/internal/modelref"
 	"github.com/ollama/ollama/progress"
+	"github.com/ollama/ollama/version"
 )
 
 var recommendedModels = []ModelItem{
@@ -395,7 +397,6 @@ func buildModelListWithRecommendations(existing []modelInfo, recommendations []M
 	cloudModels = make(map[string]bool)
 	recommended := make(map[string]bool)
 	var hasLocalModel, hasCloudModel bool
-
 	recDesc := make(map[string]string)
 	recByName := make(map[string]ModelItem)
 	for _, rec := range recommendations {
