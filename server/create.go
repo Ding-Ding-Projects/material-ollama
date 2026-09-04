@@ -66,6 +66,10 @@ func (s *Server) CreateHandler(c *gin.Context) {
 	config.Renderer = r.Renderer
 	config.Parser = r.Parser
 	config.Requires = r.Requires
+	config.Skills = r.Skills
+	config.MCPs = r.MCPs
+	config.AgentType = r.AgentType
+	config.Entrypoint = r.Entrypoint
 
 	for v, digest := range r.Files {
 		if !fs.ValidPath(v) {
@@ -217,6 +221,9 @@ func (s *Server) CreateHandler(c *gin.Context) {
 				ch <- gin.H{"error": err.Error()}
 				return
 			}
+		} else if r.Entrypoint != "" {
+			// Entrypoint-only agent: no base model needed
+			slog.Debug("create entrypoint-only agent", "entrypoint", r.Entrypoint)
 		} else {
 			ch <- gin.H{"error": errNeitherFromOrFiles.Error(), "status": http.StatusBadRequest}
 			return

@@ -1396,6 +1396,9 @@ func getExistingName(n model.Name) (model.Name, error) {
 		if set.Namespace == "" && strings.EqualFold(e.Namespace, n.Namespace) {
 			n.Namespace = e.Namespace
 		}
+		if set.Kind == "" && strings.EqualFold(e.Kind, n.Kind) {
+			n.Kind = e.Kind
+		}
 		if set.Model == "" && strings.EqualFold(e.Model, n.Model) {
 			n.Model = e.Model
 		}
@@ -1852,7 +1855,7 @@ func GetModelInfo(req api.ShowRequest) (*api.ShowResponse, error) {
 	}
 	resp.Modelfile = sb.String()
 
-	// skip loading tensor information if this is a remote model
+	// skip loading tensor information if this is a remote model or a skill
 	if m.Config.RemoteHost != "" && m.Config.RemoteModel != "" {
 		return resp, m, nil
 	}
@@ -1878,6 +1881,11 @@ func GetModelInfo(req api.ShowRequest) (*api.ShowResponse, error) {
 				resp.Tensors = tensors
 			}
 		}
+		return resp, nil
+	}
+
+	// Skills don't have model weights, skip tensor loading
+	if m.ModelPath == "" {
 		return resp, nil
 	}
 

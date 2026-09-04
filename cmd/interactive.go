@@ -45,6 +45,9 @@ func generateInteractive(cmd *cobra.Command, opts runOptions) error {
 		fmt.Fprintln(os.Stderr, "Available Commands:")
 		fmt.Fprintln(os.Stderr, "  /set            Set session variables")
 		fmt.Fprintln(os.Stderr, "  /show           Show model information")
+		fmt.Fprintln(os.Stderr, "  /skills         Show available skills")
+		fmt.Fprintln(os.Stderr, "  /skill          Add or remove skills dynamically")
+		fmt.Fprintln(os.Stderr, "  /mcp            Show/add/remove MCP servers")
 		fmt.Fprintln(os.Stderr, "  /load <model>   Load a session or model")
 		fmt.Fprintln(os.Stderr, "  /save <model>   Save your current session")
 		fmt.Fprintln(os.Stderr, "  /clear          Clear session context")
@@ -476,6 +479,20 @@ func generateInteractive(cmd *cobra.Command, opts runOptions) error {
 					usageSet()
 				case "show", "/show":
 					usageShow()
+				case "skill", "/skill":
+					fmt.Fprintln(os.Stderr, "Available Commands:")
+					fmt.Fprintln(os.Stderr, "  /skill add <path>      Add a skill from local path")
+					fmt.Fprintln(os.Stderr, "  /skill remove <name>   Remove a skill by name")
+					fmt.Fprintln(os.Stderr, "  /skill list            List current session skills")
+					fmt.Fprintln(os.Stderr, "")
+				case "mcp", "/mcp":
+					fmt.Fprintln(os.Stderr, "Available Commands:")
+					fmt.Fprintln(os.Stderr, "  /mcp                                  Show all MCP servers")
+					fmt.Fprintln(os.Stderr, "  /mcp add <name> <command> [args...]   Add an MCP server to global config")
+					fmt.Fprintln(os.Stderr, "  /mcp remove <name>                    Remove an MCP server from global config")
+					fmt.Fprintln(os.Stderr, "  /mcp disable <name>                   Disable an MCP server (keep in config)")
+					fmt.Fprintln(os.Stderr, "  /mcp enable <name>                    Re-enable a disabled MCP server")
+					fmt.Fprintln(os.Stderr, "")
 				case "shortcut", "shortcuts":
 					usageShortcuts()
 				}

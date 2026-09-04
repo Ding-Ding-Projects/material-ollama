@@ -64,6 +64,7 @@ type partKind int
 const (
 	kindHost partKind = iota
 	kindNamespace
+	kindKind
 	kindModel
 	kindTag
 	kindDigest
@@ -75,6 +76,8 @@ func (k partKind) String() string {
 		return "host"
 	case kindNamespace:
 		return "namespace"
+	case kindKind:
+		return "kind"
 	case kindModel:
 		return "model"
 	case kindTag:
@@ -103,33 +106,26 @@ type Name struct {
 // format of a valid name string is:
 //
 //	  s:
-//		  { host } "/" { namespace } "/" { model } ":" { tag } "@" { digest }
+//		  { host } "/" { namespace } "/" { kind } "/" { model } ":" { tag }
 //		  { host } "/" { namespace } "/" { model } ":" { tag }
-//		  { host } "/" { namespace } "/" { model } "@" { digest }
-//		  { host } "/" { namespace } "/" { model }
-//		  { namespace } "/" { model } ":" { tag } "@" { digest }
+//		  { namespace } "/" { kind } "/" { model } ":" { tag }
 //		  { namespace } "/" { model } ":" { tag }
-//		  { namespace } "/" { model } "@" { digest }
-//		  { namespace } "/" { model }
-//		  { model } ":" { tag } "@" { digest }
 //		  { model } ":" { tag }
-//		  { model } "@" { digest }
 //		  { model }
-//		  "@" { digest }
 //	  host:
 //	      pattern: { alphanum | "_" } { alphanum | "-" | "_" | "." | ":" }*
 //	      length:  [1, 350]
 //	  namespace:
 //	      pattern: { alphanum | "_" } { alphanum | "-" | "_" }*
 //	      length:  [1, 80]
+//	  kind:
+//	      pattern: "skill" | "agent" | "" (empty for models)
+//	      length:  [0, 80]
 //	  model:
 //	      pattern: { alphanum | "_" } { alphanum | "-" | "_" | "." }*
 //	      length:  [1, 80]
 //	  tag:
 //	      pattern: { alphanum | "_" } { alphanum | "-" | "_" | "." }*
-//	      length:  [1, 80]
-//	  digest:
-//	      pattern: { alphanum | "_" } { alphanum | "-" | ":" }*
 //	      length:  [1, 80]
 //
 // Most users should use [ParseName] instead, unless need to support
@@ -140,6 +136,13 @@ type Name struct {
 // if the name is valid.
 func ParseName(s string) Name {
 	return Merge(ParseNameBare(s), DefaultName())
+}
+
+// ValidKinds are the allowed values for the Kind field
+var ValidKinds = map[string]bool{
+	"skill": true,
+	"agent": true,
+	"mcp":   true,
 }
 
 // ParseNameBare parses s as a name string and returns a Name. No merge with
@@ -159,6 +162,30 @@ func ParseNameBare(s string) Name {
 		return n
 	}
 
+	s, n.Kind, promised = cutPromised(s, "/")
+	if !promised {
+		// Only 2 parts: namespace/model - what we parsed as Kind is actually Namespace
+		n.Namespace = n.Kind
+		n.Kind = ""
+		return n
+	}
+
+	// Check if what we parsed as Kind is actually a valid kind value
+	if !ValidKinds[n.Kind] {
+		// Not a valid kind - this is the old 3-part format: host/namespace/model
+		// Shift: Kind -> Namespace, s -> Host
+		n.Namespace = n.Kind
+		n.Kind = ""
+
+		scheme, host, ok := strings.Cut(s, "://")
+		if !ok {
+			host = scheme
+		}
+		n.Host = host
+		return n
+	}
+
+	// Valid kind found - continue parsing for namespace and optional host
 	s, n.Namespace, promised = cutPromised(s, "/")
 	if !promised {
 		n.Namespace = s
@@ -176,20 +203,32 @@ func ParseNameBare(s string) Name {
 	return n
 }
 
-// ParseNameFromFilepath parses a 4-part filepath as a Name. The parts are
+// ParseNameFromFilepath parses a 4 or 5-part filepath as a Name. The parts are
 // expected to be in the form:
 //
 // { host } "/" { namespace } "/" { model } "/" { tag }
+// { host } "/" { namespace } "/" { kind } "/" { model } "/" { tag }
 func ParseNameFromFilepath(s string) (n Name) {
 	parts := strings.Split(s, string(filepath.Separator))
-	if len(parts) != 4 {
+
+	switch len(parts) {
+	case 4:
+		// Old format: host/namespace/model/tag
+		n.Host = parts[0]
+		n.Namespace = parts[1]
+		n.Model = parts[2]
+		n.Tag = parts[3]
+	case 5:
+		// New format: host/namespace/kind/model/tag
+		n.Host = parts[0]
+		n.Namespace = parts[1]
+		n.Kind = parts[2]
+		n.Model = parts[3]
+		n.Tag = parts[4]
+	default:
 		return Name{}
 	}
 
-	n.Host = parts[0]
-	n.Namespace = parts[1]
-	n.Model = parts[2]
-	n.Tag = parts[3]
 	if !n.IsFullyQualified() {
 		return Name{}
 	}
@@ -202,6 +241,7 @@ func ParseNameFromFilepath(s string) (n Name) {
 func Merge(a, b Name) Name {
 	a.Host = cmp.Or(a.Host, b.Host)
 	a.Namespace = cmp.Or(a.Namespace, b.Namespace)
+	a.Kind = cmp.Or(a.Kind, b.Kind)
 	a.Tag = cmp.Or(a.Tag, b.Tag)
 	a.ProtocolScheme = cmp.Or(a.ProtocolScheme, b.ProtocolScheme)
 	return a
@@ -218,6 +258,10 @@ func (n Name) String() string {
 	}
 	if n.Namespace != "" {
 		b.WriteString(n.Namespace)
+		b.WriteByte('/')
+	}
+	if n.Kind != "" {
+		b.WriteString(n.Kind)
 		b.WriteByte('/')
 	}
 	b.WriteString(n.Model)
@@ -253,6 +297,12 @@ func (n Name) DisplayShortest() string {
 		sb.WriteByte('/')
 	}
 
+	// include kind if present
+	if n.Kind != "" {
+		sb.WriteString(n.Kind)
+		sb.WriteByte('/')
+	}
+
 	// always include model and tag
 	sb.WriteString(n.Model)
 	sb.WriteString(":")
@@ -276,18 +326,23 @@ func (n Name) IsValid() bool {
 }
 
 // IsFullyQualified returns true if all parts of the name are present and
-// valid without the digest.
+// valid without the digest. Kind is optional and only validated if non-empty.
 func (n Name) IsFullyQualified() bool {
-	parts := []string{
-		n.Host,
-		n.Namespace,
-		n.Model,
-		n.Tag,
+	if !isValidPart(kindHost, n.Host) {
+		return false
 	}
-	for i, part := range parts {
-		if !isValidPart(partKind(i), part) {
-			return false
-		}
+	if !isValidPart(kindNamespace, n.Namespace) {
+		return false
+	}
+	// Kind is optional - only validate if present
+	if n.Kind != "" && !isValidPart(kindKind, n.Kind) {
+		return false
+	}
+	if !isValidPart(kindModel, n.Model) {
+		return false
+	}
+	if !isValidPart(kindTag, n.Tag) {
+		return false
 	}
 	return true
 }
@@ -296,6 +351,7 @@ func (n Name) IsFullyQualified() bool {
 // host to tag as a directory in the form:
 //
 //	{host}/{namespace}/{model}/{tag}
+//	{host}/{namespace}/{kind}/{model}/{tag}
 //
 // It uses the system's filepath separator and ensures the path is clean.
 //
@@ -304,6 +360,15 @@ func (n Name) IsFullyQualified() bool {
 func (n Name) Filepath() string {
 	if !n.IsFullyQualified() {
 		panic("illegal attempt to get filepath of invalid name")
+	}
+	if n.Kind != "" {
+		return filepath.Join(
+			n.Host,
+			n.Namespace,
+			n.Kind,
+			n.Model,
+			n.Tag,
+		)
 	}
 	return filepath.Join(
 		n.Host,
@@ -321,6 +386,7 @@ func (n Name) LogValue() slog.Value {
 func (n Name) EqualFold(o Name) bool {
 	return strings.EqualFold(n.Host, o.Host) &&
 		strings.EqualFold(n.Namespace, o.Namespace) &&
+		strings.EqualFold(n.Kind, o.Kind) &&
 		strings.EqualFold(n.Model, o.Model) &&
 		strings.EqualFold(n.Tag, o.Tag)
 }
@@ -354,6 +420,11 @@ func isValidLen(kind partKind, s string) bool {
 }
 
 func isValidPart(kind partKind, s string) bool {
+	// Kind must be one of the valid values
+	if kind == kindKind {
+		return ValidKinds[s]
+	}
+
 	if !isValidLen(kind, s) {
 		return false
 	}

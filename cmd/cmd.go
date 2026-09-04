@@ -894,6 +894,16 @@ func RunHandler(cmd *cobra.Command, args []string) error {
 
 	applyShowResponseToRunOptions(&opts, info)
 
+	// Check if this is an agent
+	isAgent := info.AgentType != "" || len(info.Skills) > 0 || len(info.MCPs) > 0 || info.Entrypoint != ""
+	if isAgent {
+		opts.IsAgent = true
+		opts.AgentType = info.AgentType
+		opts.Skills = info.Skills
+		opts.MCPs = info.MCPs
+		opts.Entrypoint = info.Entrypoint
+	}
+
 	// Check if this is an embedding model
 	isEmbeddingModel := slices.Contains(info.Capabilities, model.CapabilityEmbedding)
 
@@ -1101,6 +1111,51 @@ func resumeModelFromLatestChat(ctx context.Context) (string, error) {
 		return "", errors.New("latest saved chat has no model; pass a model to start a new chat")
 	}
 	return chat.Model, nil
+}
+
+// runEntrypoint executes the agent's entrypoint command instead of the built-in chat loop.
+func runEntrypoint(cmd *cobra.Command, opts runOptions) error {
+	entrypoint := opts.Entrypoint
+
+	// Check if entrypoint contains $PROMPT placeholder
+	hasPlaceholder := strings.Contains(entrypoint, "$PROMPT")
+
+	if hasPlaceholder && opts.Prompt != "" {
+		// Replace $PROMPT with the actual prompt
+		entrypoint = strings.ReplaceAll(entrypoint, "$PROMPT", opts.Prompt)
+	} else if hasPlaceholder {
+		// No prompt provided but placeholder exists - remove placeholder
+		entrypoint = strings.ReplaceAll(entrypoint, "$PROMPT", "")
+	}
+
+	// Parse entrypoint into command and args
+	parts := strings.Fields(entrypoint)
+	if len(parts) == 0 {
+		return fmt.Errorf("empty entrypoint")
+	}
+
+	command := parts[0]
+	args := parts[1:]
+
+	// If user provided a prompt and no placeholder was used, append it as argument
+	if opts.Prompt != "" && !hasPlaceholder {
+		args = append(args, opts.Prompt)
+	}
+
+	// Look up command in PATH
+	execPath, err := exec.LookPath(command)
+	if err != nil {
+		return fmt.Errorf("entrypoint command not found: %s", command)
+	}
+
+	// Create subprocess
+	proc := exec.Command(execPath, args...)
+	proc.Stdin = os.Stdin
+	proc.Stdout = os.Stdout
+	proc.Stderr = os.Stderr
+
+	// Run and wait
+	return proc.Run()
 }
 
 func SigninHandler(cmd *cobra.Command, args []string) error {
@@ -1924,21 +1979,87 @@ func showInfo(resp *api.ShowResponse, verbose bool, w io.Writer) error {
 				}
 			}
 
-			if v, ok := resp.ModelInfo[fmt.Sprintf("%s.embedding_length", arch)]; ok {
-				if f, ok := v.(float64); ok {
-					rows = append(rows, []string{"", "embedding length", strconv.FormatFloat(f, 'f', -1, 64)})
+			if resp.ModelInfo != nil {
+				arch := resp.ModelInfo["general.architecture"].(string)
+				rows = append(rows, []string{"", "architecture", arch})
+
+				var paramStr string
+				if resp.Details.ParameterSize != "" {
+					paramStr = resp.Details.ParameterSize
+				} else if v, ok := resp.ModelInfo["general.parameter_count"]; ok {
+					if f, ok := v.(float64); ok {
+						paramStr = format.HumanNumber(uint64(f))
+					}
+				}
+				rows = append(rows, []string{"", "parameters", paramStr})
+
+				if v, ok := resp.ModelInfo[fmt.Sprintf("%s.context_length", arch)]; ok {
+					if f, ok := v.(float64); ok {
+						rows = append(rows, []string{"", "context length", strconv.FormatFloat(f, 'f', -1, 64)})
+					}
+				}
+
+				if v, ok := resp.ModelInfo[fmt.Sprintf("%s.embedding_length", arch)]; ok {
+					if f, ok := v.(float64); ok {
+						rows = append(rows, []string{"", "embedding length", strconv.FormatFloat(f, 'f', -1, 64)})
+					}
+				}
+			} else {
+				rows = append(rows, []string{"", "architecture", resp.Details.Family})
+				rows = append(rows, []string{"", "parameters", resp.Details.ParameterSize})
+			}
+			rows = append(rows, []string{"", "quantization", resp.Details.QuantizationLevel})
+			if resp.Requires != "" {
+				rows = append(rows, []string{"", "requires", resp.Requires})
+			}
+			return
+		})
+	}
+
+	// Display agent information if this is an agent
+	if resp.AgentType != "" || len(resp.Skills) > 0 || len(resp.MCPs) > 0 || resp.Entrypoint != "" {
+		tableRender("Agent", func() (rows [][]string) {
+			if resp.AgentType != "" {
+				rows = append(rows, []string{"", "type", resp.AgentType})
+			}
+			if resp.Entrypoint != "" {
+				rows = append(rows, []string{"", "entrypoint", resp.Entrypoint})
+			}
+			if len(resp.Skills) > 0 {
+				for i, skill := range resp.Skills {
+					label := "skill"
+					if i > 0 {
+						label = ""
+					}
+					// Show skill name or digest
+					skillDisplay := skill.Name
+					if skillDisplay == "" && skill.Digest != "" {
+						skillDisplay = skill.Digest[:12] + "..."
+					}
+					rows = append(rows, []string{"", label, skillDisplay})
 				}
 			}
-		} else {
-			rows = append(rows, []string{"", "architecture", resp.Details.Family})
-			rows = append(rows, []string{"", "parameters", resp.Details.ParameterSize})
-		}
-		rows = append(rows, []string{"", "quantization", resp.Details.QuantizationLevel})
-		if resp.Requires != "" {
-			rows = append(rows, []string{"", "requires", resp.Requires})
-		}
-		return
-	})
+			if len(resp.MCPs) > 0 {
+				for i, mcp := range resp.MCPs {
+					label := "mcp"
+					if i > 0 {
+						label = ""
+					}
+					// Show MCP name and command
+					mcpDisplay := mcp.Name
+					if mcp.Command != "" {
+						cmdLine := mcp.Command
+						if len(mcp.Args) > 0 {
+							cmdLine += " " + strings.Join(mcp.Args, " ")
+						}
+						mcpDisplay += " (" + cmdLine + ")"
+					}
+					rows = append(rows, []string{"", label, mcpDisplay})
+				}
+			}
+			return
+		})
+	}
 
 	if len(resp.Capabilities) > 0 {
 		tableRender("Capabilities", func() (rows [][]string) {
@@ -2273,6 +2394,12 @@ func (r runOptions) Copy() runOptions {
 	if r.Think != nil {
 		cThink := *r.Think
 		think = &cThink
+	}
+
+	var skills []api.SkillRef
+	if r.Skills != nil {
+		skills = make([]api.SkillRef, len(r.Skills))
+		copy(skills, r.Skills)
 	}
 
 	return runOptions{

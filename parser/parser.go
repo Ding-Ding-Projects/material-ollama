@@ -57,6 +57,8 @@ func (f Modelfile) CreateRequest(relativeDir string) (*api.CreateRequest, error)
 
 	var messages []api.Message
 	var licenses []string
+	var skills []api.SkillRef
+	var mcps []api.MCPRef
 	params := make(map[string]any)
 	var modelPaths []string
 	var draftPaths []string
@@ -169,6 +171,12 @@ func (f Modelfile) CreateRequest(relativeDir string) (*api.CreateRequest, error)
 	}
 	if len(licenses) > 0 {
 		req.License = licenses
+	}
+	if len(skills) > 0 {
+		req.Skills = skills
+	}
+	if len(mcps) > 0 {
+		req.MCPs = mcps
 	}
 
 	return req, nil
@@ -537,6 +545,9 @@ func ParseFile(r io.Reader) (*Modelfile, error) {
 				switch s := strings.ToLower(b.String()); s {
 				case "from":
 					cmd.Name = "model"
+				case "agent":
+					// "AGENT TYPE" -> "agent_type", consume next word
+					cmd.Name = "agent_type"
 				case "parameter":
 					// transition to stateParameter which sets command name
 					next = stateParameter
@@ -685,6 +696,10 @@ func ParseFile(r io.Reader) (*Modelfile, error) {
 
 	for _, cmd := range f.Commands {
 		if cmd.Name == "model" {
+			return &f, nil
+		}
+		// Allow entrypoint-only agents without FROM
+		if cmd.Name == "entrypoint" {
 			return &f, nil
 		}
 	}
@@ -861,4 +876,80 @@ func expandPath(path, dir string) (string, error) {
 	}
 
 	return filepath.Clean(path), nil
+}
+
+// parseMCPArg parses MCP command arguments.
+// Supports two formats:
+//
+//	JSON: {"name": "web-search", "command": "uv", "args": ["run", "./script.py"]}
+//	Simple: web-search uv run ./script.py (name, command, args...)
+func parseMCPArg(args string, relativeDir string) (api.MCPRef, error) {
+	args = strings.TrimSpace(args)
+	if args == "" {
+		return api.MCPRef{}, errors.New("MCP requires arguments")
+	}
+
+	// Try JSON format first
+	if strings.HasPrefix(args, "{") {
+		var ref api.MCPRef
+		if err := json.Unmarshal([]byte(args), &ref); err != nil {
+			return api.MCPRef{}, fmt.Errorf("invalid JSON: %w", err)
+		}
+		if ref.Name == "" {
+			return api.MCPRef{}, errors.New("MCP name is required")
+		}
+		if ref.Command == "" {
+			return api.MCPRef{}, errors.New("MCP command is required")
+		}
+		if ref.Type == "" {
+			ref.Type = "stdio"
+		}
+		// Expand relative paths in args
+		for i, arg := range ref.Args {
+			if isLocalPath(arg) {
+				expanded, err := expandPath(arg, relativeDir)
+				if err != nil {
+					return api.MCPRef{}, fmt.Errorf("expanding path %q: %w", arg, err)
+				}
+				ref.Args[i] = expanded
+			}
+		}
+		return ref, nil
+	}
+
+	// Simple format: name command args...
+	parts := strings.Fields(args)
+	if len(parts) < 2 {
+		return api.MCPRef{}, errors.New("MCP requires at least name and command")
+	}
+
+	ref := api.MCPRef{
+		Name:    parts[0],
+		Command: parts[1],
+		Type:    "stdio",
+	}
+	if len(parts) > 2 {
+		ref.Args = parts[2:]
+	}
+
+	// Expand relative paths in args
+	for i, arg := range ref.Args {
+		if isLocalPath(arg) {
+			expanded, err := expandPath(arg, relativeDir)
+			if err != nil {
+				return api.MCPRef{}, fmt.Errorf("expanding path %q: %w", arg, err)
+			}
+			ref.Args[i] = expanded
+		}
+	}
+
+	return ref, nil
+}
+
+// isLocalPath checks if a string looks like a local filesystem path.
+func isLocalPath(s string) bool {
+	return strings.HasPrefix(s, "/") ||
+		strings.HasPrefix(s, "./") ||
+		strings.HasPrefix(s, "../") ||
+		strings.HasPrefix(s, "~")
 }
