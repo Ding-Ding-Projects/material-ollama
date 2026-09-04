@@ -89,6 +89,16 @@ try {
     Write-Host '[build] Resolving verified tools in this process.'
     & (Join-Path $PSScriptRoot 'bootstrap_windows_prerequisites.ps1') -Silent -ManifestPath $prerequisitePath
     Invoke-Child (Join-Path $PSScriptRoot 'bootstrap_windows_tools.ps1') @('-ManifestPath', $dependencyPath)
+    # The tool bootstrap is a child process. Restore its verified, manifest-owned
+    # executable directories for the next child and for command-script callers.
+    $toolRoot = if ($env:OLLAMA_TOOLCHAIN_ROOT) { $env:OLLAMA_TOOLCHAIN_ROOT } else { Join-Path $env:LOCALAPPDATA 'MaterialOllama/tools-v2' }
+    $dependencies = Get-Content -Raw -LiteralPath $dependencyPath | ConvertFrom-Json
+    foreach ($dependency in $dependencies.dependencies) {
+        if ($dependency.user.directory -and $dependency.user.relativeExecutable) {
+            $executable = Join-Path (Join-Path $toolRoot $dependency.user.directory) $dependency.user.relativeExecutable
+            if (Test-Path -LiteralPath $executable -PathType Leaf) { $env:Path = (Split-Path -Parent $executable) + ';' + $env:Path }
+        }
+    }
     Invoke-Child (Join-Path $PSScriptRoot 'fetch-webview2.ps1') @('-ManifestPath', $dependencyPath, '-OutputRoot', (Join-Path $root 'dist\webview2'))
     if ($DependenciesOnly) {
         if ($PathOutput) { [IO.File]::WriteAllText($PathOutput, $env:Path, [Text.Encoding]::Default) }
