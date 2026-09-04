@@ -108,6 +108,10 @@ type Reasoning struct {
 	Effort string `json:"effort,omitempty"`
 }
 
+type StreamOptions struct {
+	IncludeUsage bool `json:"include_usage"`
+}
+
 type ChatCompletionRequest struct {
 	Model               string         `json:"model"`
 	Messages            []Message      `json:"messages"`
