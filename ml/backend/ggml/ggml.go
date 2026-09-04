@@ -541,6 +541,25 @@ func (t *Tensor) RoPE(ctx ml.Context, rc ml.RopeConfig) ml.Tensor {
 		rc.RopeFactors = &Tensor{}
 	}
 
+	if config.YarnConfig == nil {
+		config.YarnConfig = ml.DefaultYarnConfig(131072) // 131072 is the default for LLaMA, so it is common at the time of writing
+	}
+
+	// Map Go RopeType to C implementation constants
+	var ropeTypeC C.int
+	switch config.Type {
+	case ml.RopeTypeNormal:
+		ropeTypeC = ropeTypeNorm
+	case ml.RopeTypeNeox:
+		ropeTypeC = ropeTypeNeox
+	case ml.RopeTypeMRoPE:
+		ropeTypeC = ropeTypeMrope
+	case ml.RopeTypeVision:
+		ropeTypeC = ropeTypeVision
+	default:
+		ropeTypeC = ropeTypeNorm
+	}
+
 	return &Tensor{
 		t: C.ggml_rope_ext(
 			ctx.(*Context).ctx, t.t, positionIDs.(*Tensor).t, ropeFactors.(*Tensor).t,

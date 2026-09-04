@@ -224,10 +224,14 @@ func newTextModel(c ml.Config) *TextModel {
 			numHeads:             int64(c.Uint("attention.head_count")),
 			numKVHeads:           int64(c.Uint("attention.head_count_kv")),
 			eps:                  c.Float("attention.layer_norm_rms_epsilon"),
-			ropeBase:             c.Float("rope.freq_base"),
-			ropeScale:            c.Float("rope.freq_scale", 1),
-			ropeDim:              c.Uint("rope.dimension_count"),
 			crossAttentionLayers: c.Uints("attention.cross_attention_layers"),
+			ropeConfig: ml.RoPEConfig{
+				Base:       c.Float("rope.freq_base"),
+				Scale:      c.Float("rope.freq_scale", 1),
+				Dim:        c.Uint("rope.dimension_count"),
+				Type:       ml.RopeTypeNormal,
+				YarnConfig: ml.DefaultYarnConfig(int32(c.Uint("context_length", 131072))),
+			},
 		},
 	}
 }

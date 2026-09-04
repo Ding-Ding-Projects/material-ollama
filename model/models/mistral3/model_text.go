@@ -50,12 +50,12 @@ func (sa *SelfAttention) Forward(ctx ml.Context, hiddenState, positionIDs ml.Ten
 	// Query projection and reshape
 	q := sa.Query.Forward(ctx, hiddenState)
 	q = q.Reshape(ctx, headDim, opts.numHeads, batchSize)
-	q = q.RoPE(ctx, positionIDs, sa.RopeFactors, opts.ropeDim, ropeType, opts.ropeBase, opts.ropeScale)
+	q = q.RoPE(ctx, positionIDs, sa.RopeFactors, opts.ropeConfig)
 
 	// Key projection and reshape
 	k := sa.Key.Forward(ctx, hiddenState)
 	k = k.Reshape(ctx, headDim, opts.numKVHeads, batchSize)
-	k = k.RoPE(ctx, positionIDs, sa.RopeFactors, opts.ropeDim, ropeType, opts.ropeBase, opts.ropeScale)
+	k = k.RoPE(ctx, positionIDs, sa.RopeFactors, opts.ropeConfig)
 
 	// Value projection and reshape
 	v := sa.Value.Forward(ctx, hiddenState)
