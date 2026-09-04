@@ -276,6 +276,10 @@ func (kv KV) Value(key string) any {
 }
 
 func (kv KV) OllamaEngineRequired() bool {
+	if kv.Uint("pooling_type") > 0 {
+		return false
+	}
+
 	return slices.Contains([]string{
 		"bert",
 		"deepseek2",
@@ -914,8 +918,7 @@ func (f GGML) KVCacheTypeIsQuantized(cacheType string) bool {
 
 // SupportsFlashAttention checks if the model supports flash attention
 func (f GGML) SupportsFlashAttention() bool {
-	_, isEmbedding := f.KV()[fmt.Sprintf("%s.pooling_type", f.KV().Architecture())]
-	if isEmbedding {
+	if f.KV().Uint("pooling_type") > 0 {
 		return false
 	}
 
