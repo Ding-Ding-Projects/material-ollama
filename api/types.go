@@ -667,6 +667,18 @@ type EmbeddingResponse struct {
 	Embedding []float64 `json:"embedding"`
 }
 
+type TokenizeRequest struct {
+	Model     string    `json:"model"`
+	Prompt    string    `json:"prompt"`
+	KeepAlive *Duration `json:"keep_alive,omitempty"`
+
+	Options map[string]interface{} `json:"options"`
+}
+
+type TokenizeResponse struct {
+	Tokens []int `json:"tokens"`
+}
+
 // CreateRequest is the request passed to [Client.Create].
 type CreateRequest struct {
 	// Model is the model name to create.
