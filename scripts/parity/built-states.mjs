@@ -24,7 +24,7 @@ export function clickByLabelPrefix(prefix) {
   return `(() => {
     const hit = Array.from(document.querySelectorAll('[aria-label]'))
       .find(e => (e.getAttribute('aria-label') || '').startsWith(${JSON.stringify(prefix)}));
-    if (!hit) return 'NO_MATCH';
+    if (!hit) return 'NO_MATCH_YET';
     hit.click();
     return 'OK';
   })()`
@@ -34,7 +34,7 @@ export function clickByLabelPrefix(prefix) {
 export function clickByLabel(label) {
   return `(() => {
     const all = Array.from(document.querySelectorAll('[aria-label=' + JSON.stringify(${JSON.stringify(label)}) + ']'));
-    if (all.length === 0) return 'NO_MATCH';
+    if (all.length === 0) return 'NO_MATCH_YET';
     all[0].click();
     return 'OK';
   })()`
@@ -238,8 +238,25 @@ export const BUILT_STATES = [
     resolvedRoute: '/models',
     builtInteraction: 'perform an action that raises a snackbar',
     steps: [],
-    expect: { label: 'a snackbar is visible', expression: count('[role=status],[role=alert]'), atLeast: 1 },
-    note: 'Trigger not yet identified on either side; the reference row is a gap for the same reason.',
+    // GAP on this side too, and the guard is what proved it. The assertion
+    // below was originally just "a role=status or role=alert exists", which an
+    // invisible aria-live region satisfies on every screen -- so this row
+    // "captured" successfully while photographing the models screen. The
+    // cross-row uniqueness check caught it by finding byte-identical captures.
+    // That is the weak-assertion trap: a condition already true behind the
+    // surface passes without the surface ever opening.
+    //
+    // The assertion now demands a snackbar with actual text in it, which is
+    // honest, and the row fails until a real trigger is identified.
+    expect: {
+      label: 'a snackbar with text is visible',
+      expression: `(() => {
+        const live = Array.from(document.querySelectorAll('[role=status],[role=alert]'));
+        return live.some((el) => (el.textContent || '').trim().length > 0) ? 1 : 0;
+      })()`,
+      atLeast: 1,
+    },
+    note: 'Trigger not identified on either side. The reference row is a gap for its own reason; this row is a gap because no action tried so far leaves a snackbar with text in the document.',
   },
 ]
 

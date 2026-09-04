@@ -23,6 +23,7 @@
  */
 
 import { readFile, readdir } from 'node:fs/promises'
+import { existsSync } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 
@@ -38,7 +39,6 @@ const SKIP_DIRS = new Set(['md3', 'node_modules', 'assets', 'stories'])
 /** Files exempt wholesale, with the reason. */
 const EXEMPT_FILES = new Map([
   ['components/ui/display.tsx', 'shadcn-era primitive shim, not rendered by any Material surface'],
-  ['components/ui/slider.tsx', 'shadcn-era primitive shim, not rendered by any Material surface'],
 ])
 
 /**
@@ -73,7 +73,7 @@ const EXCEPTIONS = [
  * Controls that should become kit primitives and have not yet. This number may
  * only go down. It is debt, recorded so it cannot hide.
  */
-const BACKLOG_LIMIT = 37
+const BACKLOG_LIMIT = 35
 
 async function* walk(dir) {
   for (const entry of await readdir(dir, { withFileTypes: true })) {
@@ -111,6 +111,16 @@ async function main() {
   }
 
   const errors = []
+
+  // A stale file exemption is as dangerous as a stale control exception: it
+  // sits there quietly, and the day a new file appears at that exact path it
+  // is waved through without anyone arguing for it.
+  for (const [file, reason] of EXEMPT_FILES) {
+    if (!existsSync(path.join(srcRoot, file))) {
+      errors.push(`Exempt file no longer exists: ${file} (${reason}). Delete the entry.`)
+    }
+  }
+
   let excepted = 0
   for (const exception of EXCEPTIONS) {
     const key = `${exception.file}:${exception.tag}`

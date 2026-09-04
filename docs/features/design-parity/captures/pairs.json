@@ -11,85 +11,137 @@
     "schoolMode": "off",
     "tabDock": "top"
   },
-  "composedAt": "2026-09-04T02:41:47.422Z",
+  "composedAt": "2026-09-04T02:47:33.825Z",
   "referenceCapturedAt": "2026-09-04T02:41:18.473Z",
-  "builtCapturedAt": "2026-09-04T02:37:21.454Z",
+  "builtCapturedAt": "2026-09-04T02:47:16.401Z",
   "builtArtifactSha256": "ac2c28c842bdf8af52ba8bc0d6777ca204361c1c45057f1a3473cf7026ed1e36",
-  "paired": 1,
-  "unpaired": 16,
+  "paired": 17,
+  "unpaired": 1,
   "rows": [
+    {
+      "id": "chat",
+      "differingRatio": 0.495326,
+      "maxChannelDelta": 255,
+      "sideBySidePath": "docs/features/design-parity/captures/side-by-side/chat.png",
+      "diffRecord": "docs/features/design-parity/captures/diff/chat.json"
+    },
+    {
+      "id": "cli-harness",
+      "differingRatio": 0.348062,
+      "maxChannelDelta": 255,
+      "sideBySidePath": "docs/features/design-parity/captures/side-by-side/cli-harness.png",
+      "diffRecord": "docs/features/design-parity/captures/diff/cli-harness.json"
+    },
+    {
+      "id": "developer",
+      "differingRatio": 0.640548,
+      "maxChannelDelta": 255,
+      "sideBySidePath": "docs/features/design-parity/captures/side-by-side/developer.png",
+      "diffRecord": "docs/features/design-parity/captures/diff/developer.json"
+    },
+    {
+      "id": "docs",
+      "differingRatio": 0.16677,
+      "maxChannelDelta": 255,
+      "sideBySidePath": "docs/features/design-parity/captures/side-by-side/docs.png",
+      "diffRecord": "docs/features/design-parity/captures/diff/docs.json"
+    },
+    {
+      "id": "launch",
+      "differingRatio": 0.586824,
+      "maxChannelDelta": 255,
+      "sideBySidePath": "docs/features/design-parity/captures/side-by-side/launch.png",
+      "diffRecord": "docs/features/design-parity/captures/diff/launch.json"
+    },
+    {
+      "id": "models",
+      "differingRatio": 0.405325,
+      "maxChannelDelta": 255,
+      "sideBySidePath": "docs/features/design-parity/captures/side-by-side/models.png",
+      "diffRecord": "docs/features/design-parity/captures/diff/models.json"
+    },
     {
       "id": "overlay-command-palette",
       "differingRatio": 0.999962,
       "maxChannelDelta": 252,
       "sideBySidePath": "docs/features/design-parity/captures/side-by-side/overlay-command-palette.png",
       "diffRecord": "docs/features/design-parity/captures/diff/overlay-command-palette.json"
+    },
+    {
+      "id": "overlay-context-menu",
+      "differingRatio": 0.443089,
+      "maxChannelDelta": 252,
+      "sideBySidePath": "docs/features/design-parity/captures/side-by-side/overlay-context-menu.png",
+      "diffRecord": "docs/features/design-parity/captures/diff/overlay-context-menu.json"
+    },
+    {
+      "id": "overlay-destructive-confirmation",
+      "differingRatio": 0.997252,
+      "maxChannelDelta": 252,
+      "sideBySidePath": "docs/features/design-parity/captures/side-by-side/overlay-destructive-confirmation.png",
+      "diffRecord": "docs/features/design-parity/captures/diff/overlay-destructive-confirmation.json"
+    },
+    {
+      "id": "overlay-dim-sum-surprise",
+      "differingRatio": 1,
+      "maxChannelDelta": 255,
+      "sideBySidePath": "docs/features/design-parity/captures/side-by-side/overlay-dim-sum-surprise.png",
+      "diffRecord": "docs/features/design-parity/captures/diff/overlay-dim-sum-surprise.json"
+    },
+    {
+      "id": "overlay-notification-center",
+      "differingRatio": 0.422322,
+      "maxChannelDelta": 255,
+      "sideBySidePath": "docs/features/design-parity/captures/side-by-side/overlay-notification-center.png",
+      "diffRecord": "docs/features/design-parity/captures/diff/overlay-notification-center.json"
+    },
+    {
+      "id": "overlay-regex-builder",
+      "differingRatio": 0.976516,
+      "maxChannelDelta": 255,
+      "sideBySidePath": "docs/features/design-parity/captures/side-by-side/overlay-regex-builder.png",
+      "diffRecord": "docs/features/design-parity/captures/diff/overlay-regex-builder.json"
+    },
+    {
+      "id": "overlay-school-mode-unlock",
+      "differingRatio": 0.999983,
+      "maxChannelDelta": 255,
+      "sideBySidePath": "docs/features/design-parity/captures/side-by-side/overlay-school-mode-unlock.png",
+      "diffRecord": "docs/features/design-parity/captures/diff/overlay-school-mode-unlock.json"
+    },
+    {
+      "id": "settings",
+      "differingRatio": 0.672575,
+      "maxChannelDelta": 255,
+      "sideBySidePath": "docs/features/design-parity/captures/side-by-side/settings.png",
+      "diffRecord": "docs/features/design-parity/captures/diff/settings.json"
+    },
+    {
+      "id": "shell",
+      "differingRatio": 0.63708,
+      "maxChannelDelta": 255,
+      "sideBySidePath": "docs/features/design-parity/captures/side-by-side/shell.png",
+      "diffRecord": "docs/features/design-parity/captures/diff/shell.json"
+    },
+    {
+      "id": "status",
+      "differingRatio": 0.639303,
+      "maxChannelDelta": 255,
+      "sideBySidePath": "docs/features/design-parity/captures/side-by-side/status.png",
+      "diffRecord": "docs/features/design-parity/captures/diff/status.json"
+    },
+    {
+      "id": "toolbox",
+      "differingRatio": 0.642002,
+      "maxChannelDelta": 255,
+      "sideBySidePath": "docs/features/design-parity/captures/side-by-side/toolbox.png",
+      "diffRecord": "docs/features/design-parity/captures/diff/toolbox.json"
     }
   ],
   "unpairedRows": [
     {
-      "id": "chat",
-      "missing": "built"
-    },
-    {
-      "id": "cli-harness",
-      "missing": "built"
-    },
-    {
-      "id": "developer",
-      "missing": "built"
-    },
-    {
-      "id": "docs",
-      "missing": "built"
-    },
-    {
-      "id": "launch",
-      "missing": "built"
-    },
-    {
-      "id": "models",
-      "missing": "built"
-    },
-    {
-      "id": "overlay-context-menu",
-      "missing": "built"
-    },
-    {
-      "id": "overlay-destructive-confirmation",
-      "missing": "built"
-    },
-    {
-      "id": "overlay-dim-sum-surprise",
-      "missing": "built"
-    },
-    {
-      "id": "overlay-notification-center",
-      "missing": "built"
-    },
-    {
-      "id": "overlay-regex-builder",
-      "missing": "built"
-    },
-    {
-      "id": "overlay-school-mode-unlock",
-      "missing": "built"
-    },
-    {
-      "id": "settings",
-      "missing": "built"
-    },
-    {
-      "id": "shell",
-      "missing": "built"
-    },
-    {
-      "id": "status",
-      "missing": "built"
-    },
-    {
-      "id": "toolbox",
-      "missing": "built"
+      "id": "overlay-snackbar",
+      "missing": "reference"
     }
   ]
 }
