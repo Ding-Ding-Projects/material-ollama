@@ -179,6 +179,22 @@ func (db *database) init() error {
 		return fmt.Errorf("migrate schema: %w", err)
 	}
 
+	// Then reconcile the settings columns against what the code actually
+	// reads, independently of the version number. Numbered migrations assume
+	// every database walked the same path; this fork's did not. Upstream and
+	// this fork both shipped a v17 and a v18 that added DIFFERENT columns, so
+	// a database that ran one build and then the other ends up at version 18
+	// holding one side's columns and not the other's -- and every migration
+	// that would have added the missing ones is already behind it.
+	//
+	// That is not hypothetical. A real install reached version 18 with
+	// app_events and onboarding_version present and ui_preferences absent, and
+	// every settings read failed with "no such column: ui_preferences" -- the
+	// whole app rendered an error boundary instead of a UI.
+	if err := db.reconcileSettingsColumns(); err != nil {
+		return fmt.Errorf("reconcile settings columns: %w", err)
+	}
+
 	// Clean up orphaned records created before foreign key constraints were properly enforced
 	// TODO: Can eventually be removed - cleans up data from foreign key bug (ollama/ollama#11785, ollama/app#476)
 	if err := db.cleanupOrphanedData(); err != nil {
@@ -662,6 +678,60 @@ func (db *database) migrateV19ToV20() error {
 		return fmt.Errorf("update schema version: %w", err)
 	}
 
+	return nil
+}
+
+// expectedSettingsColumns names every settings column the code reads, with the
+// exact definition ALTER TABLE should add it with. Adding a column here is what
+// makes an older or divergent database self-heal; it does not replace the
+// numbered migration that introduces the column for an ordinary upgrade.
+var expectedSettingsColumns = []struct{ name, definition string }{
+	{"ui_preferences", "TEXT NOT NULL DEFAULT ''"},
+	{"onboarding_version", "INTEGER NOT NULL DEFAULT 0"},
+	{"claude_desktop_used", "BOOLEAN NOT NULL DEFAULT 0"},
+}
+
+// reconcileSettingsColumns adds any expected settings column the database does
+// not already have.
+//
+// Idempotent and additive by construction: it only ever ADDs, never drops,
+// renames or rewrites, so it cannot lose a user's data, and a duplicate column
+// is treated as success because that is the normal case on every healthy
+// database. It runs after migrate() so an ordinary upgrade still takes its
+// numbered path and this finds nothing to do.
+func (db *database) reconcileSettingsColumns() error {
+	existing := map[string]bool{}
+	rows, err := db.conn.Query(`PRAGMA table_info(settings)`)
+	if err != nil {
+		return fmt.Errorf("read settings columns: %w", err)
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var cid int
+		var name, colType string
+		var notNull, pk int
+		var dflt any
+		if err := rows.Scan(&cid, &name, &colType, &notNull, &dflt, &pk); err != nil {
+			return fmt.Errorf("scan settings column: %w", err)
+		}
+		existing[name] = true
+	}
+	if err := rows.Err(); err != nil {
+		return fmt.Errorf("iterate settings columns: %w", err)
+	}
+
+	for _, column := range expectedSettingsColumns {
+		if existing[column.name] {
+			continue
+		}
+		slog.Warn("settings table is missing an expected column; adding it",
+			"column", column.name,
+			"reason", "this database did not take the numbered migration that adds it")
+		stmt := fmt.Sprintf(`ALTER TABLE settings ADD COLUMN %s %s`, column.name, column.definition)
+		if _, err := db.conn.Exec(stmt); err != nil && !duplicateColumnError(err) {
+			return fmt.Errorf("add missing %s column: %w", column.name, err)
+		}
+	}
 	return nil
 }
 
