@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
-import CodexHarness from "@/components/CodexHarness";
+import CodexScreen from "@/screens/CodexScreen";
 
 export const Route = createFileRoute("/codex")({
-  component: CodexHarness,
+  component: CodexScreen,
 });
