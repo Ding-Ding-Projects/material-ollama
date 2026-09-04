@@ -1,5 +1,14 @@
 # Roadmap
 
+## Preservation closeout, 2026-09-04
+
+- [x] Stop the owned local build at the requested usage boundary and retain its caches and partial outputs.
+- [x] Commit the scoped generation repair and preserve every implementation lane on its owning branch.
+- [ ] Complete a fresh native and Squirrel package build from the final integrated source.
+- [ ] Verify a new release and its full downloadable architecture-specific asset set.
+- [ ] Verify the repository archive, then process only eligible merged task-owned cleanup targets.
+
+
 This checklist records evidence-backed delivery status. A checked item is
 complete for the stated scope and commit. An unchecked item remains open.
 

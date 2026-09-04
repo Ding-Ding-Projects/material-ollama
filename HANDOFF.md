@@ -1,5 +1,68 @@
 # Handoff
 
+## Preservation closeout, 2026-09-04
+
+The owner requested preservation-first closeout before further implementation.
+The complete source repair is `3f0b29ad65d67b97ff272e6cd6b50be36e6447c5`,
+descended from the previously pushed `29dd528464e7d00b32a96a58df6c2fc6f42d1124`.
+This handoff commit records the remaining work; it does not certify an installer.
+
+- All implementation lanes have committed and published their source. The final
+  repair replaces `npm install` with `npm ci`, scopes generation to the pinned UI
+  response-type generator, and builds the selected frontend once. It has not yet
+  received a complete package build.
+- The local build at `29dd5284` completed x64 native compilation and reached ARM64
+  compilation. Its owned process tree was deliberately stopped during closeout,
+  before the known repository-wide generation step. This is a cancelled build,
+  not a passing build or a newly diagnosed compiler regression. Existing outputs
+  and verified tool caches remain available for the next invocation.
+- The actual optimized warm prerequisite acquisition passed in 52,917 ms, with
+  archive and extracted-file hashes still enforced. Native PowerShell module
+  resolution, the official Squirrel digest, default numeric version selection,
+  and release metadata parent-directory creation have been repaired.
+- Release run [33914380985](https://github.com/Ding-Ding-Projects/material-ollama/actions/runs/33914380985)
+  failed after building both architectures because generation changed the source
+  before packaging. The final source repair addresses that producer path.
+- Run [33915653856](https://github.com/Ding-Ding-Projects/material-ollama/actions/runs/33915653856)
+  was still building when observation ended. Its source is `29dd5284`, so it does
+  not prove the later generation repair. Read its current result before resuming.
+- No new Squirrel release was verified. `v0.0.0-build.47` remains the last verified
+  publication. No final runtime installation, update execution, or screenshot
+  proof is claimed. Tests and screenshots were not rerun during the accelerated
+  phase; earlier results belong only to the commits identified below.
+- The public website is included in the publication boundary. Served HTML was
+  independently read after deployment and returned HTTP 200, build-47 references
+  with no build-9 reference, an absolute HTTPS social image, and large-card
+  metadata. Earlier statements below about a served build-9 page are historical.
+- No branches, worktrees, or stashes were deleted. The old
+  `task/actions-build-only-20260904` branch and preservation stash remain retained
+  under the no-history-rewrite direction. Its historical publication residue is
+  not part of the recovered workflow lineage. Other task or ownership-uncertain
+  references must not be removed by a blanket cleanup.
+
+### Next execution
+
+Fetch the latest default branch and inspect its clean state, then run the supported
+commands against that exact committed source:
+
+```powershell
+$env:MATERIAL_OLLAMA_BUILD_MODE = 'release-fast'
+.\build.bat /s --release-fast
+if ($LASTEXITCODE -ne 0) { throw 'Native build did not complete' }
+.\build-installer.bat /s
+if ($LASTEXITCODE -ne 0) { throw 'Installer build did not complete' }
+```
+
+Verify the resulting source receipts, then publish through the existing release
+route and read back the unique tag, intended commit, architecture manifests,
+setup executables, RELEASES indexes, full packages, and generated deltas. Keep
+Issue #1 open until its stated remaining criteria are met. Before cleanup, verify
+a complete OneDrive archive of this repository and every linked worktree, prove
+each exact candidate is merged into the pushed default branch, and retain all
+active, incomplete, unmerged, unpublished, or ownership-uncertain state.
+
+## Earlier evidence and implementation inventory
+
 Last updated: 2026-09-04. This handoff distinguishes the current published
 baseline, `v0.0.0-build.47` at `be7a750e41730cc756ab94f05551687a1402e006`,
 from the unreleased native-package source. The current combined source reference
