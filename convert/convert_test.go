@@ -38,7 +38,7 @@ func convertFull(t *testing.T, fsys fs.FS) (*os.File, fsc.Config, ggml.Tensors) 
 	}
 	defer f.Close()
 
-	if err := ConvertModel(fsys, f); err != nil {
+	if err := ConvertModel(fsys, f, func(api.ProgressResponse) {}); err != nil {
 		t.Fatal(err)
 	}
 
@@ -337,7 +337,7 @@ func TestConvertAdapter(t *testing.T) {
 			tempDir := t.TempDir()
 			generateLoraTestData(t, tempDir)
 
-			if err = ConvertAdapter(os.DirFS(tempDir), f, c.BaseKV); err != nil {
+			if err = ConvertAdapter(os.DirFS(tempDir), f, c.BaseKV, func(api.ProgressResponse) {}); err != nil {
 				t.Fatal(err)
 			}
 
