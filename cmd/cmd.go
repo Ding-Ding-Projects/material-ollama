@@ -15,10 +15,12 @@ import (
 	"math"
 	"net"
 	"net/http"
+	"net/url"
 	"os"
 	"os/signal"
 	"path"
 	"path/filepath"
+	"regexp"
 	"runtime"
 	"slices"
 	"sort"
@@ -52,6 +54,7 @@ import (
 	"github.com/ollama/ollama/readline"
 	"github.com/ollama/ollama/runner"
 	"github.com/ollama/ollama/server"
+	"github.com/ollama/ollama/types/errtypes"
 	"github.com/ollama/ollama/types/model"
 	"github.com/ollama/ollama/types/syncmap"
 	"github.com/ollama/ollama/version"
@@ -1117,6 +1120,76 @@ func writeUsageLimit(out io.Writer, name string, limit api.UsageLimit) error {
 	return table.Flush()
 }
 
+func generateFingerprint(key string) string {
+	hash := sha256.Sum256([]byte(key))
+	fingerprint := base64.RawURLEncoding.EncodeToString(hash[:6])
+
+	var formatted strings.Builder
+	for i, char := range fingerprint {
+		if i > 0 && i%2 == 0 {
+			formatted.WriteRune('-')
+		}
+		formatted.WriteRune(char)
+	}
+
+	return formatted.String()
+}
+
+// tryConnect handles key validation when a connection fails due to an unknown key.
+// It attempts to open the browser for interactive sessions to let users connect their key,
+// falling back to command-line instructions for non-interactive sessions.
+// Returns nil if browser flow succeeds, or an error with connection instructions otherwise.
+func tryConnect(unknownKeyErr error) error {
+	// find SSH public key in the error message
+	// TODO (brucemacd): the API should return structured errors so that this message parsing isn't needed
+	sshKeyPattern := `ssh-\w+ [^\s"]+`
+	re := regexp.MustCompile(sshKeyPattern)
+	matches := re.FindStringSubmatch(unknownKeyErr.Error())
+
+	if len(matches) > 0 {
+		serverPubKey := matches[0]
+
+		localPubKey, err := auth.GetPublicKey()
+		if err != nil {
+			return unknownKeyErr
+		}
+
+		if runtime.GOOS == "linux" && serverPubKey != localPubKey {
+			// try the ollama service public key
+			svcPubKey, err := os.ReadFile("/usr/share/ollama/.ollama/id_ed25519.pub")
+			if err != nil {
+				return unknownKeyErr
+			}
+			localPubKey = strings.TrimSpace(string(svcPubKey))
+		}
+
+		// check if the returned public key matches the local public key, this prevents adding a remote key to the user's account
+		if serverPubKey != localPubKey {
+			return unknownKeyErr
+		}
+
+		if term.IsTerminal(int(os.Stdout.Fd())) {
+			// URL encode the key and device name for the browser URL
+			encodedKey := base64.RawURLEncoding.EncodeToString([]byte(localPubKey))
+			d, _ := os.Hostname()
+			encodedDevice := url.QueryEscape(d)
+			browserURL := fmt.Sprintf("https://ollama.com/connect?host=%s&key=%s", encodedDevice, encodedKey)
+
+			if err := browser.OpenURL(browserURL); err == nil {
+				fmt.Printf("\nOpening browser to add your key...\n")
+				fmt.Printf("\nCheck that this code matches what is shown in your browser:\n")
+				fmt.Printf("\n    %s\n", generateFingerprint(localPubKey))
+				return nil
+			}
+		}
+
+		// only return error for non-interactive terminals or if browser opening failed
+		return fmt.Errorf("%s\nAdd your key at:\nhttps://ollama.com/settings/keys", unknownKeyErr.Error())
+	}
+
+	return unknownKeyErr
+}
+
 func PushHandler(cmd *cobra.Command, args []string) error {
 	client, err := api.ClientFromEnvironment()
 	if err != nil {
@@ -1195,6 +1268,11 @@ func PushHandler(cmd *cobra.Command, args []string) error {
 		if strings.Contains(errStr, "access denied") || strings.Contains(errStr, "unauthorized") {
 			return errors.New("you are not authorized to push to this namespace, create the model under a namespace you own")
 		}
+		if strings.Contains(err.Error(), errtypes.UnknownOllamaKeyErrMsg) && isOllamaHost {
+			// the user has not added their ollama key to ollama.com
+			// return an error with a more user-friendly message
+			return tryConnect(err)
+		}
 		return err
 	}
 
@@ -1202,7 +1280,7 @@ func PushHandler(cmd *cobra.Command, args []string) error {
 	spinner.Stop()
 
 	destination := n.String()
-	if strings.HasSuffix(n.Host, ".ollama.ai") || strings.HasSuffix(n.Host, ".ollama.com") {
+	if isOllamaHost {
 		destination = "https://ollama.com/" + strings.TrimSuffix(n.DisplayShortest(), ":latest")
 	}
 	fmt.Printf("\nYou can find your model at:\n\n")
