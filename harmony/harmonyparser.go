@@ -7,8 +7,8 @@ import (
 	"strings"
 	"unicode"
 
-	"github.com/ollama/ollama/api"
 	"github.com/ollama/ollama/logutil"
+	"github.com/ollama/ollama/template"
 )
 
 type harmonyParserState int
@@ -77,17 +77,18 @@ func (s *HarmonyParser) AddImplicitStart() {
 	s.acc.WriteString("<|start|>assistant")
 }
 
-func (s *HarmonyParser) AddImplicitStartOrPrefill(lastMessage *api.Message) {
-	if lastMessage != nil && lastMessage.Role == "assistant" {
-		// handle prefilling conditions
-		if lastMessage.Content != "" {
+// AddImplicitStartOrPrefill adds content or thinking to the accumulator else adds start tag
+func (s *HarmonyParser) AddImplicitStartOrPrefill(prefillContentOrThinking *bool) {
+	if prefillContentOrThinking != nil {
+		if *prefillContentOrThinking {
 			s.acc.WriteString("<|start|>assistant<|channel|>final<|message|>")
 			return
-		} else if lastMessage.Thinking != "" {
+		} else {
 			s.acc.WriteString("<|start|>assistant<|channel|>analysis<|message|>")
 			return
 		}
 	}
+
 	s.AddImplicitStart()
 }
 
@@ -380,6 +381,38 @@ func (a *HarmonyToolCallAccumulator) Content() string {
 type FunctionNameMap struct {
 	userToHarmony map[string]string
 	harmonyToUser map[string]string
+}
+
+func (m FunctionNameMap) MarshalJSON() ([]byte, error) {
+	// necessary to avoid exposing map internals
+	type alias struct {
+		UserToHarmony map[string]string `json:"userToHarmony"`
+		HarmonyToUser map[string]string `json:"harmonyToUser"`
+	}
+	return json.Marshal(alias{
+		UserToHarmony: m.userToHarmony,
+		HarmonyToUser: m.harmonyToUser,
+	})
+}
+
+func (m *FunctionNameMap) UnmarshalJSON(b []byte) error {
+	type alias struct {
+		UserToHarmony map[string]string `json:"userToHarmony"`
+		HarmonyToUser map[string]string `json:"harmonyToUser"`
+	}
+	var a alias
+	if err := json.Unmarshal(b, &a); err != nil {
+		return err
+	}
+	if m.userToHarmony == nil {
+		m.userToHarmony = make(map[string]string)
+	}
+	if m.harmonyToUser == nil {
+		m.harmonyToUser = make(map[string]string)
+	}
+	maps.Copy(m.userToHarmony, a.UserToHarmony)
+	maps.Copy(m.harmonyToUser, a.HarmonyToUser)
+	return nil
 }
 
 func NewFunctionNameMap() *FunctionNameMap {

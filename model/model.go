@@ -271,7 +271,7 @@ func Forward(m Model, optsFuncs ...OptionsFunc) (ml.Tensor, error) {
 	ctx := m.Backend().NewContext()
 	t, err := m.Forward(ctx, opts)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	defer ctx.Close()
 
