@@ -6,7 +6,7 @@ This directory contains the static landing, documentation, status, download, and
 
 The page is a landing and documentation surface. It introduces the installed desktop application and records the current evidence state. It is not the primary runtime, it does not host a model, and it must not be described as a playable substitute for the desktop application.
 
-The page deliberately renders no installer link until a verified release manifest supplies an immutable version, commit, platform, asset filename, URL, size, and hash. A guessed URL is not a download.
+The page renders an installer link only after a verified release supplies an immutable version, commit, platform, asset filename, URL, size, and hash. The current card records `v0.0.0-build.47`; a guessed URL is never a download.
 
 ## Local operation
 
@@ -21,7 +21,7 @@ The settings surface supports language presentation, two tone sliders, theme, de
 - bundled documentation articles and a plain-text-first search;
 - an anchored regular-expression builder for the search field;
 - status cards with source, release, storage, and heartbeat state;
-- a release-proof empty state with no unverified download action;
+- a verified release card with the immutable download URL, size, SHA-256, source commit, unsigned warning, and an explicit open Squirrel.Windows migration boundary;
 - browser-local settings with live theme and density changes;
 - locally bundled SVG mark and the generated `social-preview.png` copy served by the public page.
 

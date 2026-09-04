@@ -13,7 +13,7 @@ const LANDING_HTML_PATH = path.join(REPO_ROOT, 'docs', 'landing-site', 'index.ht
 const LANDING_CSS_PATH = path.join(REPO_ROOT, 'docs', 'landing-site', 'styles.css')
 
 function assertOverviewLayout(html, css) {
-  const calloutStart = html.indexOf('<div class="callout callout-info" data-searchable="verified release scallop har gow installer image">')
+  const calloutStart = html.indexOf('<div class="callout callout-info" data-release-summary')
   assert.notEqual(calloutStart, -1, 'overview release callout must remain present')
   const calloutEnd = html.indexOf('<div class="feature-section">', calloutStart)
   assert.notEqual(calloutEnd, -1, 'overview release callout must remain before the surface map')
@@ -49,6 +49,11 @@ test('layout contract turns red for body, wrapping, and tab-overflow mutations',
   const css = readFileSync(LANDING_CSS_PATH, 'utf8')
   assertOverviewLayout(html, css)
 
+  assert.throws(
+    () => assertOverviewLayout(html.replace(' data-release-summary', ''), css),
+    /overview release callout must remain present/,
+    'removing the stable release-summary boundary must be detected',
+  )
   assert.throws(
     () => assertOverviewLayout(html.replace('<div class="callout-body">', ''), css),
     /callout-body|wrap its heading/,
