@@ -1965,7 +1965,7 @@
       "surfaces": {
         "desktop-app": {
           "status": "in-progress",
-          "implementation": "app/ui/app/src/screens/toolbox/ConverterSection.tsx#L1-L302,app/ui/app/src/screens/toolbox/ConvertCategoryList.tsx#L1-L120,app/ui/convert.go#L1-L400",
+          "implementation": "app/ui/app/src/screens/toolbox/ConverterSection.tsx#L1-L298,app/ui/app/src/screens/toolbox/ConvertCategoryList.tsx#L1-L120,app/ui/convert.go#L1-L400",
           "documentation": "docs/features/uh-completeness/articles/file-converter.md#behaviour",
           "localizedCopy": "app/ui/app/src/screens/toolbox/ConvertCategoryList.tsx#missingDependency",
           "persistence": "app/ui/convert.go",
