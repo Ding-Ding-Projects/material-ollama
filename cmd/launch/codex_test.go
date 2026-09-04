@@ -139,6 +139,9 @@ func TestWriteCodexProfileConfig(t *testing.T) {
 		if err := codexValidateConfigText(content); err != nil {
 			t.Fatalf("generated config should be valid TOML: %v\n%s", err, content)
 		}
+		if err := codexValidateConfigText(content); err != nil {
+			t.Fatalf("generated config should be valid TOML: %v\n%s", err, content)
+		}
 	})
 
 	t.Run("overwrites owned profile and backs up previous profile", func(t *testing.T) {
@@ -930,4 +933,22 @@ func TestBuildCodexModelEntryContextWindow(t *testing.T) {
 			}
 		})
 	}
+}
+
+func assertBackupContains(t *testing.T, pattern, marker string) {
+	t.Helper()
+	backups, err := filepath.Glob(pattern)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, backupPath := range backups {
+		data, err := os.ReadFile(backupPath)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if strings.Contains(string(data), marker) {
+			return
+		}
+	}
+	t.Fatalf("backup matching %q with marker %q not found", pattern, marker)
 }
