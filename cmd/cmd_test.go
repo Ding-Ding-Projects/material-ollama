@@ -2109,7 +2109,7 @@ func TestPushHandler(t *testing.T) {
 				"/api/push": func(w http.ResponseWriter, r *http.Request) {
 					w.Header().Set("Content-Type", "application/json")
 					w.WriteHeader(http.StatusUnauthorized)
-					uerr := errtypes.UnknownOllamaKey{
+					uerr := api.ErrUnknownOllamaKey{
 						Key: "aaa",
 					}
 					err := json.NewEncoder(w).Encode(map[string]string{

@@ -277,7 +277,7 @@ func generateInteractive(cmd *cobra.Command, opts runOptions) error {
 			fn := func(resp api.ProgressResponse) error { return nil }
 			err = client.Create(cmd.Context(), req, fn)
 			if err != nil {
-				if strings.Contains(err.Error(), errtypes.InvalidModelNameErrMsg) {
+				if strings.Contains(err.Error(), api.InvalidModelNameErrMsg) {
 					fmt.Printf("error: The model name '%s' is invalid\n", args[1])
 					continue
 				}

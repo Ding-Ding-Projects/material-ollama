@@ -1517,7 +1517,7 @@ func makeRequestWithRetry(ctx context.Context, method string, requestURL *url.UR
 						slog.Error(fmt.Sprintf("couldn't get public key: %v", nestedErr))
 						return nil, re
 					}
-					return nil, errtypes.UnknownOllamaKey{
+					return nil, api.ErrUnknownOllamaKey{
 						Key: pubKey,
 					}
 				}

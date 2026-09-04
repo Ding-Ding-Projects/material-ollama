@@ -22,7 +22,6 @@ import (
 	"os/exec"
 	"path"
 	"path/filepath"
-	"regexp"
 	"runtime"
 	"slices"
 	"sort"
@@ -64,7 +63,6 @@ import (
 	"github.com/ollama/ollama/progress"
 	"github.com/ollama/ollama/runner"
 	"github.com/ollama/ollama/server"
-	"github.com/ollama/ollama/types/errtypes"
 	"github.com/ollama/ollama/types/model"
 	"github.com/ollama/ollama/version"
 	xcreate "github.com/ollama/ollama/x/create"
@@ -1381,7 +1379,16 @@ func unknownKey(unknownKeyErr error) error {
 		return errors.New(msg.String())
 	}
 
-	return unknownKeyErr
+	keys := []string{usrKey}
+
+	if runtime.GOOS == "linux" {
+		// try the ollama service public key if on Linux
+		if svcKey, err := os.ReadFile("/usr/share/ollama/.ollama/id_ed25519.pub"); err == nil {
+			keys = append(keys, strings.TrimSpace(string(svcKey)))
+		}
+	}
+
+	return keys, nil
 }
 
 func PushHandler(cmd *cobra.Command, args []string) error {

@@ -293,8 +293,15 @@ func (c *Client) stream(ctx context.Context, method, path string, data any, fn f
 			}
 		}
 
-		if errorResponse.Error != "" {
-			return errors.New(errorResponse.Error)
+		switch errorResponse.Code {
+		case ErrCodeUnknownKey:
+			return ErrUnknownOllamaKey{
+				Message: errorResponse.Message,
+				Key:     errorResponse.Data["key"].(string),
+			}
+		}
+		if errorResponse.Message != "" {
+			return errors.New(errorResponse.Message)
 		}
 
 		if err := fn(bts); err != nil {
