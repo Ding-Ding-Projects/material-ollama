@@ -101,7 +101,8 @@ type ErrorEvent struct {
 }
 
 type SettingsResponse struct {
-	Settings store.Settings `json:"settings"`
+	Settings             store.Settings `json:"settings"`
+	HasCompletedFirstRun bool           `json:"hasCompletedFirstRun"`
 }
 
 type HealthResponse struct {

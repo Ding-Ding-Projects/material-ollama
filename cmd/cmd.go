@@ -2375,7 +2375,7 @@ func NewCLI() *cobra.Command {
 
 	rootCmd := &cobra.Command{
 		Use:           "ollama",
-		Short:         "Large language model runner",
+		Short:         "Run the Ollama interactive menu",
 		SilenceUsage:  true,
 		SilenceErrors: true,
 		CompletionOptions: cobra.CompletionOptions{
