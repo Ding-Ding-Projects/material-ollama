@@ -855,6 +855,8 @@ func (c *launcherClient) launchManagedSingleIntegration(ctx context.Context, nam
 		if err := managed.Onboard(); err != nil {
 			return err
 		}
+
+		return launchAfterConfiguration(name, runner, models[0], req)
 	}
 
 	if configured {

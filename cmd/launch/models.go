@@ -1,6 +1,7 @@
 package launch
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
@@ -316,6 +317,9 @@ func prepareEditorIntegration(name string, editor Editor, models []LaunchModel) 
 	}
 	if err := config.SaveIntegration(name, launchModelNames(models)); err != nil {
 		return fmt.Errorf("failed to save: %w", err)
+	}
+	if showBackupNotice {
+		fmt.Fprintf(os.Stderr, "%s%s configuration has been modified. Backups are saved in %s/%s\n", ansiGray, runner, fileutil.BackupDir(), ansiReset)
 	}
 	return nil
 }
