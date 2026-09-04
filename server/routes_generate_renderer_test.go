@@ -8,7 +8,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/gin-gonic/gin"
 	"github.com/google/go-cmp/cmp"
 
 	"github.com/ollama/ollama/api"

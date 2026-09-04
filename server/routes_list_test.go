@@ -11,8 +11,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/gin-gonic/gin"
-
 	"github.com/ollama/ollama/api"
 	"github.com/ollama/ollama/manifest"
 	"github.com/ollama/ollama/openai"
@@ -20,8 +18,6 @@ import (
 )
 
 func TestList(t *testing.T) {
-	gin.SetMode(gin.TestMode)
-
 	t.Setenv("OLLAMA_MODELS", t.TempDir())
 
 	expectNames := []string{

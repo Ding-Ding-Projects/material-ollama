@@ -4,10 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"net/http"
-	"path/filepath"
 	"testing"
-
-	"github.com/gin-gonic/gin"
 
 	"github.com/ollama/ollama/api"
 	"github.com/ollama/ollama/manifest"
@@ -15,13 +12,7 @@ import (
 )
 
 func TestDelete(t *testing.T) {
-	gin.SetMode(gin.TestMode)
-
-	p := t.TempDir()
-	t.Setenv("OLLAMA_MODELS", p)
-
 	var s Server
-
 	_, digest := createBinFile(t, nil, nil)
 	w := createRequest(t, s.CreateHandler, api.CreateRequest{
 		Name:  "test",
@@ -42,9 +33,9 @@ func TestDelete(t *testing.T) {
 		t.Fatalf("expected status code 200, actual %d", w.Code)
 	}
 
-	checkFileExists(t, filepath.Join(p, "manifests", "*", "*", "*", "*"), []string{
-		filepath.Join(p, "manifests", "registry.ollama.ai", "library", "test", "latest"),
-		filepath.Join(p, "manifests", "registry.ollama.ai", "library", "test2", "latest"),
+	checkFilesExist(t, "manifests/*/*/*/*", []string{
+		"manifests/registry.ollama.ai/library/test/latest",
+		"manifests/registry.ollama.ai/library/test2/latest",
 	})
 
 	checkFileExists(t, filepath.Join(p, "blobs", "*"), []string{
@@ -59,8 +50,8 @@ func TestDelete(t *testing.T) {
 		t.Fatalf("expected status code 200, actual %d", w.Code)
 	}
 
-	checkFileExists(t, filepath.Join(p, "manifests", "*", "*", "*", "*"), []string{
-		filepath.Join(p, "manifests", "registry.ollama.ai", "library", "test2", "latest"),
+	checkFilesExist(t, "manifests/*/*/*/*", []string{
+		"manifests/registry.ollama.ai/library/test2/latest",
 	})
 
 	checkFileExists(t, filepath.Join(p, "blobs", "*"), []string{
@@ -75,19 +66,14 @@ func TestDelete(t *testing.T) {
 		t.Fatalf("expected status code 200, actual %d", w.Code)
 	}
 
-	checkFileExists(t, filepath.Join(p, "manifests", "*", "*", "*", "*"), []string{})
-	checkFileExists(t, filepath.Join(p, "blobs", "*"), []string{})
+	checkFilesExist(t, "manifests/*/*/*/*", []string{})
+	checkFilesExist(t, "blobs/*", []string{})
 }
 
 func TestDeleteDuplicateLayers(t *testing.T) {
-	gin.SetMode(gin.TestMode)
-
-	p := t.TempDir()
-	t.Setenv("OLLAMA_MODELS", p)
 	var s Server
-
+	t.Setenv("OLLAMA_MODELS", t.TempDir())
 	n := model.ParseName("test")
-
 	var b bytes.Buffer
 	if err := json.NewEncoder(&b).Encode(&model.ConfigV2{}); err != nil {
 		t.Fatal(err)
@@ -108,7 +94,7 @@ func TestDeleteDuplicateLayers(t *testing.T) {
 		t.Errorf("expected status code 200, actual %d", w.Code)
 	}
 
-	checkFileExists(t, filepath.Join(p, "manifests", "*", "*", "*", "*"), []string{})
+	checkFilesExist(t, "manifests/*/*/*/*", []string{})
 }
 
 func TestDeleteCloudSourceNormalizesToLegacyName(t *testing.T) {

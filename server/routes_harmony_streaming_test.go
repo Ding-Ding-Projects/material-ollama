@@ -12,7 +12,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/gin-gonic/gin"
 	"github.com/ollama/ollama/api"
 	"github.com/ollama/ollama/fs/ggml"
 	"github.com/ollama/ollama/llm"
@@ -88,8 +87,6 @@ func createHarmonyTestModel(t *testing.T) (string, string) {
 
 // TestChatHarmonyParserStreamingRealtime verifies that chunks are emitted as soon as they're available
 func TestChatHarmonyParserStreamingRealtime(t *testing.T) {
-	gin.SetMode(gin.TestMode)
-
 	type step struct {
 		input         llm.CompletionResponse
 		wantContent   string
@@ -385,8 +382,6 @@ func TestChatHarmonyParserStreamingRealtime(t *testing.T) {
 
 // TestChatHarmonyParserStreamingSimple is a simpler test that just verifies basic streaming
 func TestChatHarmonyParserStreamingSimple(t *testing.T) {
-	gin.SetMode(gin.TestMode)
-
 	mockResponses := []llm.CompletionResponse{
 		{Content: "<|message|>First ", Done: false},
 		{Content: "chunk ", Done: false},
@@ -497,8 +492,6 @@ func TestChatHarmonyParserStreamingSimple(t *testing.T) {
 }
 
 func TestChatHarmonyParserStreaming(t *testing.T) {
-	gin.SetMode(gin.TestMode)
-
 	type expectedChunk struct {
 		afterResponse int    // Which mock response this chunk should appear after
 		content       string // Expected content in this chunk
