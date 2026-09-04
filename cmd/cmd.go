@@ -950,6 +950,14 @@ func RunHandler(cmd *cobra.Command, args []string) error {
 			}
 		}
 
+		speech, err := cmd.Flags().GetBool("speech")
+		if err != nil {
+			return err
+		}
+
+		if speech {
+			return generateInteractiveAudio(cmd, opts)
+		}
 		return generateInteractive(cmd, opts)
 	}
 	if err := generate(cmd, opts); err != nil {
@@ -1983,6 +1991,10 @@ func chat(cmd *cobra.Command, opts runOptions) (*api.Message, *api.Metrics, erro
 		req.KeepAlive = opts.KeepAlive
 	}
 
+	if opts.Audio {
+		req.RunSpeech = true
+	}
+
 	if err := client.Chat(cancelCtx, req, fn); err != nil {
 		if errors.Is(err, context.Canceled) {
 			return nil, nil, nil
@@ -2116,6 +2128,30 @@ func generate(cmd *cobra.Command, opts runOptions) error {
 		Think:     opts.Think,
 	}
 
+	speech, err := cmd.Flags().GetBool("speech")
+	if err != nil {
+		return err
+	}
+
+	// create temp wav file with the recorder package
+	if speech {
+		tempFile, err := os.CreateTemp("", "recording-*.wav")
+		if err != nil {
+			return err
+		}
+		defer os.Remove(tempFile.Name())
+
+		fmt.Print("Speech Mode\n\n")
+
+		err = recorder.RecordAudio(tempFile)
+		if err != nil {
+			return err
+		}
+
+		request.Speech = &api.WhisperRequest{
+			Audio: tempFile.Name(),
+		}
+	}
 	if err := client.Generate(ctx, &request, fn); err != nil {
 		if errors.Is(err, context.Canceled) {
 			return nil
@@ -2437,6 +2473,7 @@ func NewCLI() *cobra.Command {
 		RunE:    RunHandler,
 	}
 
+	runCmd.Flags().Bool("speech", false, "Speech to text mode")
 	runCmd.Flags().String("keepalive", "", "Duration to keep a model loaded (e.g. 5m)")
 	runCmd.Flags().Bool("verbose", false, "Show timings for response")
 	runCmd.Flags().Bool("insecure", false, "Use an insecure registry")

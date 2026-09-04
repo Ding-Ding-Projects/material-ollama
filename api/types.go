@@ -56,6 +56,13 @@ func (e AuthorizationError) Error() string {
 // ImageData represents the raw binary data of an image file.
 type ImageData []byte
 
+type WhisperRequest struct {
+	Model      string    `json:"model,omitempty"`
+	Audio      string    `json:"audio,omitempty"`
+	Transcribe bool      `json:"transcribe,omitempty"`
+	KeepAlive  *Duration `json:"keep_alive,omitempty"`
+}
+
 // GenerateRequest describes a request sent by [Client.Generate]. While you
 // have to specify the Model and Prompt fields, all the other fields have
 // reasonable defaults for basic uses.
@@ -929,6 +936,11 @@ type GenerateResponse struct {
 	// Logprobs contains log probability information for the generated tokens,
 	// if requested via the Logprobs parameter.
 	Logprobs []Logprob `json:"logprobs,omitempty"`
+}
+
+type WhisperCompletion struct {
+	Text  string `json:"text"`
+	Error string `json:"error,omitempty"`
 }
 
 // ModelDetails provides details about a model.

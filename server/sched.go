@@ -221,6 +221,10 @@ func (s *Scheduler) Run(ctx context.Context) {
 	go func() {
 		s.processCompleted(ctx)
 	}()
+
+	// go func() {
+	// 	could clean up whisper servers in init thread
+	// }
 }
 
 func (s *Scheduler) processPending(ctx context.Context) {
