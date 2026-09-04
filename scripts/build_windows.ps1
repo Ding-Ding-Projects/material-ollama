@@ -13,6 +13,8 @@ if (-not (Test-Path -LiteralPath $utilityModulePath -PathType Leaf)) { throw "Mi
 Import-Module -Name $utilityModulePath -Force -ErrorAction Stop
 
 $script:REPO_ROOT = Split-Path -Parent $PSScriptRoot
+. (Join-Path $PSScriptRoot 'squirrel-contract.ps1')
+$script:COMPLETED_STEPS = @{}
 
 mkdir -Force -path .\dist | Out-Null
 
@@ -99,23 +101,6 @@ function getWindowsToolVersion {
     return $null
 }
 
-function testWindowsInnoSetupVersion {
-    param(
-        [Parameter(Mandatory)][string]$Path,
-        [Parameter(Mandatory)][string]$ExpectedVersion
-    )
-
-    if (-not (Test-Path -LiteralPath $Path -PathType Leaf)) {
-        return $false
-    }
-    $directory = Split-Path -Parent $Path
-    if ($directory -notmatch [regex]::Escape($ExpectedVersion)) {
-        return $false
-    }
-    $output = @(& $Path '/?' 2>&1)
-    return (($output -join [Environment]::NewLine) -match 'Inno Setup 6 Command-Line Compiler')
-}
-
 function normalizeWindowsToolPath {
     param([Parameter(Mandatory)][string]$Path)
 
@@ -183,11 +168,6 @@ function getWindowsVerifiedUserTool {
         if ($Dependency.name -eq "Ninja" -and (getWindowsToolVersion -Path $unmarkedExecutable -Kind Ninja) -ne [string]$Dependency.version) {
             throw "User-scoped Ninja failed its version check: $unmarkedExecutable"
         }
-        if ($Dependency.name -eq "Inno Setup") {
-            if (-not (testWindowsInnoSetupVersion -Path $unmarkedExecutable -ExpectedVersion ([string]$Dependency.version))) {
-                throw "User-scoped Inno Setup failed its version check: $unmarkedExecutable"
-            }
-        }
         return [pscustomobject]@{
             Root = $candidateRoot
             Executable = $unmarkedExecutable
@@ -219,11 +199,6 @@ function getWindowsVerifiedUserTool {
     if ($Dependency.name -eq "Ninja" -and (getWindowsToolVersion -Path $executable -Kind Ninja) -ne [string]$Dependency.version) {
         throw "User-scoped Ninja failed its version check: $executable"
     }
-    if ($Dependency.name -eq "Inno Setup") {
-        if (-not (testWindowsInnoSetupVersion -Path $executable -ExpectedVersion ([string]$Dependency.version))) {
-            throw "User-scoped Inno Setup failed its version check: $executable"
-        }
-    }
     return [pscustomobject]@{
         Root = $candidateRoot
         Executable = $executable
@@ -250,15 +225,8 @@ function findWindowsMachineTool {
                 return $candidate
             }
         }
-        "Inno Setup" {
-            $roots = @($env:ProgramFiles, ${env:ProgramFiles(x86)}) | Where-Object { $_ }
-            foreach ($root in $roots) {
-                $candidate = Get-ChildItem -Path (Join-Path $root "Inno Setup*\ISCC.exe") -File -ErrorAction SilentlyContinue |
-                    Select-Object -First 1
-                if ($candidate -and (testWindowsInnoSetupVersion -Path $candidate.FullName -ExpectedVersion ([string]$Dependency.version))) {
-                    return $candidate.FullName
-                }
-            }
+        "Squirrel.Windows" {
+            return $null
         }
         "llvm-mingw" {
             $candidate = (Get-Command -Name "x86_64-w64-mingw32-gcc.exe" -ErrorAction SilentlyContinue | Select-Object -First 1).Path
@@ -273,7 +241,7 @@ function findWindowsMachineTool {
 function resolveWindowsBuildTools {
     $manifest = getWindowsDependencyManifest
     $toolRoot = getWindowsUserToolchainRoot
-    foreach ($name in @("CMake", "Ninja", "llvm-mingw", "Inno Setup")) {
+    foreach ($name in @("CMake", "Ninja", "llvm-mingw")) {
         $dependency = @($manifest.dependencies | Where-Object { $_.name -eq $name })
         if ($dependency.Count -ne 1) {
             throw "Windows dependency manifest must contain exactly one '$name' entry."
@@ -286,9 +254,6 @@ function resolveWindowsBuildTools {
             Write-Output "Resolved $name from verified machine installation: $machineTool"
             if ($name -eq "llvm-mingw") {
                 $script:LLVM_MINGW_BIN = $directory
-            }
-            if ($name -eq "Inno Setup") {
-                $script:INNO_SETUP_DIR = $directory
             }
             continue
         }
@@ -304,9 +269,6 @@ function resolveWindowsBuildTools {
         Write-Output "Resolved $name from $($userTool.Origin): $($userTool.Executable)"
         if ($name -eq "llvm-mingw") {
             $script:LLVM_MINGW_BIN = $directory
-        }
-        if ($name -eq "Inno Setup") {
-            $script:INNO_SETUP_DIR = $directory
         }
     }
 }
@@ -532,11 +494,6 @@ function checkEnv {
         $script:HIP_PATH=$script:HIP_PATH_V6
     }
     
-    $inoSetup=(get-item "C:\Program Files*\Inno Setup*\")
-    if ($inoSetup.length -gt 0) {
-        $script:INNO_SETUP_DIR=$inoSetup[0]
-    }
-
     $script:DIST_DIR="${script:SRC_DIR}\dist\windows-${script:TARGET_ARCH}"
     $env:CGO_ENABLED="1"
     if (-not $env:CGO_CFLAGS) {
@@ -547,24 +504,29 @@ function checkEnv {
     }
     Write-Output "Checking version"
     if (!$env:VERSION) {
-        $data=(git describe --tags --first-parent --abbrev=7 --long --dirty --always)
-        $pattern="v(.+)"
-        if ($data -match $pattern) {
-            $script:VERSION=$matches[1]
+        $data=(git describe --tags --first-parent --abbrev=7 --long --always)
+        if ($data -match '^v(?<base>\d+[.]\d+[.]\d+)-(?<distance>\d+)-g[0-9a-f]+$') {
+            $script:VERSION = "$($matches.base)-build.$($matches.distance)"
+        } elseif ($data -match '^v(?<base>\d+[.]\d+[.]\d+)$') {
+            $script:VERSION = $matches.base
+        } elseif ($data -match '^(?<base>\d+[.]\d+[.]\d+)(?:-(?<suffix>[0-9A-Za-z.-]+))?$') {
+            $script:VERSION = $data
+        } else {
+            throw "Unable to derive a Squirrel-compatible version from git describe output '$data'."
         }
     } else {
         $script:VERSION=$env:VERSION
     }
-    $pattern = "(\d+[.]\d+[.]\d+).*"
-    if ($script:VERSION -match $pattern) {
-        $script:PKG_VERSION=$matches[1]
-    } else {
-        $script:PKG_VERSION="0.0.0"
+    if ($script:VERSION -notmatch '^\d+[.]\d+[.]\d+(?:-[0-9A-Za-z.-]+)?$') {
+        throw "VERSION '$script:VERSION' is not a Squirrel-compatible semantic version."
     }
+    $script:PKG_VERSION = Get-SquirrelVersion $script:REPO_ROOT
+    $script:VERSION = $script:PKG_VERSION
     $script:SOURCE_COMMIT = ((git rev-parse HEAD 2>$null) | Select-Object -First 1).Trim()
     if ($script:SOURCE_COMMIT -notmatch '^[0-9a-f]{40}$') {
         throw "Unable to resolve the exact source commit for installer provenance."
     }
+    $script:SOURCE_STATE = Get-SquirrelSourceState $script:REPO_ROOT $script:SOURCE_COMMIT
     Write-Output "Building Ollama $script:VERSION with package version $script:PKG_VERSION"
 
     # Code signing is permanently disabled for this project.  Fail closed if a
@@ -1226,7 +1188,7 @@ function buildApp {
 	# debug.ReadBuildInfo's VCS stamping, which is not guaranteed to survive
 	# the -trimpath build below. $env:GITHUB_SHA is only set in CI; a local
 	# dev build embeds an empty commit, matching app/ui/buildinfo's default.
-	$appCommit = if ($env:GITHUB_SHA) { $env:GITHUB_SHA } else { '' }
+	$appCommit = $script:SOURCE_COMMIT
 
 	# Compile the Windows resource script into a .syso so the linker embeds the
 	# application icon into the executable itself. Without this the .rc and the
@@ -1257,10 +1219,20 @@ function buildApp {
 		# Not fatal: a machine without the mingw toolchain can still produce a
 		# runnable binary. Say so loudly rather than silently shipping the
 		# default icon and letting a release gate discover it later.
-		write-warning "$windresName not found; the ${arch} executable will NOT carry the application icon"
+		throw "$windresName is required to embed the application icon, Squirrel awareness and execution manifest for ${arch}."
 	}
 
-	& go build -trimpath -ldflags "-s -w -H windowsgui -X=github.com/ollama/ollama/app/version.Version=$script:VERSION -X=github.com/ollama/ollama/app/version.Commit=$appCommit" -o .\dist\windows-ollama-app-${arch}.exe ./app/cmd/app/
+    $metadataPath = Join-Path $script:SRC_DIR 'dist/buildinfo.json'
+    if (-not (Test-Path -LiteralPath $metadataPath)) {
+        Write-SquirrelJson $metadataPath ([ordered]@{ schemaVersion = 1; version = $script:PKG_VERSION; commit = $script:SOURCE_COMMIT; shortCommit = $script:SOURCE_COMMIT.Substring(0, 12); builtAt = [DateTimeOffset]::UtcNow.ToString('o'); catalog = @() })
+    }
+    $metadata = Get-Content -Raw -LiteralPath $metadataPath | ConvertFrom-Json
+    if ($metadata.version -cne $script:PKG_VERSION -or $metadata.commit -cne $script:SOURCE_COMMIT) { throw 'Generated build metadata belongs to another version or source commit.' }
+    $overlayPath = Join-Path $script:SRC_DIR 'dist/build-overlay.json'
+    $replacements = @{}
+    $replacements[(Join-Path $script:SRC_DIR 'app/ui/buildinfo/buildinfo.json')] = $metadataPath
+    Write-SquirrelJson $overlayPath @{ Replace = $replacements }
+    & go build -overlay $overlayPath -trimpath -ldflags "-s -w -H windowsgui -X=github.com/ollama/ollama/app/version.Version=$script:VERSION -X=github.com/ollama/ollama/app/version.Commit=$appCommit" -o .\dist\windows-ollama-app-${arch}.exe ./app/cmd/app/
     if ($LASTEXITCODE -ne 0) { exit($LASTEXITCODE)}
 }
 
@@ -1309,14 +1281,36 @@ function deps {
         $actual = (Get-FileHash -LiteralPath $payload -Algorithm SHA256).Hash.ToLowerInvariant()
         if ($actual -ne ([string]$item.sha256).ToLowerInvariant()) { throw "WebView2 payload digest mismatch after acquisition: $payload" }
     }
-    Write-Output "deps: LLVM-MinGW runtime DLLs remain bundled by CMake install; WebView2 payloads are hash-verified and staged for Inno."
+    Write-Output "deps: LLVM-MinGW runtime DLLs remain bundled by CMake install; WebView2 payloads are hash-verified and staged for Squirrel.Windows."
+}
+
+function resolveSquirrelTool {
+    $manifest = getWindowsDependencyManifest
+    $dependency = @($manifest.dependencies | Where-Object { $_.name -eq "Squirrel.Windows" })
+    if ($dependency.Count -ne 1) {
+        throw "Windows dependency manifest must contain exactly one 'Squirrel.Windows' entry."
+    }
+    $dependency = $dependency[0]
+    $toolRoot = getWindowsUserToolchainRoot
+    if (-not $toolRoot) {
+        throw "Squirrel.Windows v$($dependency.version) requires a user-scoped toolchain root."
+    }
+    $tool = getWindowsVerifiedUserTool -ToolRoot $toolRoot -Dependency $dependency
+    if (-not $tool) {
+        throw "Squirrel.Windows v$($dependency.version) is missing from '$toolRoot'. Run scripts/bootstrap_windows_tools.ps1 first."
+    }
+    if (-not (Test-Path -LiteralPath $tool.Executable -PathType Leaf)) {
+        throw "Squirrel.Windows executable is missing: $($tool.Executable)"
+    }
+    $script:SQUIRREL_EXE = $tool.Executable
+    Write-Output "Resolved Squirrel.Windows from $($tool.Origin): $($tool.Executable)"
 }
 
 function sign {
-    # Copy install.ps1 to dist for release packaging
-    Write-Output "Copying install.ps1 to dist"
-    Copy-Item -Path "${script:SRC_DIR}\scripts\install.ps1" -Destination "${script:SRC_DIR}\dist\install.ps1" -ErrorAction Stop
-    Write-Output "Signing not enabled; copied files remain unsigned"
+    foreach ($name in @('KEY_CONTAINER', 'OLLAMA_CERT', 'SIGN_TOOL', 'CSC_LINK', 'CSC_KEY_PASSWORD', 'WIN_CSC_LINK')) {
+        [Environment]::SetEnvironmentVariable($name, $null)
+    }
+    Write-Output "Signing is disabled by project policy; Squirrel.Windows outputs remain unsigned"
 }
 
 function ValidateUniversalWindowsPayload {
@@ -1348,22 +1342,46 @@ function ValidateUniversalWindowsPayload {
     Write-Output "Universal Windows payload verified: x64 and ARM64 desktop, CLI, CPU/server, WebView2, and LLVM-MinGW runtime families are present."
 }
 
-function installer {
-    if ($null -eq ${script:INNO_SETUP_DIR}) {
-        Write-Output "ERROR: missing Inno Setup installation directory - install from https://jrsoftware.org/isdl.php"
-        exit 1
+function Write-SquirrelPayloadReceipt {
+    foreach ($step in @('cpu', 'cpuArm64', 'ollama', 'ollamaArm64', 'app', 'appArm64', 'deps')) {
+        if (-not $script:COMPLETED_STEPS.ContainsKey($step)) { throw "Installer requires '$step' to complete in this build invocation; stale payload reuse is refused." }
     }
     ValidateUniversalWindowsPayload
-    Write-Output "Building Ollama Installer"
-    cd "${script:SRC_DIR}\app"
-    $env:PKG_VERSION=$script:PKG_VERSION
-    $previousGitCommit = $env:GIT_COMMIT
-    $env:GIT_COMMIT = $script:SOURCE_COMMIT
-    try {
-        & "${script:INNO_SETUP_DIR}\ISCC.exe" /DARCH=$script:TARGET_ARCH .\ollama.iss
-        if ($LASTEXITCODE -ne 0) { exit($LASTEXITCODE)}
-    } finally {
-        $env:GIT_COMMIT = $previousGitCommit
+    $state = Get-SquirrelSourceState $script:REPO_ROOT $script:SOURCE_COMMIT
+    foreach ($key in $script:SOURCE_STATE.Keys) { if ($state[$key] -cne $script:SOURCE_STATE[$key]) { throw 'Source or dependency manifest changed during the build.' } }
+    $dist = Join-Path $script:SRC_DIR 'dist'
+    $files = @()
+    foreach ($relative in @('windows-ollama-app-amd64.exe', 'windows-ollama-app-arm64.exe', 'windows-amd64', 'windows-arm64', 'webview2', 'buildinfo.json', 'build-overlay.json')) {
+        $inputPath = Get-ContainedPath $dist $relative
+        foreach ($file in (Get-ChildItem -LiteralPath $inputPath -File -Recurse)) {
+            Assert-NoReparsePath $file.FullName
+            $files += [ordered]@{ path = $file.FullName.Substring($dist.Length + 1).Replace('\', '/'); size = $file.Length; sha256 = (Get-FileHash -LiteralPath $file.FullName -Algorithm SHA256).Hash.ToLowerInvariant() }
+        }
+    }
+    $receipt = [ordered]@{ schemaVersion = 1; version = $script:PKG_VERSION; files = $files }
+    foreach ($key in $state.Keys) { $receipt[$key] = $state[$key] }
+    Write-SquirrelJson (Join-Path $dist 'payload-receipt.json') $receipt
+}
+
+function installer {
+    Write-SquirrelPayloadReceipt
+    resolveSquirrelTool
+    Write-Output "Building unsigned Squirrel.Windows packages for x64 and arm64"
+    $packageScript = Join-Path $script:SRC_DIR "scripts\package-squirrel.ps1"
+    if (-not (Test-Path -LiteralPath $packageScript -PathType Leaf)) {
+        throw "Squirrel.Windows packaging script is missing: $packageScript"
+    }
+    foreach ($architecture in @("x64", "arm64")) {
+        & (Join-Path $env:SystemRoot "System32\WindowsPowerShell\v1.0\powershell.exe") -NoProfile -ExecutionPolicy Bypass -File $packageScript `
+            -SourceRoot $script:SRC_DIR `
+            -PayloadRoot (Join-Path $script:SRC_DIR "dist") `
+            -OutputRoot (Join-Path $script:SRC_DIR "dist\squirrel-windows\$architecture") `
+            -Architecture $architecture `
+            -Version $script:PKG_VERSION `
+            -ExpectedCommit $script:SOURCE_COMMIT `
+            -SquirrelPath $script:SQUIRREL_EXE `
+            -IconPath (Join-Path $script:SRC_DIR "app\assets\app.ico")
+        if ($LASTEXITCODE -ne 0) { throw "Squirrel.Windows packaging failed for $architecture with exit code $LASTEXITCODE" }
     }
 }
 
@@ -1618,30 +1636,18 @@ function clean {
 checkEnv
 try {
     if ($($args.count) -eq 0) {
-        cpu
-        cpuArm64
-        cuda12
-        cuda13
-        if ($script:ARCH -ne "arm64") {
-            cuda13Arm64IfAvailable
-        }
-        rocm7
-        vulkan
-        mlxCuda13
-        ollama
-        ollamaArm64
-        app
-        appArm64
-        deps
-        sign
-        installer
-        zip
+        $steps = @('cpu', 'cpuArm64', 'cuda12', 'cuda13')
+        if ($script:ARCH -ne 'arm64') { $steps += 'cuda13Arm64IfAvailable' }
+        $steps += @('rocm7', 'vulkan', 'mlxCuda13', 'ollama', 'ollamaArm64', 'app', 'appArm64', 'deps', 'sign', 'installer', 'zip')
+        foreach ($step in $steps) { & $step; $script:COMPLETED_STEPS[$step] = $true }
     } else {
         for ( $i = 0; $i -lt $args.count; $i++ ) {
             Write-Output "running build step $($args[$i])"
             & $($args[$i])
+            $script:COMPLETED_STEPS[$args[$i]] = $true
         } 
     }
+    if (@('cpu', 'cpuArm64', 'ollama', 'ollamaArm64', 'app', 'appArm64', 'deps' | Where-Object { -not $script:COMPLETED_STEPS.ContainsKey($_) }).Count -eq 0) { Write-SquirrelPayloadReceipt }
 } catch {
     Write-Error "Build Failed: $($_.Exception.Message)"
     Write-Error "$($_.ScriptStackTrace)"

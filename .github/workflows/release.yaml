@@ -54,10 +54,8 @@ jobs:
         run: |
           $ErrorActionPreference = 'Stop'
           $manifest = Get-Content -Raw scripts/release-dependencies.json | ConvertFrom-Json
-          $inno = $manifest.dependencies | Where-Object name -eq 'Inno Setup'
           $ninja = $manifest.dependencies | Where-Object name -eq 'Ninja'
           $sevenZip = $manifest.dependencies | Where-Object name -eq '7-Zip'
-          choco install -y --no-progress InnoSetup --version $inno.version
           choco install -y --no-progress ninja --version $ninja.version
           $sevenZipId = '7zip.install'
           $sevenZipPinnedVersion = [Version]::Parse([string]$sevenZip.version)
@@ -125,7 +123,7 @@ jobs:
 
       - name: Resolve release metadata
         shell: pwsh
-        run: node scripts/release-metadata.mjs --output release-metadata.json --target-repo "$env:GITHUB_REPOSITORY"
+        run: node scripts/release-metadata.mjs --output dist/release-metadata.json --target-repo "$env:GITHUB_REPOSITORY"
 
       - name: Write embedded build metadata
         shell: pwsh
@@ -140,12 +138,13 @@ jobs:
           # the checked-in buildinfo.default.json placeholder.
           $match = Select-String -Path version/version.go -Pattern 'Version\s+string\s*=\s*"([^"]+)"' | Select-Object -First 1
           $baseVersion = if ($match) { $match.Matches[0].Groups[1].Value } else { '0.0.0' }
-          $version = "$baseVersion-build.${{ github.run_number }}"
+          . .\scripts\squirrel-contract.ps1
+          $version = Get-SquirrelVersion (Get-Location).Path
           $commit = "$env:GITHUB_SHA"
           $shortCommit = if ($commit.Length -ge 12) { $commit.Substring(0, 12) } else { $commit }
           $builtAt = [DateTimeOffset]::UtcNow.ToString("yyyy-MM-ddTHH:mm:ss.fff'Z'")
 
-          $metadata = Get-Content -Raw 'release-metadata.json' | ConvertFrom-Json
+          $metadata = Get-Content -Raw 'dist/release-metadata.json' | ConvertFrom-Json
           $codeName = $null
           $dishId = $null
           $dishNameEn = $null
@@ -199,8 +198,9 @@ jobs:
             catalog = @($catalogDishes)
           }
           $buildInfoJson = $buildInfo | ConvertTo-Json -Depth 6
-          Set-Content -LiteralPath 'app/ui/buildinfo/buildinfo.json' -Value $buildInfoJson -Encoding utf8 -NoNewline
-          Write-Host "Wrote app/ui/buildinfo/buildinfo.json for $version ($shortCommit)"
+          New-Item -ItemType Directory -Force -Path dist | Out-Null
+          Set-Content -LiteralPath 'dist/buildinfo.json' -Value $buildInfoJson -Encoding utf8 -NoNewline
+          Write-Host "Wrote dist/buildinfo.json for the compiler overlay: $version ($shortCommit)"
           Write-Host $buildInfoJson
 
       - name: Build Windows binaries and installer
@@ -213,34 +213,15 @@ jobs:
           $baseVersion = if ($match) { $match.Matches[0].Groups[1].Value } else { '0.0.0' }
           $env:VERSION = "$baseVersion-build.${{ github.run_number }}"
           Write-Host "Building $env:VERSION"
-          & .\scripts\build_windows.ps1 cpu cpuArm64 ollama ollamaArm64 app appArm64 deps sign installer zip
+          & .\scripts\build_windows.ps1 cpu cpuArm64 ollama ollamaArm64 app appArm64 deps sign installer
           if ($LASTEXITCODE -ne 0) { throw "build_windows.ps1 failed with exit code $LASTEXITCODE" }
 
       - name: Verify unsigned Windows package
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
-          $required = @(
-            'dist\OllamaSetup.exe',
-            'dist\install.ps1',
-            'dist\ollama-windows-amd64.zip',
-            'dist\windows-amd64\ollama.exe',
-            'dist\windows-amd64\lib\ollama\llama-server.exe',
-            'dist\windows-arm64\ollama.exe',
-            'dist\windows-arm64\lib\ollama\llama-server.exe',
-            'dist\windows-ollama-app-amd64.exe',
-            'dist\windows-ollama-app-arm64.exe',
-            'dist\webview2\MicrosoftEdgeWebView2RuntimeInstallerX64.exe',
-            'dist\webview2\MicrosoftEdgeWebView2RuntimeInstallerARM64.exe'
-          )
-          foreach ($path in $required) {
-            if (-not (Test-Path -LiteralPath $path)) { throw "Missing required release output: $path" }
-          }
-          $signature = Get-AuthenticodeSignature -LiteralPath 'dist\OllamaSetup.exe'
-          if ($signature.Status -ne 'NotSigned') {
-            throw "OllamaSetup.exe is not unsigned: Authenticode status $($signature.Status)"
-          }
-          Write-Host 'OllamaSetup.exe is unsigned as required by project policy.'
+          & .\scripts\verify-squirrel-build.ps1 -OutputRoot 'dist\squirrel-windows' -ExpectedCommit '${{ github.sha }}'
+          if ($LASTEXITCODE -ne 0) { throw "Squirrel.Windows artifact verification failed with exit code $LASTEXITCODE" }
 
       - name: Generate line-count evidence
         shell: pwsh
@@ -257,10 +238,6 @@ jobs:
             ForEach-Object { "$($_.Hash.ToLowerInvariant())  $($_.Path.Substring($root.Length + 1))" } |
             Set-Content -LiteralPath dist\SHA256SUMS.txt -Encoding utf8
 
-      - name: Verify nested payload archive coverage
-        shell: pwsh
-        run: node scripts/check-release-assets.mjs --dist dist
-
       - name: Upload release evidence even when a prior step fails
         if: ${{ always() }}
         continue-on-error: true
@@ -269,7 +246,6 @@ jobs:
           name: windows-release-evidence-${{ github.run_id }}
           path: |
             dist/**
-            release-metadata.json
           if-no-files-found: warn
           retention-days: 14
 
@@ -292,7 +268,7 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: windows-release-evidence-${{ github.run_id }}
-          path: release-input
+          path: release-input/dist
 
       - name: Create one unique recoverable draft release
         shell: pwsh
@@ -300,9 +276,10 @@ jobs:
           $ErrorActionPreference = 'Stop'
           $match = Select-String -Path version/version.go -Pattern 'Version\s+string\s*=\s*"([^"]+)"' | Select-Object -First 1
           $baseVersion = if ($match) { $match.Matches[0].Groups[1].Value } else { '0.0.0' }
-          $tag = "v$baseVersion-build.${{ github.run_number }}"
+          . .\scripts\squirrel-contract.ps1
+          $tag = 'v' + (Get-SquirrelVersion (Get-Location).Path)
           $title = "Material Ollama $tag"
-          $metadata = Get-Content -Raw 'release-input\release-metadata.json' | ConvertFrom-Json
+          $metadata = Get-Content -Raw 'release-input\dist\release-metadata.json' | ConvertFrom-Json
           $lineCount = Get-Content -Raw 'release-input\dist\line-count.md'
           $workflowRun = gh api "repos/$env:GITHUB_REPOSITORY/actions/runs/${{ github.run_id }}" | ConvertFrom-Json
           if (-not $workflowRun.run_started_at) { throw 'Workflow run did not expose run_started_at' }
@@ -310,15 +287,19 @@ jobs:
           $workflowStartedText = $workflowStartedAt.ToString("yyyy-MM-ddTHH:mm:ss.fff'Z'")
 
           $distRoot = (Resolve-Path 'release-input\dist').Path
-          node scripts/check-release-assets.mjs --dist $distRoot
           $stagingRoot = Join-Path $env:RUNNER_TEMP 'material-ollama-release-assets'
           if (Test-Path -LiteralPath $stagingRoot) { Remove-Item -LiteralPath $stagingRoot -Recurse -Force }
           New-Item -ItemType Directory -Force -Path $stagingRoot | Out-Null
-          # One release, one download: the installer is the whole universal bundle.
-          # The portable archives, dependency audits, checksums and line-count table
-          # stay downloadable from this run's windows-release-evidence artifact.
-          Copy-Item -LiteralPath (Join-Path $distRoot 'OllamaSetup.exe') -Destination (Join-Path $stagingRoot 'OllamaSetup.exe') -Force
-          $assetNames = @('OllamaSetup.exe')
+          . .\scripts\squirrel-contract.ps1
+          $squirrelRoot = Join-Path $distRoot 'squirrel-windows'
+          $releaseDirectoryName = (Get-Content -Raw (Join-Path $squirrelRoot 'release-assets-path.txt')).Trim()
+          $verifiedReleaseRoot = Get-ContainedPath $squirrelRoot $releaseDirectoryName
+          node scripts/check-release-assets.mjs --squirrel-dir $verifiedReleaseRoot '${{ github.sha }}'
+          if ($LASTEXITCODE -ne 0) { throw 'Squirrel update manifest or asset bytes are invalid.' }
+          $assetNames = @(Get-ChildItem -LiteralPath $verifiedReleaseRoot -File | ForEach-Object {
+            Copy-Item -LiteralPath $_.FullName -Destination (Join-Path $stagingRoot $_.Name)
+            $_.Name
+          })
           node scripts/check-release-assets.mjs --tag $tag --asset-names @assetNames
           $stagedAssets = @($assetNames | ForEach-Object {
             $assetPath = Join-Path $stagingRoot $_
@@ -357,11 +338,11 @@ jobs:
 
           Windows release for commit ${{ github.sha }}.
 
-          ## One download
+          ## Architecture feeds
 
-          `OllamaSetup.exe` is the whole product. It carries the desktop app, the `ollama` server and CLI for both x64 and ARM64, the llama.cpp runners and every ggml CPU variant, and the Microsoft Edge WebView2 runtime, which it installs only if the machine does not already have it. There is nothing else to download.
+          Each architecture has its own unsigned Squirrel.Windows setup and RELEASES index. Native package IDs keep full and delta filenames unique. The shared material-ollama-update.json identifies the numeric package version, source commit, each architecture's package ID, asset names, SHA-256 digests, sizes, and package SHA-1 values. Delta assets are included only when generated from a validated older full package. These checks verify package bytes, not installation or runtime behavior. Tests and UI captures are not run by this release workflow.
 
-          Portable archives, per-architecture dependency audits, `SHA256SUMS.txt`, the line-count table and `install.ps1` remain available from this run's `windows-release-evidence` artifact.
+          Package receipts, `SHA256SUMS.txt`, and the line-count table remain available from this run's `windows-release-evidence` artifact. The release does not claim a runtime test or installation verdict.
 
           ## Installer status
 
@@ -405,7 +386,7 @@ jobs:
           $uploadBase = $draft.upload_url -replace '\{.*$', ''
           foreach ($asset in $stagedAssets) {
             $assetPath = Join-Path $stagingRoot $asset.uploadName
-            $contentType = if ($asset.uploadName.EndsWith('.zip')) { 'application/zip' } else { 'application/vnd.microsoft.portable-executable' }
+            $contentType = if ($asset.uploadName.EndsWith('.nupkg')) { 'application/octet-stream' } elseif ($asset.uploadName.EndsWith('RELEASES')) { 'text/plain' } elseif ($asset.uploadName.EndsWith('.json')) { 'application/json' } else { 'application/vnd.microsoft.portable-executable' }
             $assetName = [Uri]::EscapeDataString($asset.uploadName)
             $uploaded = gh api --method POST "${uploadBase}?name=$assetName" -H "Content-Type: $contentType" --input $assetPath | ConvertFrom-Json
             if (-not $uploaded.id -or $uploaded.name -ne $asset.uploadName) { throw "Numeric release upload failed for staged asset $($asset.uploadName)" }
@@ -436,7 +417,8 @@ jobs:
           $ErrorActionPreference = 'Stop'
           $match = Select-String -Path version/version.go -Pattern 'Version\s+string\s*=\s*"([^"]+)"' | Select-Object -First 1
           $baseVersion = if ($match) { $match.Matches[0].Groups[1].Value } else { '0.0.0' }
-          $tag = "v$baseVersion-build.${{ github.run_number }}"
+          . .\scripts\squirrel-contract.ps1
+          $tag = 'v' + (Get-SquirrelVersion (Get-Location).Path)
           $release = gh api "repos/$env:GITHUB_REPOSITORY/releases/tags/$tag" | ConvertFrom-Json
           if ($release.draft) { throw 'Published release is still a draft' }
           if ($release.tag_name -ne $tag) { throw "Unexpected release tag: $($release.tag_name)" }
@@ -448,11 +430,11 @@ jobs:
             throw "Published release contains duplicate asset names: $($duplicateNames.Name -join ', ')"
           }
           node scripts/check-release-assets.mjs --tag $tag --asset-names @assetNames
-          if ($assetNames.Count -ne 1) { throw "Published release asset count mismatch: expected 1, got $($assetNames.Count)" }
+          if ($assetNames.Count -lt 6) { throw "Published release asset set is incomplete: expected setup, RELEASES, and full package per architecture, got $($assetNames.Count)" }
           $downloadRoot = Join-Path $env:RUNNER_TEMP 'material-ollama-release-download'
           if (Test-Path -LiteralPath $downloadRoot) { Remove-Item -LiteralPath $downloadRoot -Recurse -Force }
           New-Item -ItemType Directory -Force -Path $downloadRoot | Out-Null
-          gh release download $tag --repo $env:GITHUB_REPOSITORY --pattern 'OllamaSetup.exe' --dir $downloadRoot
+          gh release download $tag --repo $env:GITHUB_REPOSITORY --pattern 'MaterialOllama-*' --dir $downloadRoot
           foreach ($published in $release.assets) {
             $downloaded = Join-Path $downloadRoot $published.name
             if (-not (Test-Path -LiteralPath $downloaded -PathType Leaf)) { throw "Published asset did not download: $($published.name)" }
@@ -474,7 +456,7 @@ jobs:
             if (-not $hash) { throw "Published asset has no structured SHA-256 digest: $($asset.name)" }
             if ($body -notmatch [regex]::Escape("SHA-256 ``$hash``")) { throw "Release notes omit SHA-256 for $($asset.name)" }
           }
-          $metadata = Get-Content -Raw 'release-input\release-metadata.json' | ConvertFrom-Json
+          $metadata = Get-Content -Raw 'release-input\dist\release-metadata.json' | ConvertFrom-Json
           if ($metadata.status -eq 'selected') {
             foreach ($metadataLabel in @('Code name:', 'Dish ID:', 'English name:', 'Traditional Chinese name:', 'Source catalog release:', 'Authoritative public image:', 'Copy boundary:')) {
               if ($body -notmatch [regex]::Escape($metadataLabel)) { throw "Release notes omit $metadataLabel" }
