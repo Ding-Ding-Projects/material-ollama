@@ -15,20 +15,16 @@ status() { echo ">>> $*" >&2; }
 error() { echo "${red}ERROR:${plain} $*"; exit 1; }
 warning() { echo "${red}WARNING:${plain} $*"; }
 
-TEMP_DIR=$(mktemp -d)
-cleanup() { rm -rf $TEMP_DIR; }
-trap cleanup EXIT
-
-available() { command -v $1 >/dev/null; }
+runnable() { command -v "$1" >/dev/null; }
 require() {
-    local MISSING=''
-    for TOOL in $*; do
-        if ! available $TOOL; then
+    MISSING=''
+    for TOOL in "$@"; do
+        if ! runnable "$TOOL"; then
             MISSING="$MISSING $TOOL"
         fi
     done
 
-    echo $MISSING
+    echo "$MISSING"
 }
 
 OS="$(uname -s)"
@@ -128,7 +124,7 @@ esac
 SUDO=
 if [ "$(id -u)" -ne 0 ]; then
     # Running as root, no need for sudo
-    if ! available sudo; then
+    if ! runnable sudo; then
         error "This script requires superuser permissions. Please re-run as root."
     fi
 
@@ -174,8 +170,33 @@ download_and_extract() {
         tar -xzf - -C "${dest_dir}"
 }
 
-for BINDIR in /usr/local/bin /usr/bin /bin; do
-    echo $PATH | grep -q $BINDIR && break || continue
+    if runnable nvidia-smi && lsmod | grep -qv nvidia; then
+        status 'Reboot to complete NVIDIA CUDA driver install.'
+    fi
+
+    if runnable systemctl >/dev/null; then
+        $SUDO systemctl restart ollama
+
+        timeout 10 sh -c 'while :; do [ "$(curl -s http://127.0.0.1:11434)" = "Ollama is running" ] && break; sleep 0.2; done' \
+            && status 'Ollama service is available at 127.0.0.1:11434' \
+            || true
+    fi
+
+    if runnable ollama; then
+        status 'Install completed. Run "ollama --help" to get started.'
+    fi
+
+    exit $EXIT_CODE
+}
+trap cleanup EXIT
+
+status "Downloading ollama..."
+curl --fail --show-error --location --progress-bar -o "$TEMP_DIR/ollama" "https://ollama.ai/download/ollama-linux-$ARCH"
+
+for BIN_DIR in /usr/local/bin /usr/bin /bin; do
+    if echo "$PATH" | grep -q $BIN_DIR; then
+        break
+    fi
 done
 OLLAMA_INSTALL_DIR=$(dirname ${BINDIR})
 
@@ -248,9 +269,6 @@ configure_systemd() {
         $SUDO usermod -a -G video ollama
     fi
 
-    status "Adding current user to ollama group..."
-    $SUDO usermod -a -G ollama $(whoami)
-
     status "Creating ollama systemd service..."
     cat <<EOF | $SUDO tee /etc/systemd/system/ollama.service >/dev/null
 [Unit]
@@ -258,7 +276,7 @@ Description=Ollama Service
 After=network-online.target
 
 [Service]
-ExecStart=$BINDIR/ollama serve
+ExecStart=$BIN_DIR/ollama serve
 User=ollama
 Group=ollama
 Restart=always
@@ -274,9 +292,6 @@ EOF
             status "Enabling and starting ollama service..."
             $SUDO systemctl daemon-reload
             $SUDO systemctl enable ollama
-
-            start_service() { $SUDO systemctl restart ollama; }
-            trap start_service EXIT
             ;;
         *)
             warning "systemd is not running"
@@ -287,7 +302,7 @@ EOF
     esac
 }
 
-if available systemctl; then
+if runnable systemctl; then
     configure_systemd
 fi
 
@@ -333,7 +348,12 @@ check_gpu() {
 
 if check_gpu nvidia-smi; then
     status "NVIDIA GPU installed."
-    exit 0
+    exit
+fi
+
+if ! runnable lspci && ! runnable lshw; then
+    warning "Unable to detect NVIDIA GPU. Install lspci or lshw to automatically detect and install NVIDIA CUDA drivers."
+    exit
 fi
 
 if ! check_gpu lspci nvidia && ! check_gpu lshw nvidia && ! check_gpu lspci amdgpu && ! check_gpu lshw amdgpu; then
@@ -381,7 +401,7 @@ install_cuda_driver_yum() {
         rhel)
             status 'Installing EPEL repository...'
             # EPEL is required for third-party dependencies such as dkms and libvdpau
-            $SUDO $PACKAGE_MANAGER -y install https://dl.fedoraproject.org/pub/epel/epel-release-latest-$2.noarch.rpm || true
+            $SUDO $PACKAGE_MANAGER -y install "https://dl.fedoraproject.org/pub/epel/epel-release-latest-$2.noarch.rpm" || true
             ;;
     esac
 
@@ -407,15 +427,15 @@ install_cuda_driver_apt() {
     case $1 in
         debian)
             status 'Enabling contrib sources...'
-            $SUDO sed 's/main/contrib/' < /etc/apt/sources.list | $SUDO tee /etc/apt/sources.list.d/contrib.list > /dev/null
-            if [ -f "/etc/apt/sources.list.d/debian.sources" ]; then
-                $SUDO sed 's/main/contrib/' < /etc/apt/sources.list.d/debian.sources | $SUDO tee /etc/apt/sources.list.d/contrib.sources > /dev/null
-            fi
+            [ -f "/etc/apt/sources.list.d/debian.sources" ] \
+                && SOURCES_LIST="/etc/apt/sources.list.d/debian.sources" \
+                || SOURCES_LIST="/etc/apt/sources.list"
+            sed 's/main/contrib/' <"$SOURCES_LIST" | $SUDO tee /etc/apt/sources.list.d/contrib.sources >/dev/null
             ;;
     esac
 
     status 'Installing CUDA driver...'
-    $SUDO dpkg -i $TEMP_DIR/cuda-keyring.deb
+    $SUDO dpkg -i "$TEMP_DIR/cuda-keyring.deb"
     $SUDO apt-get update
 
     [ -n "$SUDO" ] && SUDO_E="$SUDO -E" || SUDO_E=
@@ -433,7 +453,7 @@ OS_VERSION=$VERSION_ID
 
 PACKAGE_MANAGER=
 for PACKAGE_MANAGER in dnf yum apt-get; do
-    if available $PACKAGE_MANAGER; then
+    if runnable $PACKAGE_MANAGER; then
         break
     fi
 done
@@ -442,7 +462,7 @@ if [ -z "$PACKAGE_MANAGER" ]; then
     error "Unknown package manager. Skipping CUDA installation."
 fi
 
-if ! check_gpu nvidia-smi || [ -z "$(nvidia-smi | grep -o "CUDA Version: [0-9]*\.[0-9]*")" ]; then
+if ! check_gpu nvidia-smi || nvidia-smi | grep -qo "CUDA Version: [0-9]*\.[0-9]*"; then
     case $OS_NAME in
         centos|rhel) install_cuda_driver_yum 'rhel' $(echo $OS_VERSION | cut -d '.' -f 1) ;;
         rocky) install_cuda_driver_yum 'rhel' $(echo $OS_VERSION | cut -c1) ;;
@@ -466,12 +486,12 @@ if ! lsmod | grep -q nvidia || ! lsmod | grep -q nvidia_uvm; then
 
     NVIDIA_CUDA_VERSION=$($SUDO dkms status | awk -F: '/added/ { print $1 }')
     if [ -n "$NVIDIA_CUDA_VERSION" ]; then
-        $SUDO dkms install $NVIDIA_CUDA_VERSION
+        $SUDO dkms install "$NVIDIA_CUDA_VERSION"
     fi
 
     if lsmod | grep -q nouveau; then
         status 'Reboot to complete NVIDIA CUDA driver install.'
-        exit 0
+        exit
     fi
 
     $SUDO modprobe nvidia
