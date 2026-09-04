@@ -4,6 +4,7 @@ linters:
     - asasalint
     - bidichk
     - bodyclose
+    - copyloopvar
     - containedctx
     - gocheckcompilerdirectives
     - intrange
