@@ -197,6 +197,15 @@ func (r *Gemma4Renderer) nextNonToolRole(messages []api.Message, idx int) string
 	return ""
 }
 
+func (r *Gemma4Renderer) nextNonToolRole(messages []api.Message, idx int) string {
+	for i := idx + 1; i < len(messages); i++ {
+		if messages[i].Role != "tool" {
+			return messages[i].Role
+		}
+	}
+	return ""
+}
+
 func (r *Gemma4Renderer) messageHasContent(message api.Message) bool {
 	return strings.TrimSpace(message.Content) != "" || len(message.Images) > 0
 }
