@@ -152,17 +152,30 @@ test('handoff sanitization contains no private-source marker and exactly three s
   assert.equal((readme.match(/shared feature contract/g) ?? []).length, 2);
 });
 
-test('inventory has every declared row and preserves explicit gaps', async () => {
+test('inventory has every declared row, and every row is either a proven gap or a proven claim', async () => {
   const inventory = JSON.parse(await readFile(resolve(root, 'docs/features/design-parity/inventory.json'), 'utf8'));
-  assert.deepEqual(checkInventory(inventory), { rows: 18, status: 'valid-gap-inventory' });
-  assert.ok(inventory.rows.every(row => row.status === 'gap' && row.parityClaimed === false));
+  const result = checkInventory(inventory);
+  assert.equal(result.rows, 18);
+  // Rows may now reach 'verified', so pinning the whole shape to a gap-only
+  // inventory would freeze the lane at the state it was written in. What must
+  // stay true is that every row is accounted for, and that a row's claim and
+  // its status can never disagree.
+  assert.equal(result.gap + result.verified, 18);
+  assert.ok(inventory.rows.every(row => ['gap', 'verified'].includes(row.status)));
+  assert.ok(inventory.rows.every(row => row.parityClaimed === (row.status === 'verified')));
+  assert.ok(
+    inventory.rows.every(row => (row.status === 'gap' ? typeof row.gapReason === 'string' && row.gapReason.length > 0 : !row.gapReason)),
+  );
 });
 
 test('full parity checker validates pinned sources, tuples, routes, and manifest closure', async () => {
   const result = await checkDesignParity();
-  assert.deepEqual(result.status, 'valid-gap-inventory-and-assets');
+  assert.deepEqual(result.status, 'valid-inventory-and-assets');
   assert.equal(result.rows, 18);
   assert.equal(result.assets, 127);
+  // The evidence half must have actually run over whatever is verified, rather
+  // than reporting clean because its loop body never executed.
+  assert.equal(result.evidenceFiles, result.verified * 4);
 });
 
 test('runtime wiring guard rejects commented and renamed script lines', async () => {

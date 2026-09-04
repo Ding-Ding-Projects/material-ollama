@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 import { createHash } from 'node:crypto';
 import { execFile } from 'node:child_process';
+import { existsSync, readFileSync } from 'node:fs';
 import { readFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
@@ -77,7 +78,7 @@ export function checkInventory(inventory) {
     realRoutes.add(row.realBuiltRoute);
     validateTuple(row.tuple, row.id);
     for (const key of ['fixture', 'time', 'motion', 'random', 'fonts', 'network']) assert(typeof row.determinism[key] === 'string' && row.determinism[key].length > 0, `${row.id}: missing determinism.${key}`);
-    assert(row.md3Audit && row.md3Audit.status === 'pending', `${row.id}: audit must remain pending until capture review`);
+    assert(row.md3Audit && ['pending', 'complete'].includes(row.md3Audit.status), `${row.id}: audit status must be pending or complete`);
     for (const key of requiredAudit) {
       const component = row.md3Audit.components?.[key];
       assert(component && ['pending', 'conforming', 'defect', 'intentional-deviation'].includes(component.status), `${row.id}: missing audit component ${key}`);
@@ -95,11 +96,57 @@ export function checkInventory(inventory) {
     }
     assert(typeof row.sourceCommit === 'string' && /^[0-9a-f]{40}$/.test(row.sourceCommit), `${row.id}: sourceCommit must be a full lowercase commit SHA`);
     assert(row.sourceCommit === inventory.sourceCommit, `${row.id}: sourceCommit differs from the pinned inventory provenance`);
-    assert(row.status === 'gap', `${row.id}: this lane cannot claim parity before real captures`);
-    assert(typeof row.gapReason === 'string' && row.gapReason.length > 0, `${row.id}: gapReason required`);
-    assert(row.parityClaimed === false, `${row.id}: gap rows may not claim parity`);
+    // A row may now be verified, but only with everything that makes the claim
+    // checkable. Before this, every row was forced to 'gap' -- correct while no
+    // captures existed, and impossible to move off once they did.
+    assert(['gap', 'verified'].includes(row.status), `${row.id}: status must be gap or verified`);
+    assert(row.parityClaimed === (row.status === 'verified'), `${row.id}: parityClaimed must match status`);
+
+    if (row.status === 'gap') {
+      assert(typeof row.gapReason === 'string' && row.gapReason.length > 0, `${row.id}: gapReason required`);
+      continue;
+    }
+
+    // Everything below is what 'verified' has to survive.
+    assert(!row.gapReason, `${row.id}: a verified row may not also carry a gapReason`);
+    assert(typeof row.resolvedBuiltRoute === 'string' && /^\/[A-Za-z0-9/$._-]*$/.test(row.resolvedBuiltRoute),
+      `${row.id}: verified rows need a real resolvedBuiltRoute -- the app:// string is an identifier, not a route the app implements`);
+    assert(typeof row.builtInteraction === 'string' && row.builtInteraction.length > 0,
+      `${row.id}: verified rows must say how the built state was reached`);
+
+    assert(row.md3Audit.status === 'complete', `${row.id}: a verified row needs a completed Material Design 3 audit`);
+    for (const key of requiredAudit) {
+      const component = row.md3Audit.components[key];
+      assert(component.status !== 'pending', `${row.id}: audit component ${key} is still pending`);
+      assert(typeof component.evidence === 'string' && component.evidence.length > 0,
+        `${row.id}: audit component ${key} needs evidence naming what in the capture supports it`);
+      assert(typeof component.reviewer === 'string' && component.reviewer.length > 0, `${row.id}: audit component ${key} needs a reviewer`);
+      assert(typeof component.reviewedAt === 'string' && component.reviewedAt.length > 0, `${row.id}: audit component ${key} needs reviewedAt`);
+      // A defect is an open problem, not an accepted approximation. Strict
+      // Material Design 3 means it is fixed, not signed off.
+      assert(component.status !== 'defect', `${row.id}: audit component ${key} is a defect, so this row cannot be verified`);
+      if (component.status === 'intentional-deviation') {
+        assert(row.intentionalDeviations.some((d) => d.component === key),
+          `${row.id}: audit component ${key} claims an intentional deviation with no matching entry in intentionalDeviations`);
+      }
+    }
+
+    for (const key of requiredEvidence) {
+      const evidence = row.evidence[key];
+      assert(evidence.status === 'verified' || (evidence.status === 'not-applicable' && evidence.reason),
+        `${row.id}: verified rows need every evidence slot verified, or not-applicable with a reason -- ${key} is ${evidence.status}`);
+    }
+
+    const provenance = row.captureProvenance;
+    assert(provenance && typeof provenance === 'object', `${row.id}: verified rows need captureProvenance`);
+    for (const key of ['tool', 'capturedAt', 'capturedOn', 'builtArtifactSha256', 'commit']) {
+      assert(typeof provenance[key] === 'string' && provenance[key].length > 0, `${row.id}: captureProvenance.${key} is required`);
+    }
+    assert(provenance.dirty === false, `${row.id}: captures taken from a dirty tree are not evidence`);
   }
-  return { rows: inventory.rows.length, status: 'valid-gap-inventory' };
+  const gap = inventory.rows.filter((r) => r.status === 'gap').length;
+  const verified = inventory.rows.length - gap;
+  return { rows: inventory.rows.length, gap, verified };
 }
 
 function externalUrls(text) {
@@ -157,7 +204,84 @@ export async function checkDesignParity({ rootDir = root } = {}) {
     }
   }
   assertExactSet(new Set(assets.keys()), expectedUrls, 'design asset manifest');
-  return { ...shape, htmlSha256: sha256(html), runtimeSha256: sha256(runtime), assets: assets.size, status: 'valid-gap-inventory-and-assets' };
+  const bytes = checkEvidenceBytes(inventory);
+  return { ...shape, htmlSha256: sha256(html), runtimeSha256: sha256(runtime), assets: assets.size, ...bytes, status: 'valid-inventory-and-assets' };
+}
+
+
+/**
+ * Prove the evidence a verified row cites actually exists and is what it says.
+ *
+ * Everything above this reasons about the inventory JSON alone -- so a row could
+ * claim parity from a sha256 that was never written by anything, and the guard
+ * would agree. This is the half that opens the files.
+ *
+ *   1. every verified evidence file exists and RE-HASHES from disk to its record
+ *   2. the two raw captures are PNGs whose IHDR says exactly the tuple size,
+ *      so the tuple is proved on both sides rather than merely declared
+ *   3. the diff record agrees with the two raw hashes and the tuple
+ *   4. no sha256 is shared across rows -- which is what catches evidence
+ *      copy-pasted from a row that did capture onto one that did not
+ */
+export function checkEvidenceBytes(inventory, { rootDir = root } = {}) {
+  const seen = new Map();
+  let files = 0;
+  for (const row of inventory.rows) {
+    if (row.status !== 'verified') continue;
+    const hashes = {};
+    for (const key of requiredEvidence) {
+      const evidence = row.evidence[key];
+      if (evidence.status !== 'verified') continue;
+      const file = resolve(rootDir, evidence.path);
+      assert(existsSync(file), `${row.id}: ${key} cites ${evidence.path}, which does not exist`);
+      const bytes = readFileSync(file);
+      const actual = createHash('sha256').update(bytes).digest('hex');
+      assert(
+        actual === evidence.sha256,
+        `${row.id}: ${key} re-hashes to ${actual} but the inventory records ${evidence.sha256} -- the evidence on disk is not the evidence being claimed`,
+      );
+      hashes[key] = actual;
+      files += 1;
+
+      const owner = seen.get(actual);
+      assert(
+        !owner,
+        `${row.id}: ${key} has the same bytes as ${owner} -- two rows cannot share one capture, so one of them did not capture`,
+      );
+      seen.set(actual, `${row.id}.${key}`);
+
+      if (key === 'referenceRaw' || key === 'builtRaw') {
+        // PNG: 8-byte signature, then a 13-byte IHDR whose width and height are
+        // big-endian at offsets 16 and 20. No dependency, and it reads the real
+        // pixels rather than a filename that claims a size.
+        assert(bytes.length > 24 && bytes.readUInt32BE(0) === 0x89504e47, `${row.id}: ${key} is not a PNG`);
+        const width = bytes.readUInt32BE(16);
+        const height = bytes.readUInt32BE(20);
+        assert(
+          width === inventory.fixedTuple.width && height === inventory.fixedTuple.height,
+          `${row.id}: ${key} is ${width}x${height}, but the comparison tuple is ${inventory.fixedTuple.width}x${inventory.fixedTuple.height}`,
+        );
+      }
+    }
+
+    const diff = row.evidence.diff;
+    if (diff?.status === 'verified') {
+      const record = JSON.parse(readFileSync(resolve(rootDir, diff.path), 'utf8'));
+      assert(record.rowId === row.id, `${row.id}: diff record is for ${record.rowId}`);
+      for (const [key, field] of [['referenceRaw', 'referenceSha256'], ['builtRaw', 'builtSha256']]) {
+        if (!hashes[key]) continue;
+        assert(
+          record[field] === hashes[key],
+          `${row.id}: the diff record was computed from a different ${key} than the one this row cites`,
+        );
+      }
+      assert(
+        record.pixelTotal === inventory.fixedTuple.width * inventory.fixedTuple.height,
+        `${row.id}: diff record covers ${record.pixelTotal} pixels, not the tuple's frame`,
+      );
+    }
+  }
+  return { verifiedRows: inventory.rows.filter((r) => r.status === 'verified').length, evidenceFiles: files };
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1])).href && process.argv.includes('--self-test')) {
@@ -187,6 +311,86 @@ if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1]
     try { checkInventory(mutate(inventory)); } catch { failed = true; }
     assert(failed, `negative mutation stayed green: ${name}`);
   }
+  // The verified path needs its own baseline, because every mutation below is
+  // a mutation OF a verified row. Building one and proving it green first is
+  // what stops the eight checks under it going red for the wrong reason -- a
+  // mutation that fails because the baseline was already invalid tests nothing.
+  const auditComponent = (status = 'conforming') => ({
+    status,
+    evidence: 'self-test fixture',
+    reviewer: 'self-test',
+    reviewedAt: '2026-01-01T00:00:00.000Z',
+  });
+  const verifyRow = (row, overrides = {}) => ({
+    ...row,
+    status: 'verified',
+    parityClaimed: true,
+    gapReason: undefined,
+    resolvedBuiltRoute: '/models',
+    builtInteraction: 'self-test fixture',
+    intentionalDeviations: [],
+    md3Audit: {
+      status: 'complete',
+      components: Object.fromEntries(requiredAudit.map((key) => [key, auditComponent()])),
+    },
+    evidence: Object.fromEntries(
+      requiredEvidence.map((key) => [key, { status: 'verified', path: `x/${key}.png`, sha256: 'a'.repeat(64) }]),
+    ),
+    captureProvenance: {
+      tool: 'self-test',
+      capturedAt: '2026-01-01T00:00:00.000Z',
+      capturedOn: 'self-test',
+      builtArtifactSha256: 'b'.repeat(64),
+      commit: row.sourceCommit,
+      dirty: false,
+    },
+    ...overrides,
+  });
+  const withVerifiedFirstRow = (value, overrides = {}) => ({
+    ...value,
+    rows: value.rows.map((row, index) => (index === 0 ? verifyRow(row, overrides) : row)),
+  });
+
+  // Baseline: a correctly formed verified row must PASS. If this throws, every
+  // verified mutation below is meaningless.
+  checkInventory(withVerifiedFirstRow(inventory));
+
+  const verifiedMutations = [
+    ['verified row not claiming parity', value => withVerifiedFirstRow(value, { parityClaimed: false })],
+    ['verified row still carrying a gapReason', value => withVerifiedFirstRow(value, { gapReason: 'still unproven' })],
+    ['verified row with a pending audit component', value => withVerifiedFirstRow(value, {
+      md3Audit: { status: 'complete', components: Object.fromEntries(requiredAudit.map((k, i) => [k, auditComponent(i === 0 ? 'pending' : 'conforming')])) },
+    })],
+    ['verified row with a defect component', value => withVerifiedFirstRow(value, {
+      md3Audit: { status: 'complete', components: Object.fromEntries(requiredAudit.map((k, i) => [k, auditComponent(i === 3 ? 'defect' : 'conforming')])) },
+    })],
+    ['verified row whose audit is still pending overall', value => withVerifiedFirstRow(value, {
+      md3Audit: { status: 'pending', components: Object.fromEntries(requiredAudit.map((k) => [k, auditComponent()])) },
+    })],
+    ['audit component with no evidence naming what supports it', value => withVerifiedFirstRow(value, {
+      md3Audit: { status: 'complete', components: Object.fromEntries(requiredAudit.map((k, i) => [k, i === 1 ? { ...auditComponent(), evidence: '' } : auditComponent()])) },
+    })],
+    ['deviation claimed by the audit with no matching entry', value => withVerifiedFirstRow(value, {
+      md3Audit: { status: 'complete', components: Object.fromEntries(requiredAudit.map((k, i) => [k, auditComponent(i === 2 ? 'intentional-deviation' : 'conforming')])) },
+      intentionalDeviations: [],
+    })],
+    ['verified row with an unproven evidence slot', value => withVerifiedFirstRow(value, {
+      evidence: Object.fromEntries(requiredEvidence.map((k, i) => [k, i === 2 ? { status: 'pending', reason: 'not taken' } : { status: 'verified', path: 'x.png', sha256: 'a'.repeat(64) }])),
+    })],
+    ['verified row with no resolvedBuiltRoute -- the app:// string is an identifier', value => withVerifiedFirstRow(value, { resolvedBuiltRoute: undefined })],
+    ['verified row with the app:// identifier passed off as a real route', value => withVerifiedFirstRow(value, { resolvedBuiltRoute: 'app://material-ollama/capture/shell' })],
+    ['verified row that never says how the state was reached', value => withVerifiedFirstRow(value, { builtInteraction: '' })],
+    ['verified row with no capture provenance', value => withVerifiedFirstRow(value, { captureProvenance: undefined })],
+    ['captures taken from a dirty tree', value => withVerifiedFirstRow(value, {
+      captureProvenance: { tool: 't', capturedAt: 'a', capturedOn: 'b', builtArtifactSha256: 'c', commit: 'd', dirty: true },
+    })],
+  ];
+  for (const [name, mutate] of verifiedMutations) {
+    let failed = false;
+    try { checkInventory(mutate(inventory)); } catch { failed = true; }
+    assert(failed, `verified mutation stayed green: ${name}`);
+  }
+
   for (const [name, mutate] of [
     ['commented runtime wiring', source => source.replace('<script src="./support.js"></script>', '<!-- <script src="./support.js"></script> -->')],
     ['renamed runtime wiring', source => source.replace('./support.js', './support-renamed.js')],
@@ -195,7 +399,10 @@ if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1]
     try { validateReferenceSourceWiring(mutate(referenceHtml)); } catch { failed = true; }
     assert(failed, `source mutation stayed green: ${name}`);
   }
-  console.log('design-parity self-test: PASS (17 deliberate mutations red; baseline green)');
+  console.log(
+    `design-parity self-test: PASS (${mutations.length + verifiedMutations.length + 2} deliberate mutations red; ` +
+      'gap baseline and verified baseline both green)',
+  );
 } else if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1])).href) {
   console.log(JSON.stringify(await checkDesignParity(), null, 2));
 }
