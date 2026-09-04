@@ -9,6 +9,7 @@ package client
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -331,6 +332,17 @@ func readConfigV2(m *imagemanifest.ModelManifest) (*model.ConfigV2, error) {
 	return &cfg, nil
 }
 
+func readHFGenerationDefaults(modelDir string) (model.GenerationDefaults, error) {
+	data, err := os.ReadFile(filepath.Join(modelDir, "generation_config.json"))
+	if errors.Is(err, os.ErrNotExist) {
+		return nil, nil
+	} else if err != nil {
+		return nil, err
+	}
+
+	return model.ParseHFGenerationDefaults(data)
+}
+
 func inferSafetensorsCapabilities(modelDir, parserName string) []string {
 	capabilities := []string{"completion"}
 
@@ -400,6 +412,15 @@ func newManifestWriter(opts CreateOptions, capabilities []string, parserName, re
 		}
 		configData.Parser = resolveParserName(opts.Modelfile, parserName)
 		configData.Renderer = resolveRendererName(opts.Modelfile, rendererName)
+		if slices.Contains(capabilities, "completion") {
+			defaults, err := readHFGenerationDefaults(opts.ModelDir)
+			if err != nil {
+				return fmt.Errorf("failed to read generation_config.json: %w", err)
+			}
+			if len(defaults) > 0 {
+				configData.GenerationDefaults = defaults
+			}
+		}
 		if opts.Modelfile != nil && opts.Modelfile.Draft != "" {
 			draft, err := draftMetadata(opts.Modelfile.Draft)
 			if err != nil {
@@ -568,11 +589,11 @@ func chatTemplateHasThinkingSupport(chatTemplate string) bool {
 }
 
 func alwaysSupportsThinking(architectures []string, modelType string) bool {
-	if isQwen35Family(modelType) {
+	if isQwen35Family(modelType) || isQwen4Family(modelType) {
 		return true
 	}
 	for _, arch := range architectures {
-		if isQwen35Family(arch) {
+		if isQwen35Family(arch) || isQwen4Family(arch) {
 			return true
 		}
 	}
@@ -582,6 +603,12 @@ func alwaysSupportsThinking(architectures []string, modelType string) bool {
 func isQwen35Family(s string) bool {
 	s = strings.ToLower(s)
 	return strings.Contains(s, "qwen3_5") || strings.Contains(s, "qwen3next")
+}
+
+func isQwen4Family(s string) bool {
+	s = strings.ToLower(s)
+	return strings.Contains(s, "qwen4exp") ||
+		strings.Contains(s, "qwen4_exp")
 }
 
 func qwen35RendererName(modelDir string) string {
@@ -676,6 +703,8 @@ func parserNameForIdentifier(modelDir, s string) string {
 		return "deepseek3"
 	case strings.Contains(s, "gemma4"):
 		return "gemma4"
+	case isQwen4Family(s):
+		return "qwen3.5"
 	case isQwen35Family(s):
 		return "qwen3.5"
 	case strings.Contains(s, "qwen3"):
@@ -739,6 +768,8 @@ func rendererNameForIdentifier(modelDir, s string) string {
 		return "glm-4.7"
 	case strings.Contains(s, "deepseek"):
 		return "deepseek3"
+	case isQwen4Family(s):
+		return "qwen3.8"
 	case isQwen35Family(s):
 		return qwen35RendererName(modelDir)
 	case strings.Contains(s, "qwen3"):

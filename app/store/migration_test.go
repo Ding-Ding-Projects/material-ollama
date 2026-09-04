@@ -58,6 +58,14 @@ func TestConfigMigration(t *testing.T) {
 		t.Error("expected has completed first run to be true after migration")
 	}
 
+	settings, err := s.Settings()
+	if err != nil {
+		t.Fatalf("failed to get settings: %v", err)
+	}
+	if settings.OnboardingVersion != CurrentOnboardingVersion {
+		t.Fatalf("expected migrated user to skip onboarding, got version %d", settings.OnboardingVersion)
+	}
+
 	// Verify migration is marked as complete
 	migrated, err := s.db.isConfigMigrated()
 	if err != nil {
