@@ -1133,6 +1133,105 @@ func (s *Server) EmbeddingsHandler(c *gin.Context) {
 	c.JSON(http.StatusOK, resp)
 }
 
+func (s *Server) WebSearchHandler(c *gin.Context) {
+	var req api.WebSearchRequest
+	if err := c.ShouldBindJSON(&req); errors.Is(err, io.EOF) {
+		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"error": "missing request body"})
+		return
+	} else if err != nil {
+		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	req.Query = strings.TrimSpace(req.Query)
+	if req.Query == "" {
+		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"error": "query is required"})
+		return
+	}
+
+	if req.MaxResults != 0 && (req.MaxResults < 1 || req.MaxResults > 10) {
+		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"error": "max_results must be between 1 and 10"})
+		return
+	}
+
+	webServiceClient := api.NewClient(s.webServiceBase(), http.DefaultClient)
+	resp, err := webServiceClient.WebSearch(c.Request.Context(), &req)
+	if err != nil {
+		var authError api.AuthorizationError
+		if errors.As(err, &authError) {
+			sURL, sErr := signinURL()
+			if sErr != nil {
+				slog.Error(sErr.Error())
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "error getting authorization details"})
+				return
+			}
+
+			c.JSON(authError.StatusCode, gin.H{"error": "unauthorized", "signin_url": sURL})
+			return
+		}
+		var apiError api.StatusError
+		if errors.As(err, &apiError) {
+			c.JSON(apiError.StatusCode, apiError)
+			return
+		}
+		c.JSON(http.StatusBadGateway, gin.H{"error": err.Error()})
+		return
+	}
+
+	if resp == nil {
+		resp = &api.WebSearchResponse{}
+	}
+
+	c.JSON(http.StatusOK, resp)
+}
+
+func (s *Server) WebFetchHandler(c *gin.Context) {
+	var req api.WebFetchRequest
+	if err := c.ShouldBindJSON(&req); errors.Is(err, io.EOF) {
+		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"error": "missing request body"})
+		return
+	} else if err != nil {
+		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	req.URL = strings.TrimSpace(req.URL)
+	if req.URL == "" {
+		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"error": "url is required"})
+		return
+	}
+
+	webServiceClient := api.NewClient(s.webServiceBase(), http.DefaultClient)
+	resp, err := webServiceClient.WebFetch(c.Request.Context(), &req)
+	if err != nil {
+		var authError api.AuthorizationError
+		if errors.As(err, &authError) {
+			sURL, sErr := signinURL()
+			if sErr != nil {
+				slog.Error(sErr.Error())
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "error getting authorization details"})
+				return
+			}
+
+			c.JSON(authError.StatusCode, gin.H{"error": "unauthorized", "signin_url": sURL})
+			return
+		}
+		var apiError api.StatusError
+		if errors.As(err, &apiError) {
+			c.JSON(apiError.StatusCode, apiError)
+			return
+		}
+		c.JSON(http.StatusBadGateway, gin.H{"error": err.Error()})
+		return
+	}
+
+	if resp == nil {
+		resp = &api.WebFetchResponse{}
+	}
+
+	c.JSON(http.StatusOK, resp)
+}
+
 func (s *Server) PullHandler(c *gin.Context) {
 	var r api.PullRequest
 	if err := c.ShouldBindJSON(&r); errors.Is(err, io.EOF) {

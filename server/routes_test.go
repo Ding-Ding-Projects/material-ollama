@@ -14,6 +14,7 @@ import (
 	"net"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -145,6 +146,11 @@ func TestRoutes(t *testing.T) {
 		"sha256:4f9d252f34ae677363956ffc6dd2d10918a539c5c91f5ee2fe889d9178be6ae3",
 		"sha256:0f239b83e9e2aad7cd997a5bb44124937a32ac1f4e98e95a2f46e7b966bfc878",
 	}
+
+	var (
+		searchRequests []api.WebSearchRequest
+		fetchRequests  []api.WebFetchRequest
+	)
 
 	testCases := []testCase{
 		{
@@ -526,6 +532,69 @@ func TestRoutes(t *testing.T) {
 				}
 				if math.Abs(paramCount) > 1e-9 {
 					t.Errorf("expected parameter count to be 0, got %f", paramCount)
+				}
+			},
+		},
+		{
+			Name:   "Web Search Handler",
+			Method: http.MethodPost,
+			Path:   "/api/web_search",
+			Setup: func(t *testing.T, req *http.Request) {
+				searchRequests = nil
+				payload := api.WebSearchRequest{Query: "cats", MaxResults: 2}
+				data, err := json.Marshal(payload)
+				if err != nil {
+					t.Fatalf("failed to marshal request: %v", err)
+				}
+				req.Body = io.NopCloser(bytes.NewReader(data))
+				req.Header.Set("Content-Type", "application/json")
+			},
+			Expected: func(t *testing.T, resp *http.Response) {
+				if resp.StatusCode != http.StatusOK {
+					t.Fatalf("expected status 200, got %d", resp.StatusCode)
+				}
+				var out api.WebSearchResponse
+				if err := json.NewDecoder(resp.Body).Decode(&out); err != nil {
+					t.Fatalf("failed to decode response: %v", err)
+				}
+				if len(out.Results) != 1 || out.Results[0].Title != "Result" {
+					t.Fatalf("unexpected response: %+v", out)
+				}
+				if len(searchRequests) != 1 {
+					t.Fatalf("expected 1 forwarded request, got %d", len(searchRequests))
+				}
+				if searchRequests[0].Query != "cats" || searchRequests[0].MaxResults != 2 {
+					t.Fatalf("unexpected forwarded request: %+v", searchRequests[0])
+				}
+			},
+		},
+		{
+			Name:   "Web Fetch Handler",
+			Method: http.MethodPost,
+			Path:   "/api/web_fetch",
+			Setup: func(t *testing.T, req *http.Request) {
+				fetchRequests = nil
+				payload := api.WebFetchRequest{URL: "https://example.com"}
+				data, err := json.Marshal(payload)
+				if err != nil {
+					t.Fatalf("failed to marshal request: %v", err)
+				}
+				req.Body = io.NopCloser(bytes.NewReader(data))
+				req.Header.Set("Content-Type", "application/json")
+			},
+			Expected: func(t *testing.T, resp *http.Response) {
+				if resp.StatusCode != http.StatusOK {
+					t.Fatalf("expected status 200, got %d", resp.StatusCode)
+				}
+				var out api.WebFetchResponse
+				if err := json.NewDecoder(resp.Body).Decode(&out); err != nil {
+					t.Fatalf("failed to decode response: %v", err)
+				}
+				if out.Title != "Example" || len(out.Links) != 1 {
+					t.Fatalf("unexpected response: %+v", out)
+				}
+				if len(fetchRequests) != 1 || fetchRequests[0].URL != "https://example.com" {
+					t.Fatalf("unexpected forwarded request: %+v", fetchRequests)
 				}
 			},
 		},
