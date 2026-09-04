@@ -9,6 +9,30 @@ import CopyButton from "./CopyButton";
 import type { BundledLanguage } from "shiki";
 import { highlighter } from "@/lib/highlighter";
 
+// Extend GitHub's default sanitization schema to support math rendering
+// and custom citation elements while stripping dangerous tags like <style>
+// and <script> that can leak from model-generated HTML content.
+const sanitizeSchema = {
+  ...defaultSchema,
+  tagNames: [
+    ...(defaultSchema.tagNames || []),
+    "ol-citation",
+  ],
+  attributes: {
+    ...defaultSchema.attributes,
+    div: [
+      ...(defaultSchema.attributes?.div || []),
+      ["className", "math", "math-display"],
+    ],
+    span: [
+      ...(defaultSchema.attributes?.span || []),
+      ["className", "math", "math-inline"],
+    ],
+    "ol-citation": ["cursor", "start", "end"],
+  },
+  strip: ["script", "style"],
+};
+
 interface StreamingMarkdownContentProps {
   content: string;
   isStreaming?: boolean;
