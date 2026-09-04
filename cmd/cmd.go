@@ -10,6 +10,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"io/fs"
 	"log"
 	"log/slog"
 	"math"
@@ -517,7 +518,7 @@ func commonFileRoot(files map[string]string) (string, bool) {
 func createBlob(cmd *cobra.Command, client *api.Client, path string, digest string, p *progress.Progress) (string, error) {
 	realPath, err := filepath.EvalSymlinks(path)
 	if err != nil {
-		return "", err
+		return err
 	}
 
 	bin, err := os.Open(realPath)
@@ -559,6 +560,7 @@ func createBlob(cmd *cobra.Command, client *api.Client, path string, digest stri
 	if err := client.CreateBlob(cmd.Context(), digest, io.TeeReader(bin, &pw)); err != nil {
 		return "", err
 	}
+
 	return digest, nil
 }
 
