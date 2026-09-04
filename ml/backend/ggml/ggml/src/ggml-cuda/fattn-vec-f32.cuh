@@ -110,6 +110,13 @@ static __global__ void flash_attn_vec_ext_f32(
             kqsum_shared[j][threadIdx.x] = 0.0f;
         }
     }
+
+    __shared__ float maskf_shared[ncols*D];
+#pragma unroll
+    for (int j = 0; j < ncols; ++j) {
+        maskf_shared[j*D + tid] = 0.0f;
+    }
+
     __syncthreads();
 
     // Convert Q to float2 (f16 K) or q8_1 (quantized K) and store in registers:
@@ -187,6 +194,35 @@ static __global__ void flash_attn_vec_ext_f32(
     const int k_start = parallel_blocks == 1 ? 0 : ip*D;
     for (int k_VKQ_0 = k_start; k_VKQ_0 < ne11; k_VKQ_0 += parallel_blocks*D) {
         // Calculate KQ tile and keep track of new maximum KQ values:
+
+        if (mask) {
+#pragma unroll
+            for (int j = 0; j < ncols; ++j) {
+                maskf_shared[j*D + tid] = slope*__half2float(maskh[j*ne11 + k_VKQ_0 + tid]);
+            }
+
+            __syncthreads();
+
+            // When using multiple parallel sequences in llama.cpp, some KV slices can be fully masked out.
+            // In such cases, skip the KV slice.
+            // On AMD __all_sync would not work correctly because it assumes a warp size of 64.
+#ifndef GGML_USE_HIP
+            bool skip = true;
+#pragma unroll
+            for (int j = 0; j < ncols; ++j) {
+#pragma unroll
+                for (int i0 = 0; i0 < D; i0 += WARP_SIZE) {
+                    const int i = i0 + threadIdx.x;
+
+                    skip = skip && isinf(maskf_shared[j*D + i]);
+                }
+            }
+            if (__all_sync(0xFFFFFFFF, skip)) {
+                __syncthreads();
+                continue;
+            }
+#endif // GGML_USE_HIP
+        }
 
         float kqmax_new_arr[ncols];
 #pragma unroll

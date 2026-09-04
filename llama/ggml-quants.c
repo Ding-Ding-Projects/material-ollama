@@ -1043,7 +1043,7 @@ void quantize_row_q8_0(const float * restrict x, void * restrict vy, int64_t k) 
         _mm_storeu_si128((__m128i *)(y[i].qs + 16), ni4);
 #endif
     }
-#elif defined(__riscv_v_intrinsic)
+#elif defined(__riscv_v)
 
     size_t vl = __riscv_vsetvl_e32m4(QK8_0);
 
@@ -1387,7 +1387,7 @@ void quantize_row_q8_1(const float * restrict x, void * restrict vy, int64_t k) 
         _mm_storeu_si128((__m128i *)(y[i].qs + 16), ni4);
 #endif
     }
-#elif defined(__riscv_v_intrinsic)
+#elif defined(__riscv_v)
 
     size_t vl = __riscv_vsetvl_e32m4(QK8_1);
 
@@ -6432,7 +6432,6 @@ void ggml_vec_dot_q3_K_q8_K(int n, float * restrict s, size_t bs, const void * r
 
 #elif defined __riscv_v_intrinsic
 
-    uint32_t aux[3];
     uint32_t utmp[4];
 
     float sumf = 0;
@@ -6857,7 +6856,11 @@ void ggml_vec_dot_q3_K_q8_K(int n, float * restrict s, size_t bs, const void * r
 
 void ggml_vec_dot_q4_K_q8_K(int n, float * restrict s, size_t bs, const void * restrict vx, size_t bx, const void * restrict vy, size_t by, int nrc) {
     assert(n % QK_K == 0);
+#ifdef __ARM_FEATURE_MATMUL_INT8
+    assert((nrc == 2) || (nrc == 1));
+#else
     assert(nrc == 1);
+#endif
     UNUSED(nrc);
     UNUSED(bx);
     UNUSED(by);
@@ -7084,7 +7087,7 @@ void ggml_vec_dot_q4_K_q8_K(int n, float * restrict s, size_t bs, const void * r
 
     *s = hsum_float_8(acc) + _mm_cvtss_f32(acc_m);
 
-#elif defined __riscv_v_intrinsic
+#elif defined __riscv_xtheadvector
 
     const uint8_t * scales = (const uint8_t*)&utmp[0];
     const uint8_t * mins   = (const uint8_t*)&utmp[2];
@@ -8062,7 +8065,11 @@ void ggml_vec_dot_q5_K_q8_K(int n, float * restrict s, size_t bs, const void * r
 
 void ggml_vec_dot_q6_K_q8_K(int n, float * restrict s, size_t bs, const void * restrict vx, size_t bx, const void * restrict vy, size_t by, int nrc) {
     assert(n % QK_K == 0);
+#ifdef __ARM_FEATURE_MATMUL_INT8
+    assert((nrc == 2) || (nrc == 1));
+#else
     assert(nrc == 1);
+#endif
     UNUSED(nrc);
     UNUSED(bx);
     UNUSED(by);

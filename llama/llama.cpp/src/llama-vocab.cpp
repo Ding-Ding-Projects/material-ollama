@@ -883,7 +883,7 @@ struct llm_tokenizer_ugm {
                     const double challenger_score = current_best.score_sum + token_score;
                     struct best_tokenization & current_champ = tokenization_results[prefix_offset];
                     if (challenger_score > current_champ.score_sum) {
-                        struct best_tokenization challenger = { token_id, input_offset, (float) challenger_score };
+                        struct best_tokenization challenger = { token_id, input_offset, challenger_score };
                         current_champ = challenger;
                     }
                 }

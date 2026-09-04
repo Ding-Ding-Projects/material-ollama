@@ -72,13 +72,8 @@ function(ggml_add_cpu_backend_variant_impl tag_name)
         target_link_libraries(${GGML_CPU_NAME} PUBLIC memkind)
     endif()
 
-    if (CMAKE_OSX_ARCHITECTURES      STREQUAL "arm64" OR
-        CMAKE_GENERATOR_PLATFORM_LWR STREQUAL "arm64" OR
-        (NOT CMAKE_OSX_ARCHITECTURES AND NOT CMAKE_GENERATOR_PLATFORM_LWR AND
-            CMAKE_SYSTEM_PROCESSOR MATCHES "^(aarch64|arm.*|ARM64)$"))
-
+    if (GGML_SYSTEM_ARCH STREQUAL "ARM")
         message(STATUS "ARM detected")
-
         if (MSVC AND NOT CMAKE_C_COMPILER_ID STREQUAL "Clang")
             message(FATAL_ERROR "MSVC is not supported for ARM, use clang")
         else()
@@ -158,12 +153,8 @@ function(ggml_add_cpu_backend_variant_impl tag_name)
                 endforeach()
             endif()
         endif()
-    elseif (CMAKE_OSX_ARCHITECTURES STREQUAL "x86_64" OR CMAKE_GENERATOR_PLATFORM_LWR MATCHES "^(x86_64|i686|amd64|x64|win32)$" OR
-            (NOT CMAKE_OSX_ARCHITECTURES AND NOT CMAKE_GENERATOR_PLATFORM_LWR AND
-            CMAKE_SYSTEM_PROCESSOR MATCHES "^(x86_64|i686|AMD64|amd64)$"))
-
+    elseif (GGML_SYSTEM_ARCH STREQUAL "x86")
         message(STATUS "x86 detected")
-
         if (MSVC)
             # instruction set detection for MSVC only
             if (GGML_NATIVE)
@@ -293,9 +284,8 @@ function(ggml_add_cpu_backend_variant_impl tag_name)
             list(APPEND ARCH_FLAGS -mcpu=native -mtune=native)
             # TODO: Add  targets for Power8/Power9 (Altivec/VSX) and Power10(MMA) and query for big endian systems (ppc64/le/be)
         endif()
-    elseif (${CMAKE_SYSTEM_PROCESSOR} MATCHES "loongarch64")
+    elseif (GGML_SYSTEM_ARCH STREQUAL "loongarch64")
         message(STATUS "loongarch64 detected")
-
         list(APPEND ARCH_FLAGS -march=loongarch64)
         if (GGML_LASX)
             list(APPEND ARCH_FLAGS -mlasx)
@@ -303,8 +293,8 @@ function(ggml_add_cpu_backend_variant_impl tag_name)
         if (GGML_LSX)
             list(APPEND ARCH_FLAGS -mlsx)
         endif()
-    elseif (${CMAKE_SYSTEM_PROCESSOR} MATCHES "riscv64")
-        message(STATUS "RISC-V detected")
+    elseif (GGML_SYSTEM_ARCH STREQUAL "riscv64")
+        message(STATUS "riscv64 detected")
         if (GGML_RVV)
             list(APPEND ARCH_FLAGS -march=rv64gcv -mabi=lp64d)
         endif()
@@ -320,25 +310,6 @@ function(ggml_add_cpu_backend_variant_impl tag_name)
     target_sources(${GGML_CPU_NAME} PRIVATE ${GGML_CPU_SOURCES})
     target_compile_options(${GGML_CPU_NAME} PRIVATE ${ARCH_FLAGS})
     target_compile_definitions(${GGML_CPU_NAME} PRIVATE ${ARCH_DEFINITIONS})
-
-    if (GGML_BACKEND_DL)
-        if (GGML_NATIVE)
-            # the feature check relies on ARCH_DEFINITIONS, but it is not set with GGML_NATIVE
-            message(FATAL_ERROR "GGML_NATIVE is not compatible with GGML_BACKEND_DL, consider using GGML_CPU_ALL_VARIANTS")
-        endif()
-
-        # The feature detection code is compiled as a separate target so that
-        # it can be built without the architecture flags
-        # Since multiple variants of the CPU backend may be included in the same
-        # build, using set_source_files_properties() to set the arch flags is not possible
-        set(GGML_CPU_FEATS_NAME ${GGML_CPU_NAME}-feats)
-        add_library(${GGML_CPU_FEATS_NAME} OBJECT ggml-cpu/cpu-feats-x86.cpp)
-        target_include_directories(${GGML_CPU_FEATS_NAME} PRIVATE . .. ../include)
-        target_compile_definitions(${GGML_CPU_FEATS_NAME} PRIVATE ${ARCH_DEFINITIONS})
-        target_compile_definitions(${GGML_CPU_FEATS_NAME} PRIVATE GGML_BACKEND_DL GGML_BACKEND_BUILD GGML_BACKEND_SHARED)
-        set_target_properties(${GGML_CPU_FEATS_NAME} PROPERTIES POSITION_INDEPENDENT_CODE ON)
-        target_link_libraries(${GGML_CPU_NAME} PRIVATE ${GGML_CPU_FEATS_NAME})
-    endif()
 
     if (EMSCRIPTEN)
         set_target_properties(${GGML_CPU_NAME} PROPERTIES COMPILE_FLAGS "-msimd128")

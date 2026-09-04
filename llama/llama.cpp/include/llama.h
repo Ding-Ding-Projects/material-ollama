@@ -345,7 +345,7 @@ extern "C" {
         float    yarn_beta_fast;   // YaRN low correction dim
         float    yarn_beta_slow;   // YaRN high correction dim
         uint32_t yarn_orig_ctx;    // YaRN original context size
-        float    defrag_thold;     // defragment the KV cache if holes/size > thold, < 0 disabled (default)
+        float    defrag_thold;     // defragment the KV cache if holes/size > thold, <= 0 disabled (default)
 
         ggml_backend_sched_eval_callback cb_eval;
         void * cb_eval_user_data;
@@ -473,6 +473,7 @@ extern "C" {
     LLAMA_API int64_t llama_time_us(void);
 
     LLAMA_API size_t llama_max_devices(void);
+    LLAMA_API size_t llama_max_parallel_sequences(void);
 
     LLAMA_API bool llama_supports_mmap       (void);
     LLAMA_API bool llama_supports_mlock      (void);
@@ -582,7 +583,7 @@ extern "C" {
                          int32_t   il_end);
 
     //
-    // KV cache
+    // Memory
     //
 
     // Information associated with an individual cell in the KV cache view.
@@ -592,33 +593,58 @@ extern "C" {
         llama_pos pos;
     };
 
-    // An updateable view of the KV cache.
-    struct llama_kv_cache_view {
-        // Number of KV cache cells. This will be the same as the context size.
-        int32_t n_cells;
+    // Copy all tokens that belong to the specified sequence to another sequence
+    // p0 < 0 : [0,  p1]
+    // p1 < 0 : [p0, inf)
+    LLAMA_API void llama_memory_seq_cp(
+            llama_memory_t mem,
+              llama_seq_id seq_id_src,
+              llama_seq_id seq_id_dst,
+                 llama_pos p0,
+                 llama_pos p1);
 
-        // Maximum number of sequences that can exist in a cell. It's not an error
-        // if there are more sequences in a cell than this value, however they will
-        // not be visible in the view cells_sequences.
-        int32_t n_seq_max;
+    // Removes all tokens that do not belong to the specified sequence
+    LLAMA_API void llama_memory_seq_keep(
+            llama_memory_t mem,
+              llama_seq_id seq_id);
 
-        // Number of tokens in the cache. For example, if there are two populated
-        // cells, the first with 1 sequence id in it and the second with 2 sequence
-        // ids then you'll have 3 tokens.
-        int32_t token_count;
+    // Adds relative position "delta" to all tokens that belong to the specified sequence and have positions in [p0, p1)
+    // p0 < 0 : [0,  p1]
+    // p1 < 0 : [p0, inf)
+    LLAMA_API void llama_memory_seq_add(
+            llama_memory_t mem,
+              llama_seq_id seq_id,
+                 llama_pos p0,
+                 llama_pos p1,
+                 llama_pos delta);
 
-        // Number of populated cache cells.
-        int32_t used_cells;
+    // Integer division of the positions by factor of `d > 1`
+    // p0 < 0 : [0,  p1]
+    // p1 < 0 : [p0, inf)
+    LLAMA_API void llama_memory_seq_div(
+            llama_memory_t mem,
+              llama_seq_id seq_id,
+                 llama_pos p0,
+                 llama_pos p1,
+                       int d);
 
-        // Maximum contiguous empty slots in the cache.
-        int32_t max_contiguous;
+    // Returns the smallest position present in the memory for the specified sequence
+    // This is typically non-zero only for SWA caches
+    // Note that all positions in the range [pos_min, pos_max] are guaranteed to be present in the memory
+    // Return -1 if the sequence is empty
+    LLAMA_API llama_pos llama_memory_seq_pos_min(
+            llama_memory_t mem,
+              llama_seq_id seq_id);
 
-        // Index to the start of the max_contiguous slot range. Can be negative
-        // when cache is full.
-        int32_t max_contiguous_idx;
+    // Returns the largest position present in the memory for the specified sequence
+    // Note that all positions in the range [pos_min, pos_max] are guaranteed to be present in the memory
+    // Return -1 if the sequence is empty
+    LLAMA_API llama_pos llama_memory_seq_pos_max(
+            llama_memory_t mem,
+              llama_seq_id seq_id);
 
-        // Information for an individual cell.
-        struct llama_kv_cache_view_cell * cells;
+    // Check if the memory supports shifting
+    LLAMA_API bool llama_memory_can_shift(llama_memory_t mem);
 
         // The sequences for each cell. There will be n_seq_max items per cell.
         llama_seq_id * cells_sequences;
@@ -697,6 +723,14 @@ extern "C" {
                        llama_pos   p1,
                              int   d);
 
+    // Returns the smallest position present in the KV cache for the specified sequence
+    // This is typically non-zero only for SWA caches
+    // Note that all positions in the range [pos_min, pos_max] are guaranteed to be present in the KV cache
+    // Return -1 if the sequence is empty
+    LLAMA_API llama_pos llama_kv_self_seq_pos_min(
+            struct llama_context * ctx,
+                    llama_seq_id   seq_id);
+
     // Returns the largest position present in the KV cache for the specified sequence
     LLAMA_API llama_pos llama_kv_cache_seq_pos_max(
             struct llama_context * ctx,
@@ -772,12 +806,12 @@ extern "C" {
                           size_t   n_token_count),
         "use llama_state_save_file instead");
 
-    // Get the exact size needed to copy the KV cache of a single sequence
+    // Get the exact size needed to copy the state of a single sequence
     LLAMA_API size_t llama_state_seq_get_size(
             struct llama_context * ctx,
                     llama_seq_id   seq_id);
 
-    // Copy the KV cache of a single sequence into the specified buffer
+    // Copy the state of a single sequence into the specified buffer
     LLAMA_API size_t llama_state_seq_get_data(
             struct llama_context * ctx,
                          uint8_t * dst,

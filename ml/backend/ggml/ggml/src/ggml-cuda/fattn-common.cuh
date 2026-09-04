@@ -615,12 +615,18 @@ void launch_fattn(
     const ggml_tensor * K = dst->src[1];
     const ggml_tensor * V = dst->src[2];
 
+    GGML_ASSERT(V || is_mla);
+
     const ggml_tensor * mask = dst->src[3];
 
     ggml_tensor * KQV = dst;
 
     GGML_ASSERT(Q->type == GGML_TYPE_F32);
     GGML_ASSERT(KQV->type == GGML_TYPE_F32);
+
+    GGML_ASSERT(      Q->nb[0] == ggml_element_size(Q));
+    GGML_ASSERT(      K->nb[0] == ggml_element_size(K));
+    GGML_ASSERT(!V || V->nb[0] == ggml_element_size(V));
 
     GGML_ASSERT(!mask || mask->type == GGML_TYPE_F16);
     GGML_ASSERT(!mask || mask->ne[1] >= GGML_PAD(Q->ne[1], 16) &&
