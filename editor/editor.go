@@ -1,4 +1,4 @@
-package readline
+package editor
 
 import (
 	"bufio"
@@ -51,15 +51,9 @@ func New(prompt Prompt) (*Instance, error) {
 		return nil, err
 	}
 
-	history, err := NewHistory()
-	if err != nil {
-		return nil, err
-	}
-
 	return &Instance{
 		Prompt:   &prompt,
 		Terminal: term,
-		History:  history,
 	}, nil
 }
 
@@ -115,7 +109,8 @@ func (i *Instance) Readline() (string, error) {
 	var escex bool
 	var metaDel bool
 
-	var currentLineBuf []rune
+	fmt.Print(StartBracketedPaste)
+	defer fmt.Printf(EndBracketedPaste)
 
 	// draining tracks if we're processing buffered input from cooked mode.
 	// In cooked mode Enter sends \n, but in raw mode Ctrl+J sends \n.
@@ -140,6 +135,9 @@ func (i *Instance) Readline() (string, error) {
 		}
 
 		r, err := i.Terminal.Read()
+		if err != nil {
+			return "", io.EOF
+		}
 
 		// After reading, check if there's more buffered data. If so, we're
 		// processing cooked-mode input. Once buffer empties, the current
@@ -152,10 +150,6 @@ func (i *Instance) Readline() (string, error) {
 
 		if buf.IsEmpty() {
 			fmt.Print(ClearToEOL)
-		}
-
-		if err != nil {
-			return "", io.EOF
 		}
 
 		if escex {
@@ -191,12 +185,9 @@ func (i *Instance) Readline() (string, error) {
 				}
 				metaDel = true
 			case MetaStart:
-				buf.MoveToStart()
+				buf.MoveToBOL()
 			case MetaEnd:
-				buf.MoveToEnd()
-			default:
-				// skip any keys we don't know about
-				continue
+				buf.MoveToEOL()
 			}
 			continue
 		} else if esc {
@@ -229,9 +220,9 @@ func (i *Instance) Readline() (string, error) {
 		case CharNext:
 			i.historyNext(buf, &currentLineBuf)
 		case CharLineStart:
-			buf.MoveToStart()
+			buf.MoveToBOL()
 		case CharLineEnd:
-			buf.MoveToEnd()
+			buf.MoveToEOL()
 		case CharBackward:
 			buf.MoveLeft()
 		case CharForward:
@@ -265,10 +256,8 @@ func (i *Instance) Readline() (string, error) {
 			} else {
 				return "", io.EOF
 			}
-		case CharKill:
-			buf.DeleteRemaining()
 		case CharCtrlU:
-			buf.DeleteBefore()
+			buf.RemoveBefore()
 		case CharCtrlL:
 			buf.ClearScreen()
 		case CharCtrlO:
@@ -344,14 +333,7 @@ func (i *Instance) Readline() (string, error) {
 			}
 		}
 	}
-}
 
-func (i *Instance) HistoryEnable() {
-	i.History.Enabled = true
-}
-
-func (i *Instance) HistoryDisable() {
-	i.History.Enabled = false
 }
 
 func (i *Instance) historyPrev(buf *Buffer, currentLineBuf *[]rune) {
