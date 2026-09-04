@@ -91,8 +91,10 @@ func (sa *SelfAttention) Forward(ctx ml.Context, hiddenState, positionIDs ml.Ten
 	v := sa.Value.Forward(ctx, hiddenState)
 	v = v.Reshape(ctx, opts.attnValLen, opts.numKVHeads, batchSize)
 
-	cache.Put(ctx, k, v)
-	k, v, mask := cache.Get(ctx)
+	scale := 1.0 / math.Sqrt(float64(opts.attnKeyLen))
+	if opts.largeModelScaling {
+		scale = 1.0 / math.Sqrt(float64(opts.hiddenSize/opts.numHeads))
+	}
 
 	q = q.Permute(ctx, 0, 2, 1, 3).Contiguous(ctx)
 	k = k.Permute(ctx, 0, 2, 1, 3).Contiguous(ctx)
