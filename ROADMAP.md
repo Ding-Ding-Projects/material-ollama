@@ -25,8 +25,10 @@ complete for the stated scope and commit. An unchecked item remains open.
 
 ## Local reconciliation candidate
 
-- [ ] Integrate local candidate
-  `a963b3e8f9b1079faebc3f3a20cac94821ff43e7` into the default branch.
+- [ ] Integrate `task/finish-handoff-20260904`, including reconciliation
+  `a963b3e8f9b1079faebc3f3a20cac94821ff43e7`, root records
+  `3dcea8c504940e81aeeeff2fc6e1adc4ce7e2dfe`, and Pages source
+  `91dafefec6bca9f6904a55ef424c175cb96f6662`, into the default branch.
 - [ ] Push the integrated default branch and verify its remote commit and
   workflow results.
 - [ ] Refresh this roadmap and the handoff after that integration is actually
@@ -54,8 +56,8 @@ complete for the stated scope and commit. An unchecked item remains open.
 
 ## Published Pages and repository settings
 
-- [ ] Correct the served Pages release card, which still advertises
-  `v0.0.0-build.9`, then verify the served bytes.
+- [ ] Deploy the corrected Pages release card, which still advertises
+  `v0.0.0-build.9` in production, then verify the served bytes.
 - [ ] Upload the committed root `social-preview.png` through the repository
   settings and record the result. The setting remains a manual step because
   no supported API is available.

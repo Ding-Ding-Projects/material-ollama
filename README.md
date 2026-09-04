@@ -12,7 +12,7 @@ Material Ollama is a local-first desktop companion for Ollama. It keeps the upst
 - Feature contract inventory: [`docs/features/uh-completeness/`](./docs/features/uh-completeness/)
 - Real built-artifact captures: [Real capture matrix](#real-capture-matrix) below, indexed in [`docs/features/uh-completeness/captures/`](./docs/features/uh-completeness/captures/)
 - Installation: [Windows installer `v0.0.0-build.47`](https://github.com/Ding-Ding-Projects/material-ollama/releases/download/v0.0.0-build.47/OllamaSetup.exe) (472,699,515 bytes; SHA-256 `2765d6703bfba4d32b673a10e5df530dc76dee75dcf9b6f193169cfc53f986d1`). The installer is unsigned, so Windows may show an unknown-publisher or SmartScreen warning.
-- Hosted landing URL: [Material Ollama landing page](https://ding-ding-projects.github.io/material-ollama/), deployed and verified with an anonymous HTTP 200 response. The served release card still advertises `v0.0.0-build.9` and needs a content correction.
+- Hosted landing URL: [Material Ollama landing page](https://ding-ding-projects.github.io/material-ollama/), deployed and verified with an anonymous HTTP 200 response. The local candidate corrects the release card to v47; the served page still advertises `v0.0.0-build.9` until that candidate is deployed and verified.
 
 ## What this fork adds
 

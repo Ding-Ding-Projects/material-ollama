@@ -1,8 +1,10 @@
 # Handoff
 
-Last updated: 2026-09-04. This handoff is written against the local
-reconciliation candidate `a963b3e8f9b1079faebc3f3a20cac94821ff43e7`.
-It distinguishes that local candidate from the current published baseline,
+Last updated: 2026-09-04. This handoff follows reconciliation commit
+`a963b3e8f9b1079faebc3f3a20cac94821ff43e7`, root-record commit
+`3dcea8c504940e81aeeeff2fc6e1adc4ce7e2dfe`, and Pages-source commit
+`91dafefec6bca9f6904a55ef424c175cb96f6662`. The task branch contains all
+three. It distinguishes that local candidate from the current published baseline,
 `v0.0.0-build.47`, at `be7a750e41730cc756ab94f05551687a1402e006`.
 The local candidate is not presented as a published release.
 
@@ -15,7 +17,7 @@ The local candidate is not presented as a published release.
 - Installer: [`OllamaSetup.exe`](https://github.com/Ding-Ding-Projects/material-ollama/releases/download/v0.0.0-build.47/OllamaSetup.exe), 472,699,515 bytes, SHA-256 `2765d6703bfba4d32b673a10e5df530dc76dee75dcf9b6f193169cfc53f986d1`.
 - The installer is unsigned. The current release still uses Inno Setup and is not compliant with the required Squirrel.Windows packaging route.
 - Release notes had mutable control characters repaired and were read back clean after the repair.
-- The deployed Pages content is reachable, but its release card still advertises `v0.0.0-build.9`. This is an open content correction, not v47 evidence.
+- The deployed Pages content is reachable, but its release card still advertises `v0.0.0-build.9`. The local candidate corrects the source to v47; deployment and served-byte verification remain open.
 
 ## Measured v47 verification
 
@@ -64,16 +66,16 @@ verified release before it can be used as current product evidence.
   Squirrel.Windows migration remains open.
 - The updater still requires signature validation and has no verified
   ready-to-restart state. The updater contract remains open.
-- The deployed Pages release card must be corrected from `v0.0.0-build.9` to
-  the current verified release without changing the verified public URL.
+- The local Pages release card is corrected from `v0.0.0-build.9` to the
+  current verified release. Deployment and served-byte verification remain open.
 - The root `social-preview.png` still needs the manual repository setting
   action at Settings, General, Social preview. The file is committed, but the
   setting is not verified by a supported API.
 
 ## Local candidate and next actions
 
-Candidate `a963b3e8f9b1079faebc3f3a20cac94821ff43e7` contains the local
-reconciliation and documentation refresh. Its default-branch integration and
+The task branch contains the local reconciliation, documentation refresh, and
+static Pages release-card correction. Its default-branch integration and
 push remain open in this handoff because this lane is not authorized to merge,
 push, or change external GitHub records.
 
@@ -88,7 +90,7 @@ The next owner should complete these items in order:
    built-artifact interaction, and real capture evidence.
 4. Refresh the current capture matrix and close the 18 design parity gaps with
    identical reference and built-artifact tuples.
-5. Correct the served Pages release card and verify the served bytes again.
+5. Deploy the corrected Pages release card and verify the served bytes again.
 6. Add verified updater ready-to-restart proof and remove the signature-
    validation requirement from the unsigned update path where the product
    contract requires it.

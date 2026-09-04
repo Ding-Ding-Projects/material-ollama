@@ -5,9 +5,10 @@ supplied the evidence. Local work remains separate from published releases.
 
 ## [Unreleased]
 
-The local reconciliation candidate is
-[`a963b3e8f9b1079faebc3f3a20cac94821ff43e7`](https://github.com/Ding-Ding-Projects/material-ollama/commit/a963b3e8f9b1079faebc3f3a20cac94821ff43e7). It is not published and has
-not been merged to the default branch in this lane.
+The local handoff branch contains reconciliation commit
+[`a963b3e8f9b1079faebc3f3a20cac94821ff43e7`](https://github.com/Ding-Ding-Projects/material-ollama/commit/a963b3e8f9b1079faebc3f3a20cac94821ff43e7), root-record commit
+[`3dcea8c504940e81aeeeff2fc6e1adc4ce7e2dfe`](https://github.com/Ding-Ding-Projects/material-ollama/commit/3dcea8c504940e81aeeeff2fc6e1adc4ce7e2dfe), and Pages-source commit
+[`91dafefec6bca9f6904a55ef424c175cb96f6662`](https://github.com/Ding-Ding-Projects/material-ollama/commit/91dafefec6bca9f6904a55ef424c175cb96f6662). It is not published and has not been merged to the default branch in this lane.
 
 - Reconciled the documentation baseline around the published v47 release and
   separated it from the local candidate.
@@ -19,6 +20,8 @@ not been merged to the default branch in this lane.
   onboarding surfaces.
 - Updated `README.md` to link the v47 installer and to label the 12-capture
   matrix as historical evidence from `040f34d322906dcb1ef9dab25d45454a520797c9`.
+- Updated the static Pages release card and hosting documentation to v47 while
+  keeping deployment and served-byte verification open.
 
 ## [v0.0.0-build.47]
 
