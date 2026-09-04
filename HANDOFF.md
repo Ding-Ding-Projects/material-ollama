@@ -1,12 +1,23 @@
 # Handoff
 
-Last updated: 2026-09-04. This handoff follows reconciliation commit
-`a963b3e8f9b1079faebc3f3a20cac94821ff43e7`, root-record commit
-`3dcea8c504940e81aeeeff2fc6e1adc4ce7e2dfe`, and Pages-source commit
-`91dafefec6bca9f6904a55ef424c175cb96f6662`. The task branch contains all
-three. It distinguishes that local candidate from the current published baseline,
-`v0.0.0-build.47`, at `be7a750e41730cc756ab94f05551687a1402e006`.
-The local candidate is not presented as a published release.
+Last updated: 2026-09-04. This handoff distinguishes the current published
+baseline, `v0.0.0-build.47` at `be7a750e41730cc756ab94f05551687a1402e006`,
+from the unreleased native-package source. At the start of this handoff update,
+that source was integrated at `5dbbf0c8a5572ac7a9ad11cd6d29435a7c749ba8`.
+It includes the clean workflow repair (`49d4cf53`), unsigned Squirrel package
+path (`17ee94ba`), root build activation (`361341e8`), lifecycle support
+(`0286388c`), updater work (`104e091e` and its integrated follow-ups), and the
+combined workflow and native-update integration. No installer built from this
+source has been published, and no future tag, asset size, or hash is claimed here.
+
+| Source component | Permanent source link |
+| --- | --- |
+| Workflow repair | [`49d4cf53c3d3ae867311bdde0a26c95ffeab192a`](https://github.com/Ding-Ding-Projects/material-ollama/commit/49d4cf53c3d3ae867311bdde0a26c95ffeab192a) |
+| Native Squirrel package path | [`17ee94baf0b3f9b42673349d9c03f62da25a127b`](https://github.com/Ding-Ding-Projects/material-ollama/commit/17ee94baf0b3f9b42673349d9c03f62da25a127b) |
+| Root build activation | [`361341e830d2dc3d329c15a65326be7b0b811305`](https://github.com/Ding-Ding-Projects/material-ollama/commit/361341e830d2dc3d329c15a65326be7b0b811305) |
+| Lifecycle support | [`0286388cbbd246bb3a8816c2d9d5ff8d218a43a9`](https://github.com/Ding-Ding-Projects/material-ollama/commit/0286388cbbd246bb3a8816c2d9d5ff8d218a43a9) |
+| Fast release bundle command | [`104e091e475bd6178c7462cd53ed6db2f1ad9ec5`](https://github.com/Ding-Ding-Projects/material-ollama/commit/104e091e475bd6178c7462cd53ed6db2f1ad9ec5) |
+| Combined source integration | [`5dbbf0c8a5572ac7a9ad11cd6d29435a7c749ba8`](https://github.com/Ding-Ding-Projects/material-ollama/commit/5dbbf0c8a5572ac7a9ad11cd6d29435a7c749ba8) |
 
 ## Published baseline
 
@@ -62,45 +73,57 @@ verified release before it can be used as current product evidence.
 
 ## Packaging and update boundaries
 
-- The published installer is unsigned Inno Setup, not Squirrel.Windows. A
-  Squirrel.Windows migration remains open.
-- The updater still requires signature validation and has no verified
-  ready-to-restart state. The updater contract remains open.
+- The published v47 installer is unsigned Inno Setup. It remains historical
+  evidence only and is not evidence for the current native Squirrel source.
+- The unreleased source contains the unsigned native Squirrel.Windows package
+  route, lifecycle handling, and updater changes. It has no built candidate
+  installer, package receipt, published release, or release asset verification
+  yet.
+- The updater source is not a verified ready-to-restart result. The existing
+  earlier updater and UI build evidence predates the ultra-speed delivery
+  boundary and the user-interface bundle has since changed.
 - The local Pages release card is corrected from `v0.0.0-build.9` to the
   current verified release. Deployment and served-byte verification remain open.
 - The root `social-preview.png` still needs the manual repository setting
   action at Settings, General, Social preview. The file is committed, but the
   setting is not verified by a supported API.
 
-## Local candidate and next actions
+## Release candidate and next actions
 
-The task branch contains the local reconciliation, documentation refresh, and
-static Pages release-card correction. Its default-branch integration and
-push remain open in this handoff because this lane is not authorized to merge,
-push, or change external GitHub records.
+The current task source is an unreleased release candidate. Issue
+[#1](https://github.com/Ding-Ding-Projects/material-ollama/issues/1) remains
+open and must not be closed by a source-only handoff. The preserved contaminated
+branch `task/actions-build-only-20260904` remains at `82354155`; its historical
+residue is retained because removing it would require prohibited history
+rewriting. The recovered clean source deliberately excludes that residue.
 
 The next owner should complete these items in order:
 
-1. Integrate and push the completed candidate to the default branch, then verify
-   the exact remote commit and its workflow results.
-2. Migrate the installer to Squirrel.Windows and remove the unsupported Inno
-   Setup release path.
-3. Complete the 51 in-progress desktop rows and the 85 missing landing-page
+1. Integrate the completed source into the default branch, then use the final
+   integrated commit as the only build candidate.
+2. Set `MATERIAL_OLLAMA_BUILD_MODE=release-fast`, run
+   `build.bat /s --release-fast`, then run `build-installer.bat /s` against
+   that unchanged candidate. These commands build native Go payloads and
+   Squirrel packages, not an Electron `app.asar` payload.
+3. Publish only if the resulting candidate has the required release assets and
+   a new unique tag. Record the actual tag, commit, asset names, sizes, and
+   hashes only after publication and readback.
+4. Complete the 51 in-progress desktop rows and the 85 missing landing-page
    rows with implementation, documentation, localization, focused checks,
    built-artifact interaction, and real capture evidence.
-4. Refresh the current capture matrix and close the 18 design parity gaps with
+5. Refresh the current capture matrix and close the 18 design parity gaps with
    identical reference and built-artifact tuples.
-5. Deploy the corrected Pages release card and verify the served bytes again.
-6. Add verified updater ready-to-restart proof and remove the signature-
-   validation requirement from the unsigned update path where the product
-   contract requires it.
-7. Complete the upstream onboarding surfaces.
-8. Upload `social-preview.png` through the repository settings and record the
+6. Deploy the corrected Pages release card and verify the served bytes again.
+7. Add verified updater ready-to-restart proof for the unsigned package path.
+8. Complete the upstream onboarding surfaces.
+9. Upload `social-preview.png` through the repository settings and record the
    result.
 
 ## Build references
 
 The repository root `build.bat` remains the one-command Windows build path.
-The supported local build and verification commands are documented in the
-repository scripts and the feature inventory. Do not interpret a local build
-or a historical capture as proof of v47 publication or of the local candidate.
+The build documentation index is [docs/features/build/README.md](docs/features/build/README.md).
+The fast release commands intentionally skip tests, lint, reviews, and capture
+work under the current ultra-speed delivery boundary. Do not interpret a local
+build or a historical capture as publication, installation, runtime, or visual
+verification of the candidate.
