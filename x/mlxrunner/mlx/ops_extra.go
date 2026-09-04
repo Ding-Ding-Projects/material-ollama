@@ -15,6 +15,7 @@ func Quantize(w *Array, groupSize, bits int, mode string) (weights, scales, bias
 	defer C.free(unsafe.Pointer(cMode))
 	optGroupSize := C.mlx_optional_int{value: C.int(groupSize), has_value: true}
 	optBits := C.mlx_optional_int{value: C.int(bits), has_value: true}
+	var globalScale C.mlx_array
 	res := C.mlx_vector_array_new()
 	defer C.mlx_vector_array_free(res)
 	var globalScale C.mlx_array
@@ -51,6 +52,7 @@ func Dequantize(w, scales, biases *Array, groupSize, bits int, mode string, glob
 	optGroupSize := C.mlx_optional_int{value: C.int(groupSize), has_value: true}
 	optBits := C.mlx_optional_int{value: C.int(bits), has_value: true}
 	optDtype := C.mlx_optional_dtype{has_value: false}
+	var globalScale C.mlx_array
 
 	var b C.mlx_array
 	if biases != nil {
