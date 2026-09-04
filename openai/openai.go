@@ -906,7 +906,7 @@ func (w *DeleteWriter) writeError(code int, data []byte) (int, error) {
 	}
 
 	w.ResponseWriter.Header().Set("Content-Type", "application/json")
-	err = json.NewEncoder(w.ResponseWriter).Encode(NewError(http.StatusInternalServerError, serr.Error()))
+	err = json.NewEncoder(w.ResponseWriter).Encode(NewError(http.StatusInternalServerError, er.Err))
 	if err != nil {
 		return 0, err
 	}
