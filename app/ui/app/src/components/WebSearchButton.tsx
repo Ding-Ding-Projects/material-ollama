@@ -1,40 +1,42 @@
-import { forwardRef } from "react";
+import { forwardRef } from "react"
+import { Chip } from "@/components/md3"
+import { useT } from "@/uh"
+import "./chat/chat.dict"
 
-interface ButtonProps {
-  isVisible?: boolean;
-  isActive: boolean;
-  onToggle: () => void;
+interface WebSearchButtonProps {
+  isVisible?: boolean
+  isActive: boolean
+  onToggle: () => void
 }
 
-export const WebSearchButton = forwardRef<HTMLButtonElement, ButtonProps>(
+/**
+ * The composer's web-search toggle.
+ *
+ * The design shows this as a labelled filter chip beside the model selector
+ * and Think, not as an icon-only circle. It was previously a raw <button>
+ * with an inline hand-drawn globe SVG and hard-coded colours (bg-white,
+ * text-[rgba(0,115,255,1)], focus:ring-blue-500) that answered to no design
+ * token and inverted incorrectly in dark mode.
+ *
+ * Now a real Material chip: the kit supplies the selected state, the tonal
+ * fill, the focus ring and the icon from the shared symbol set.
+ */
+export const WebSearchButton = forwardRef<HTMLButtonElement, WebSearchButtonProps>(
   function WebSearchButton({ isVisible, isActive, onToggle }, ref) {
-    if (!isVisible) return null;
+    const t = useT("chat")
+    if (!isVisible) return null
 
     return (
-      <button
+      <Chip
         ref={ref}
-        title={isActive ? "Disable web search" : "Enable web search"}
+        icon="language"
+        selected={isActive}
         onClick={onToggle}
-        className={`select-none flex items-center justify-center rounded-full h-9 w-9 bg-white dark:bg-neutral-700 focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer transition-all whitespace-nowrap border border-transparent ${
-          isActive
-            ? "text-[rgba(0,115,255,1)] dark:text-[rgba(70,155,255,1)]"
-            : "text-neutral-500 dark:text-neutral-400"
-        }`}
+        aria-pressed={isActive}
+        aria-label={isActive ? t("webSearchOn") : t("webSearchOff")}
       >
-        <svg
-          className="h-5 w-5"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2"
-          viewBox="0 0 24 24"
-        >
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9"
-          />
-        </svg>
-      </button>
-    );
+        {t("webSearch")}
+      </Chip>
+    )
   },
-);
+)

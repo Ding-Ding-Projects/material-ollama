@@ -1,5 +1,5 @@
 import clsx from "clsx"
-import type { ButtonHTMLAttributes, HTMLAttributes, ReactNode } from "react"
+import type { ButtonHTMLAttributes, HTMLAttributes, ReactNode, Ref } from "react"
 import { Icon, type SymbolName } from "./Icon"
 import { FOCUS_RING, TONE_CLASSES, type Tone } from "./tokens"
 
@@ -27,6 +27,11 @@ type ChipBaseProps = {
 type ChipAsButton = ChipBaseProps &
   Omit<ButtonHTMLAttributes<HTMLButtonElement>, "className" | "children"> & {
     as?: "button"
+    /** Forwarded to the underlying button. Callers anchor popovers and
+     * click-outside checks to a chip, so the element has to be reachable.
+     * React 19 passes `ref` as an ordinary prop, so it flows through the
+     * rest spread below with no forwardRef wrapper. */
+    ref?: Ref<HTMLButtonElement>
   }
 
 type ChipAsSpan = ChipBaseProps &
